@@ -1,0 +1,724 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Theme CSS Variables */
+:root {
+  --background: 0 0% 100%;
+  --foreground: 222.2 84% 4.9%; /* High contrast with background */
+  --card: 0 0% 100%;
+  --card-foreground: 222.2 84% 4.9%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222.2 84% 4.9%; /* Adjusted for better contrast */
+  --primary: 221.2 83.2% 53.3%;
+  --primary-foreground: 210 40% 98%;
+  --secondary: 210 40% 96.1%; 
+  --secondary-foreground: 222.2 47.4% 11.2%;
+  --muted: 210 40% 96.1%;
+  --muted-foreground: 215.4 16.3% 46.9%;
+  --accent: 210 40% 96.1%;
+  --accent-foreground: 222.2 47.4% 11.2%;
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 210 40% 98%; /* Ensured 4.5:1+ contrast ratio */
+  --border: 214.3 31.8% 91.4%;
+  --input: 214.3 31.8% 91.4%;
+  --ring: 221.2 83.2% 53.3%;
+  --radius: 0.75rem;
+  --overlay: rgba(0, 0, 0, 0.3);
+  
+  /* Theme transition - applies to all elements */
+  --theme-transition: background-color 0.3s ease, color 0.3s ease, 
+                      border-color 0.3s ease, fill 0.3s ease, 
+                      stroke 0.3s ease, opacity 0.3s ease;
+}
+
+/* Dark mode variables */
+.dark {
+  --background: 222.2 47.4% 11.2%;
+  --foreground: 210 40% 98%; /* High contrast with dark background */
+  --card: 222.2 47.4% 11.2%;
+  --card-foreground: 210 40% 98%;
+  --popover: 222.2 84% 4.9%;
+  --popover-foreground: 210 40% 98%;
+  --primary: 217.2 91.2% 59.8%; /* Lighter blue for dark mode with good contrast */
+  --primary-foreground: 222.2 47.4% 11.2%;
+  --secondary: 217.2 32.6% 17.5%;
+  --secondary-foreground: 210 40% 98%;
+  --muted: 217.2 32.6% 17.5%;
+  --muted-foreground: 215 20.2% 65.1%;
+  --accent: 217.2 32.6% 17.5%;
+  --accent-foreground: 210 40% 98%; /* 10:1+ contrast ratio */
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 210 40% 98%;
+  --border: 217.2 32.6% 17.5%;
+  --input: 217.2 32.6% 17.5%;
+  --ring: 224.3 76.3% 48%;
+  --overlay: rgba(0, 0, 0, 0.7);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+  }
+}
+
+/* Apply transitions to elements for smooth theme changes */
+html {
+  transition: var(--theme-transition);
+}
+
+body {
+  transition: var(--theme-transition);
+  color: hsl(var(--foreground));
+  background-color: hsl(var(--background));
+}
+
+/* Higher contrast elements in dark mode */
+.dark button {
+  --tw-ring-opacity: 0.85;
+}
+
+/* Improved text contrast in dark mode */
+.dark .text-gray-500,
+.dark .text-gray-600,
+.dark .text-gray-700,
+.dark .text-gray-800,
+.dark .text-gray-900 {
+  color: hsl(var(--foreground)); /* Ensure all gray shades become white/light gray */
+}
+
+/* Modal and popup specific dark mode styles */
+.dark .modal-overlay,
+.dark .popup-overlay {
+  background-color: var(--overlay);
+}
+
+.dark .modal-content,
+.dark .popup-content,
+.dark .dropdown-menu {
+  background-color: hsl(var(--card));
+  color: hsl(var(--card-foreground));
+  border-color: hsl(var(--border));
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+}
+
+/* Form elements in dark mode */
+.dark input,
+.dark textarea,
+.dark select {
+  background-color: hsl(var(--input));
+  border-color: hsl(var(--border));
+  color: hsl(var(--foreground));
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: hsl(var(--muted-foreground));
+}
+
+.dark input:focus,
+.dark textarea:focus,
+.dark select:focus {
+  border-color: hsl(var(--ring));
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5);
+}
+
+/* Focus states for better accessibility */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid hsl(var(--ring));
+  outline-offset: 2px;
+}
+
+/* Specific focus style for dark mode */
+.dark button:focus-visible,
+.dark a:focus-visible,
+.dark input:focus-visible,
+.dark select:focus-visible,
+.dark textarea:focus-visible {
+  outline-color: hsl(var(--ring));
+}
+
+/* Custom animations */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slide-in {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes scale-in {
+  from {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 5px currentColor;
+  }
+  50% {
+    box-shadow: 0 0 20px currentColor;
+  }
+}
+
+@keyframes bounce-subtle {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-2px);
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes wiggle {
+  0%, 100% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(1deg);
+  }
+  75% {
+    transform: rotate(-1deg);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out;
+}
+
+.animate-slide-in {
+  animation: slide-in 0.3s ease-out;
+}
+
+.animate-scale-in {
+  animation: scale-in 0.2s ease-out;
+}
+
+.animate-shimmer {
+  animation: shimmer 2s infinite;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s infinite;
+}
+
+.animate-bounce-subtle {
+  animation: bounce-subtle 1s infinite;
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+.animate-wiggle {
+  animation: wiggle 1s ease-in-out infinite;
+}
+
+/* Glassmorphism utilities */
+.glass-light {
+  background: rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.glass-medium {
+  background: rgba(255, 255, 255, 0.4);
+  backdrop-filter: blur(15px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.glass-heavy {
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+/* Dark mode glassmorphism */
+.dark .glass-light {
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.dark .glass-medium {
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.dark .glass-heavy {
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+/* Micro-interaction utilities */
+.hover-lift {
+  transition: all 0.2s ease;
+}
+
+.hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.hover-scale {
+  transition: transform 0.2s ease;
+}
+
+.hover-scale:hover {
+  transform: scale(1.05);
+}
+
+.hover-glow {
+  transition: all 0.3s ease;
+}
+
+.hover-glow:hover {
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
+}
+
+/* Gradient backgrounds */
+.bg-gradient-mesh {
+  background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
+  background-size: 400% 400%;
+  animation: gradient-shift 15s ease infinite;
+}
+
+@keyframes gradient-shift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* Custom scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #a1a1a1;
+}
+
+/* Temperature gauge styling */
+.temperature-cold {
+  color: #3b82f6;
+}
+
+.temperature-cool {
+  color: #10b981;
+}
+
+.temperature-warm {
+  color: #f59e0b;
+}
+
+.temperature-hot {
+  color: #ef4444;
+}
+
+/* Deal health indicators */
+.health-excellent {
+  background: linear-gradient(135deg, #10b981, #059669);
+}
+
+.health-good {
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+}
+
+.health-fair {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+}
+
+.health-poor {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+}
+
+/* Competitive analysis styling */
+.competitive-alert {
+  background: linear-gradient(135deg, #fef2f2, #fee2e2);
+  border: 1px solid #fecaca;
+  color: #991b1b;
+}
+
+/* Achievement animations */
+.achievement-unlock {
+  animation: scale-in 0.5s ease-out, pulse-glow 2s infinite 0.5s;
+}
+
+/* Custom grid for heatmap */
+.grid-cols-53 {
+  grid-template-columns: repeat(53, minmax(0, 1fr));
+}
+
+/* Progress bar with shimmer effect */
+.progress-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.progress-shimmer::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.4),
+    transparent
+  );
+  animation: shimmer 2s infinite;
+}
+
+/* Interactive tooltip styling */
+.tooltip-interactive {
+  transition: all 0.2s ease;
+  pointer-events: auto;
+}
+
+.tooltip-interactive:hover {
+  transform: scale(1.05);
+}
+
+/* Floating action button ripple effect */
+.fab-ripple {
+  position: relative;
+  overflow: hidden;
+}
+
+.fab-ripple::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  transform: translate(-50%, -50%);
+  transition: width 0.6s, height 0.6s;
+}
+
+.fab-ripple:active::before {
+  width: 300px;
+  height: 300px;
+}
+
+/* 3D transform utilities */
+.transform-3d {
+  transform-style: preserve-3d;
+}
+
+.rotate-x-45 {
+  transform: rotateX(45deg);
+}
+
+.rotate-y-45 {
+  transform: rotateY(45deg);
+}
+
+/* Card stack effect */
+.card-stack {
+  transform: translateZ(0);
+  transition: transform 0.3s ease;
+}
+
+.card-stack:hover {
+  transform: translateZ(10px) rotateX(5deg);
+}
+
+/* Neumorphism effects */
+.neumorphism {
+  background: #e0e5ec;
+  border-radius: 20px;
+  box-shadow: 
+    20px 20px 60px #bebebe,
+    -20px -20px 60px #ffffff;
+}
+
+.neumorphism-inset {
+  background: #e0e5ec;
+  border-radius: 20px;
+  box-shadow: 
+    inset 20px 20px 60px #bebebe,
+    inset -20px -20px 60px #ffffff;
+}
+
+/* Loading skeleton */
+.skeleton {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
+}
+
+@keyframes loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Responsive design utilities */
+@media (max-width: 640px) {
+  .mobile-hide {
+    display: none;
+  }
+  
+  .mobile-stack > * {
+    width: 100% !important;
+    margin-bottom: 1rem;
+  }
+}
+
+/* Print styles */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  
+  .print-break {
+    page-break-before: always;
+  }
+}
+
+/* Focus styles for accessibility */
+.focus-ring:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .glass-light,
+  .glass-medium,
+  .glass-heavy {
+    background: rgba(255, 255, 255, 0.9);
+    border: 2px solid #000;
+  }
+  
+  .dark .glass-light,
+  .dark .glass-medium,
+  .dark .glass-heavy {
+    background: rgba(0, 0, 0, 0.9);
+    border: 2px solid #fff;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after,
+  html {
+    animation-duration: 0.01ms !important; 
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important; /* Override transitions for users who prefer reduced motion */
+  }
+}
+
+/* Dark mode text color overrides to ensure readability */
+.dark .text-gray-500,
+.dark .text-gray-600,
+.dark .text-gray-700,
+.dark .text-gray-800,
+.dark .text-gray-900 {
+  color: hsl(var(--foreground)) !important;
+}
+
+/* Ensure proper text contrast in dark mode */
+.dark {
+  color: hsl(var(--foreground));
+}
+
+.dark h1,
+.dark h2,
+.dark h3,
+.dark h4,
+.dark h5,
+.dark h6 {
+  color: hsl(var(--foreground)) !important;
+}
+
+.dark p {
+  color: hsl(var(--foreground));
+}
+
+.dark span {
+  color: inherit;
+}
+
+/* Enhanced button dark mode styling */
+.dark button {
+  color: inherit;
+}
+
+.dark button:not(.bg-blue-600):not(.bg-green-600):not(.bg-red-600):not(.bg-purple-600):not(.bg-yellow-600):not(.bg-indigo-600) {
+  color: hsl(var(--foreground)) !important;
+}
+
+/* Ensure colored buttons maintain proper text contrast in dark mode */
+.dark .bg-blue-600,
+.dark .bg-blue-700,
+.dark .bg-blue-500 {
+  color: white !important;
+}
+
+.dark .bg-green-600,
+.dark .bg-green-700,
+.dark .bg-green-500 {
+  color: white !important;
+}
+
+.dark .bg-red-600,
+.dark .bg-red-700,
+.dark .bg-red-500 {
+  color: white !important;
+}
+
+.dark .bg-purple-600,
+.dark .bg-purple-700,
+.dark .bg-purple-500 {
+  color: white !important;
+}
+
+.dark .bg-yellow-600,
+.dark .bg-yellow-700,
+.dark .bg-yellow-500 {
+  color: white !important;
+}
+
+.dark .bg-indigo-600,
+.dark .bg-indigo-700,
+.dark .bg-indigo-500 {
+  color: white !important;
+}
+
+/* Gray buttons in dark mode */
+.dark .bg-gray-100,
+.dark .bg-gray-200,
+.dark .bg-gray-50 {
+  background-color: rgb(55 65 81) !important; /* gray-700 */
+  color: rgb(243 244 246) !important; /* gray-100 */
+}
+
+.dark .bg-gray-300,
+.dark .bg-gray-400 {
+  background-color: rgb(75 85 99) !important; /* gray-600 */
+  color: rgb(243 244 246) !important; /* gray-100 */
+}
+
+/* Border colors for buttons in dark mode */
+.dark .border-gray-300,
+.dark .border-gray-200 {
+  border-color: rgb(75 85 99) !important; /* gray-600 */
+}
+
+/* Hover states for buttons in dark mode */
+.dark button:hover:not(.bg-blue-600):not(.bg-green-600):not(.bg-red-600):not(.bg-purple-600):not(.bg-yellow-600):not(.bg-indigo-600) {
+  background-color: rgb(55 65 81) !important; /* gray-700 */
+}
+
+/* Focus states for dark mode */
+.dark *:focus,
+.dark *:focus-visible {
+  outline-color: rgb(96 165 250) !important; /* blue-400 */
+}
+
+/* Modal and popup backgrounds in dark mode */
+.dark .modal-overlay,
+.dark .popup-overlay {
+  background-color: rgba(0, 0, 0, 0.9) !important;
+  backdrop-filter: blur(8px);
+}
+
+.dark .modal-content,
+.dark .popup-content {
+  background-color: hsl(var(--card)) !important;
+  color: hsl(var(--card-foreground)) !important;
+  border-color: hsl(var(--border)) !important;
+}
+
+/* Enhanced modal and dialog styling for dark mode */
+.dark .fixed.inset-0 {
+  background-color: rgba(0, 0, 0, 0.9) !important;
+}
+
+.dark .rounded-xl,
+.dark .rounded-lg,
+.dark .rounded-md {
+  background-color: rgb(31 41 55) !important; /* gray-800 */
+  color: rgb(243 244 246) !important; /* gray-100 */
+}
+
+/* Form elements enhanced dark mode */
+.dark input,
+.dark textarea,
+.dark select {
+  background-color: rgb(55 65 81) !important; /* gray-700 */
+  border-color: rgb(75 85 99) !important; /* gray-600 */
+  color: rgb(243 244 246) !important; /* gray-100 */
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: rgb(156 163 175) !important; /* gray-400 */
+}

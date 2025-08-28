@@ -1,0 +1,28 @@
+@@ .. @@
+ <!doctype html>
+ <html lang="en">
+   <head>
+     <meta charset="UTF-8" />
+     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
++    <meta name="theme-color" content="#ffffff" id="theme-color-meta" />
+     <title>Smart CRM Pipeline Deals Component</title>
++    <!-- Prevent flash of incorrect theme -->
++    <script>
++      (function() {
++        const savedTheme = localStorage.getItem('theme');
++        const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
++        
++        if (savedTheme === 'dark' || (savedTheme === 'auto' && systemPrefersDark) || (!savedTheme && systemPrefersDark)) {
++          document.documentElement.classList.add('dark');
++          const metaThemeColor = document.getElementById('theme-color-meta');
++          if (metaThemeColor) metaThemeColor.setAttribute('content', '#121212');
++        }
++      })();
++    </script>
+   </head>
+   <body>
+     <div id="root"></div>
+     <script type="module" src="/src/main.tsx"></script>
+   </body>
+ </html>

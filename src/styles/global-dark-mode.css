@@ -1,0 +1,154 @@
+/* Global dark mode styles for modal/popup components */
+
+/* Modal overlays */
+.modal-overlay,
+.popup-overlay,
+.dialog-overlay {
+  @apply bg-black/60 dark:bg-black/80 backdrop-blur-sm;
+}
+
+/* Modal content */
+.modal-content,
+.popup-content,
+.dialog-content {
+  @apply bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-xl;
+}
+
+/* Headers & headings */
+.modal-header,
+.popup-header,
+.dialog-header {
+  @apply bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700;
+}
+
+.modal-title,
+.popup-title,
+.dialog-title {
+  @apply text-gray-900 dark:text-white;
+}
+
+/* Bodies */
+.modal-body,
+.popup-body,
+.dialog-body {
+  @apply text-gray-700 dark:text-gray-300;
+}
+
+/* Footers */
+.modal-footer,
+.popup-footer,
+.dialog-footer {
+  @apply bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700;
+}
+
+/* Form elements in modals */
+.modal input,
+.modal textarea,
+.modal select,
+.popup input, /* Added dark mode styles for popup inputs */
+.popup textarea,
+.popup select,
+.dialog input, /* Added dark mode styles for dialog inputs */
+.dialog textarea,
+.dialog select {
+  @apply bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100; /* Ensure form elements adapt */
+}
+
+.modal input::placeholder,
+.modal textarea::placeholder,
+.popup input::placeholder,
+.popup textarea::placeholder,
+.dialog input::placeholder,
+.dialog textarea::placeholder {
+  @apply text-gray-400 dark:text-gray-500;
+} /* Placeholder text in dark mode */
+
+/* Buttons within modals */
+.modal-close-button,
+.popup-close-button,
+.dialog-close-button {
+  @apply text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-700 dark:hover:text-gray-300;
+}
+/* Close buttons in dark mode */
+/* Ensure tooltip visibility in dark mode */
+[role="tooltip"] {
+  @apply bg-gray-900 dark:bg-gray-700 text-white;
+}
+
+/* Date picker dark mode fixes */
+.date-picker,
+.calendar-popup {
+  @apply bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700;
+} /* Date picker backgrounds */
+
+.date-picker-header,
+.calendar-header {
+  @apply bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white;
+} /* Date picker header backgrounds */
+
+.date-picker-day,
+.calendar-day {
+  @apply text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-700;
+} /* Date picker day text and hover */
+
+.date-picker-day.selected,
+.calendar-day.selected {
+  @apply bg-blue-600 dark:bg-blue-500 text-white;
+} /* Selected date picker day */
+
+/* Dropdown menu items */
+.dropdown-item {
+  @apply text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700;
+} /* Dropdown item text and hover */
+
+.dropdown-item.active {
+  @apply bg-blue-600 text-white;
+}
+
+/* Alert and confirmation modals */
+.alert-modal,
+.confirm-modal {
+  @apply bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700;
+} /* Alert/Confirm modal backgrounds */
+
+.alert-modal-icon.info {
+  @apply text-blue-500 dark:text-blue-400;
+}
+
+.alert-modal-icon.success {
+  @apply text-green-500 dark:text-green-400;
+}
+
+.alert-modal-icon.warning {
+  @apply text-yellow-500 dark:text-yellow-400;
+}
+
+.alert-modal-icon.error {
+  @apply text-red-500 dark:text-red-400;
+}
+/* Alert/Confirm modal icons */
+/* Toast notifications */
+.toast-notification {
+  @apply bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700 shadow-lg;
+}
+
+.toast-notification.info {
+  @apply bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-200;
+}
+
+.toast-notification.success {
+  @apply bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-800 text-green-800 dark:text-green-200;
+}
+
+.toast-notification.warning {
+  @apply bg-yellow-50 dark:bg-yellow-900/30 border-yellow-200 dark:border-yellow-800 text-yellow-800 dark:text-yellow-200;
+}
+
+.toast-notification.error {
+  @apply bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-800 text-red-800 dark:text-red-200;
+}
+/* Toast notification types */
+/* Focus indicators for accessibility */
+*:focus-visible {
+  @apply outline-2 outline-blue-500 dark:outline-blue-400 outline-offset-2;
+}

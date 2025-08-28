@@ -42,6 +42,9 @@ class EnhancedOpenAIService implements OpenAIService {
     modelId?: string,
     options: any = {}
   ): Promise<string> {
+    // Extract contact from options for Edge Function
+    const { contact, ...requestOptions } = options;
+    
     // Route to specific edge function based on task type
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     if (!supabaseUrl) {
@@ -73,7 +76,8 @@ class EnhancedOpenAIService implements OpenAIService {
         messages,
         taskType,
         modelId: this.getModelId(modelId),
-        ...options
+        contact, // Include contact object for Edge Functions that need it
+        ...requestOptions
       }),
     });
 
@@ -144,7 +148,7 @@ class EnhancedOpenAIService implements OpenAIService {
         [systemMessage, userMessage],
         'contact-analysis',
         selectedModel,
-        { maxTokens: 1500 }
+        { maxTokens: 1500, contact }
       );
 
       const analysis = JSON.parse(response);

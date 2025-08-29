@@ -358,16 +358,6 @@ const Pipeline: React.FC = () => {
             <p className="text-gray-600 dark:text-gray-300">
               Track and manage your deals through the sales process
             </p>
-            <div className="flex items-center space-x-2">
-              <Database className={`w-4 h-4 ${isConnectedToDatabase ? 'text-green-500' : 'text-red-500'}`} />
-              <span className={`text-xs font-medium px-2 py-1 rounded-full ${
-                isConnectedToDatabase 
-                  ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' 
-                  : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
-              }`}>
-                {isConnectedToDatabase ? 'Database Connected' : 'Database Disconnected'}
-              </span>
-            </div>
           </div>
         </div>
         

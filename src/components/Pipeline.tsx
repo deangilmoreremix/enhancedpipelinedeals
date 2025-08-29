@@ -17,6 +17,7 @@ import DealAnalytics from './DealAnalytics';
 import { mockDeals, mockColumns, columnOrder } from '../data/mockDeals';
 import { mockContacts } from '../data/mockContacts';
 import { Deal, PipelineColumn } from '../types';
+import { useContactStore } from '../store/contactStore';
 import { DealListView } from './deals/DealListView';
 import { DealTableView } from './deals/DealTableView';
 import { DealCalendarView } from './deals/DealCalendarView';
@@ -26,11 +27,14 @@ import { useViewPreferences, DealViewType } from '../hooks/useViewPreferences';
 import { 
   Search, Upload, Download, Brain, Sparkles, Plus, Filter, BarChart3, 
   Settings, Grid, List, Target, Zap, TrendingUp, Users, Calendar,
-  Mail, Phone, CheckCircle, AlertCircle, Clock, DollarSign, Crown,
+  Mail, Phone, CheckCircle, AlertCircle, Clock, DollarSign, Crown, Database,
   Loader2, X, Table, BarChart, Activity
 } from 'lucide-react';
 
 const Pipeline: React.FC = () => {
+  // Supabase connection status
+  const { isConnectedToDatabase } = useContactStore();
+  
   // Modal states
   const [showContactsModal, setShowContactsModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
@@ -350,9 +354,21 @@ const Pipeline: React.FC = () => {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Sales Pipeline</h1>
-          <p className="text-gray-600 dark:text-gray-300 mt-1">
-            Track and manage your deals through the sales process
-          </p>
+          <div className="flex items-center space-x-3 mt-1">
+            <p className="text-gray-600 dark:text-gray-300">
+              Track and manage your deals through the sales process
+            </p>
+            <div className="flex items-center space-x-2">
+              <Database className={`w-4 h-4 ${isConnectedToDatabase ? 'text-green-500' : 'text-red-500'}`} />
+              <span className={`text-xs font-medium px-2 py-1 rounded-full ${
+                isConnectedToDatabase 
+                  ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' 
+                  : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
+              }`}>
+                {isConnectedToDatabase ? 'Database Connected' : 'Database Disconnected'}
+              </span>
+            </div>
+          </div>
         </div>
         
         <div className="flex items-center space-x-3">

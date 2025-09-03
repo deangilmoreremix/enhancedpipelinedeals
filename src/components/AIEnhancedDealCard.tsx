@@ -1,6 +1,9 @@
 import React, { useState, useRef } from 'react';
 import { Deal } from '../types';
 import { CustomizableAIToolbar } from './ui/CustomizableAIToolbar';
+import { EmailComposer } from './communication/EmailComposer';
+import { getEmailService } from '../services/emailService';
+import { getPhoneService } from '../services/phoneService';
 import { 
   Calendar, 
   DollarSign, 
@@ -47,25 +50,28 @@ interface AIEnhancedDealCardProps {
   isAnalyzing?: boolean;
   onToggleFavorite?: (deal: Deal) => Promise<void>;
   onFindNewImage?: (deal: Deal) => Promise<void>;
+  onEdit?: (deal: Deal) => void;
 }
 
-export const AIEnhancedDealCard: React.FC<AIEnhancedDealCardProps> = ({ 
-  deal, 
+export const AIEnhancedDealCard: React.FC<AIEnhancedDealCardProps> = ({
+  deal,
   isSelected = false,
   onSelect,
-  onClick, 
+  onClick,
   showAnalyzeButton = true,
   onAnalyze,
   onAIEnrich,
   isAnalyzing = false,
   onToggleFavorite,
-  onFindNewImage
+  onFindNewImage,
+  onEdit
 }) => {
   const [showAIInsights, setShowAIInsights] = useState(false);
   const [localAnalyzing, setLocalAnalyzing] = useState(false);
   const [localEnriching, setLocalEnriching] = useState(false);
   const [isFinding, setIsFinding] = useState(false);
   const [showCustomFields, setShowCustomFields] = useState(false);
+  const [showEmailComposer, setShowEmailComposer] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
 
   // New state to track AI enrichment status
@@ -192,7 +198,7 @@ export const AIEnhancedDealCard: React.FC<AIEnhancedDealCardProps> = ({
   const handleFindImageClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!onFindNewImage || isFinding) return;
-    
+
     setIsFinding(true);
     try {
       await onFindNewImage(deal);
@@ -200,6 +206,72 @@ export const AIEnhancedDealCard: React.FC<AIEnhancedDealCardProps> = ({
       console.error('Failed to find new image:', error);
     } finally {
       setIsFinding(false);
+    }
+  };
+
+  const handleEmailClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowEmailComposer(true);
+  };
+
+  const handleEmailSend = (emailData: any) => {
+    console.log('📧 Email sent from deal card:', emailData);
+    // Here you could log the email activity or update deal status
+  };
+
+  const handleEditClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onEdit) {
+      onEdit(deal);
+    }
+  };
+
+  const handleCallClick = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const phoneService = getPhoneService();
+
+    // Use a default phone number for demo purposes
+    const phoneNumber = '+1-555-0123'; // Default for demo
+
+    try {
+      const success = await phoneService.makeCall(phoneNumber, deal.contact, deal.title);
+      if (success) {
+        console.log('📞 Call initiated successfully');
+      }
+    } catch (error) {
+      console.error('Failed to initiate call:', error);
+    }
+  };
+
+  const handleFeedbackClick = async (e: React.MouseEvent, feedbackType: 'positive' | 'negative') => {
+    e.stopPropagation();
+
+    try {
+      // Log feedback for AI improvement
+      console.log(`📊 AI Feedback: ${feedbackType} feedback for deal ${deal.id}`);
+
+      // Here you could send feedback to your AI service for model improvement
+      // For now, we'll just show a brief success indication
+
+      // You could also store this feedback in the database for analysis
+      const feedbackData = {
+        entityType: 'deal',
+        entityId: deal.id,
+        feedbackType,
+        timestamp: new Date(),
+        aiProvider: lastEnrichment?.aiProvider || 'AI Assistant',
+        insightType: 'probability_analysis'
+      };
+
+      console.log('💾 Storing AI feedback:', feedbackData);
+
+      // Show brief visual feedback
+      // This could be enhanced with a toast notification system
+      alert(`Thank you for your feedback! ${feedbackType === 'positive' ? '👍' : '👎'} This helps improve our AI insights.`);
+
+    } catch (error) {
+      console.error('Failed to submit AI feedback:', error);
+      alert('Failed to submit feedback. Please try again.');
     }
   };
 
@@ -288,11 +360,9 @@ export const AIEnhancedDealCard: React.FC<AIEnhancedDealCardProps> = ({
         )}
         
         <button
-          onClick={(e) => {
-            e.stopPropagation();
-            // Handle edit action
-          }}
+          onClick={handleEditClick}
           className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors border border-gray-200 dark:border-gray-600"
+          title="Edit deal"
         >
           <Edit className="w-3 h-3" />
         </button>
@@ -515,7 +585,10 @@ export const AIEnhancedDealCard: React.FC<AIEnhancedDealCardProps> = ({
             </button>
             
             {/* Email AI */}
-            <button className="p-2 flex flex-col items-center justify-center rounded-lg text-xs font-medium transition-all duration-200 border shadow-sm hover:shadow-md hover:scale-105 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 text-gray-700 dark:text-gray-200 hover:from-gray-100 hover:to-gray-200 dark:hover:from-gray-600 dark:hover:to-gray-500 border-gray-200/50 dark:border-gray-600/50">
+            <button
+              onClick={handleEmailClick}
+              className="p-2 flex flex-col items-center justify-center rounded-lg text-xs font-medium transition-all duration-200 border shadow-sm hover:shadow-md hover:scale-105 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 text-gray-700 dark:text-gray-200 hover:from-gray-100 hover:to-gray-200 dark:hover:from-gray-600 dark:hover:to-gray-500 border-gray-200/50 dark:border-gray-600/50"
+            >
               <Mail className="w-3 h-3 mb-0.5" />
               <span className="text-[10px] text-gray-700 dark:text-gray-200">Email</span>
             </button>
@@ -547,10 +620,18 @@ export const AIEnhancedDealCard: React.FC<AIEnhancedDealCardProps> = ({
               AI Insights
             </h4>
             <div className="flex space-x-1">
-              <button className="p-1 bg-white dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 rounded text-gray-600 dark:text-gray-400 transition-colors">
+              <button
+                onClick={(e) => handleFeedbackClick(e, 'positive')}
+                className="p-1 bg-white dark:bg-gray-700 hover:bg-green-100 dark:hover:bg-green-900/30 rounded text-gray-600 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-400 transition-colors"
+                title="This AI insight was helpful"
+              >
                 <ThumbsUp className="w-3 h-3" />
               </button>
-              <button className="p-1 bg-white dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 rounded text-gray-600 dark:text-gray-400 transition-colors">
+              <button
+                onClick={(e) => handleFeedbackClick(e, 'negative')}
+                className="p-1 bg-white dark:bg-gray-700 hover:bg-red-100 dark:hover:bg-red-900/30 rounded text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+                title="This AI insight was not helpful"
+              >
                 <ThumbsDown className="w-3 h-3" />
               </button>
             </div>
@@ -653,19 +734,13 @@ export const AIEnhancedDealCard: React.FC<AIEnhancedDealCardProps> = ({
         {/* Action Buttons */}
         <div className="grid grid-cols-3 gap-1.5">
           <button
-            onClick={(e) => {
-              e.stopPropagation();
-              // Handle email action
-            }}
+            onClick={handleEmailClick}
             className="flex items-center justify-center py-1.5 px-2 bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/40 dark:to-blue-800/40 text-blue-700 dark:text-blue-200 rounded-full hover:from-blue-100 hover:to-blue-200 dark:hover:from-blue-800/60 dark:hover:to-blue-700/60 text-xs font-medium transition-all duration-200 border border-blue-200/50 dark:border-blue-500/50 shadow-sm"
           >
             <Mail size={11} className="mr-1" /> Email
           </button>
           <button
-            onClick={(e) => {
-              e.stopPropagation();
-              // Handle call action
-            }}
+            onClick={handleCallClick}
             className="flex items-center justify-center py-1.5 px-2 bg-gradient-to-r from-green-50 to-green-100 dark:from-green-900/40 dark:to-green-800/40 text-green-700 dark:text-green-200 rounded-full hover:from-green-100 hover:to-green-200 dark:hover:from-green-800/60 dark:hover:to-green-700/60 text-xs font-medium transition-all duration-200 border border-green-200/50 dark:border-green-500/50 shadow-sm"
           >
             <Phone size={11} className="mr-1" /> Call
@@ -712,6 +787,14 @@ export const AIEnhancedDealCard: React.FC<AIEnhancedDealCardProps> = ({
           </p>
         </div>
       </div>
+
+      {/* Email Composer Modal */}
+      <EmailComposer
+        deal={deal}
+        isOpen={showEmailComposer}
+        onClose={() => setShowEmailComposer(false)}
+        onSend={handleEmailSend}
+      />
     </div>
   );
 }

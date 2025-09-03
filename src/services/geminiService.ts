@@ -29,7 +29,7 @@ class RealGeminiService implements GeminiService {
 
   constructor() {
     this.apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-    
+
     if (!this.apiKey) {
       console.warn('Gemini API key not found. Using mock responses.');
     }
@@ -51,7 +51,7 @@ class RealGeminiService implements GeminiService {
 
     const selectedModelId = this.getModelId(modelId);
     const model = getModelById(selectedModelId);
-    
+
     if (!model || model.provider !== 'gemini') {
       throw new Error(`Invalid Gemini model: ${selectedModelId}`);
     }
@@ -79,7 +79,7 @@ class RealGeminiService implements GeminiService {
             threshold: "BLOCK_MEDIUM_AND_ABOVE"
           },
           {
-            category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", 
+            category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
             threshold: "BLOCK_MEDIUM_AND_ABOVE"
           },
           {
@@ -106,7 +106,7 @@ class RealGeminiService implements GeminiService {
       }
 
       const data: GeminiResponse = await response.json();
-      
+
       if (!data.candidates || data.candidates.length === 0) {
         throw new Error('No response candidates from Gemini API');
       }
@@ -122,10 +122,10 @@ class RealGeminiService implements GeminiService {
     try {
       const selectedModelId = this.getModelId(modelId);
       const model = getModelById(selectedModelId);
-      
+
       const prompt = `
         Analyze this sales contact and provide a detailed assessment:
-        
+
         Contact Information:
         - Name: ${contact.name}
         - Title: ${contact.title}
@@ -133,36 +133,26 @@ class RealGeminiService implements GeminiService {
         - Industry: ${contact.industry || 'Unknown'}
         - Status: ${contact.status}
         - Recent interactions: ${contact.lastConnected || 'None'}
-        - Deal Stage (if applicable): ${contact.status}
-        
-        Adapt the tone and style of the email based on the context and contact's profile (e.g., formal for initial outreach, collaborative for follow-up, urgent if deal is critical).
         - Interest Level: ${contact.interestLevel}
         - Sources: ${contact.sources.join(', ')}
         - Custom Fields: ${JSON.stringify(contact.customFields || {})}
         - Notes: ${contact.notes || 'No notes'}
-        - Recent interactions: ${contact.lastConnected || 'None'}
-        
-        Provide a detailed, natural language explanation for *why* the contact received this score, including potential objections, nuanced motivations, and key factors influencing their engagement.
-        
-        Provide a detailed natural language explanation for *why* the contact received this score, including potential objections, nuanced motivations, and key factors influencing their engagement.
-        
-        Then, provide a JSON response with the following structure:
+
+        Provide a JSON response with the following structure:
         {
           "score": <number between 0-100>,
           "insights": ["insight1", "insight2", "insight3"],
           "recommendations": ["recommendation1", "recommendation2"],
           "riskFactors": ["risk1", "risk2"]
         }
-        
+
         Base the score on factors like company size, industry, contact seniority, engagement level, and data completeness.
         ${model?.family === 'gemma' ? 'Focus on clear, actionable insights that directly help with sales strategy.' : ''}
       `;
 
-      const systemInstruction = `You are an expert sales analyst using ${model?.name || selectedModelId}. Provide detailed, actionable insights about sales contacts that will help close more deals. ${model?.family === 'gemma' ? 'Be concise and practical in your analysis.' : 'Provide comprehensive analysis with deep insights.'}`;
-      
+      const systemInstruction = `You are an expert sales analyst using ${model?.name || selectedModelId}. Provide detailed, actionable insights about sales contacts that will help close more deals.`;
+
       const response = await this.makeRequest(prompt, systemInstruction, selectedModelId);
-      
-      // Parse JSON response
       const analysis = JSON.parse(response);
       return {
         score: Math.min(100, Math.max(0, analysis.score)),
@@ -180,32 +170,29 @@ class RealGeminiService implements GeminiService {
     try {
       const selectedModelId = this.getModelId(modelId);
       const model = getModelById(selectedModelId);
-      
+
       const prompt = `
         Generate a professional sales email for this contact:
-        
+
         Contact: ${contact.name} (${contact.title} at ${contact.company})
         Context: ${context || 'General follow-up'}
         Industry: ${contact.industry || 'Unknown'}
-        Previous notes: ${contact.notes || 'No previous notes'}
         Interest Level: ${contact.interestLevel}
         Recent interactions: ${contact.lastConnected || 'None'}
-        
+
         Create a personalized, professional email that:
         1. Addresses them by name and title
         2. References their company and industry
-        3. Provides clear value proposition tailored to their role and company
+        3. Provides clear value proposition
         4. Has a compelling call-to-action
         5. Is concise, respectful, and persuasive
-        6. Adapts its tone and style based on the context and contact's profile (e.g., formal for initial outreach, collaborative for follow-up, urgent if deal is critical).
-        6. Matches their interest level (${contact.interestLevel})
-        
+
         Format as a complete email with subject line.
         ${model?.family === 'gemma' ? 'Keep the email concise and direct.' : ''}
       `;
 
-      const systemInstruction = `You are an expert sales copywriter using ${model?.name || selectedModelId}. Write high-converting, personalized sales emails that get responses and drive action while maintaining professionalism.`;
-      
+      const systemInstruction = `You are an expert sales copywriter using ${model?.name || selectedModelId}. Write high-converting, personalized sales emails.`;
+
       const response = await this.makeRequest(prompt, systemInstruction, selectedModelId);
       return response;
     } catch (error) {
@@ -218,27 +205,27 @@ class RealGeminiService implements GeminiService {
     try {
       const selectedModelId = this.getModelId(modelId);
       const model = getModelById(selectedModelId);
-      
+
       const maxInsights = model?.family === 'gemma' ? 4 : 6;
-      
+
       const prompt = `
         Generate ${maxInsights} actionable insights about this sales contact:
-        
+
         ${contact.name} - ${contact.title} at ${contact.company}
         Status: ${contact.status}
         Interest: ${contact.interestLevel}
         Industry: ${contact.industry || 'Unknown'}
         Sources: ${(contact.sources || []).join(', ')}
         Recent interactions: ${contact.lastConnected || 'None'}
-        
+
         Provide insights as a JSON array of strings.
-        Focus on sales strategy, timing, approach recommendations, and potential opportunities.
+        Focus on sales strategy, timing, approach recommendations.
         Each insight should be specific and actionable.
         ${model?.family === 'gemma' ? 'Keep insights concise and practical.' : ''}
       `;
 
-      const systemInstruction = `You are a sales strategist using ${model?.name || selectedModelId} with expertise in B2B relationship building and deal closure. Provide specific, actionable insights that sales teams can immediately implement.`;
-      
+      const systemInstruction = `You are a sales strategist using ${model?.name || selectedModelId} with expertise in B2B relationship building.`;
+
       const response = await this.makeRequest(prompt, systemInstruction, selectedModelId);
       return JSON.parse(response);
     } catch (error) {
@@ -251,54 +238,11 @@ class RealGeminiService implements GeminiService {
     try {
       const selectedModelId = this.getModelId(modelId);
       const model = getModelById(selectedModelId);
-      
-      const prompt = `
-        Research and provide comprehensive information about this company:
-        
-        Company Name: ${companyName}
-        Domain: ${domain || 'Unknown'}
-        
-        Provide detailed information in JSON format, including:
-        - Key initiatives
-        - Recent challenges
-        - Strategic shifts
-        - Competitive landscape
-        
-        {
-          "name": "${companyName}",
-          "industry": "industry classification",
-          "description": "detailed company description",
-          "keyFacts": ["fact1", "fact2", "fact3"],
-          "businessModel": "description of business model",
-          "targetMarket": "their target customers",
-          "potentialNeeds": ["need1", "need2", "need3"],
-          "salesApproach": "recommended approach for selling to this company",
-          "keyDecisionMakers": ["typical roles that make decisions"],
-          "competitiveLandscape": ["main competitors"],
-          "recentTrends": ["industry trends affecting this company"]
-        }
-        ${model?.family === 'gemma' ? 'Focus on actionable business intelligence.' : ''}
-      `;
 
-      const systemInstruction = `You are a business intelligence analyst using ${model?.name || selectedModelId} with expertise in company research and competitive analysis. Provide detailed, accurate information that helps sales teams understand prospects better.`;
-      
-      const response = await this.makeRequest(prompt, systemInstruction, selectedModelId);
-      return JSON.parse(response);
-    } catch (error) {
-      console.error('Failed to research company with Gemini:', error);
-      return this.generateBasicCompanyInfo(companyName, domain);
-    }
-  }
-
-  async findContactInfo(personName: string, companyName?: string, modelId?: string): Promise<any> {
-    try {
-      const selectedModelId = this.getModelId(modelId);
-      const model = getModelById(selectedModelId);
-      
       const prompt = `
-        Provide insights and recommendations for connecting with this person:
-        
-        Person: ${personName}
+        Create a comprehensive deal summary:
+
+        Deal: ${dealData.title}
         Company: ${dealData.company}
         Contact: ${dealData.contact}
         Value: $${dealData.value?.toLocaleString()}
@@ -307,10 +251,8 @@ class RealGeminiService implements GeminiService {
         Priority: ${dealData.priority}
         Due Date: ${dealData.dueDate ? new Date(dealData.dueDate).toLocaleDateString() : 'Not set'}
         Notes: ${dealData.notes || 'No notes'}
-        
-        Provide a comprehensive summary highlighting:
-        Notes: ${dealData.notes || 'No notes'}
-        
+        Last Activity: ${dealData.lastActivity || 'None'}
+
         Provide a clear, actionable summary highlighting:
         - Key opportunities and strengths
         - Potential risks or challenges
@@ -319,8 +261,8 @@ class RealGeminiService implements GeminiService {
         ${model?.family === 'gemma' ? 'Keep the summary concise and focused on actionable items.' : ''}
       `;
 
-      const systemInstruction = `You are a sales manager using ${model?.name || selectedModelId} with expertise in deal analysis and pipeline management. Create clear, actionable deal summaries that help sales teams focus on what matters most.`;
-      
+      const systemInstruction = `You are a sales manager using ${model?.name || selectedModelId} with expertise in deal analysis.`;
+
       const response = await this.makeRequest(prompt, systemInstruction, selectedModelId);
       return response;
     } catch (error) {
@@ -333,12 +275,12 @@ class RealGeminiService implements GeminiService {
     try {
       const selectedModelId = this.getModelId(modelId);
       const model = getModelById(selectedModelId);
-      
+
       const maxActions = model?.family === 'gemma' ? 4 : 6;
-      
+
       const prompt = `
-        Suggest ${maxActions} adaptive next actions for this deal:
-        
+        Suggest ${maxActions} next actions for this deal:
+
         Deal: ${dealData.title}
         Stage: ${dealData.stage}
         Probability: ${dealData.probability}%
@@ -347,25 +289,14 @@ class RealGeminiService implements GeminiService {
         Due Date: ${dealData.dueDate ? new Date(dealData.dueDate).toLocaleDateString() : 'Not set'}
         Notes: ${dealData.notes || 'No notes'}
         Last Activity: ${dealData.lastActivity || 'None'}
-        
-        Consider recent activities, deal progress, and any identified risks or opportunities.
-        
-        Consider recent activities, deal progress, and any identified risks or opportunities.
-        Due Date: ${dealData.dueDate ? new Date(dealData.dueDate).toLocaleDateString() : 'Not set'}
-        Notes: ${dealData.notes || 'No notes'}
-        
+
         Provide ${maxActions} specific, actionable next steps as a JSON array of strings.
-        Focus on actions that will:
-        - Move the deal forward to the next stage
-        - Increase probability of closure
-        - Address any potential risks
-        - Maintain momentum
-        - Adapt in real-time based on deal progression, contact responses, or AI-generated risk assessments
+        Focus on actions that will move the deal forward.
         ${model?.family === 'gemma' ? 'Make actions specific and immediately actionable.' : ''}
       `;
 
-      const systemInstruction = `You are a sales coach using ${model?.name || selectedModelId} with expertise in deal progression and closing strategies. Suggest specific actions that sales teams can take immediately to advance deals.`;
-      
+      const systemInstruction = `You are a sales coach using ${model?.name || selectedModelId} with expertise in deal progression.`;
+
       const response = await this.makeRequest(prompt, systemInstruction, selectedModelId);
       return JSON.parse(response);
     } catch (error) {
@@ -378,19 +309,13 @@ class RealGeminiService implements GeminiService {
     try {
       const selectedModelId = this.getModelId(modelId);
       const model = getModelById(selectedModelId);
-      
+
       const prompt = `
-        Research and provide comprehensive information about this company:
-        
+        Research and provide information about this company:
+
         Company Name: ${companyName}
         Domain: ${domain || 'Unknown'}
-        
-        Provide detailed information in JSON format, including:
-        - Key initiatives
-        - Recent challenges  
-        - Strategic shifts
-        - Competitive landscape
-        
+
         Provide detailed information in JSON format:
         {
           "name": "${companyName}",
@@ -398,21 +323,16 @@ class RealGeminiService implements GeminiService {
           "description": "detailed company description",
           "keyFacts": ["fact1", "fact2", "fact3"],
           "businessModel": "description of business model",
-          "targetMarket": "their target customers",
           "potentialNeeds": ["need1", "need2", "need3"],
           "salesApproach": "recommended approach for selling to this company",
           "keyDecisionMakers": ["typical roles that make decisions"],
-          "competitiveLandscape": ["main competitors"],
-          "recentTrends": ["industry trends affecting this company"],
-          "keyInitiatives": ["initiative1", "initiative2"],
-          "recentChallenges": ["challenge1", "challenge2"],
-          "strategicShifts": ["shift1", "shift2"]
+          "competitiveLandscape": ["main competitors"]
         }
         ${model?.family === 'gemma' ? 'Focus on actionable business intelligence.' : ''}
       `;
 
-      const systemInstruction = `You are a business intelligence analyst using ${model?.name || selectedModelId} with expertise in company research and competitive analysis. Provide detailed, accurate information that helps sales teams understand prospects better.`;
-      
+      const systemInstruction = `You are a business intelligence analyst using ${model?.name || selectedModelId}.`;
+
       const response = await this.makeRequest(prompt, systemInstruction, selectedModelId);
       return JSON.parse(response);
     } catch (error) {
@@ -425,13 +345,13 @@ class RealGeminiService implements GeminiService {
     try {
       const selectedModelId = this.getModelId(modelId);
       const model = getModelById(selectedModelId);
-      
+
       const prompt = `
-        Provide insights and recommendations for connecting with this person:
-        
+        Provide strategic advice for connecting with this person:
+
         Person: ${personName}
         Company: ${companyName || 'Unknown'}
-        
+
         Provide strategic advice in JSON format:
         {
           "name": "${personName}",
@@ -441,65 +361,14 @@ class RealGeminiService implements GeminiService {
           "communicationStyle": "recommended communication approach",
           "bestContactTimes": ["optimal times to reach out"],
           "iceBreakers": ["conversation starters", "topics of interest"],
-          "socialMediaTips": ["LinkedIn approach", "other platforms"],
           "emailTips": ["subject line suggestions", "email structure"],
           "meetingTopics": ["discussion points for first meeting"]
         }
         ${model?.family === 'gemma' ? 'Focus on practical, immediately actionable advice.' : ''}
       `;
 
-      const systemInstruction = `You are a sales development expert using ${model?.name || selectedModelId} with deep knowledge of B2B outreach and relationship building. Provide strategic advice for connecting with prospects effectively.`;
-      
-      const response = await this.makeRequest(prompt, systemInstruction, selectedModelId);
-      return JSON.parse(response);
-    } catch (error) {
-      console.error('Failed to find contact info with Gemini:', error);
-      return this.generateBasicContactInfo(personName, companyName);
-    }
-  }
+      const systemInstruction = `You are a sales development expert using ${model?.name || selectedModelId}.`;
 
-  async generateDealSummary(dealData: any, modelId?: string): Promise<string> {
-    try {
-      const selectedModelId = this.getModelId(modelId);
-      const model = getModelById(selectedModelId);
-      
-      const prompt = `
-        Create a comprehensive deal summary for:
-        
-        Deal: ${dealData.title}
-        Company: ${dealData.company}
-        Contact: ${dealData.contact}
-        
-        Provide strategic advice in JSON format, including:
-        - Insights into their professional background
-        - Interests
-        - Potential influence within their organization
-        
-        Provide strategic advice in JSON format:
-        {
-          "name": "${personName}",
-          "likelyRole": "probable job function/seniority",
-          "contactStrategy": "best approach for initial contact",
-          "valueProposition": "what would likely interest them",
-        Priority: ${dealData.priority}
-        Due Date: ${dealData.dueDate ? new Date(dealData.dueDate).toLocaleDateString() : 'Not set'}
-          "communicationStyle": "recommended communication approach",
-        Last Activity: ${dealData.lastActivity || 'None'}
-          "bestContactTimes": ["optimal times to reach out"],
-          "iceBreakers": ["conversation starters", "topics of interest"],
-          "socialMediaTips": ["LinkedIn approach", "other platforms"],
-          "emailTips": ["subject line suggestions", "email structure"],
-          "meetingTopics": ["discussion points for first meeting"],
-          "professionalBackground": "summary of their career",
-          "interests": ["interest1", "interest2"],
-          "influenceLevel": "high/medium/low"
-        }
-        - Tailor the summary for different audiences (e.g., concise overview for quick check-in, detailed report for management review)
-        ${model?.family === 'gemma' ? 'Focus on practical, immediately actionable advice.' : ''}
-      `;
-
-      const systemInstruction = `You are a sales development expert using ${model?.name || selectedModelId} with deep knowledge of B2B outreach and relationship building. Provide strategic advice for connecting with prospects effectively.`;
-      
       const response = await this.makeRequest(prompt, systemInstruction, selectedModelId);
       return JSON.parse(response);
     } catch (error) {
@@ -517,7 +386,7 @@ class RealGeminiService implements GeminiService {
 
     if (contact.interestLevel === 'hot') score += 30;
     else if (contact.interestLevel === 'medium') score += 15;
-    
+
     if (contact.status === 'customer') score += 20;
     else if (contact.status === 'prospect') score += 10;
 
@@ -547,15 +416,15 @@ Best regards,
 
   private generateBasicInsights(contact: Contact): string[] {
     const insights: string[] = [];
-    
+
     if (contact.interestLevel === 'hot') {
       insights.push('🔥 High interest level - priority for immediate follow-up');
     }
-    
+
     if (contact.sources && contact.sources.includes('Referral')) {
       insights.push('🤝 Referral source indicates higher trust and conversion potential');
     }
-    
+
     if (contact.status === 'customer') {
       insights.push('✅ Existing customer - focus on expansion and upselling opportunities');
     }
@@ -567,7 +436,7 @@ Best regards,
 
   private generateBasicNextActions(dealData: any): string[] {
     const actions: string[] = [];
-    
+
     switch (dealData.stage) {
       case 'qualification':
         actions.push('Schedule detailed discovery call', 'Send qualification questionnaire', 'Research decision-making process');

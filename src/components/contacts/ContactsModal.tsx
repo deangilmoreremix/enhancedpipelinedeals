@@ -908,6 +908,10 @@ export const ContactsModal: React.FC<ContactsModalProps> = ({
                         const newAvatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${newSeed}`;
                         await updateContact(contact.id, { avatarSrc: newAvatar });
                       }}
+                      onEdit={(contact) => {
+                        // For now, just open the contact detail modal for editing
+                        setSelectedContact(contact);
+                      }}
                     />
                   )
                 ))}

@@ -9,8 +9,11 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { useKeyboardShortcuts, globalShortcuts } from './hooks/useKeyboardShortcuts';
 
 function AppContent() {
+  console.log('🔧 AppContent: Initializing application...');
   useKeyboardShortcuts(globalShortcuts);
   const { isInitialized } = useTheme();
+
+  console.log('🎨 Theme initialized:', isInitialized);
 
   return (
     <div className={`min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300 text-gray-900 dark:text-white ${

@@ -10,8 +10,10 @@ import { DealCommunicationHub } from './deals/DealCommunicationHub';
 import { DealAutomationPanel } from './deals/DealAutomationPanel';
 import { DealAnalyticsDashboard } from './deals/DealAnalyticsDashboard';
 import { DealJourneyTimeline } from './deals/DealJourneyTimeline';
+import { EmailComposer } from './communication/EmailComposer';
 import { useContactStore } from '../store/contactStore';
 import { useSmartAI } from '../hooks/useSmartAI';
+import { getPhoneService } from '../services/phoneService';
 import { Deal } from '../types';
 import { Contact } from '../types/contact';
 import { X, Edit, Mail, Phone, Plus, MessageSquare, FileText, Calendar, MoreHorizontal, User, Globe, Clock, Building2, Tag, Star, ExternalLink, Brain, TrendingUp, BarChart3, Zap, Users, Activity, Settings, Database, Shield, Target, Smartphone, Video, Linkedin, Twitter, Facebook, Instagram, Save, Ambulance as Cancel, Heart, HeartOff, MapPin, Briefcase, Award, CheckCircle, AlertCircle, Wifi, WifiOff, Search, DollarSign, RefreshCw, Sparkles, Camera, Wand2, UserPlus, UserMinus, Share2, Copy, Link, Paperclip, Download, Upload, ChevronDown, ChevronRight, UserX } from 'lucide-react';
@@ -97,6 +99,7 @@ export const DealDetailView: React.FC<DealDetailViewProps> = ({
   const [newLinkTitle, setNewLinkTitle] = useState('');
   const [newLinkUrl, setNewLinkUrl] = useState('');
   const [files, setFiles] = useState<any[]>([]);
+  const [showEmailComposer, setShowEmailComposer] = useState(false);
 
   useEffect(() => {
     setEditedDeal(deal);
@@ -401,6 +404,42 @@ export const DealDetailView: React.FC<DealDetailViewProps> = ({
     }
   };
 
+  const handleShareDeal = async () => {
+    try {
+      const shareData = {
+        title: editedDeal.title,
+        text: `Check out this deal: ${editedDeal.title} at ${editedDeal.company}`,
+        url: window.location.href
+      };
+
+      // Try to use the Web Share API if available
+      if (navigator.share) {
+        await navigator.share(shareData);
+        console.log('✅ Deal shared successfully via Web Share API');
+      } else {
+        // Fallback: Copy to clipboard
+        const shareText = `${shareData.title}\n${shareData.text}\n${shareData.url}`;
+        await navigator.clipboard.writeText(shareText);
+        alert('Deal link copied to clipboard! You can now share it manually.');
+        console.log('✅ Deal link copied to clipboard');
+      }
+    } catch (error) {
+      console.error('Failed to share deal:', error);
+
+      // Fallback: Show share options
+      const shareText = `${editedDeal.title} - ${editedDeal.company}\nValue: ${formatCurrency(editedDeal.value)}\nStage: ${editedDeal.stage}\n\nShared from CRM System`;
+
+      // Try clipboard fallback
+      try {
+        await navigator.clipboard.writeText(shareText);
+        alert('Deal information copied to clipboard!');
+      } catch (clipboardError) {
+        // Final fallback: Show alert with share text
+        alert(`Share this deal:\n\n${shareText}`);
+      }
+    }
+  };
+
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -551,9 +590,15 @@ export const DealDetailView: React.FC<DealDetailViewProps> = ({
                 </button>
                 
                 {/* Email AI */}
-                <button 
-                  onClick={() => window.open(`mailto:${linkedContact?.email || ''}`, '_blank')}
-                  className="p-3 flex flex-col items-center justify-center rounded-lg font-medium transition-all duration-200 border shadow-sm hover:shadow-md hover:scale-105 min-h-[3.5rem] bg-gradient-to-r from-gray-50 to-gray-100 text-gray-700 hover:from-gray-100 hover:to-gray-200 border-gray-200/50"
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (linkedContact?.email) {
+                      setShowEmailComposer(true);
+                    }
+                  }}
+                  disabled={!linkedContact?.email}
+                  className="p-3 flex flex-col items-center justify-center rounded-lg font-medium transition-all duration-200 border shadow-sm hover:shadow-md hover:scale-105 min-h-[3.5rem] bg-gradient-to-r from-gray-50 to-gray-100 text-gray-700 hover:from-gray-100 hover:to-gray-200 border-gray-200/50 disabled:opacity-50"
                 >
                   <Mail className="w-4 h-4 mb-1" />
                   <span className="text-xs leading-tight text-center">Email AI</span>
@@ -628,16 +673,30 @@ export const DealDetailView: React.FC<DealDetailViewProps> = ({
                   <Edit className="w-4 h-4 mb-1 text-blue-600" />
                   <span className="text-xs font-medium">Edit</span>
                 </button>
-                <button 
-                  onClick={() => window.open(`mailto:${linkedContact?.email || ''}`, '_blank')}
-                  className="p-3 flex flex-col items-center hover:bg-green-50 rounded-lg transition-all text-center"
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (linkedContact?.email) {
+                      // Open email composer modal
+                      setShowEmailComposer(true);
+                    }
+                  }}
+                  disabled={!linkedContact?.email}
+                  className="p-3 flex flex-col items-center hover:bg-green-50 rounded-lg transition-all text-center disabled:opacity-50"
                 >
                   <Mail className="w-4 h-4 mb-1 text-green-600" />
                   <span className="text-xs font-medium">Email</span>
                 </button>
-                <button 
-                  onClick={() => window.open(`tel:${linkedContact?.phone || ''}`, '_blank')}
-                  className="p-3 flex flex-col items-center hover:bg-yellow-50 rounded-lg transition-all text-center"
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (linkedContact?.phone) {
+                      const phoneService = getPhoneService();
+                      phoneService.makeCall(linkedContact.phone, linkedContact.name, editedDeal.title);
+                    }
+                  }}
+                  disabled={!linkedContact?.phone}
+                  className="p-3 flex flex-col items-center hover:bg-yellow-50 rounded-lg transition-all text-center disabled:opacity-50"
                 >
                   <Phone className="w-4 h-4 mb-1 text-yellow-600" />
                   <span className="text-xs font-medium">Call</span>
@@ -799,16 +858,25 @@ export const DealDetailView: React.FC<DealDetailViewProps> = ({
 
                   {/* Contact Actions */}
                   <div className="grid grid-cols-2 gap-2">
-                    <button 
-                      onClick={() => window.open(`mailto:${linkedContact.email}`, '_blank')}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowEmailComposer(true);
+                      }}
                       className="p-2 flex items-center justify-center hover:bg-green-50 rounded-lg transition-all text-center text-xs font-medium text-green-600 border border-green-200"
                     >
                       <Mail className="w-3 h-3 mr-1" />
                       Email
                     </button>
-                    <button 
-                      onClick={() => linkedContact.phone && window.open(`tel:${linkedContact.phone}`, '_blank')}
-                      disabled={!linkedContact.phone}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (linkedContact?.phone) {
+                          const phoneService = getPhoneService();
+                          phoneService.makeCall(linkedContact.phone, linkedContact.name, editedDeal.title);
+                        }
+                      }}
+                      disabled={!linkedContact?.phone}
                       className="p-2 flex items-center justify-center hover:bg-yellow-50 rounded-lg transition-all text-center text-xs font-medium text-yellow-600 border border-yellow-200 disabled:opacity-50"
                     >
                       <Phone className="w-3 h-3 mr-1" />
@@ -1182,9 +1250,10 @@ export const DealDetailView: React.FC<DealDetailViewProps> = ({
                   <span>{editedDeal.isFavorite ? 'Favorited' : 'Add to Favorites'}</span>
                 </ModernButton>
                 
-                <ModernButton 
-                  variant="outline" 
-                  size="sm" 
+                <ModernButton
+                  variant="outline"
+                  size="sm"
+                  onClick={handleShareDeal}
                   className="flex items-center space-x-2"
                 >
                   <Share2 className="w-4 h-4" />
@@ -1403,6 +1472,20 @@ export const DealDetailView: React.FC<DealDetailViewProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Email Composer Modal */}
+      {linkedContact && (
+        <EmailComposer
+          contact={linkedContact}
+          deal={editedDeal}
+          isOpen={showEmailComposer}
+          onClose={() => setShowEmailComposer(false)}
+          onSend={(emailData) => {
+            console.log('📧 Email sent from deal detail:', emailData);
+            // Here you could log the email activity or update deal status
+          }}
+        />
       )}
     </div>
   );

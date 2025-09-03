@@ -2,6 +2,9 @@ import React, { useState } from 'react';
 import { AvatarWithStatus } from '../ui/AvatarWithStatus';
 import { CustomizableAIToolbar } from '../ui/CustomizableAIToolbar';
 import { Contact } from '../../types/contact';
+import { EmailComposer } from '../communication/EmailComposer';
+import { getEmailService } from '../../services/emailService';
+import { getPhoneService } from '../../services/phoneService';
 import { 
   Edit, 
   MoreHorizontal, 
@@ -36,7 +39,8 @@ import {
   Calendar,
   CheckCircle,
   AlertCircle,
-  MessageSquare
+  MessageSquare,
+  Eye
 } from 'lucide-react';
 
 interface AIEnhancedContactCardProps {
@@ -50,6 +54,7 @@ interface AIEnhancedContactCardProps {
   isAnalyzing?: boolean;
   onToggleFavorite?: (contact: Contact) => Promise<void>;
   onFindNewImage?: (contact: Contact) => Promise<void>;
+  onEdit?: (contact: Contact) => void;
 }
 
 const interestColors = {
@@ -109,13 +114,16 @@ export const AIEnhancedContactCard: React.FC<AIEnhancedContactCardProps> = ({
   onAnalyze,
   isAnalyzing = false,
   onToggleFavorite,
-  onFindNewImage
+  onFindNewImage,
+  onEdit
 }) => {
   const [showAIInsights, setShowAIInsights] = useState(false);
   const [localAnalyzing, setLocalAnalyzing] = useState(false);
   const [isFinding, setIsFinding] = useState(false);
   const [localEnriching, setLocalEnriching] = useState(false);
   const [showCustomFields, setShowCustomFields] = useState(false);
+  const [showEmailComposer, setShowEmailComposer] = useState(false);
+  const [showPsychProfile, setShowPsychProfile] = useState(false);
   
   // Track last enrichment (mock data if not provided)
   const [lastEnrichment, setLastEnrichment] = useState<any>(
@@ -176,12 +184,12 @@ export const AIEnhancedContactCard: React.FC<AIEnhancedContactCardProps> = ({
   const handleAIEnrichClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (localEnriching) return;
-    
+
     setLocalEnriching(true);
     try {
       // In a real implementation, this would call an AI enrichment service
       await new Promise(resolve => setTimeout(resolve, 1000));
-      setLastEnrichment({ 
+      setLastEnrichment({
         confidence: Math.min((contact.aiScore || 0) + 10, 95),
         aiProvider: 'OpenAI GPT-4o',
         timestamp: new Date()
@@ -190,6 +198,68 @@ export const AIEnhancedContactCard: React.FC<AIEnhancedContactCardProps> = ({
       console.error('Enrichment failed:', error);
     } finally {
       setLocalEnriching(false);
+    }
+  };
+
+  const handleEmailClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowEmailComposer(true);
+  };
+
+  const handleEmailSend = (emailData: any) => {
+    console.log('📧 Email sent from contact card:', emailData);
+    // Here you could log the email activity or update contact status
+  };
+
+  const handleEditClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onEdit) {
+      onEdit(contact);
+    }
+  };
+
+  const handleCallClick = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const phoneService = getPhoneService();
+
+    // Use contact's phone number or a default
+    const phoneNumber = contact.phone || '+1-555-0123'; // Default for demo
+
+    try {
+      const success = await phoneService.makeCall(phoneNumber, contact.name, contact.company);
+      if (success) {
+        console.log('📞 Call initiated successfully');
+      }
+    } catch (error) {
+      console.error('Failed to initiate call:', error);
+    }
+  };
+
+  const handleFeedbackClick = async (e: React.MouseEvent, feedbackType: 'positive' | 'negative') => {
+    e.stopPropagation();
+
+    try {
+      // Log feedback for AI improvement
+      console.log(`📊 AI Feedback: ${feedbackType} feedback for contact ${contact.id}`);
+
+      // Here you could send feedback to your AI service for model improvement
+      const feedbackData = {
+        entityType: 'contact',
+        entityId: contact.id,
+        feedbackType,
+        timestamp: new Date(),
+        aiProvider: lastEnrichment?.aiProvider || 'AI Assistant',
+        insightType: 'contact_analysis'
+      };
+
+      console.log('💾 Storing AI feedback:', feedbackData);
+
+      // Show brief visual feedback
+      alert(`Thank you for your feedback! ${feedbackType === 'positive' ? '👍' : '👎'} This helps improve our AI insights.`);
+
+    } catch (error) {
+      console.error('Failed to submit AI feedback:', error);
+      alert('Failed to submit feedback. Please try again.');
     }
   };
 
@@ -281,12 +351,10 @@ export const AIEnhancedContactCard: React.FC<AIEnhancedContactCardProps> = ({
           </button>
         )}
         
-        <button 
-          onClick={(e) => {
-            e.stopPropagation();
-            // Handle edit action
-          }}
+        <button
+          onClick={handleEditClick}
           className="p-2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+          title="Edit contact"
         >
           <Edit className="w-4 h-4" />
         </button>
@@ -474,7 +542,10 @@ export const AIEnhancedContactCard: React.FC<AIEnhancedContactCardProps> = ({
             </button>
             
             {/* Email AI */}
-            <button className="p-2 flex flex-col items-center justify-center rounded-lg text-xs font-medium transition-all duration-200 border shadow-sm hover:shadow-md hover:scale-105 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-800 text-gray-700 dark:text-gray-200 hover:from-gray-100 hover:to-gray-200 dark:hover:from-gray-600 dark:hover:to-gray-700 border-gray-200/50 dark:border-gray-700/50">
+            <button
+              onClick={handleEmailClick}
+              className="p-2 flex flex-col items-center justify-center rounded-lg text-xs font-medium transition-all duration-200 border shadow-sm hover:shadow-md hover:scale-105 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-800 text-gray-700 dark:text-gray-200 hover:from-gray-100 hover:to-gray-200 dark:hover:from-gray-600 dark:hover:to-gray-700 border-gray-200/50 dark:border-gray-700/50"
+            >
               <Mail className="w-3 h-3 mb-0.5" />
               <span className="text-[10px] dark:text-gray-200">Email</span>
             </button>
@@ -507,10 +578,18 @@ export const AIEnhancedContactCard: React.FC<AIEnhancedContactCardProps> = ({
                 ChatGPT-5 Insights
               </h4>
               <div className="flex space-x-1">
-                <button className="p-1 bg-white dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 rounded text-gray-600 dark:text-gray-400 transition-colors">
+                <button
+                  onClick={(e) => handleFeedbackClick(e, 'positive')}
+                  className="p-1 bg-white dark:bg-gray-700 hover:bg-green-100 dark:hover:bg-green-900/30 rounded text-gray-600 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-400 transition-colors"
+                  title="This AI insight was helpful"
+                >
                   <ThumbsUp className="w-3 h-3" />
                 </button>
-                <button className="p-1 bg-white dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 rounded text-gray-600 dark:text-gray-400 transition-colors">
+                <button
+                  onClick={(e) => handleFeedbackClick(e, 'negative')}
+                  className="p-1 bg-white dark:bg-gray-700 hover:bg-red-100 dark:hover:bg-red-900/30 rounded text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+                  title="This AI insight was not helpful"
+                >
                   <ThumbsDown className="w-3 h-3" />
                 </button>
                 <button 
@@ -649,20 +728,14 @@ export const AIEnhancedContactCard: React.FC<AIEnhancedContactCardProps> = ({
 
         {/* Traditional Action Buttons */}
         <div className="grid grid-cols-3 gap-1.5">
-          <button 
-            onClick={(e) => {
-              e.stopPropagation();
-              // Handle email action
-            }}
+          <button
+            onClick={handleEmailClick}
             className="flex items-center justify-center py-1.5 px-2 bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30 text-blue-700 dark:text-blue-300 rounded-full hover:from-blue-100 hover:to-blue-200 dark:hover:from-blue-800/50 dark:hover:to-blue-700/50 text-xs font-medium transition-all duration-200 border border-blue-200/50 dark:border-blue-600/50 shadow-sm"
           >
             <Mail size={11} className="mr-1" /> Email
           </button>
-          <button 
-            onClick={(e) => {
-              e.stopPropagation();
-              // Handle call action
-            }}
+          <button
+            onClick={handleCallClick}
             className="flex items-center justify-center py-1.5 px-2 bg-gradient-to-r from-green-50 to-green-100 dark:from-green-900/30 dark:to-green-800/30 text-green-700 dark:text-green-300 rounded-full hover:from-green-100 hover:to-green-200 dark:hover:from-green-800/50 dark:hover:to-green-700/50 text-xs font-medium transition-all duration-200 border border-green-200/50 dark:border-green-600/50 shadow-sm"
           >
             <Phone size={11} className="mr-1" /> Call
@@ -725,6 +798,14 @@ export const AIEnhancedContactCard: React.FC<AIEnhancedContactCardProps> = ({
           </p>
         </div>
       </div>
+
+      {/* Email Composer Modal */}
+      <EmailComposer
+        contact={contact}
+        isOpen={showEmailComposer}
+        onClose={() => setShowEmailComposer(false)}
+        onSend={handleEmailSend}
+      />
     </div>
   );
 };

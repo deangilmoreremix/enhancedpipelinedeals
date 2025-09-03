@@ -73,23 +73,28 @@ const Pipeline: React.FC = () => {
   // Load data on component mount
   useEffect(() => {
     const loadData = async () => {
+      console.log('🔄 Pipeline: Loading data...');
       try {
         setIsLoading(true);
         setDataError(null);
 
         const dealsResult = await dataSyncService.getDeals();
+        console.log('📊 Pipeline: Deals loaded:', dealsResult.data ? Object.keys(dealsResult.data).length : 0, 'deals');
         setDeals(dealsResult.data);
         setDataSource(dealsResult.isFromDatabase ? 'database' : 'mock');
+        console.log('💾 Pipeline: Data source:', dealsResult.isFromDatabase ? 'database' : 'mock');
 
         if (dealsResult.error) {
+          console.error('❌ Pipeline: Data loading error:', dealsResult.error);
           setDataError(dealsResult.error);
         }
       } catch (error) {
-        console.error('Failed to load data:', error);
+        console.error('❌ Pipeline: Failed to load data:', error);
         setDataError('Failed to load data');
         setDataSource('mock');
       } finally {
         setIsLoading(false);
+        console.log('✅ Pipeline: Data loading complete');
       }
     };
 
@@ -807,6 +812,10 @@ const Pipeline: React.FC = () => {
                                      const newSeed = Date.now().toString();
                                      const newAvatar = `https://api.dicebear.com/7.x/initials/svg?seed=${newSeed}&backgroundColor=3b82f6,8b5cf6,f59e0b,10b981,ef4444&textColor=ffffff`;
                                      await handleDealUpdate(deal.id, { companyAvatar: newAvatar });
+                                   }}
+                                   onEdit={(deal) => {
+                                     // For now, just open the deal detail modal for editing
+                                     setSelectedDealId(deal.id);
                                    }}
                                  />
                               </div>

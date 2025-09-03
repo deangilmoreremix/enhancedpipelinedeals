@@ -174,5 +174,9 @@ const handleContactSelect = (contactId: string) => {
         onClick={() => handleContactClick(contact)}
         onAnalyze={handleAnalyzeContact}
         isAnalyzing={analyzingContactIds.includes(contact.id) || enrichingContactIds.includes(contact.id)}
+        onEdit={(contact) => {
+          // For now, just open the contact detail modal for editing
+          setSelectedContact(contact);
+        }}
     />
 ))}

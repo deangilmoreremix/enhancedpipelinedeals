@@ -4,6 +4,8 @@ import { IntelligentAIService } from './intelligentAIService';
 
 export interface ContactEnrichmentData {
   name?: string;
+  firstName?: string;
+  lastName?: string;
   title?: string;
   company?: string;
   industry?: string;
@@ -14,6 +16,7 @@ export interface ContactEnrichmentData {
   website?: string;
   location?: string;
   avatar?: string;
+  avatarSrc?: string;
   socialProfiles?: {
     linkedin?: string;
     twitter?: string;
@@ -47,6 +50,7 @@ export interface CompanyEnrichmentData {
   fundingHistory?: string;
   confidence?: number;
   aiProvider?: string;
+  notes?: string;
   extraData?: Record<string, any>;
 }
 
@@ -63,6 +67,7 @@ export interface DealEnrichmentData {
   similarDeals?: Array<{title: string; outcome: string; value: number}>;
   confidence?: number;
   aiProvider?: string;
+  notes?: string;
   extraData?: Record<string, any>;
 }
 
@@ -70,9 +75,7 @@ class AIEnrichmentService {
   private intelligentAI: IntelligentAIService;
 
   constructor() {
-    const openaiService = useOpenAI();
-    const geminiService = useGeminiAI();
-    this.intelligentAI = new IntelligentAIService(openaiService, geminiService);
+    this.intelligentAI = new IntelligentAIService();
   }
 
   async enrichContact(contactData: Partial<ContactEnrichmentData>): Promise<ContactEnrichmentData> {

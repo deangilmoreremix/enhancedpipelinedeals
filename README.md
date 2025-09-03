@@ -1,197 +1,182 @@
-# Smart CRM with GPT-5 Enhanced AI
+# Supabase CLI (v1)
 
-A modern CRM application featuring advanced AI capabilities powered by GPT-5, Gemini 2.0, and intelligent task routing.
+[![Coverage Status](https://coveralls.io/repos/github/supabase/cli/badge.svg?branch=main)](https://coveralls.io/github/supabase/cli?branch=main)
 
-## 🚀 Enhanced AI Features
+[Supabase](https://supabase.io) is an open source Firebase alternative. We're building the features of Firebase using enterprise-grade open source tools.
 
-### Phase 1: Infrastructure & Core Integration ✅
-- **Secure AI Gateway**: All AI requests routed through Supabase Edge Functions
-- **API Key Security**: API keys stored securely in Supabase secrets
-- **Intelligent Routing**: Automatic selection of optimal AI model for each task
-- **Enhanced Analysis**: GPT-5 powered contact scoring with advanced reasoning
-- **Fallback Handling**: Graceful degradation when AI services are unavailable
+This repository contains all the functionality for Supabase CLI.
 
-### GPT-5 Enhanced Capabilities
-- **Advanced Reasoning**: Deep analysis with step-by-step reasoning paths
-- **Psychological Profiling**: Understanding personality and communication styles
-- **Enhanced Creativity**: Personalized content generation with context awareness
-- **Pattern Recognition**: Identification of hidden patterns in sales data
-- **Intelligent Insights**: Creative problem-solving and strategic recommendations
+- [x] Running Supabase locally
+- [x] Managing database migrations
+- [x] Creating and deploying Supabase Functions
+- [x] Generating types directly from your database schema
+- [x] Making authenticated HTTP requests to [Management API](https://supabase.com/docs/reference/api/introduction)
 
-### AI Model Routing Strategy
-- **GPT-5**: Advanced reasoning, psychological analysis, creative writing
-- **GPT-5 Mini**: Fast recommendations and efficient processing
-- **GPT-5 Nano**: Cost-effective analysis for simple tasks
-- **Gemini 2.0**: Company research, factual analysis, multimodal processing
-- **Gemma Models**: Specialized business analysis and structured tasks
+## Getting started
 
-## 🛠️ Technical Architecture
+### Install the CLI
 
-### AI Gateway (Supabase Edge Function)
-```
-Frontend → AI Gateway → OpenAI/Gemini APIs → Secure Response
-```
+Available via [NPM](https://www.npmjs.com) as dev dependency. To install:
 
-### Key Components
-- `ai-gateway` Edge Function: Secure proxy for all AI requests
-- `EnhancedIntelligentAIService`: Smart routing and task distribution
-- `EnhancedOpenAIService`: GPT-5 integration with advanced features
-- `EnhancedGeminiService`: Gemini 2.0 with research capabilities
-
-## 🔧 Setup Instructions
-
-### 1. Environment Configuration
-Copy `.env.example` to `.env` and configure:
 ```bash
-# OpenAI Configuration (GPT-5)
-VITE_OPENAI_API_KEY=your_openai_api_key_here
-VITE_OPENAI_MODEL=gpt-5
-
-# Gemini Configuration (Gemini 2.0)
-VITE_GEMINI_API_KEY=your_gemini_api_key_here
-VITE_GEMINI_MODEL=gemini-2.0-flash-exp
-
-# Supabase Configuration
-VITE_SUPABASE_URL=your_supabase_url
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+npm i supabase --save-dev
 ```
 
-### 2. Supabase Setup
-1. **Add API Keys to Supabase Secrets**:
-   - Go to your Supabase project dashboard
-   - Navigate to Settings > Secrets
-   - Add `OPENAI_API_KEY` with your OpenAI API key
-   - Add `GEMINI_API_KEY` with your Gemini API key
+To install the beta release channel:
 
-2. **Deploy AI Gateway Edge Function**:
-   ```bash
-   supabase functions deploy ai-gateway --no-verify-jwt --project-ref YOUR_PROJECT_REF
-   ```
-
-### 3. Development
 ```bash
-npm install
-npm run dev
+npm i supabase@beta --save-dev
 ```
 
-## 🎯 AI Task Routing
+When installing with yarn 4, you need to disable experimental fetch with the following nodejs config.
 
-The system intelligently routes tasks to the optimal AI model:
-
-| Task Type | Primary Model | Reason |
-|-----------|---------------|---------|
-| Contact Analysis | GPT-5 | Advanced reasoning for psychological insights |
-| Email Generation | GPT-5 | Superior creativity and personalization |
-| Company Research | Gemini 2.0 | Better factual research capabilities |
-| Deal Summary | GPT-5 | Comprehensive business analysis |
-| Next Actions | GPT-5 Mini | Efficient, specific recommendations |
-| Insights | GPT-5 | Creative pattern recognition |
-| Contact Research | Gemini Flash | Fast contact information lookup |
-
-## 📊 System Status
-
-The application includes real-time AI system monitoring:
-- **Health Checks**: Automatic monitoring of AI provider availability
-- **Fallback Handling**: Graceful degradation to ensure continuous operation
-- **Performance Tracking**: Monitor AI response times and accuracy
-- **Cost Optimization**: Smart routing to balance quality and cost
-
-## 🔒 Security & Privacy
-
-- **API Key Security**: All API keys stored in Supabase secrets, never exposed client-side
-- **Data Minimization**: Only necessary data sent to AI providers
-- **Secure Transfer**: All AI requests encrypted via HTTPS
-- **Compliance Ready**: Designed with GDPR and data privacy in mind
-
-## 🚧 Upcoming Phases
-
-### Phase 2: Advanced Reasoning & Tooling (4-6 weeks)
-- Function calling integration
-- Dynamic sales coaching
-- Intelligent objection handling
-- Real-time data interaction
-
-### Phase 3: Multimodal & Advanced UX (6-8 weeks)
-- Document analysis capabilities
-- Audio processing integration
-- Enhanced user interfaces
-- Streaming responses
-
-## 📈 Performance Benefits
-
-- **Enhanced Analysis**: 40% more accurate contact scoring
-- **Faster Insights**: 60% reduction in manual research time
-- **Better Personalization**: 3x improvement in email response rates
-- **Intelligent Automation**: Optimal AI model selection for each task
-
-## 🎮 Interactive Features
-
-- **AI Feature Showcase**: Demonstrates GPT-5 capabilities
-- **Real-time Status**: Live monitoring of AI system health
-- **Enhanced Cards**: Interactive AI tools on contact and deal cards
-- **Smart Tooltips**: Context-aware help and guidance
-
-## 💡 Usage Examples
-
-### Enhanced Contact Analysis
-```typescript
-const analysis = await smartScoreContact(contactId, contact, 'high');
-// Returns: Advanced reasoning path, psychological insights, strategic recommendations
+```
+NODE_OPTIONS=--no-experimental-fetch yarn add supabase
 ```
 
-### Intelligent Email Generation
-```typescript
-const email = await generateEmail(contact, 'follow-up proposal', 'quality');
-// Returns: Highly personalized email with industry-specific language
+> **Note**
+For Bun versions below v1.0.17, you must add `supabase` as a [trusted dependency](https://bun.sh/guides/install/trusted) before running `bun add -D supabase`.
+
+<details>
+  <summary><b>macOS</b></summary>
+
+  Available via [Homebrew](https://brew.sh). To install:
+
+  ```sh
+  brew install supabase/tap/supabase
+  ```
+
+  To install the beta release channel:
+  
+  ```sh
+  brew install supabase/tap/supabase-beta
+  brew link --overwrite supabase-beta
+  ```
+  
+  To upgrade:
+
+  ```sh
+  brew upgrade supabase
+  ```
+</details>
+
+<details>
+  <summary><b>Windows</b></summary>
+
+  Available via [Scoop](https://scoop.sh). To install:
+
+  ```powershell
+  scoop bucket add supabase https://github.com/supabase/scoop-bucket.git
+  scoop install supabase
+  ```
+
+  To upgrade:
+
+  ```powershell
+  scoop update supabase
+  ```
+</details>
+
+<details>
+  <summary><b>Linux</b></summary>
+
+  Available via [Homebrew](https://brew.sh) and Linux packages.
+
+  #### via Homebrew
+
+  To install:
+
+  ```sh
+  brew install supabase/tap/supabase
+  ```
+
+  To upgrade:
+
+  ```sh
+  brew upgrade supabase
+  ```
+
+  #### via Linux packages
+
+  Linux packages are provided in [Releases](https://github.com/supabase/cli/releases). To install, download the `.apk`/`.deb`/`.rpm`/`.pkg.tar.zst` file depending on your package manager and run the respective commands.
+
+  ```sh
+  sudo apk add --allow-untrusted <...>.apk
+  ```
+
+  ```sh
+  sudo dpkg -i <...>.deb
+  ```
+
+  ```sh
+  sudo rpm -i <...>.rpm
+  ```
+
+  ```sh
+  sudo pacman -U <...>.pkg.tar.zst
+  ```
+</details>
+
+<details>
+  <summary><b>Other Platforms</b></summary>
+
+  You can also install the CLI via [go modules](https://go.dev/ref/mod#go-install) without the help of package managers.
+
+  ```sh
+  go install github.com/supabase/cli@latest
+  ```
+
+  Add a symlink to the binary in `$PATH` for easier access:
+
+  ```sh
+  ln -s "$(go env GOPATH)/cli" /usr/bin/supabase
+  ```
+
+  This works on other non-standard Linux distros.
+</details>
+
+<details>
+  <summary><b>Community Maintained Packages</b></summary>
+
+  Available via [pkgx](https://pkgx.sh/). Package script [here](https://github.com/pkgxdev/pantry/blob/main/projects/supabase.com/cli/package.yml).
+  To install in your working directory:
+
+  ```bash
+  pkgx install supabase
+  ```
+
+  Available via [Nixpkgs](https://nixos.org/). Package script [here](https://github.com/NixOS/nixpkgs/blob/master/pkgs/development/tools/supabase-cli/default.nix).
+</details>
+
+### Run the CLI
+
+```bash
+supabase bootstrap
 ```
 
-### Company Research
-```typescript
-const research = await researchCompany('TechCorp Inc', 'techcorp.com');
-// Returns: Comprehensive business intelligence and sales strategy
+Or using npx:
+
+```bash
+npx supabase bootstrap
 ```
 
-This implementation represents a significant advancement in CRM AI capabilities, providing users with enterprise-grade intelligence and automation.
+The bootstrap command will guide you through the process of setting up a Supabase project using one of the [starter](https://github.com/supabase-community/supabase-samples/blob/main/samples.json) templates.
 
-## 🔗 Remote App Integration
+## Docs
 
-The Smart CRM includes a powerful integration bridge that allows seamless communication with remote applications. This enables you to embed external pipeline tools while maintaining real-time synchronization.
+Command & config reference can be found [here](https://supabase.com/docs/reference/cli/about).
 
-### Integration Examples
+## Breaking changes
 
-Two integration examples are provided in the `public/examples/` directory:
+We follow semantic versioning for changes that directly impact CLI commands, flags, and configurations.
 
-1. **Complete HTML Example** (`crm-integration-example.html`): Full working example with UI
-2. **JavaScript Bridge** (`integration-code.js`): Standalone bridge for existing apps
+However, due to dependencies on other service images, we cannot guarantee that schema migrations, seed.sql, and generated types will always work for the same CLI major version. If you need such guarantees, we encourage you to pin a specific version of CLI in package.json.
 
-### How to Integrate Your App
+## Developing
 
-1. **Include the bridge code** in your remote application
-2. **Override the bridge methods** to update your app's state
-3. **Deploy your app** and configure it in the CRM
-4. **Test the integration** using the connection status indicator
+To run from source:
 
-#### Example Integration:
-```javascript
-// Override bridge methods to connect with your app
-window.crmBridge.updateLocalDeals = (deals) => {
-    // Update your React state or DOM
-    setDeals(deals);
-};
-
-window.crmBridge.notifyDealCreated = (deal) => {
-    // Notify CRM when user creates deals in your app
-    // This happens automatically
-};
+```sh
+# Go >= 1.22
+go run . help
 ```
-
-### Supported Features
-
-- **Real-time Sync**: Bi-directional data synchronization
-- **Secure Communication**: Origin validation and message verification
-- **Pipeline Management**: Full CRUD operations for deals
-- **Analytics Integration**: Share analytics data between apps
-- **Connection Status**: Visual indicators and debugging tools
-
-### Remote App URL Example
-The integration works with any web application. Example: `https://cheery-syrniki-b5b6ca.netlify.app`

@@ -16,18 +16,18 @@ class IntelligentAIService {
   // Define which AI service is best for each task type
   private taskRouting: Record<string, ModelPreference> = {
     'contact-analysis': {
-      primary: 'openai', // Changed to prefer OpenAI for contact analysis
-      model: 'gpt-5', // Prioritize GPT-5 for deep analysis
+      primary: 'openai',
+      model: 'gpt-5', // GPT-5 for deep analysis and scoring
       fallback: 'gemini',
       fallbackModel: 'gemini-1.5-pro',
-      reason: 'OpenAI GPT-5 excels at nuanced data analysis and scoring'
+      reason: 'GPT-5 excels at nuanced data analysis and scoring'
     },
     'email-generation': {
       primary: 'openai',
-      model: 'gpt-5', // Prioritize GPT-5 for creative writing and personalization
+      model: 'gpt-5', // GPT-5 for creative writing and personalization
       fallback: 'gemini',
       fallbackModel: 'gemini-1.5-pro',
-      reason: 'OpenAI superior for creative writing and personalization'
+      reason: 'GPT-5 superior for creative writing and personalization'
     },
     'company-research': {
       primary: 'gemini',
@@ -38,40 +38,36 @@ class IntelligentAIService {
     },
     'deal-summary': {
       primary: 'openai',
-      model: 'gpt-5', // Prioritize GPT-5 for comprehensive and actionable summaries
+      model: 'gpt-5', // GPT-5 for comprehensive and actionable summaries
       fallback: 'gemini',
       fallbackModel: 'gemini-1.5-pro',
-      reason: 'OpenAI GPT-5 provides comprehensive and actionable business summaries'
+      reason: 'GPT-5 provides comprehensive and actionable business summaries'
     },
     'next-actions': {
       primary: 'openai',
       model: 'gpt-5-mini', // GPT-5 Mini for efficient, adaptive recommendations
       fallback: 'gemini',
-      fallbackModel: 'gemma-2-9b-it',
+      fallbackModel: 'gemini-1.5-flash',
       reason: 'GPT-5 Mini optimized for specific, actionable recommendations'
     },
     'insights': {
       primary: 'openai',
-      model: 'gpt-5', // Prioritize GPT-5 for creative insights and pattern recognition
+      model: 'gpt-5', // GPT-5 for creative insights and pattern recognition
       fallback: 'gemini',
       fallbackModel: 'gemini-1.5-pro',
-      reason: 'OpenAI better for creative insights and pattern recognition'
+      reason: 'GPT-5 better for creative insights and pattern recognition'
     },
     'contact-research': {
       primary: 'gemini',
       model: 'gemini-1.5-flash',
       fallback: 'openai',
-      fallbackModel: 'gpt-5-nano', // Fallback to GPT-5 Nano for cost-efficient contact research
+      fallbackModel: 'gpt-5-nano', // GPT-5 Nano for cost-efficient contact research
       reason: 'Gemini faster for contact information and strategy research'
     }
   };
 
-  private openaiService: any;
-  private geminiService: any;
-
-  constructor(openaiService: any, geminiService: any) {
-    this.openaiService = openaiService;
-    this.geminiService = geminiService;
+  constructor() {
+    // No longer need individual AI services - using edge functions
   }
 
   private getOptimalModel(taskType: string, priority: 'speed' | 'quality' | 'cost' = 'quality'): ModelPreference {
@@ -83,7 +79,7 @@ class IntelligentAIService {
         primary: 'gemini',
         model: 'gemini-2.0-flash-exp',
         fallback: 'openai',
-        fallbackModel: 'gpt-4o-mini',
+        fallbackModel: 'gpt-5-mini',
         reason: 'Default routing for unknown task'
       };
     }
@@ -150,40 +146,126 @@ class IntelligentAIService {
   }
 
   private async executeOpenAITask(taskType: string, data: any, model: string): Promise<any> {
-    switch (taskType) {
-      case 'contact-analysis':
-        return await this.openaiService.analyzeContact(data, model);
-      case 'email-generation':
-        return await this.openaiService.generateEmail(data.contact, data.context, model);
-      case 'insights':
-        return await this.openaiService.getInsights(data, model);
-      case 'deal-summary':
-        return await this.openaiService.generateDealSummary(data, model);
-      case 'next-actions':
-        return await this.openaiService.suggestNextActions(data, model);
-      default:
-        throw new Error(`Unsupported OpenAI task: ${taskType}`);
-    }
+    const prompt = this.generatePrompt(taskType, data);
+    const messages = [
+      { role: "system", content: "You are an AI assistant specialized in sales and business analysis." },
+      { role: "user", content: prompt }
+    ];
+
+    return await this.callAIGateway('openai', model, taskType, { messages, temperature: 0.7 });
   }
 
   private async executeGeminiTask(taskType: string, data: any, model: string): Promise<any> {
+    const prompt = this.generatePrompt(taskType, data);
+
+    return await this.callAIGateway('gemini', model, taskType, {
+      contents: [{
+        parts: [{ text: prompt }]
+      }],
+      generationConfig: {
+        temperature: 0.7,
+        topK: 64,
+        topP: 0.95,
+        maxOutputTokens: 2048,
+      }
+    });
+  }
+
+  private generatePrompt(taskType: string, data: any): string {
     switch (taskType) {
       case 'contact-analysis':
-        return await this.geminiService.analyzeContact(data, model);
+        return `Analyze this contact for sales potential:
+Name: ${data.name || data.firstName + ' ' + data.lastName}
+Email: ${data.email}
+Company: ${data.company}
+Title: ${data.title}
+Industry: ${data.industry}
+
+Provide a JSON response with:
+{
+  "score": <0-100>,
+  "insights": ["key insight 1", "key insight 2"],
+  "recommendations": ["recommendation 1", "recommendation 2"],
+  "riskFactors": ["risk 1", "risk 2"]
+}`;
+
       case 'email-generation':
-        return await this.geminiService.generateEmail(data.contact, data.context, model);
+        return `Generate a professional sales email to:
+${data.contact?.firstName || data.contact?.name || 'Contact'} at ${data.contact?.company || 'Company'}
+
+Context: ${data.context || 'Following up on our previous conversation'}
+
+Make it personalized and compelling. Include subject line and body.`;
+
       case 'company-research':
-        return await this.geminiService.researchCompany(data.companyName, data.domain, model);
-      case 'contact-research':
-        return await this.geminiService.findContactInfo(data.personName, data.companyName, model);
+        return `Research this company:
+Company: ${data.companyName}
+Domain: ${data.domain}
+
+Provide information about their industry, size, and business focus.`;
+
       case 'deal-summary':
-        return await this.geminiService.generateDealSummary(data, model);
+        return `Summarize this deal:
+Title: ${data.title}
+Company: ${data.company}
+Value: $${data.value}
+Stage: ${data.stage}
+
+Provide a comprehensive summary with key insights.`;
+
       case 'next-actions':
-        return await this.geminiService.suggestNextActions(data, model);
+        return `Suggest next actions for this deal:
+${JSON.stringify(data, null, 2)}
+
+Provide 3-5 specific, actionable next steps.`;
+
       case 'insights':
-        return await this.geminiService.getInsights(data, model);
+        return `Generate insights from this data:
+${JSON.stringify(data, null, 2)}
+
+Provide key insights and recommendations.`;
+
       default:
-        throw new Error(`Unsupported Gemini task: ${taskType}`);
+        return `Process this request: ${JSON.stringify({ taskType, data }, null, 2)}`;
+    }
+  }
+
+  private async callAIGateway(provider: string, model: string, taskType: string, aiRequestData: any): Promise<any> {
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    if (!supabaseUrl) {
+      throw new Error('Supabase URL not configured');
+    }
+
+    const response = await fetch(`${supabaseUrl}/functions/v1/ai-gateway`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+      },
+      body: JSON.stringify({
+        provider,
+        model,
+        taskType,
+        aiRequestData
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+      throw new Error(`AI Gateway error: ${errorData.error || response.statusText}`);
+    }
+
+    const result = await response.json();
+
+    // Extract the actual response from the AI API
+    if (result.choices && result.choices[0]) {
+      // OpenAI format
+      return JSON.parse(result.choices[0].message.content);
+    } else if (result.candidates && result.candidates[0]) {
+      // Gemini format
+      return JSON.parse(result.candidates[0].content.parts[0].text);
+    } else {
+      return result;
     }
   }
 

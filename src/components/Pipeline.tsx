@@ -14,8 +14,10 @@ import { EnhancedAIStatusIndicator } from './ui/EnhancedAIStatusIndicator';
 import DealDetail from './DealDetail';
 import PipelineStats from './PipelineStats';
 import DealAnalytics from './DealAnalytics';
-import { mockDeals, mockColumns, columnOrder } from '../data/mockDeals';
-import { mockContacts } from '../data/mockContacts';
+import { mockColumns, columnOrder } from '../data/mockDeals';
+import { getDataSyncService } from '../services/dataSyncService';
+import { getSupabaseService } from '../services/supabaseService';
+import { Contact } from '../types/contact';
 import { Deal, PipelineColumn } from '../types';
 import { DealListView } from './deals/DealListView';
 import { DealTableView } from './deals/DealTableView';
@@ -39,9 +41,9 @@ const Pipeline: React.FC = () => {
   const [showAddDealModal, setShowAddDealModal] = useState(false);
   const [showTeamModal, setShowTeamModal] = useState(false);
   const [contactsModalInitialView, setContactsModalInitialView] = useState<'external' | 'team'>('external');
-  
+
   // Pipeline states
-  const [deals, setDeals] = useState(mockDeals);
+  const [deals, setDeals] = useState<Record<string, Deal>>({});
   const [columns, setColumns] = useState(mockColumns);
   const [selectedDealId, setSelectedDealId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -49,6 +51,9 @@ const Pipeline: React.FC = () => {
   const [showStats, setShowStats] = useState(true);
   const [filterStage, setFilterStage] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'value' | 'probability' | 'updated'>('updated');
+  const [isLoading, setIsLoading] = useState(true);
+  const [dataSource, setDataSource] = useState<'database' | 'mock'>('mock');
+  const [dataError, setDataError] = useState<string | null>(null);
 
   // AI states
   const [aiResearching, setAiResearching] = useState<string[]>([]);
@@ -61,6 +66,68 @@ const Pipeline: React.FC = () => {
 
   // View preferences hook
   const { preferences, isLoading: preferencesLoading, setDefaultView } = useViewPreferences();
+
+  // Data sync service
+  const dataSyncService = getDataSyncService();
+
+  // Load data on component mount
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setIsLoading(true);
+        setDataError(null);
+
+        const dealsResult = await dataSyncService.getDeals();
+        setDeals(dealsResult.data);
+        setDataSource(dealsResult.isFromDatabase ? 'database' : 'mock');
+
+        if (dealsResult.error) {
+          setDataError(dealsResult.error);
+        }
+      } catch (error) {
+        console.error('Failed to load data:', error);
+        setDataError('Failed to load data');
+        setDataSource('mock');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadData();
+  }, []);
+
+  // Real-time subscriptions
+  useEffect(() => {
+    if (!dataSyncService.isDatabaseConnected()) {
+      return;
+    }
+
+    const supabase = getSupabaseService();
+
+    // Subscribe to deals changes
+    const dealsSubscription = supabase.subscribeToDeals((payload: any) => {
+      const { eventType, new: newRecord, old: oldRecord } = payload;
+
+      setDeals(prev => {
+        switch (eventType) {
+          case 'INSERT':
+            return { ...prev, [newRecord.id]: newRecord };
+          case 'UPDATE':
+            return { ...prev, [newRecord.id]: newRecord };
+          case 'DELETE':
+            const newDeals = { ...prev };
+            delete newDeals[oldRecord.id];
+            return newDeals;
+          default:
+            return prev;
+        }
+      });
+    });
+
+    return () => {
+      dealsSubscription.unsubscribe();
+    };
+  }, [dataSource]);
 
   // Set initial view from preferences
   useEffect(() => {
@@ -178,42 +245,69 @@ const Pipeline: React.FC = () => {
   };
 
   const handleDealUpdate = async (id: string, updates: Partial<Deal>) => {
-    const previousDeal = deals[id];
-    const previousValue = previousDeal?.value || 0;
-    
-    setDeals(prev => ({
-      ...prev,
-      [id]: { ...prev[id], ...updates, updatedAt: new Date() }
-    }));
-    
-    // Trigger gamification updates for value changes
-    if (updates.value && updates.value !== previousValue) {
-      const updatedDeal = { ...previousDeal, ...updates };
-      handleDealValueChange(updatedDeal, previousValue);
-    }
-    
-    // Trigger gamification updates for stage changes
-    if (updates.stage && updates.stage !== previousDeal?.stage) {
-      const updatedDeal = { ...previousDeal, ...updates };
-      handleDealStageChange(updatedDeal, previousDeal?.stage);
+    try {
+      // If database is connected, update via data sync service
+      if (dataSyncService.isDatabaseConnected()) {
+        await dataSyncService.updateDeal(id, updates);
+      }
+
+      // Update local state
+      setDeals(prev => ({
+        ...prev,
+        [id]: { ...prev[id], ...updates, updatedAt: new Date() }
+      }));
+
+      // Trigger gamification updates for value changes
+      const previousDeal = deals[id];
+      const previousValue = previousDeal?.value || 0;
+      if (updates.value && updates.value !== previousValue) {
+        const updatedDeal = { ...previousDeal, ...updates };
+        handleDealValueChange(updatedDeal, previousValue);
+      }
+
+      // Trigger gamification updates for stage changes
+      if (updates.stage && updates.stage !== previousDeal?.stage) {
+        const updatedDeal = { ...previousDeal, ...updates };
+        handleDealStageChange(updatedDeal, previousDeal?.stage);
+      }
+    } catch (error) {
+      console.error('Failed to update deal:', error);
+      throw error;
     }
   };
 
-  const handleAIResearch = async (deal: Deal) => {
+  const handleDealValueChange = (deal: Deal, previousValue: number) => {
+    // This would trigger gamification updates
+    console.log('Deal value changed:', deal.title, previousValue, '->', deal.value);
+  };
+
+  const handleDealStageChange = (deal: Deal, previousStage?: string) => {
+    // This would trigger gamification updates
+    console.log('Deal stage changed:', deal.title, previousStage, '->', deal.stage);
+  };
+
+  const handleAIResearch = async (deal: Deal): Promise<boolean> => {
     setAiResearching(prev => [...prev, deal.id]);
-    
-    // Simulate AI research
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    // Update deal with AI insights
-    await handleDealUpdate(deal.id, {
-      probability: Math.min(deal.probability + 15, 95),
-      notes: deal.notes ? 
-        `${deal.notes}\n\nAI Research: Company shows strong growth indicators and budget availability.` :
-        'AI Research: Company shows strong growth indicators and budget availability.'
-    });
-    
-    setAiResearching(prev => prev.filter(id => id !== deal.id));
+
+    try {
+      // Simulate AI research
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      // Update deal with AI insights
+      await handleDealUpdate(deal.id, {
+        probability: Math.min(deal.probability + 15, 95),
+        notes: deal.notes ?
+          `${deal.notes}\n\nAI Research: Company shows strong growth indicators and budget availability.` :
+          'AI Research: Company shows strong growth indicators and budget availability.'
+      });
+
+      setAiResearching(prev => prev.filter(id => id !== deal.id));
+      return true;
+    } catch (error) {
+      console.error('AI research failed:', error);
+      setAiResearching(prev => prev.filter(id => id !== deal.id));
+      return false;
+    }
   };
 
   const formatCurrency = (value: number) => {
@@ -244,14 +338,18 @@ const Pipeline: React.FC = () => {
     setShowExportModal(true);
   };
 
-  const handleImportComplete = (importedDeals: Deal[]) => {
-    // Add imported deals to state
-    const newDealsMap = importedDeals.reduce((acc, deal) => {
-      acc[deal.id] = deal;
-      return acc;
-    }, {} as Record<string, Deal>);
-    
-    setDeals(prev => ({ ...prev, ...newDealsMap }));
+  const handleImportComplete = (data: Deal[] | Contact[]) => {
+    // Handle imported deals
+    if (data.length > 0 && 'value' in data[0]) {
+      const importedDeals = data as Deal[];
+      const newDealsMap = importedDeals.reduce((acc, deal) => {
+        acc[deal.id] = deal;
+        return acc;
+      }, {} as Record<string, Deal>);
+
+      setDeals(prev => ({ ...prev, ...newDealsMap }));
+    }
+    // Note: Contact import would be handled by the ContactsModal component
   };
 
   const handleAIScoreAll = async () => {
@@ -318,30 +416,55 @@ const Pipeline: React.FC = () => {
     setIsAnalyzing(false);
   };
 
-  const handleAddDeal = (dealData: Omit<Deal, 'id' | 'createdAt' | 'updatedAt'>) => {
-    const newDeal: Deal = {
-      ...dealData,
-      id: `deal-${Date.now()}`,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-    
-    // Add deal to state
-    setDeals(prev => ({
-      ...prev,
-      [newDeal.id]: newDeal
-    }));
-    
-    // Add deal to appropriate column
-    setColumns(prev => ({
-      ...prev,
-      [newDeal.stage]: {
-        ...prev[newDeal.stage],
-        dealIds: [...prev[newDeal.stage].dealIds, newDeal.id]
+  const handleAddDeal = async (dealData: Omit<Deal, 'id' | 'createdAt' | 'updatedAt'>) => {
+    try {
+      if (dataSyncService.isDatabaseConnected()) {
+        // Create deal in database
+        const newDeal = await dataSyncService.createDeal(dealData);
+
+        // Add deal to state
+        setDeals(prev => ({
+          ...prev,
+          [newDeal.id]: newDeal
+        }));
+
+        // Add deal to appropriate column
+        setColumns(prev => ({
+          ...prev,
+          [newDeal.stage]: {
+            ...prev[newDeal.stage],
+            dealIds: [...prev[newDeal.stage].dealIds, newDeal.id]
+          }
+        }));
+      } else {
+        // Fallback to local state only (mock mode)
+        const newDeal: Deal = {
+          ...dealData,
+          id: `deal-${Date.now()}`,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        };
+
+        setDeals(prev => ({
+          ...prev,
+          [newDeal.id]: newDeal
+        }));
+
+        setColumns(prev => ({
+          ...prev,
+          [newDeal.stage]: {
+            ...prev[newDeal.stage],
+            dealIds: [...prev[newDeal.stage].dealIds, newDeal.id]
+          }
+        }));
       }
-    }));
-    
-    setShowAddDealModal(false);
+
+      setShowAddDealModal(false);
+    } catch (error) {
+      console.error('Failed to create deal:', error);
+      // Still close modal but show error
+      setShowAddDealModal(false);
+    }
   };
 
   return (
@@ -353,6 +476,25 @@ const Pipeline: React.FC = () => {
           <p className="text-gray-600 dark:text-gray-300 mt-1">
             Track and manage your deals through the sales process
           </p>
+          {/* Data Source Indicator */}
+          <div className="flex items-center mt-2">
+            <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+              dataSource === 'database'
+                ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
+                : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300'
+            }`}>
+              <div className={`w-2 h-2 rounded-full mr-2 ${
+                dataSource === 'database' ? 'bg-green-500' : 'bg-yellow-500'
+              }`} />
+              {dataSource === 'database' ? 'Live Database' : 'Demo Data'}
+            </div>
+            {dataError && (
+              <div className="ml-2 inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300">
+                <div className="w-2 h-2 rounded-full mr-2 bg-red-500" />
+                {dataError}
+              </div>
+            )}
+          </div>
         </div>
         
         <div className="flex items-center space-x-3">
@@ -600,7 +742,7 @@ const Pipeline: React.FC = () => {
             return <DealTimelineView {...commonProps} />;
           
           case 'dashboard':
-            return <DealDashboardView deals={deals} contacts={mockContacts} />;
+            return <DealDashboardView deals={deals} contacts={[]} />;
           
           case 'kanban':
           default:
@@ -653,21 +795,20 @@ const Pipeline: React.FC = () => {
                                 }`}
                               >
                                 <AIEnhancedDealCard
-                                  deal={deal}
-                                  onClick={() => setSelectedDealId(deal.id)}
-                                  onUpdate={handleDealUpdate}
-                                  onAIResearch={handleAIResearch}
-                                  isResearching={aiResearching.includes(deal.id)}
-                                  onToggleFavorite={async (deal) => {
-                                    await handleDealUpdate(deal.id, { isFavorite: !deal.isFavorite });
-                                  }}
-                                  onFindNewImage={async (deal) => {
-                                    // Simulate finding new image
-                                    const newSeed = Date.now().toString();
-                                    const newAvatar = `https://api.dicebear.com/7.x/initials/svg?seed=${newSeed}&backgroundColor=3b82f6,8b5cf6,f59e0b,10b981,ef4444&textColor=ffffff`;
-                                    await handleDealUpdate(deal.id, { companyAvatar: newAvatar });
-                                  }}
-                                />
+                                   deal={deal}
+                                   onClick={() => setSelectedDealId(deal.id)}
+                                   onAnalyze={handleAIResearch}
+                                   isAnalyzing={aiResearching.includes(deal.id)}
+                                   onToggleFavorite={async (deal) => {
+                                     await handleDealUpdate(deal.id, { isFavorite: !deal.isFavorite });
+                                   }}
+                                   onFindNewImage={async (deal) => {
+                                     // Simulate finding new image
+                                     const newSeed = Date.now().toString();
+                                     const newAvatar = `https://api.dicebear.com/7.x/initials/svg?seed=${newSeed}&backgroundColor=3b82f6,8b5cf6,f59e0b,10b981,ef4444&textColor=ffffff`;
+                                     await handleDealUpdate(deal.id, { companyAvatar: newAvatar });
+                                   }}
+                                 />
                               </div>
                             )}
                           </Draggable>
@@ -706,10 +847,9 @@ const Pipeline: React.FC = () => {
       />
       
       {/* Team/Gamification Modal */}
-      <TeamModal 
+      <TeamModal
         isOpen={showTeamModal}
         onClose={() => setShowTeamModal(false)}
-        initialView="overview"
       />
       
       <ImportDealsModal 

@@ -3,6 +3,11 @@ interface APIConfiguration {
     apiKey: string;
     model: string;
     baseUrl: string;
+    gpt5: {
+      model: string;
+      reasoningEffort: 'low' | 'medium' | 'high';
+      fallbackModels: string[];
+    };
   };
   gemini: {
     apiKey: string;
@@ -21,6 +26,11 @@ interface APIConfiguration {
     baseUrl: string;
     apiKey: string;
   };
+  webSearch?: {
+    enabled: boolean;
+    provider: 'serpapi' | 'google' | 'bing';
+    apiKey: string;
+  };
 }
 
 export const getAPIConfig = (): APIConfiguration => {
@@ -36,6 +46,11 @@ export const getAPIConfig = (): APIConfiguration => {
       apiKey: import.meta.env.VITE_OPENAI_API_KEY || '',
       model: import.meta.env.VITE_OPENAI_MODEL || 'gpt-5',
       baseUrl: 'https://api.openai.com/v1',
+      gpt5: {
+        model: import.meta.env.VITE_GPT5_MODEL || 'gpt-5',
+        reasoningEffort: (import.meta.env.VITE_GPT5_REASONING_EFFORT as 'low' | 'medium' | 'high') || 'medium',
+        fallbackModels: ['gpt-5-mini', 'gpt-4o-mini'],
+      },
     },
     gemini: {
       apiKey: import.meta.env.VITE_GEMINI_API_KEY || '',
@@ -54,6 +69,13 @@ export const getAPIConfig = (): APIConfiguration => {
       crm: {
         baseUrl: import.meta.env.VITE_CRM_API_URL,
         apiKey: import.meta.env.VITE_CRM_API_KEY || '',
+      },
+    }),
+    ...(import.meta.env.VITE_WEB_SEARCH_API_KEY && {
+      webSearch: {
+        enabled: true,
+        provider: (import.meta.env.VITE_WEB_SEARCH_PROVIDER as 'serpapi' | 'google' | 'bing') || 'serpapi',
+        apiKey: import.meta.env.VITE_WEB_SEARCH_API_KEY,
       },
     }),
   };
@@ -86,7 +108,7 @@ export const validateAPIConfig = (): { configured: string[]; missing: string[] }
 // Helper to check if production APIs should be used
 export const shouldUseRealAPIs = (): boolean => {
   const config = getAPIConfig();
-  return !!(config.openai.apiKey || config.gemma.apiKey || config.supabase.url);
+  return !!(config.openai.apiKey || config.gemini.apiKey || config.supabase.url);
 };
 
 export default getAPIConfig;

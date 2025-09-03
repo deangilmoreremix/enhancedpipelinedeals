@@ -17,6 +17,7 @@ import DealAnalytics from './DealAnalytics';
 import { mockColumns, columnOrder } from '../data/mockDeals';
 import { getDataSyncService } from '../services/dataSyncService';
 import { getSupabaseService } from '../services/supabaseService';
+import { getOpenAIFunctionService } from '../services/openaiFunctionCallingService';
 import { Contact } from '../types/contact';
 import { Deal, PipelineColumn } from '../types';
 import { DealListView } from './deals/DealListView';
@@ -60,6 +61,8 @@ const Pipeline: React.FC = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisProgress, setAnalysisProgress] = useState<{current: number, total: number} | null>(null);
   const [aiResults, setAiResults] = useState<{success: number, failed: number} | null>(null);
+  const [openAIFunctionCalling, setOpenAIFunctionCalling] = useState<string[]>([]);
+  const [openAIResults, setOpenAIResults] = useState<{[key: string]: any}>({});
 
   // Smart AI hook
   const { smartScoreContact } = useSmartAI();
@@ -69,6 +72,9 @@ const Pipeline: React.FC = () => {
 
   // Data sync service
   const dataSyncService = getDataSyncService();
+
+  // OpenAI Function Calling service
+  const openAIFunctionService = getOpenAIFunctionService();
 
   // Load data on component mount
   useEffect(() => {
@@ -281,6 +287,17 @@ const Pipeline: React.FC = () => {
     }
   };
 
+  const handleDealClick = async (dealId: string) => {
+    const deal = deals[dealId];
+    if (!deal) return;
+
+    // Trigger OpenAI function calling for deal analysis
+    await handleOpenAIFunctionCall(deal, 'card-click');
+
+    // Open deal detail modal
+    setSelectedDealId(dealId);
+  };
+
   const handleDealValueChange = (deal: Deal, previousValue: number) => {
     // This would trigger gamification updates
     console.log('Deal value changed:', deal.title, previousValue, '->', deal.value);
@@ -312,6 +329,68 @@ const Pipeline: React.FC = () => {
       console.error('AI research failed:', error);
       setAiResearching(prev => prev.filter(id => id !== deal.id));
       return false;
+    }
+  };
+
+  const handleOpenAIFunctionCall = async (deal: Deal, action: string): Promise<void> => {
+    if (!openAIFunctionService.isReady()) {
+      console.warn('OpenAI Function Calling service not ready');
+      return;
+    }
+
+    setOpenAIFunctionCalling(prev => [...prev, deal.id]);
+
+    try {
+      const context = {
+        entityType: 'deal' as const,
+        action,
+        componentId: 'pipeline-deal-card',
+        userId: 'user-1', // This would come from auth context
+        timestamp: Date.now()
+      };
+
+      const result = await openAIFunctionService.enhanceExistingInteraction(
+        action,
+        context,
+        {
+          id: deal.id,
+          name: deal.title,
+          company: deal.company,
+          value: deal.value,
+          stage: deal.stage,
+          probability: deal.probability,
+          contact: deal.contact,
+          notes: deal.notes
+        }
+      );
+
+      if (result.enhanced && result.result) {
+        // Store the result for display
+        setOpenAIResults(prev => ({
+          ...prev,
+          [deal.id]: {
+            functionCalled: result.functionCalled,
+            result: result.result,
+            timestamp: Date.now()
+          }
+        }));
+
+        // Apply insights to the deal if applicable
+        if (result.functionCalled === 'comprehensive_deal_analysis' && result.result.insights) {
+          const insights = result.result.insights.join('. ');
+          await handleDealUpdate(deal.id, {
+            notes: deal.notes ?
+              `${deal.notes}\n\nAI Analysis: ${insights}` :
+              `AI Analysis: ${insights}`
+          });
+        }
+      }
+
+      console.log('OpenAI Function Call Result:', result);
+    } catch (error) {
+      console.error('OpenAI Function Calling failed:', error);
+    } finally {
+      setOpenAIFunctionCalling(prev => prev.filter(id => id !== deal.id));
     }
   };
 
@@ -727,7 +806,7 @@ const Pipeline: React.FC = () => {
       {(() => {
         const commonProps = {
           deals,
-          onDealClick: (dealId: string) => setSelectedDealId(dealId),
+          onDealClick: handleDealClick,
           onDealUpdate: handleDealUpdate,
           searchTerm,
           filterStage
@@ -801,7 +880,7 @@ const Pipeline: React.FC = () => {
                               >
                                 <AIEnhancedDealCard
                                    deal={deal}
-                                   onClick={() => setSelectedDealId(deal.id)}
+                                   onClick={() => handleDealClick(deal.id)}
                                    onAnalyze={handleAIResearch}
                                    isAnalyzing={aiResearching.includes(deal.id)}
                                    onToggleFavorite={async (deal) => {
@@ -817,6 +896,8 @@ const Pipeline: React.FC = () => {
                                      // For now, just open the deal detail modal for editing
                                      setSelectedDealId(deal.id);
                                    }}
+                                   isOpenAIFunctionCalling={openAIFunctionCalling.includes(deal.id)}
+                                   openAIResult={openAIResults[deal.id]}
                                  />
                               </div>
                             )}

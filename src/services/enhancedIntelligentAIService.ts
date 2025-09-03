@@ -7,27 +7,19 @@
 import { useEnhancedOpenAI } from './enhancedOpenAIService';
 import { useEnhancedGemini } from './enhancedGeminiService';
 import { getAIGatewayService } from './aiGatewayService';
+import { getWebSearchService } from './webSearchService';
+import { getCitationService } from './citationService';
+import { CitationSource } from '../types/citation';
 
 interface TaskRoute {
-  primary: 'openai' | 'gemini';
+  primary: 'openai';
   primaryModel: string;
-  fallback: 'openai' | 'gemini';
+  fallback: 'openai';
   fallbackModel: string;
   reason: string;
 }
 
-interface EnhancedIntelligentAIService {
-  analyzeContact: (contact: any, priority?: 'speed' | 'quality' | 'cost') => Promise<any>;
-  generateEmail: (contact: any, context?: string, priority?: 'speed' | 'quality' | 'cost') => Promise<string>;
-  researchCompany: (companyName: string, domain?: string, priority?: 'speed' | 'quality' | 'cost') => Promise<any>;
-  researchContact: (personName: string, companyName?: string, priority?: 'speed' | 'quality' | 'cost') => Promise<any>;
-  generateDealSummary: (dealData: any, priority?: 'speed' | 'quality' | 'cost') => Promise<string>;
-  suggestNextActions: (dealData: any, priority?: 'speed' | 'quality' | 'cost') => Promise<string[]>;
-  getInsights: (data: any, priority?: 'speed' | 'quality' | 'cost') => Promise<string[]>;
-  getSystemStatus: () => Promise<{ status: string; availableProviders: string[] }>;
-}
-
-class EnhancedIntelligentAIService implements EnhancedIntelligentAIService {
+class EnhancedIntelligentAIService {
   private openaiService = useEnhancedOpenAI();
   private geminiService = useEnhancedGemini();
   private gateway = getAIGatewayService();
@@ -37,8 +29,8 @@ class EnhancedIntelligentAIService implements EnhancedIntelligentAIService {
     'contact-analysis': {
       primary: 'openai',
       primaryModel: 'gpt-5', // GPT-5 for advanced reasoning
-      fallback: 'gemma',
-      fallbackModel: 'gemma-2-27b-it',
+      fallback: 'openai',
+      fallbackModel: 'gpt-5-mini',
       reason: 'GPT-5 excels at nuanced psychological analysis and pattern recognition'
     },
     'email-generation': {
@@ -65,47 +57,44 @@ class EnhancedIntelligentAIService implements EnhancedIntelligentAIService {
     'next-actions': {
       primary: 'openai',
       primaryModel: 'gpt-5-mini', // GPT-5 Mini for efficient recommendations
-      fallback: 'gemma',
+      fallback: 'openai',
       fallbackModel: 'gemma-2-9b-it',
       reason: 'GPT-5 Mini optimized for specific, actionable recommendations'
     },
     'insights': {
       primary: 'openai',
       primaryModel: 'gpt-5', // GPT-5 for creative insights
-      fallback: 'gemma',
+      fallback: 'openai',
       fallbackModel: 'gemma-2-27b-it',
       reason: 'GPT-5 better for creative insights and pattern recognition'
     },
     'contact-research': {
       primary: 'openai',
       primaryModel: 'gpt-5-mini', // GPT-5 Mini for contact research
-      fallback: 'gemma',
-      fallbackModel: 'gemma-2-9b-it',
+      fallback: 'openai',
+      fallbackModel: 'gpt-4o-mini',
       reason: 'GPT-5 Mini provides intelligent contact research with reasoning'
     },
     'social-media-discovery': {
       primary: 'openai',
       primaryModel: 'gpt-5-mini', // GPT-5 Mini for social discovery
-      fallback: 'gemma',
-      model: 'gemma-2-27b-it', // Gemma optimized for structured data extraction
-      fallbackModel: 'gemma-2-9b-it',
-      reason: 'GPT-5 Mini with Gemma fallback for social media channel identification'
+      fallback: 'openai',
+      fallbackModel: 'gpt-4o-mini',
+      reason: 'GPT-5 Mini with OpenAI fallback for social media channel identification'
     },
     'app-enrichment': {
       primary: 'openai',
       primaryModel: 'gpt-5', // GPT-5 for comprehensive app analysis
-      fallback: 'gemma',
-      model: 'gemma-2-27b-it', // Gemma for comprehensive app data analysis
-      fallbackModel: 'gemma-2-27b-it',
-      reason: 'GPT-5 with Gemma fallback for app metadata and feature analysis'
+      fallback: 'openai',
+      fallbackModel: 'gpt-5-mini',
+      reason: 'GPT-5 with OpenAI fallback for app metadata and feature analysis'
     },
     'channel-identification': {
       primary: 'openai',
       primaryModel: 'gpt-5-nano', // GPT-5 Nano for efficient channel identification
-      fallback: 'gemma',
-      model: 'gemma-2-9b-it', // Fast Gemma for channel discovery
-      fallbackModel: 'gemma-2-9b-it',
-      reason: 'GPT-5 Nano with Gemma fallback for social platform identification'
+      fallback: 'openai',
+      fallbackModel: 'gpt-4o-mini',
+      reason: 'GPT-5 Nano with OpenAI fallback for social platform identification'
     }
   };
 
@@ -116,8 +105,8 @@ class EnhancedIntelligentAIService implements EnhancedIntelligentAIService {
       return {
         primary: 'openai',
         primaryModel: 'gpt-5',
-        fallback: 'gemma',
-        fallbackModel: 'gemma-2-27b-it',
+        fallback: 'openai',
+        fallbackModel: 'gpt-5-mini',
         reason: 'Default routing for unknown task'
       };
     }
@@ -142,34 +131,21 @@ class EnhancedIntelligentAIService implements EnhancedIntelligentAIService {
 
   private async executeTask(taskType: string, data: any, options: { priority?: 'speed' | 'quality' | 'cost' } = {}): Promise<any> {
     const route = this.getOptimalRoute(taskType, options.priority);
-    
+
     console.log(`🤖 Enhanced AI Task: ${taskType} → ${route.primary} (${route.primaryModel}) - ${route.reason}`);
 
     try {
-      // Try primary service
-      if (route.primary === 'openai') {
-        return await this.executeOpenAITask(taskType, data, route.primaryModel);
-      } else {
-        return await this.executeGeminiTask(taskType, data, route.primaryModel);
-      }
+      // Try primary OpenAI service
+      return await this.executeOpenAITask(taskType, data, route.primaryModel);
     } catch (error) {
-      if (typeof error?.message === 'string' && error.message.includes('AI_FALLBACK')) {
+      if (error && typeof error === 'object' && 'message' in error && typeof (error as any).message === 'string' && (error as any).message.includes('AI_FALLBACK')) {
       }
-      
+
       try {
-        // Try fallback service
-        if (route.fallback === 'openai') {
-          return await this.executeOpenAITask(taskType, data, route.fallbackModel);
-        } else {
-          try {
-            return this.generateLocalFallback(taskType, data);
-          } catch (fallbackGenerationError) {
-            console.error(`❌ Local fallback generation failed for task: ${taskType}`, fallbackGenerationError);
-            throw new Error(`All AI services and fallbacks failed for task: ${taskType}`);
-          }
-        }
+        // Try fallback OpenAI service
+        return await this.executeOpenAITask(taskType, data, route.fallbackModel);
       } catch (fallbackError) {
-        console.error(`❌ Both AI services failed for task: ${taskType}`, fallbackError);
+        console.error(`❌ OpenAI services failed for task: ${taskType}`, fallbackError);
         try {
           return this.generateLocalFallback(taskType, data);
         } catch (fallbackGenerationError) {
@@ -186,47 +162,31 @@ class EnhancedIntelligentAIService implements EnhancedIntelligentAIService {
         return await this.openaiService.analyzeContact(data, model);
       case 'email-generation':
         return await this.openaiService.generateEmail(data.contact, data.context, model);
-      case 'insights':
-        return await this.openaiService.getInsights(data, model);
       case 'deal-summary':
         return await this.openaiService.generateDealSummary(data, model);
       case 'next-actions':
         return await this.openaiService.suggestNextActions(data, model);
+      case 'insights':
+        return await this.openaiService.getInsights(data, model);
       case 'psychological-profile':
         return await this.openaiService.generatePsychologicalProfile(data, model);
       case 'detailed-score-analysis':
         return await this.openaiService.generateDetailedScoreAnalysis(data, model);
+      // For unsupported tasks, use fallback
+      case 'company-research':
+      case 'contact-research':
+      case 'social-media-discovery':
+      case 'app-enrichment':
+      case 'channel-identification':
+      case 'sales-coaching':
+      case 'objection-handling':
+      case 'conversation-analysis':
       default:
-        throw new Error(`Unsupported OpenAI task: ${taskType}`);
+        console.log(`Task ${taskType} not supported by OpenAI service, using fallback`);
+        return this.generateLocalFallback(taskType, data);
     }
   }
 
-  private async executeGeminiTask(taskType: string, data: any, model: string): Promise<any> {
-    switch (taskType) {
-      case 'contact-analysis':
-        return await this.geminiService.analyzeContact(data, model);
-      case 'email-generation':
-        return await this.geminiService.generateEmail(data.contact, data.context, model);
-      case 'company-research':
-        return await this.geminiService.researchCompany(data.companyName, data.domain, model);
-      case 'contact-research':
-        return await this.geminiService.findContactInfo(data.personName, data.companyName, model);
-      case 'deal-summary':
-        return await this.geminiService.generateDealSummary(data, model);
-      case 'next-actions':
-        return await this.geminiService.suggestNextActions(data, model);
-      case 'insights':
-        return await this.geminiService.getInsights(data, model);
-      case 'social-media-discovery':
-        return await this.geminiService.discoverSocialChannels(data, model);
-      case 'app-enrichment':
-        return await this.geminiService.enrichAppData(data, model);
-      case 'channel-identification':
-        return await this.geminiService.identifyChannels(data, model);
-      default:
-        throw new Error(`Unsupported Gemini task: ${taskType}`);
-    }
-  }
 
   private generateLocalFallback(taskType: string, data: any): any {
     console.log(`🔄 Using local fallback for ${taskType}`);
@@ -336,7 +296,7 @@ Best regards,
       return {
         overall: 'down' as const,
         availableProviders: [],
-        error: error.message || 'System status check failed',
+        error: (error && typeof error === 'object' && 'message' in error) ? (error as any).message : 'System status check failed',
         routing: []
       };
     }
@@ -349,6 +309,188 @@ Best regards,
       fallbackModel: `${route.fallback} (${route.fallbackModel})`,
       reason: route.reason
     }));
+  }
+
+  // GPT-5 Enhanced methods with web search and citations
+  async analyzeContactWithResearch(contact: any, includeWebSearch: boolean = false, priority: 'speed' | 'quality' | 'cost' = 'quality'): Promise<any> {
+    try {
+      let analysis = await this.analyzeContact(contact, priority);
+
+      if (includeWebSearch) {
+        console.log(`🔍 Enhancing contact analysis with web search for ${contact.name}`);
+
+        const webSearchService = getWebSearchService();
+        const searchQuery = `${contact.name} ${contact.title} ${contact.company} professional background`;
+
+        const searchResults = await webSearchService.searchWithAI(
+          searchQuery,
+          'You are a research assistant. Find professional information about this contact.',
+          `Research this professional: ${contact.name}, ${contact.title} at ${contact.company}. Find their background, achievements, and professional information.`,
+          {
+            contextSize: 'medium',
+            maxResults: 5,
+            includeSources: true
+          }
+        );
+
+        // Enhance the analysis with web search results
+        analysis.webResearch = {
+          sources: searchResults.citations,
+          searchTime: searchResults.searchTime,
+          query: searchQuery
+        };
+
+        // Add citation tracking
+        const citationService = getCitationService();
+        await citationService.trackCitations('contact', contact.id, searchResults.citations);
+      }
+
+      return analysis;
+    } catch (error) {
+      console.error('Contact analysis with research failed:', error);
+      return await this.analyzeContact(contact, priority);
+    }
+  }
+
+  async researchCompanyWithCitations(companyName: string, industry?: string, priority: 'speed' | 'quality' | 'cost' = 'quality'): Promise<any> {
+    try {
+      console.log(`🏢 Researching company with citations: ${companyName}`);
+
+      const webSearchService = getWebSearchService();
+      const searchQuery = `${companyName} ${industry || ''} company information business overview`;
+
+      const searchResults = await webSearchService.searchWithAI(
+        searchQuery,
+        'You are a business research analyst. Provide comprehensive company information with citations.',
+        `Research this company: ${companyName}. Provide business overview, industry position, recent developments, and key information.`,
+        {
+          contextSize: 'high',
+          maxResults: 8,
+          includeSources: true
+        }
+      );
+
+      // Create enhanced company research data
+      const companyData = {
+        name: companyName,
+        industry: industry || 'Unknown',
+        searchResults: searchResults.results,
+        citations: searchResults.citations,
+        searchTime: searchResults.searchTime,
+        generatedAt: new Date().toISOString(),
+        aiProvider: 'GPT-5 with Web Search'
+      };
+
+      // Track citations
+      const citationService = getCitationService();
+      await citationService.trackCitations('company', companyName, searchResults.citations);
+
+      return companyData;
+    } catch (error) {
+      console.error('Company research with citations failed:', error);
+      return this.generateLocalFallback('company-research', { companyName, industry });
+    }
+  }
+
+  async generateEmailWithPersonalization(contact: any, context?: string, includeResearch: boolean = false, priority: 'speed' | 'quality' | 'cost' = 'quality'): Promise<string> {
+    try {
+      let emailContext = context;
+
+      if (includeResearch) {
+        console.log(`📧 Enhancing email with research for ${contact.name}`);
+
+        const webSearchService = getWebSearchService();
+        const searchQuery = `${contact.name} ${contact.company} recent news professional background`;
+
+        const searchResults = await webSearchService.searchWithAI(
+          searchQuery,
+          'You are a sales research assistant. Find personalized information for email outreach.',
+          `Find recent information about ${contact.name} at ${contact.company} that could be relevant for personalized outreach.`,
+          {
+            contextSize: 'medium',
+            maxResults: 3,
+            includeSources: true
+          }
+        );
+
+        // Add research context to email generation
+        const researchContext = searchResults.results.map(r => r.snippet).join(' ');
+        emailContext = `${context || ''}\n\nRecent research: ${researchContext}`.trim();
+      }
+
+      return await this.generateEmail(contact, emailContext, priority);
+    } catch (error) {
+      console.error('Email generation with personalization failed:', error);
+      return await this.generateEmail(contact, context, priority);
+    }
+  }
+
+  async analyzeDealWithMarketResearch(dealData: any, includeCompetitorAnalysis: boolean = false, priority: 'speed' | 'quality' | 'cost' = 'quality'): Promise<any> {
+    try {
+      console.log(`📊 Analyzing deal with market research: ${dealData.title}`);
+
+      const webSearchService = getWebSearchService();
+      const searchQueries = [
+        `${dealData.company} company news recent developments`,
+        `${dealData.company} ${dealData.contact} professional background`
+      ];
+
+      if (includeCompetitorAnalysis) {
+        searchQueries.push(`${dealData.company} competitors market position`);
+      }
+
+      const searchPromises = searchQueries.map(query =>
+        webSearchService.searchWithAI(
+          query,
+          'You are a market research analyst. Provide competitive intelligence and market insights.',
+          `Analyze market position and recent developments for ${dealData.company}.`,
+          {
+            contextSize: 'high',
+            maxResults: 5,
+            includeSources: true
+          }
+        )
+      );
+
+      const searchResults = await Promise.all(searchPromises);
+
+      // Generate enhanced deal summary
+      const dealSummary = await this.generateDealSummary(dealData, priority);
+
+      // Combine with market research
+      const enhancedAnalysis = {
+        ...dealSummary,
+        marketResearch: {
+          companyNews: searchResults[0]?.results || [],
+          contactBackground: searchResults[1]?.results || [],
+          competitorAnalysis: includeCompetitorAnalysis ? searchResults[2]?.results || [] : [],
+          allCitations: searchResults.flatMap(r => r.citations),
+          searchTime: searchResults.reduce((total, r) => total + r.searchTime, 0)
+        },
+        generatedAt: new Date().toISOString(),
+        aiProvider: 'GPT-5 with Market Research'
+      };
+
+      // Track citations
+      const citationService = getCitationService();
+      const allCitations = searchResults.flatMap(r => r.citations);
+      await citationService.trackCitations('deal', dealData.id, allCitations);
+
+      return enhancedAnalysis;
+    } catch (error) {
+      console.error('Deal analysis with market research failed:', error);
+      return await this.generateDealSummary(dealData, priority);
+    }
+  }
+
+  async getCitationsForEntity(entityType: 'contact' | 'deal' | 'company', entityId: string): Promise<any> {
+    try {
+      const citationService = getCitationService();
+      return await citationService.getCitations(entityType, entityId);
+    } catch (error) {
+      console.error('Failed to get citations for entity:', error);
+      return { citations: [], totalCount: 0 };
+    }
   }
 }
 

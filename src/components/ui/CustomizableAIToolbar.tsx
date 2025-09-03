@@ -39,8 +39,11 @@ import {
   Facebook,
   Instagram,
   X,
-  Loader2
+  Loader2,
+  Mic
 } from 'lucide-react';
+import { getAIFunctionOrchestrator } from '../../services/aiFunctionOrchestrator';
+import { VoiceAssistant, VoiceAssistantButton } from './VoiceAssistant';
 
 interface QuickAIButtonProps {
   icon: React.ComponentType<any>;
@@ -103,15 +106,15 @@ const iconMap: Record<string, React.ComponentType<any>> = {
 };
 
 const toolMapping: Record<string, string> = {
-  'leadScoring': 'business-analyzer',
-  'emailPersonalization': 'email-composer', 
-  'contactEnrichment': 'smart-search',
-  'dealRiskAssessment': 'business-analyzer',
-  'nextBestAction': 'business-analyzer',
-  'proposalGeneration': 'proposal-generator',
-  'businessIntelligence': 'smart-search',
-  'companyHealthScoring': 'business-analyzer',
-  'opportunityIdentification': 'business-analyzer'
+  'leadScoring': 'analyze_contact_profile',
+  'emailPersonalization': 'generate_personalized_email',
+  'contactEnrichment': 'enrich_contact_data',
+  'dealRiskAssessment': 'comprehensive_deal_analysis',
+  'nextBestAction': 'comprehensive_deal_analysis',
+  'proposalGeneration': 'generate_personalized_email',
+  'businessIntelligence': 'enrich_contact_data',
+  'companyHealthScoring': 'comprehensive_deal_analysis',
+  'opportunityIdentification': 'comprehensive_deal_analysis'
 };
 
 const defaultQuickActions = [
@@ -158,24 +161,76 @@ const QuickAIButton: React.FC<QuickAIButtonProps> = ({
   };
 
   const executeAITool = async (toolName: string, entityType: string, entityData: any): Promise<string> => {
-    // Simulate AI tool execution
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    const orchestrator = getAIFunctionOrchestrator();
+    const mappedFunctionName = toolMapping[toolName] || toolName;
 
-    switch (toolName) {
-      case 'leadScoring':
-        return `Lead score updated to ${Math.floor(Math.random() * 40) + 60}/100 based on engagement patterns.`;
+    try {
+      // Prepare parameters based on entity type and function
+      const parameters: Record<string, any> = {
+        contactData: entityData,
+        dealData: entityData
+      };
 
-      case 'emailPersonalization':
-        return `Generated personalized email subject: "Following up on our ${entityData.company} discussion"`;
+      // Add specific parameters based on function
+      if (mappedFunctionName === 'analyze_contact_profile') {
+        parameters.contactId = entityData.id;
+        parameters.includeWebResearch = true;
+        parameters.depth = 'comprehensive';
+      } else if (mappedFunctionName === 'enrich_contact_data') {
+        parameters.contactId = entityData.id;
+        parameters.includeSocialProfiles = true;
+        parameters.includeCompanyResearch = true;
+      } else if (mappedFunctionName === 'comprehensive_deal_analysis') {
+        parameters.dealId = entityData.id;
+        parameters.includeMarketResearch = true;
+        parameters.includeStakeholderAnalysis = true;
+      } else if (mappedFunctionName === 'generate_personalized_email') {
+        parameters.contactId = entityData.id;
+        parameters.context = 'follow-up';
+        parameters.tone = 'professional';
+      }
 
-      case 'contactEnrichment':
-        return `Enriched contact with LinkedIn profile and recent company news.`;
+      // Execute the AI function
+      const result = await orchestrator.executeFunction(mappedFunctionName, parameters, {
+        userId: 'current-user', // This should come from auth context
+        componentId: 'customizable-ai-toolbar',
+        entityType: entityType as 'contact' | 'deal' | 'company',
+        entityId: entityData.id,
+        timestamp: Date.now()
+      });
 
-      case 'businessIntelligence':
-        return `Identified 3 key insights: market trends, competitor analysis, and growth opportunities.`;
+      if (result.success) {
+        // Format the result for display
+        return formatAIResult(mappedFunctionName, result, entityData);
+      } else {
+        throw new Error(result.error || 'AI function execution failed');
+      }
+    } catch (error) {
+      console.error(`AI Function execution failed for ${toolName}:`, error);
+      throw error;
+    }
+  };
+
+  const formatAIResult = (functionName: string, result: any, entityData: any): string => {
+    switch (functionName) {
+      case 'analyze_contact_profile':
+        const analysis = result.data;
+        return `Contact analysis complete. Score: ${analysis?.score || 'N/A'}/100. ${analysis?.insights?.length || 0} insights generated.`;
+
+      case 'enrich_contact_data':
+        const enrichment = result.data;
+        return `Contact enriched with ${enrichment?.citations?.length || 0} sources. Confidence: ${Math.round((enrichment?.confidence || 0) * 100)}%.`;
+
+      case 'comprehensive_deal_analysis':
+        const dealAnalysis = result.data;
+        return `Deal analysis complete. Probability: ${dealAnalysis?.probability || 'N/A'}%. ${dealAnalysis?.insights?.length || 0} insights and ${dealAnalysis?.recommendations?.length || 0} recommendations generated.`;
+
+      case 'generate_personalized_email':
+        const email = result.data;
+        return `Email generated: "${email?.subject || 'Subject generated'}" with personalized content for ${entityData.name}.`;
 
       default:
-        return `Executed ${toolName} successfully on ${entityType}.`;
+        return `AI function ${functionName} executed successfully.`;
     }
   };
 
@@ -391,59 +446,83 @@ export const CustomizableAIToolbar: React.FC<CustomizableAIToolbarProps> = ({
 }) => {
   const [showCustomizeModal, setShowCustomizeModal] = useState(false);
   const [customQuickActions, setCustomQuickActions] = useState(defaultQuickActions);
+  const [showVoiceAssistant, setShowVoiceAssistant] = useState(false);
 
   return (
-    <div className="space-y-3">
-      {/* AI Goals Button */}
-      <AIGoalsButton
-        entityType={entityType}
-        entityId={entityId}
-        entityData={entityData}
-        size={size}
-        variant="primary"
-        className="w-full justify-center"
-      />
+    <>
+      <div className="space-y-3">
+        {/* Voice Assistant Button */}
+        <div className="flex items-center justify-between">
+          <VoiceAssistantButton
+            onClick={() => setShowVoiceAssistant(true)}
+            isActive={showVoiceAssistant}
+            className="flex-1 mr-2"
+          />
+          <span className="text-xs text-gray-500 dark:text-gray-400">
+            Voice Commands
+          </span>
+        </div>
 
-      {/* Quick AI Actions Grid */}
-      <div className="grid grid-cols-2 gap-1.5">
-        {customQuickActions.map((action, index) => {
-          const IconComponent = iconMap[action.icon as keyof typeof iconMap];
-          return (
-            <QuickAIButton
-              key={index}
-              icon={IconComponent}
-              label={action.label}
-              toolName={action.toolName}
-              entityType={entityType}
-              entityId={entityId}
-              entityData={entityData}
-              size={size}
-              variant={action.variant as 'primary' | 'secondary'}
-              className="w-full justify-center text-center"
-            />
-          );
-        })}
+        {/* AI Goals Button */}
+        <AIGoalsButton
+          entityType={entityType}
+          entityId={entityId}
+          entityData={entityData}
+          size={size}
+          variant="primary"
+          className="w-full justify-center"
+        />
+
+        {/* Quick AI Actions Grid */}
+        <div className="grid grid-cols-2 gap-1.5">
+          {customQuickActions.map((action, index) => {
+            const IconComponent = iconMap[action.icon as keyof typeof iconMap];
+            return (
+              <QuickAIButton
+                key={index}
+                icon={IconComponent}
+                label={action.label}
+                toolName={action.toolName}
+                entityType={entityType}
+                entityId={entityId}
+                entityData={entityData}
+                size={size}
+                variant={action.variant as 'primary' | 'secondary'}
+                className="w-full justify-center text-center"
+              />
+            );
+          })}
+        </div>
+
+        {/* Customize Button */}
+        {showCustomizeButton && (
+          <div className="flex items-center justify-between">
+            <button
+              onClick={() => setShowCustomizeModal(true)}
+              className="flex-1 flex items-center justify-center py-2 px-3 bg-gradient-to-r from-indigo-50 to-purple-50 text-indigo-700 rounded-lg hover:from-indigo-100 hover:to-purple-100 text-sm font-medium transition-all duration-200 border border-indigo-200/50 shadow-sm border-dashed mr-2"
+            >
+              <Plus size={14} className="mr-2" />
+              Add Custom AI Goals
+            </button>
+            <button
+              onClick={() => setShowCustomizeModal(true)}
+              className="p-2 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+              title="Customize buttons"
+            >
+              <Settings size={16} />
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* Customize Button */}
-      {showCustomizeButton && (
-        <div className="flex items-center justify-between">
-          <button
-            onClick={() => setShowCustomizeModal(true)}
-            className="flex-1 flex items-center justify-center py-2 px-3 bg-gradient-to-r from-indigo-50 to-purple-50 text-indigo-700 rounded-lg hover:from-indigo-100 hover:to-purple-100 text-sm font-medium transition-all duration-200 border border-indigo-200/50 shadow-sm border-dashed mr-2"
-          >
-            <Plus size={14} className="mr-2" />
-            Add Custom AI Goals
-          </button>
-          <button
-            onClick={() => setShowCustomizeModal(true)}
-            className="p-2 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-            title="Customize buttons"
-          >
-            <Settings size={16} />
-          </button>
-        </div>
-      )}
-    </div>
+      {/* Voice Assistant */}
+      <VoiceAssistant
+        isOpen={showVoiceAssistant}
+        onClose={() => setShowVoiceAssistant(false)}
+        entityType={entityType as 'contact' | 'deal' | 'company'}
+        entityId={entityId}
+        entityData={entityData}
+      />
+    </>
   );
 };

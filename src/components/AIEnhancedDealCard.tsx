@@ -51,6 +51,8 @@ interface AIEnhancedDealCardProps {
   onToggleFavorite?: (deal: Deal) => Promise<void>;
   onFindNewImage?: (deal: Deal) => Promise<void>;
   onEdit?: (deal: Deal) => void;
+  isOpenAIFunctionCalling?: boolean;
+  openAIResult?: any;
 }
 
 export const AIEnhancedDealCard: React.FC<AIEnhancedDealCardProps> = ({
@@ -64,7 +66,9 @@ export const AIEnhancedDealCard: React.FC<AIEnhancedDealCardProps> = ({
   isAnalyzing = false,
   onToggleFavorite,
   onFindNewImage,
-  onEdit
+  onEdit,
+  isOpenAIFunctionCalling = false,
+  openAIResult
 }) => {
   const [showAIInsights, setShowAIInsights] = useState(false);
   const [localAnalyzing, setLocalAnalyzing] = useState(false);
@@ -139,21 +143,65 @@ export const AIEnhancedDealCard: React.FC<AIEnhancedDealCardProps> = ({
     return deal.contactAvatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}&backgroundColor=3b82f6,8b5cf6,f59e0b,10b981,ef4444`;
   };
 
-  const handleCardClick = (e: React.MouseEvent) => {
+  const handleCardClick = async (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest('button') || (e.target as HTMLElement).closest('input') || (e.target as HTMLElement).closest('a')) {
       return;
     }
+
+    // Trigger AI analysis when card is clicked (if probability is low or not analyzed)
+    if (deal.probability < 70) {
+      try {
+        const { getAIFunctionOrchestrator } = await import('../services/aiFunctionOrchestrator');
+        const orchestrator = getAIFunctionOrchestrator();
+
+        // Run comprehensive deal analysis in background
+        setTimeout(async () => {
+          await orchestrator.executeFunction('comprehensive_deal_analysis', {
+            dealId: deal.id,
+            includeMarketResearch: false, // Quick analysis for card click
+            includeStakeholderAnalysis: false
+          }, {
+            userId: 'current-user',
+            componentId: 'deal-card-click',
+            entityType: 'deal',
+            entityId: deal.id,
+            timestamp: Date.now()
+          });
+        }, 500); // Small delay to not block UI
+      } catch (error) {
+        console.error('Background AI analysis failed:', error);
+      }
+    }
+
     onClick();
   };
 
   const handleAnalyzeClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!onAnalyze || isAnalyzing || localAnalyzing) return;
-    
+
     setLocalAnalyzing(true);
     try {
+      // Call existing analyze function
       await onAnalyze(deal);
-      setLastEnrichment({ 
+
+      // Additionally trigger AI function orchestrator
+      const { getAIFunctionOrchestrator } = await import('../services/aiFunctionOrchestrator');
+      const orchestrator = getAIFunctionOrchestrator();
+
+      await orchestrator.executeFunction('comprehensive_deal_analysis', {
+        dealId: deal.id,
+        includeMarketResearch: true,
+        includeStakeholderAnalysis: true
+      }, {
+        userId: 'current-user',
+        componentId: 'deal-card-analyze',
+        entityType: 'deal',
+        entityId: deal.id,
+        timestamp: Date.now()
+      });
+
+      setLastEnrichment({
         confidence: Math.max(deal.probability, 75),
         aiProvider: 'Hybrid AI (GPT-4o + Gemini)',
         timestamp: new Date()
@@ -168,11 +216,29 @@ export const AIEnhancedDealCard: React.FC<AIEnhancedDealCardProps> = ({
   const handleAIEnrichClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!onAIEnrich || localEnriching) return;
-    
+
     setLocalEnriching(true);
     try {
+      // Call existing enrich function
       await onAIEnrich(deal);
-      setLastEnrichment({ 
+
+      // Additionally trigger AI function orchestrator for enrichment
+      const { getAIFunctionOrchestrator } = await import('../services/aiFunctionOrchestrator');
+      const orchestrator = getAIFunctionOrchestrator();
+
+      await orchestrator.executeFunction('enrich_contact_data', {
+        contactId: deal.contact, // Use contact from deal
+        includeSocialProfiles: true,
+        includeCompanyResearch: true
+      }, {
+        userId: 'current-user',
+        componentId: 'deal-card-enrich',
+        entityType: 'deal',
+        entityId: deal.id,
+        timestamp: Date.now()
+      });
+
+      setLastEnrichment({
         confidence: Math.min(deal.probability + 10, 95),
         aiProvider: 'OpenAI GPT-4o',
         timestamp: new Date()
@@ -209,8 +275,29 @@ export const AIEnhancedDealCard: React.FC<AIEnhancedDealCardProps> = ({
     }
   };
 
-  const handleEmailClick = (e: React.MouseEvent) => {
+  const handleEmailClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
+
+    // Trigger AI email generation before opening composer
+    try {
+      const { getAIFunctionOrchestrator } = await import('../services/aiFunctionOrchestrator');
+      const orchestrator = getAIFunctionOrchestrator();
+
+      await orchestrator.executeFunction('generate_personalized_email', {
+        contactId: deal.contact,
+        context: 'deal-followup',
+        tone: 'professional'
+      }, {
+        userId: 'current-user',
+        componentId: 'deal-card-email',
+        entityType: 'deal',
+        entityId: deal.id,
+        timestamp: Date.now()
+      });
+    } catch (error) {
+      console.error('AI email generation failed:', error);
+    }
+
     setShowEmailComposer(true);
   };
 
@@ -485,17 +572,28 @@ export const AIEnhancedDealCard: React.FC<AIEnhancedDealCardProps> = ({
         </div>
 
         {/* AI Enhancement Notice - New Feature */}
-        {lastEnrichment && (
+        {(lastEnrichment || isOpenAIFunctionCalling) && (
           <div className="mb-4 p-2 bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/30 dark:to-blue-900/30 rounded-lg border border-purple-200 dark:border-purple-700 shadow-sm">
             <div className="flex items-center justify-center space-x-2">
-              <Sparkles className="w-3 h-3 text-purple-600 dark:text-purple-400" />
-              <span className="text-xs font-medium text-purple-900 dark:text-purple-200">
-                AI Enhanced{lastEnrichment.aiProvider ? ` (${lastEnrichment.aiProvider})` : ''}
-              </span>
-              {lastEnrichment.confidence && (
-                <span className="text-xs text-purple-700 dark:text-purple-300">
-                  ({lastEnrichment.confidence}% confidence)
-                </span>
+              {isOpenAIFunctionCalling ? (
+                <>
+                  <Loader2 className="w-3 h-3 text-purple-600 dark:text-purple-400 animate-spin" />
+                  <span className="text-xs font-medium text-purple-900 dark:text-purple-200">
+                    OpenAI Function Calling...
+                  </span>
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-3 h-3 text-purple-600 dark:text-purple-400" />
+                  <span className="text-xs font-medium text-purple-900 dark:text-purple-200">
+                    AI Enhanced{lastEnrichment.aiProvider ? ` (${lastEnrichment.aiProvider})` : ''}
+                  </span>
+                  {lastEnrichment.confidence && (
+                    <span className="text-xs text-purple-700 dark:text-purple-300">
+                      ({lastEnrichment.confidence}% confidence)
+                    </span>
+                  )}
+                </>
               )}
             </div>
           </div>

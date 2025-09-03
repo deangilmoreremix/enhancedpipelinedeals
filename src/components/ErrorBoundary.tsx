@@ -1,5 +1,6 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { AlertTriangle, RefreshCw, Home, Bug } from 'lucide-react';
+import { reportError } from '../services/errorReportingService';
 
 interface Props {
   children: ReactNode;
@@ -54,18 +55,28 @@ export class ErrorBoundary extends Component<Props, State> {
     this.logErrorToService(error, errorInfo);
   }
 
-  private logErrorToService(error: Error, errorInfo: ErrorInfo) {
-    // TODO: Integrate with error reporting service (Sentry, LogRocket, etc.)
-    const errorReport = {
-      message: error.message,
-      stack: error.stack,
-      componentStack: errorInfo.componentStack,
-      timestamp: new Date().toISOString(),
-      userAgent: navigator.userAgent,
-      url: window.location.href
-    };
-    
-    console.warn('📊 Error Report (TODO: Send to monitoring service):', errorReport);
+  private async logErrorToService(error: Error, errorInfo: ErrorInfo) {
+    try {
+      await reportError(error, {
+        componentStack: errorInfo.componentStack || undefined,
+        additionalData: {
+          errorId: this.state.errorId,
+          errorBoundaryLevel: this.props.level || 'component',
+          timestamp: new Date().toISOString(),
+          url: window.location.href,
+          userAgent: navigator.userAgent
+        }
+      });
+    } catch (reportingError) {
+      // Fallback to console if error reporting fails
+      console.error('🚨 Error Boundary - Failed to report error:', reportingError);
+      console.error('🚨 Original Error:', {
+        message: error.message,
+        stack: error.stack,
+        componentStack: errorInfo.componentStack,
+        errorId: this.state.errorId
+      });
+    }
   }
 
   private handleReset = () => {

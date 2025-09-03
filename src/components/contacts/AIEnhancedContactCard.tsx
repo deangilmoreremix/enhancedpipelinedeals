@@ -130,10 +130,36 @@ export const AIEnhancedContactCard: React.FC<AIEnhancedContactCardProps> = ({
     contact.aiScore ? { confidence: contact.aiScore } : null
   );
 
-  const handleCardClick = (e: React.MouseEvent) => {
+  const handleCardClick = async (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest('button') || (e.target as HTMLElement).closest('input') || (e.target as HTMLElement).closest('a')) {
       return;
     }
+
+    // Trigger AI analysis when card is clicked (if no AI score exists)
+    if (!contact.aiScore) {
+      try {
+        const { getAIFunctionOrchestrator } = await import('../../services/aiFunctionOrchestrator');
+        const orchestrator = getAIFunctionOrchestrator();
+
+        // Run contact analysis in background
+        setTimeout(async () => {
+          await orchestrator.executeFunction('analyze_contact_profile', {
+            contactId: contact.id,
+            includeWebResearch: false, // Quick analysis for card click
+            depth: 'basic'
+          }, {
+            userId: 'current-user',
+            componentId: 'contact-card-click',
+            entityType: 'contact',
+            entityId: contact.id,
+            timestamp: Date.now()
+          });
+        }, 500); // Small delay to not block UI
+      } catch (error) {
+        console.error('Background AI analysis failed:', error);
+      }
+    }
+
     onClick();
   };
 

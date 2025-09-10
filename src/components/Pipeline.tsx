@@ -110,8 +110,11 @@ const Pipeline: React.FC = () => {
   // Real-time subscriptions
   useEffect(() => {
     if (!dataSyncService.isDatabaseConnected()) {
+      console.log('🔄 Pipeline: Database not connected, skipping subscription setup');
       return;
     }
+
+    console.log('🔄 Pipeline: Setting up real-time subscription for dataSource:', dataSource);
 
     const supabase = getSupabaseService();
 
@@ -119,23 +122,32 @@ const Pipeline: React.FC = () => {
     const dealsSubscription = supabase.subscribeToDeals((payload: any) => {
       const { eventType, new: newRecord, old: oldRecord } = payload;
 
+      console.log('📡 Pipeline: Received real-time update:', eventType, newRecord?.id || oldRecord?.id);
+
       setDeals(prev => {
         switch (eventType) {
           case 'INSERT':
+            console.log('📡 Pipeline: Inserting deal:', newRecord.id);
             return { ...prev, [newRecord.id]: newRecord };
           case 'UPDATE':
+            console.log('📡 Pipeline: Updating deal:', newRecord.id);
             return { ...prev, [newRecord.id]: newRecord };
           case 'DELETE':
+            console.log('📡 Pipeline: Deleting deal:', oldRecord.id);
             const newDeals = { ...prev };
             delete newDeals[oldRecord.id];
             return newDeals;
           default:
+            console.log('📡 Pipeline: Unknown event type:', eventType);
             return prev;
         }
       });
     });
 
+    console.log('✅ Pipeline: Real-time subscription established');
+
     return () => {
+      console.log('🔄 Pipeline: Cleaning up real-time subscription');
       dealsSubscription.unsubscribe();
     };
   }, [dataSource]);

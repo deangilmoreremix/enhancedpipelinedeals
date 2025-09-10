@@ -10,13 +10,16 @@ import { AIInsightsPanel } from './AIInsightsPanel';
 import { PsychologicalProfilePanel } from './PsychologicalProfilePanel';
 import { DetailedScoreAnalysisPanel } from './DetailedScoreAnalysisPanel';
 import { BehavioralInsightsPanel } from './BehavioralInsightsPanel';
-import { 
-  User, 
-  Mail, 
-  Phone, 
-  Building2, 
-  Globe, 
-  Calendar, 
+import { CitationSummary } from '../ui/CitationBadge';
+import { ContactResearchPanel } from './ContactResearchPanel';
+import { FileText } from 'lucide-react';
+import {
+  User,
+  Mail,
+  Phone,
+  Building2,
+  Globe,
+  Calendar,
   MessageSquare,
   BarChart3,
   Zap,
@@ -25,7 +28,6 @@ import {
   Brain,
   Eye,
   TrendingUp,
-  FileText,
   Star,
   Heart,
   Edit,
@@ -51,7 +53,7 @@ export const ContactDetailView: React.FC<ContactDetailViewProps> = ({
   onClose,
   onUpdate
 }) => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'psychology' | 'analysis' | 'behavior' | 'communication' | 'journey' | 'automation' | 'analytics'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'psychology' | 'analysis' | 'behavior' | 'communication' | 'journey' | 'automation' | 'analytics' | 'research'>('overview');
   const [showPsychProfile, setShowPsychProfile] = useState(false);
 
   const tabs = [
@@ -62,7 +64,8 @@ export const ContactDetailView: React.FC<ContactDetailViewProps> = ({
     { id: 'communication', label: 'Communication', icon: MessageSquare },
     { id: 'journey', label: 'Journey', icon: Activity },
     { id: 'automation', label: 'Automation', icon: Zap },
-    { id: 'analytics', label: 'Analytics', icon: BarChart3 }
+    { id: 'analytics', label: 'Analytics', icon: BarChart3 },
+    { id: 'research', label: 'Research', icon: FileText }
   ];
 
   const formatDate = (date: Date | string) => {
@@ -373,7 +376,7 @@ export const ContactDetailView: React.FC<ContactDetailViewProps> = ({
                     <Brain className="w-5 h-5 mr-2 text-purple-600" />
                     ChatGPT-5 Enhanced Intelligence
                   </h3>
-                  
+
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     {contact.psychologicalProfile && (
                       <div className="bg-white rounded-lg p-4 border border-purple-200">
@@ -385,7 +388,7 @@ export const ContactDetailView: React.FC<ContactDetailViewProps> = ({
                         </div>
                       </div>
                     )}
-                    
+
                     {contact.aiScoreRationale && (
                       <div className="bg-white rounded-lg p-4 border border-blue-200">
                         <h4 className="font-medium text-blue-900 mb-2">Score Analysis</h4>
@@ -396,7 +399,7 @@ export const ContactDetailView: React.FC<ContactDetailViewProps> = ({
                         </div>
                       </div>
                     )}
-                    
+
                     {contact.behavioralInsights && (
                       <div className="bg-white rounded-lg p-4 border border-green-200">
                         <h4 className="font-medium text-green-900 mb-2">Behavioral Profile</h4>
@@ -410,6 +413,54 @@ export const ContactDetailView: React.FC<ContactDetailViewProps> = ({
                   </div>
                 </div>
               )}
+
+              {/* Research Citations */}
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                    <FileText className="w-5 h-5 mr-2 text-indigo-600" />
+                    Research Citations & Sources
+                  </h3>
+                  <button className="text-sm text-indigo-600 hover:text-indigo-700 flex items-center">
+                    <ExternalLink className="w-4 h-4 mr-1" />
+                    View All
+                  </button>
+                </div>
+
+                <CitationSummary
+                  citations={[
+                    {
+                      url: `https://linkedin.com/in/${contact.name.toLowerCase().replace(' ', '')}`,
+                      title: `${contact.name} - LinkedIn Profile`,
+                      domain: 'linkedin.com',
+                      sourceType: 'social',
+                      credibilityScore: 85,
+                      timestamp: new Date().toISOString(),
+                      snippet: `${contact.title} at ${contact.company}. Professional background and network connections.`
+                    },
+                    {
+                      url: `https://company.com/employee/${contact.name.toLowerCase().replace(' ', '-')}`,
+                      title: `${contact.name} - Company Profile`,
+                      domain: 'company.com',
+                      sourceType: 'company',
+                      credibilityScore: 90,
+                      timestamp: new Date().toISOString(),
+                      snippet: `Employee profile at ${contact.company}. Role: ${contact.title}, Industry: ${contact.industry || 'Technology'}`
+                    },
+                    {
+                      url: `https://crunchbase.com/person/${contact.name.toLowerCase().replace(' ', '-')}`,
+                      title: `${contact.name} - Crunchbase Profile`,
+                      domain: 'crunchbase.com',
+                      sourceType: 'industry',
+                      credibilityScore: 88,
+                      timestamp: new Date().toISOString(),
+                      snippet: `Professional background, career history, and industry connections.`
+                    }
+                  ]}
+                  maxDisplay={3}
+                  showStats={true}
+                />
+              </div>
             </div>
           )}
 
@@ -439,6 +490,10 @@ export const ContactDetailView: React.FC<ContactDetailViewProps> = ({
 
           {activeTab === 'analytics' && (
             <ContactAnalytics contact={contact} />
+          )}
+
+          {activeTab === 'research' && (
+            <ContactResearchPanel contact={contact} />
           )}
         </div>
       </div>

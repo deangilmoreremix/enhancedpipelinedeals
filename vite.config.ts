@@ -18,6 +18,9 @@ export default defineConfig({
       },
     }),
   ],
+  optimizeDeps: {
+    exclude: ['openai']
+  },
   build: { target: "esnext", modulePreload: false, cssCodeSplit: true },
   define: { global: "globalThis" },
   server: { host: true, port: 5176 },

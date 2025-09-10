@@ -230,77 +230,178 @@ class CRMBridge {
     }
   }
 
-  // === METHODS TO IMPLEMENT IN YOUR REACT APP ===
+  // === IMPLEMENTED LOCAL STATE UPDATE METHODS ===
 
   private updateLocalPipeline(pipelineData: PipelineData) {
-    // TODO: Implement this method to update your React app's state
-    // Example:
-    // setPipelineData(pipelineData);
-    console.log('📝 TODO: Update local pipeline with:', pipelineData);
+    console.log('🔄 Updating local pipeline with CRM data:', pipelineData);
+
+    // Store pipeline data in localStorage for persistence
+    try {
+      localStorage.setItem('crm_pipeline_data', JSON.stringify(pipelineData));
+      console.log('💾 Pipeline data saved to localStorage');
+    } catch (error) {
+      console.error('❌ Failed to save pipeline data to localStorage:', error);
+    }
+
+    // Emit event for React components to update their state
+    this.emit('pipelineUpdated', pipelineData);
   }
 
   private updateLocalDeals(deals: any[]) {
-    // TODO: Implement this method to sync all deals
-    // Example:
-    // setDeals(deals);
-    console.log('📝 TODO: Update local deals with:', deals);
+    console.log('🔄 Syncing deals from CRM:', deals.length, 'deals');
+
+    // Store deals in localStorage for persistence
+    try {
+      localStorage.setItem('crm_deals', JSON.stringify(deals));
+      console.log('💾 Deals data saved to localStorage');
+    } catch (error) {
+      console.error('❌ Failed to save deals to localStorage:', error);
+    }
+
+    // Emit event for React components to update their state
+    this.emit('dealsUpdated', deals);
   }
 
   private updateLocalDeal(dealId: string, updates: any) {
-    // TODO: Implement this method to update a specific deal
-    // Example:
-    // setDeals(prev => prev.map(deal => 
-    //   deal.id === dealId ? { ...deal, ...updates } : deal
-    // ));
-    console.log('📝 TODO: Update local deal:', dealId, updates);
+    console.log('✏️ Updating local deal:', dealId, updates);
+
+    try {
+      // Get current deals from localStorage
+      const storedDeals = localStorage.getItem('crm_deals');
+      if (storedDeals) {
+        const deals = JSON.parse(storedDeals);
+        const updatedDeals = deals.map((deal: any) =>
+          deal.id === dealId ? { ...deal, ...updates } : deal
+        );
+
+        // Save updated deals back to localStorage
+        localStorage.setItem('crm_deals', JSON.stringify(updatedDeals));
+        console.log('💾 Updated deal saved to localStorage');
+
+        // Emit event for React components
+        this.emit('dealUpdated', { dealId, updates, updatedDeal: updatedDeals.find((d: any) => d.id === dealId) });
+      }
+    } catch (error) {
+      console.error('❌ Failed to update local deal:', error);
+    }
   }
 
   private addLocalDeal(deal: any) {
-    // TODO: Implement this method to add a new deal
-    // Example:
-    // setDeals(prev => [...prev, deal]);
-    console.log('📝 TODO: Add local deal:', deal);
+    console.log('🆕 Adding new deal from CRM:', deal);
+
+    try {
+      // Get current deals from localStorage
+      const storedDeals = localStorage.getItem('crm_deals');
+      const deals = storedDeals ? JSON.parse(storedDeals) : [];
+
+      // Add new deal
+      const updatedDeals = [...deals, deal];
+
+      // Save updated deals back to localStorage
+      localStorage.setItem('crm_deals', JSON.stringify(updatedDeals));
+      console.log('💾 New deal added to localStorage');
+
+      // Emit event for React components
+      this.emit('dealAdded', deal);
+    } catch (error) {
+      console.error('❌ Failed to add local deal:', error);
+    }
   }
 
   private removeLocalDeal(dealId: string) {
-    // TODO: Implement this method to remove a deal
-    // Example:
-    // setDeals(prev => prev.filter(deal => deal.id !== dealId));
-    console.log('📝 TODO: Remove local deal:', dealId);
+    console.log('🗑️ Removing deal from local state:', dealId);
+
+    try {
+      // Get current deals from localStorage
+      const storedDeals = localStorage.getItem('crm_deals');
+      if (storedDeals) {
+        const deals = JSON.parse(storedDeals);
+        const updatedDeals = deals.filter((deal: any) => deal.id !== dealId);
+
+        // Save updated deals back to localStorage
+        localStorage.setItem('crm_deals', JSON.stringify(updatedDeals));
+        console.log('💾 Deal removed from localStorage');
+
+        // Emit event for React components
+        this.emit('dealRemoved', dealId);
+      }
+    } catch (error) {
+      console.error('❌ Failed to remove local deal:', error);
+    }
   }
 
   private moveLocalDeal(dealId: string, newStage: string, position: number) {
-    // TODO: Implement this method to move a deal between stages
-    // Example:
-    // setDeals(prev => prev.map(deal => 
-    //   deal.id === dealId ? { ...deal, stage: newStage } : deal
-    // ));
-    console.log('📝 TODO: Move local deal:', dealId, 'to', newStage);
+    console.log('↔️ Moving local deal:', dealId, 'to stage:', newStage, 'position:', position);
+
+    try {
+      // Get current deals from localStorage
+      const storedDeals = localStorage.getItem('crm_deals');
+      if (storedDeals) {
+        const deals = JSON.parse(storedDeals);
+        const updatedDeals = deals.map((deal: any) =>
+          deal.id === dealId ? { ...deal, stage: newStage } : deal
+        );
+
+        // Save updated deals back to localStorage
+        localStorage.setItem('crm_deals', JSON.stringify(updatedDeals));
+        console.log('💾 Deal moved and saved to localStorage');
+
+        // Emit event for React components
+        this.emit('dealMoved', { dealId, newStage, position });
+      }
+    } catch (error) {
+      console.error('❌ Failed to move local deal:', error);
+    }
   }
 
   private updateConnectionStatus(connected: boolean, crmInfo: CRMInfo | null = null) {
-    // TODO: Implement this method to show connection status in your UI
-    // Example:
-    // setConnectionStatus({ connected, crmInfo });
-    console.log('📝 TODO: Update connection status:', connected, crmInfo);
+    console.log('🔗 Updating connection status:', connected, crmInfo);
+
+    // Store connection status in localStorage
+    try {
+      const connectionData = { connected, crmInfo, lastUpdated: new Date().toISOString() };
+      localStorage.setItem('crm_connection_status', JSON.stringify(connectionData));
+      console.log('💾 Connection status saved to localStorage');
+    } catch (error) {
+      console.error('❌ Failed to save connection status:', error);
+    }
+
+    // Emit event for React components to update UI
+    this.emit('connectionStatusChanged', { connected, crmInfo });
   }
 
   private getCurrentPipelineData(): PipelineData {
-    // TODO: Implement this method to return your current pipeline data
-    // Example:
-    // return {
-    //   deals: deals,
-    //   stages: ['Lead', 'Qualified', 'Proposal', 'Negotiation', 'Closed Won'],
-    //   totalValue: deals.reduce((sum, deal) => sum + deal.value, 0),
-    //   activeDeals: deals.filter(d => !['Closed Won', 'Closed Lost'].includes(d.stage)).length
-    // };
-    console.log('📝 TODO: Return current pipeline data');
-    return {
-      deals: [],
-      stages: ['Lead', 'Qualified', 'Proposal', 'Negotiation', 'Closed Won', 'Closed Lost'],
-      totalValue: 0,
-      activeDeals: 0
-    };
+    console.log('📊 Getting current pipeline data');
+
+    try {
+      // Get deals from localStorage
+      const storedDeals = localStorage.getItem('crm_deals');
+      const deals = storedDeals ? JSON.parse(storedDeals) : [];
+
+      // Calculate pipeline statistics
+      const totalValue = deals.reduce((sum: number, deal: any) => sum + (deal.value || 0), 0);
+      const activeDeals = deals.filter((deal: any) =>
+        !['Closed Won', 'Closed Lost'].includes(deal.stage)
+      ).length;
+
+      const pipelineData: PipelineData = {
+        deals,
+        stages: ['Lead', 'Qualified', 'Proposal', 'Negotiation', 'Closed Won', 'Closed Lost'],
+        totalValue,
+        activeDeals
+      };
+
+      console.log('📊 Pipeline data calculated:', pipelineData);
+      return pipelineData;
+    } catch (error) {
+      console.error('❌ Failed to get pipeline data:', error);
+      return {
+        deals: [],
+        stages: ['Lead', 'Qualified', 'Proposal', 'Negotiation', 'Closed Won', 'Closed Lost'],
+        totalValue: 0,
+        activeDeals: 0
+      };
+    }
   }
 
   // === PUBLIC API METHODS FOR YOUR REACT APP ===

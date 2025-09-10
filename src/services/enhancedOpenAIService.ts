@@ -16,6 +16,7 @@ interface OpenAIService {
   suggestNextActions: (dealData: any, modelId?: string) => Promise<string[]>;
   generatePsychologicalProfile: (contact: Contact, modelId?: string) => Promise<any>;
   generateDetailedScoreAnalysis: (contact: Contact, modelId?: string) => Promise<any>;
+  generateStreamingAnalysis: (contact: Contact, onChunk?: (chunk: string) => void) => Promise<any>;
   isAvailable: () => Promise<boolean>;
 }
 
@@ -169,57 +170,88 @@ class EnhancedOpenAIService implements OpenAIService {
   async generateEmail(contact: Contact, context?: string, modelId?: string): Promise<string> {
     try {
       const selectedModel = this.getModelId(modelId);
-      console.log(`✉️ Enhanced Email Generation with ${selectedModel}`);
+      console.log(`✉️ Enhanced Email Generation with ${selectedModel} - Advanced Reasoning Mode`);
 
-      const systemMessage = {
+      // Advanced reasoning with structured analysis
+      const analysisMessage = {
         role: 'system',
-        content: `You are an expert sales copywriter using ${selectedModel} with advanced reasoning and creativity. Write high-converting, personalized sales emails that get responses and drive action while maintaining professionalism. Use advanced reasoning to tailor the message based on the contact's profile, role, and company context.`
+        content: `You are an expert sales strategist using ${selectedModel} with advanced reasoning capabilities. First analyze the contact's profile using structured reasoning, then generate a personalized email. Use chain-of-thought reasoning to understand their motivations, challenges, and optimal communication approach.
+
+REASONING FRAMEWORK:
+1. Contact Role Analysis: Evaluate seniority, decision-making power, and likely priorities
+2. Industry Context: Understand sector-specific challenges and opportunities
+3. Communication Strategy: Determine optimal tone, length, and messaging approach
+4. Value Proposition Alignment: Match solution benefits to their specific pain points
+5. Psychological Triggers: Identify emotional and logical drivers for this contact
+6. Competitive Positioning: Consider how to differentiate from alternatives
+7. Timing and Urgency: Assess appropriate level of urgency for their situation
+8. Risk Mitigation: Anticipate potential objections and concerns
+
+Provide your analysis in a structured format before generating the email.`
       };
 
-      const userMessage = {
+      const analysisPrompt = {
         role: 'user',
-        content: `
-          Generate a professional, personalized sales email using advanced reasoning and creativity:
-          
-          Contact: ${contact.name} (${contact.title} at ${contact.company})
-          Context: ${context || 'General follow-up'}
-          Industry: ${contact.industry || 'Unknown'}
-          Interest Level: ${contact.interestLevel}
-          Status: ${contact.status}
-          Sources: ${(contact.sources || []).join(', ')}
-          Previous notes: ${contact.notes || 'No previous notes'}
-          Recent interactions: ${contact.lastConnected || 'None'}
-          
-          Using your advanced reasoning capabilities:
-          1. Analyze the contact's role and likely pain points
-          2. Craft a message that resonates with their specific situation
-          3. Use industry-specific language and references
-          4. Create a compelling value proposition tailored to their role
-          5. Include a strong, contextually appropriate call-to-action
-          6. Adapt tone based on the contact's profile and interaction history
-          
-          Create a personalized, professional email that:
-          - Addresses them appropriately for their seniority level
-          - References their company and industry context
-          - Provides clear value proposition tailored to their role
-          - Has a compelling call-to-action appropriate for their interest level
-          - Is the right length and tone for the context
-          - Shows understanding of their likely challenges and priorities
-          
-          Format as a complete email with subject line.
-        `
+        content: `Analyze this contact and generate a personalized sales email using advanced reasoning:
+
+CONTACT PROFILE:
+- Name: ${contact.name}
+- Title: ${contact.title}
+- Company: ${contact.company}
+- Industry: ${contact.industry || 'Unknown'}
+- Status: ${contact.status}
+- Interest Level: ${contact.interestLevel}
+- Sources: ${(contact.sources || []).join(', ')}
+- Previous Notes: ${contact.notes || 'No previous notes'}
+- Recent Interactions: ${contact.lastConnected || 'None'}
+- Custom Fields: ${JSON.stringify(contact.customFields || {})}
+
+CONTEXT: ${context || 'General follow-up'}
+
+CHAIN-OF-THOUGHT ANALYSIS:
+1. What is this contact's primary role and responsibilities?
+2. What are their likely pain points and priorities given their position?
+3. How should I adapt my communication style for their seniority level?
+4. What industry-specific references or language would resonate?
+5. What is the optimal level of detail and technical depth?
+6. How can I create urgency without being pushy?
+7. What psychological triggers are most likely to motivate this contact?
+8. How should I position our value proposition for maximum impact?
+
+Based on your analysis, generate a personalized email that demonstrates deep understanding of their situation and provides compelling value.
+
+RESPONSE FORMAT:
+First, provide your reasoning analysis in <analysis> tags, then provide the email in <email> tags.`
       };
 
+      // Use structured output for advanced reasoning
       const response = await this.makeGatewayRequest(
-        [systemMessage, userMessage],
+        [analysisMessage, analysisPrompt],
         'email-generation',
         selectedModel,
-        { maxTokens: 800 }
+        {
+          maxTokens: 1200,
+          temperature: 0.7,
+          response_format: { type: "text" } // Enable structured reasoning
+        }
       );
+
+      // Extract email from structured response
+      const emailMatch = response.match(/<email>([\s\S]*?)<\/email>/);
+      if (emailMatch) {
+        return emailMatch[1].trim();
+      }
+
+      // Fallback: try to extract from subject line pattern
+      const lines = response.split('\n');
+      const subjectIndex = lines.findIndex(line => line.toLowerCase().includes('subject:'));
+      if (subjectIndex !== -1) {
+        return lines.slice(subjectIndex).join('\n').trim();
+      }
 
       return response;
     } catch (error) {
-      console.error('Enhanced email generation failed:', error);
+      console.error('Enhanced email generation with advanced reasoning failed:', error);
       return this.generateFallbackEmail(contact, context);
     }
   }
@@ -471,69 +503,246 @@ class EnhancedOpenAIService implements OpenAIService {
   async generateDetailedScoreAnalysis(contact: Contact, modelId?: string): Promise<any> {
     try {
       const selectedModel = this.getModelId(modelId);
-      console.log(`📊 Detailed Score Analysis with ${selectedModel}`);
+      console.log(`📊 Detailed Score Analysis with ${selectedModel} - Advanced Reasoning`);
 
       const systemMessage = {
         role: 'system',
-        content: `You are a sales data analyst using ${selectedModel} with advanced reasoning capabilities. Provide detailed, narrative explanations for contact scores that help sales teams understand the 'why' behind the numbers.`
+        content: `You are an expert sales strategist using ${selectedModel} with advanced reasoning and tool-calling capabilities. Analyze contacts using structured reasoning frameworks and provide actionable insights.
+
+AVAILABLE TOOLS:
+1. analyze_contact_profile - Deep psychological and behavioral analysis
+2. calculate_engagement_score - Quantitative engagement metrics
+3. predict_conversion_probability - Statistical conversion modeling
+4. identify_risk_factors - Risk assessment and mitigation
+5. suggest_optimization_actions - Actionable improvement recommendations
+
+Use these tools systematically to build a comprehensive analysis.`
       };
 
       const userMessage = {
         role: 'user',
-        content: `
-          Generate a detailed score analysis for this contact using advanced reasoning:
-          
-          Contact: ${contact.name}
-          Title: ${contact.title}
-          Company: ${contact.company}
-          Industry: ${contact.industry || 'Unknown'}
-          Status: ${contact.status}
-          Interest Level: ${contact.interestLevel}
-          Current AI Score: ${contact.aiScore || 'Not scored'}
-          Sources: ${contact.sources.join(', ')}
-          Custom Fields: ${JSON.stringify(contact.customFields || {})}
-          Notes: ${contact.notes || 'No notes'}
-          
-          Using your advanced reasoning capabilities:
-          1. Calculate a nuanced score considering all available factors
-          2. Provide a detailed narrative explaining the reasoning
-          3. Identify specific factors that positively and negatively impact the score
-          4. Highlight opportunities and warning flags
-          5. Suggest specific actions to improve the contact's potential
-          
-          Provide your analysis in JSON format:
-          {
-            "score": <number between 0-100>,
-            "narrative": "detailed explanation of why this contact received this score",
-            "keyFactors": [
-              {
-                "factor": "factor name",
-                "impact": "positive|negative|neutral",
-                "weight": <number representing importance>,
-                "explanation": "detailed explanation"
-              }
-            ],
-            "warningFlags": ["warning1", "warning2"],
-            "opportunityFlags": ["opportunity1", "opportunity2"],
-            "recommendedActions": ["action1", "action2"],
-            "generatedAt": "${new Date().toISOString()}",
-            "aiProvider": "${selectedModel}"
-          }
-        `
+        content: `Perform a comprehensive contact analysis using advanced reasoning and available tools:
+
+CONTACT DATA:
+- Name: ${contact.name}
+- Title: ${contact.title}
+- Company: ${contact.company}
+- Industry: ${contact.industry || 'Unknown'}
+- Status: ${contact.status}
+- Interest Level: ${contact.interestLevel}
+- Current AI Score: ${contact.aiScore || 'Not scored'}
+- Sources: ${contact.sources.join(', ')}
+- Custom Fields: ${JSON.stringify(contact.customFields || {})}
+- Notes: ${contact.notes || 'No notes'}
+- Last Connected: ${contact.lastConnected || 'Unknown'}
+
+ANALYSIS FRAMEWORK:
+1. Use analyze_contact_profile to understand psychological drivers
+2. Use calculate_engagement_score for quantitative assessment
+3. Use predict_conversion_probability for statistical modeling
+4. Use identify_risk_factors for risk mitigation
+5. Use suggest_optimization_actions for actionable recommendations
+
+Provide a structured analysis with:
+- Executive summary of contact potential
+- Detailed factor breakdown with weights and impacts
+- Risk assessment and mitigation strategies
+- Specific optimization recommendations
+- Predictive insights for next 30/60/90 days
+
+Format as structured JSON with clear reasoning paths.`
       };
 
       const response = await this.makeGatewayRequest(
         [systemMessage, userMessage],
         'detailed-score-analysis',
         selectedModel,
-        { maxTokens: 1500 }
+        {
+          maxTokens: 2000,
+          temperature: 0.3,
+          tools: this.getAnalysisTools(),
+          tool_choice: "auto"
+        }
       );
 
       return JSON.parse(response);
     } catch (error) {
-      console.error('Detailed score analysis failed:', error);
+      console.error('Advanced detailed score analysis failed:', error);
       return this.generateFallbackScoreAnalysis(contact);
     }
+  }
+
+  // Advanced tool definitions for enhanced reasoning
+  private getAnalysisTools() {
+    return [
+      {
+        type: "function",
+        function: {
+          name: "analyze_contact_profile",
+          description: "Perform deep psychological and behavioral analysis of contact",
+          parameters: {
+            type: "object",
+            properties: {
+              contactData: { type: "object" },
+              analysisDepth: { type: "string", enum: ["basic", "detailed", "comprehensive"] }
+            },
+            required: ["contactData"]
+          }
+        }
+      },
+      {
+        type: "function",
+        function: {
+          name: "calculate_engagement_score",
+          description: "Calculate quantitative engagement metrics",
+          parameters: {
+            type: "object",
+            properties: {
+              interactionHistory: { type: "array" },
+              timeFrame: { type: "string", enum: ["7d", "30d", "90d", "all"] }
+            },
+            required: ["interactionHistory"]
+          }
+        }
+      },
+      {
+        type: "function",
+        function: {
+          name: "predict_conversion_probability",
+          description: "Predict statistical conversion probability",
+          parameters: {
+            type: "object",
+            properties: {
+              contactProfile: { type: "object" },
+              historicalData: { type: "array" },
+              predictionHorizon: { type: "string", enum: ["30d", "60d", "90d"] }
+            },
+            required: ["contactProfile"]
+          }
+        }
+      },
+      {
+        type: "function",
+        function: {
+          name: "identify_risk_factors",
+          description: "Identify and assess risk factors",
+          parameters: {
+            type: "object",
+            properties: {
+              contactData: { type: "object" },
+              riskThreshold: { type: "string", enum: ["low", "medium", "high"] }
+            },
+            required: ["contactData"]
+          }
+        }
+      },
+      {
+        type: "function",
+        function: {
+          name: "suggest_optimization_actions",
+          description: "Suggest actionable optimization recommendations",
+          parameters: {
+            type: "object",
+            properties: {
+              currentScore: { type: "number" },
+              targetScore: { type: "number" },
+              timeFrame: { type: "string", enum: ["immediate", "short_term", "long_term"] }
+            },
+            required: ["currentScore"]
+          }
+        }
+      }
+    ];
+  }
+
+  // Advanced reasoning with streaming for real-time insights
+  async generateStreamingAnalysis(contact: Contact, onChunk?: (chunk: string) => void): Promise<any> {
+    try {
+      const selectedModel = this.getModelId();
+      console.log(`🌊 Streaming Analysis with ${selectedModel} - Advanced Reasoning`);
+
+      const systemMessage = {
+        role: 'system',
+        content: `You are an expert sales analyst using ${selectedModel} with advanced streaming reasoning capabilities. Provide real-time analysis with step-by-step reasoning that streams insights as you process them.
+
+STREAMING ANALYSIS FRAMEWORK:
+1. Initial Data Assessment (stream first insights)
+2. Pattern Recognition (stream identified patterns)
+3. Risk Analysis (stream risk factors as identified)
+4. Opportunity Identification (stream opportunities)
+5. Predictive Modeling (stream predictions)
+6. Action Recommendations (stream final recommendations)
+
+Use streaming to provide immediate value while building comprehensive analysis.`
+      };
+
+      const userMessage = {
+        role: 'user',
+        content: `Perform streaming analysis of this contact with real-time insights:
+
+CONTACT: ${contact.name} (${contact.title} at ${contact.company})
+INDUSTRY: ${contact.industry || 'Unknown'}
+STATUS: ${contact.status} | INTEREST: ${contact.interestLevel}
+SCORE: ${contact.aiScore || 'Not scored'}
+
+Begin streaming analysis immediately with initial assessment, then provide progressive insights.`
+      };
+
+      const response = await this.makeStreamingGatewayRequest(
+        [systemMessage, userMessage],
+        'streaming-analysis',
+        selectedModel,
+        onChunk
+      );
+
+      return JSON.parse(response);
+    } catch (error) {
+      console.error('Streaming analysis failed:', error);
+      return this.generateFallbackAnalysis(contact);
+    }
+  }
+
+  // Streaming request method for real-time responses
+  private async makeStreamingGatewayRequest(
+    messages: Array<{ role: string; content: string }>,
+    taskType: string,
+    modelId?: string,
+    onChunk?: (chunk: string) => void
+  ): Promise<string> {
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    if (!supabaseUrl) {
+      throw new Error('Supabase URL not configured');
+    }
+
+    const response = await fetch(`${supabaseUrl}/functions/v1/ai-gateway`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+      },
+      body: JSON.stringify({
+        messages,
+        taskType,
+        modelId: this.getModelId(modelId),
+        stream: true,
+        onChunk
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+      throw new Error(`AI streaming error: ${errorData.error || response.statusText}`);
+    }
+
+    const data = await response.json();
+
+    if (data.choices && data.choices[0] && data.choices[0].message) {
+      return data.choices[0].message.content;
+    } else if (data.candidates && data.candidates[0] && data.candidates[0].content) {
+      return data.candidates[0].content.parts[0].text;
+    }
+
+    throw new Error('Invalid streaming response format from AI service');
   }
 
   // Fallback methods for when AI gateway is unavailable

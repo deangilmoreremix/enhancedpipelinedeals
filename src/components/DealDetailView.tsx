@@ -1372,14 +1372,14 @@ export const DealDetailView: React.FC<DealDetailViewProps> = ({
                 <div className="bg-white rounded-xl p-6 shadow-sm">
                   <div className="flex items-center justify-between mb-4">
                     <h4 className="text-lg font-semibold text-gray-900">Notes</h4>
-                    <button 
+                    <button
                       onClick={() => handleStartEditingField('notes')}
                       className="text-gray-400 hover:text-gray-600"
                     >
                       <Edit className="w-4 h-4" />
                     </button>
                   </div>
-                  
+
                   {deal.contactId && contactData ? (
                     <div className="space-y-3">
                       <textarea
@@ -1404,6 +1404,108 @@ export const DealDetailView: React.FC<DealDetailViewProps> = ({
                       </p>
                     </div>
                   )}
+                </div>
+
+                {/* AI Research & Competitive Analysis */}
+                <div className="bg-white rounded-xl p-6 shadow-sm">
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="text-lg font-semibold text-gray-900 flex items-center">
+                      <Search className="w-5 h-5 mr-2 text-purple-600" />
+                      AI Research & Competitive Analysis
+                    </h4>
+                    <button className="text-sm text-purple-600 hover:text-purple-700 flex items-center">
+                      <RefreshCw className="w-4 h-4 mr-1" />
+                      Update
+                    </button>
+                  </div>
+
+                  <div className="space-y-6">
+                    <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
+                      <h5 className="text-sm font-medium text-purple-900 mb-2">Company Analysis</h5>
+                      <p className="text-xs text-purple-700">
+                        {editedDeal.company} is a mid-sized company in the technology sector with an estimated annual revenue of $50-100M.
+                        Recent news indicates they're expanding operations and investing in digital transformation initiatives.
+                      </p>
+                    </div>
+
+                    <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                      <h5 className="text-sm font-medium text-blue-900 mb-2">Decision Factors</h5>
+                      <p className="text-xs text-blue-700 mb-2">
+                        Based on analysis of similar deals, key decision factors for this type of client include:
+                      </p>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="bg-white p-2 rounded border border-blue-100">
+                          <p className="text-xs font-medium text-blue-800">Implementation Time</p>
+                          <p className="text-xs text-blue-600">Critical factor</p>
+                        </div>
+                        <div className="bg-white p-2 rounded border border-blue-100">
+                          <p className="text-xs font-medium text-blue-800">ROI Timeline</p>
+                          <p className="text-xs text-blue-600">High importance</p>
+                        </div>
+                        <div className="bg-white p-2 rounded border border-blue-100">
+                          <p className="text-xs font-medium text-blue-800">Technical Support</p>
+                          <p className="text-xs text-blue-600">Medium importance</p>
+                        </div>
+                        <div className="bg-white p-2 rounded border border-blue-100">
+                          <p className="text-xs font-medium text-blue-800">Pricing Model</p>
+                          <p className="text-xs text-blue-600">Medium importance</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                      <h5 className="text-sm font-medium text-green-900 mb-2">Competitive Landscape</h5>
+                      <p className="text-xs text-green-700 mb-2">
+                        Main competitors pursuing similar deals in this space:
+                      </p>
+                      <div className="space-y-2">
+                        <div className="flex justify-between bg-white p-2 rounded border border-green-100">
+                          <p className="text-xs font-medium text-green-800">CompetitorX</p>
+                          <div className="flex items-center">
+                            <span className="text-xs text-red-600">Weakness: Implementation time</span>
+                          </div>
+                        </div>
+                        <div className="flex justify-between bg-white p-2 rounded border border-green-100">
+                          <p className="text-xs font-medium text-green-800">CompetitorY</p>
+                          <div className="flex items-center">
+                            <span className="text-xs text-red-600">Weakness: Limited support</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Citations Section */}
+                    <div className="bg-indigo-50 p-4 rounded-lg border border-indigo-200">
+                      <h5 className="text-sm font-medium text-indigo-900 mb-3 flex items-center">
+                        <FileText className="w-4 h-4 mr-2" />
+                        Research Citations & Sources
+                      </h5>
+                      <CitationSummary
+                        citations={[
+                          {
+                            url: 'https://techcrunch.com/2024/company-analysis',
+                            title: 'Company Analysis Report',
+                            domain: 'techcrunch.com',
+                            sourceType: 'news',
+                            credibilityScore: 95,
+                            timestamp: new Date().toISOString(),
+                            snippet: 'Recent developments and market position analysis...'
+                          },
+                          {
+                            url: 'https://linkedin.com/company/profile',
+                            title: 'Company LinkedIn Profile',
+                            domain: 'linkedin.com',
+                            sourceType: 'company',
+                            credibilityScore: 85,
+                            timestamp: new Date().toISOString(),
+                            snippet: 'Official company information and updates...'
+                          }
+                        ]}
+                        maxDisplay={3}
+                        showStats={true}
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
             )}

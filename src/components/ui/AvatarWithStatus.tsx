@@ -5,7 +5,7 @@ export interface AvatarWithStatusProps {
   src?: string;
   alt?: string;
   size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
-  status?: 'online' | 'offline' | 'away' | 'busy' | 'lead' | 'prospect' | 'customer' | 'inactive';
+  status?: 'online' | 'offline' | 'away' | 'busy' | 'lead' | 'prospect' | 'customer' | 'churned' | 'inactive';
   className?: string;
 }
 
@@ -58,6 +58,7 @@ export const AvatarWithStatus: React.FC<AvatarWithStatusProps> = ({
     lead: 'bg-yellow-500',
     prospect: 'bg-blue-500',
     customer: 'bg-green-600',
+    churned: 'bg-red-600',
     inactive: 'bg-gray-400',
   };
 

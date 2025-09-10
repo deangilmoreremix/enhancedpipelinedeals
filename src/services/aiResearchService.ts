@@ -2,6 +2,16 @@ import { useOpenAI } from './openaiService';
 import { useGeminiAI } from './geminiService';
 import { IntelligentAIService } from './intelligentAIService';
 
+interface ResearchStatus {
+  id: string;
+  stage: 'researching' | 'analyzing' | 'synthesizing' | 'optimizing' | 'complete' | 'error';
+  message: string;
+  progress: number;
+  timestamp: Date;
+  sourceCount?: number;
+  estimatedTimeRemaining?: number;
+}
+
 interface CompanyResearchData {
   name: string;
   industry: string;
@@ -53,21 +63,116 @@ interface AIResearchService {
   findPersonImage: (personName: string, company?: string, title?: string) => Promise<string>;
   enhanceWithAI: (data: any, query: string, priority?: 'speed' | 'quality' | 'cost') => Promise<any>;
   getTaskRouting: () => any[];
+  onStatusChange: (callback: (statuses: ResearchStatus[]) => void) => () => void;
+  getCurrentStatuses: () => ResearchStatus[];
+  clearCompletedStatuses: () => void;
 }
 
 class EnhancedAIResearchService implements AIResearchService {
   private intelligentAI: IntelligentAIService;
+  private researchStatuses: Map<string, ResearchStatus> = new Map();
+  private statusCallbacks: ((statuses: ResearchStatus[]) => void)[] = [];
 
   constructor() {
     const openaiService = useOpenAI();
     const geminiService = useGeminiAI();
-    this.intelligentAI = new IntelligentAIService(openaiService, geminiService);
+    this.intelligentAI = new IntelligentAIService();
+  }
+
+  // Research status management
+  private createResearchStatus(id: string, stage: ResearchStatus['stage'], message: string): ResearchStatus {
+    const status: ResearchStatus = {
+      id,
+      stage,
+      message,
+      progress: 0,
+      timestamp: new Date(),
+      sourceCount: 0,
+      estimatedTimeRemaining: 30
+    };
+    this.researchStatuses.set(id, status);
+    this.notifyStatusChange();
+    return status;
+  }
+
+  private updateResearchStatus(id: string, updates: Partial<ResearchStatus>) {
+    const status = this.researchStatuses.get(id);
+    if (status) {
+      Object.assign(status, updates, { timestamp: new Date() });
+      this.notifyStatusChange();
+    }
+  }
+
+  private completeResearchStatus(id: string, success: boolean = true) {
+    const status = this.researchStatuses.get(id);
+    if (status) {
+      status.stage = success ? 'complete' : 'error';
+      status.progress = 100;
+      status.estimatedTimeRemaining = 0;
+      status.timestamp = new Date();
+      this.notifyStatusChange();
+    }
+  }
+
+  private notifyStatusChange() {
+    const statuses = Array.from(this.researchStatuses.values());
+    this.statusCallbacks.forEach(callback => callback(statuses));
+  }
+
+  // Public methods for status management
+  onStatusChange(callback: (statuses: ResearchStatus[]) => void) {
+    this.statusCallbacks.push(callback);
+    return () => {
+      const index = this.statusCallbacks.indexOf(callback);
+      if (index > -1) {
+        this.statusCallbacks.splice(index, 1);
+      }
+    };
+  }
+
+  getCurrentStatuses(): ResearchStatus[] {
+    return Array.from(this.researchStatuses.values());
+  }
+
+  clearCompletedStatuses() {
+    for (const [id, status] of this.researchStatuses) {
+      if (status.stage === 'complete' || status.stage === 'error') {
+        this.researchStatuses.delete(id);
+      }
+    }
+    this.notifyStatusChange();
   }
 
   async researchCompany(companyName: string, domain?: string, priority: 'speed' | 'quality' | 'cost' = 'quality'): Promise<CompanyResearchData> {
+    const researchId = `company-${companyName}-${Date.now()}`;
+
     try {
       console.log(`🔍 Company Research: ${companyName} (Priority: ${priority})`);
-      
+
+      // Create initial research status
+      this.createResearchStatus(researchId, 'researching', `Researching ${companyName}...`);
+
+      // Simulate progress updates
+      setTimeout(() => this.updateResearchStatus(researchId, {
+        progress: 25,
+        message: `Gathering company information for ${companyName}...`,
+        sourceCount: 3
+      }), 1000);
+
+      setTimeout(() => this.updateResearchStatus(researchId, {
+        stage: 'analyzing',
+        progress: 50,
+        message: `Analyzing ${companyName}'s market position...`,
+        sourceCount: 7
+      }), 3000);
+
+      setTimeout(() => this.updateResearchStatus(researchId, {
+        stage: 'synthesizing',
+        progress: 75,
+        message: `Synthesizing research data for ${companyName}...`,
+        sourceCount: 12
+      }), 5000);
+
       // Use intelligent AI routing for comprehensive company research
       const companyResearch = await this.intelligentAI.researchCompany(companyName, domain, priority);
       
@@ -98,9 +203,20 @@ class EnhancedAIResearchService implements AIResearchService {
         aiProvider: '🧠 Hybrid AI (Gemini + GPT-5)' // Intelligent routing between models
       };
 
+      // Complete research
+      setTimeout(() => this.updateResearchStatus(researchId, {
+        stage: 'optimizing',
+        progress: 90,
+        message: `Finalizing research report for ${companyName}...`,
+        sourceCount: 15
+      }), 7000);
+
+      setTimeout(() => this.completeResearchStatus(researchId, true), 8000);
+
       return enhancedData;
     } catch (error) {
       console.error('❌ AI company research failed, using mock data:', error);
+      this.completeResearchStatus(researchId, false);
       return this.generateMockCompanyData(companyName, domain);
     }
   }

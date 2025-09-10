@@ -101,6 +101,8 @@ export interface AIContactAnalysis {
   insights: string[];
   recommendations: string[];
   riskFactors: string[];
+  reasoningPath?: string;
+  confidenceLevel?: number;
 }
 
 export interface TeamChallenge {
@@ -114,6 +116,39 @@ export interface TeamChallenge {
   reward: string;
   participants: string[];
   type: 'revenue' | 'deals' | 'streak' | 'conversion';
+}
+
+export interface Achievement {
+  id: string;
+  title: string;
+  description: string;
+  icon: string;
+  points: number;
+  rarity: 'common' | 'rare' | 'epic' | 'legendary';
+  category: 'sales' | 'engagement' | 'growth' | 'teamwork';
+  unlockedAt?: Date;
+}
+
+export interface Challenge {
+  id: string;
+  title: string;
+  description: string;
+  type: 'revenue' | 'deals' | 'streak' | 'conversion';
+  target: number;
+  reward: string;
+  startDate: Date;
+  endDate: Date;
+  participants: string[];
+}
+
+export interface LeaderboardEntry {
+  contactId: string;
+  name: string;
+  avatarSrc?: string;
+  score: number;
+  rank: number;
+  change: number;
+  achievements: number;
 }
 
 export interface GamificationContextType {

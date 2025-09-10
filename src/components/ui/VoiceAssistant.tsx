@@ -1,4 +1,4 @@
-lets /**
+/**
  * Voice Assistant Component using OpenAI Realtime API
  * Floating voice interface for CRM interactions
  */

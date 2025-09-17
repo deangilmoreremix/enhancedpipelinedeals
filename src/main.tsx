@@ -7,13 +7,16 @@ import './styles/global-dark-mode.css';
 // DEV ONLY - Quick guard to catch setTimeout misuse
 (function () {
   const _setTimeout = window.setTimeout;
-  window.setTimeout = function (cb: any, ms?: number, ...args: any[]) {
+  window.setTimeout = function (cb: any, ms?: number, ...args: any[]): NodeJS.Timeout {
     if (typeof cb !== "function") {
       console.error("❌ setTimeout callback is not a function:", cb);
       console.error("❌ Stack trace:", new Error().stack);
-      return _setTimeout(() => {}, ms ?? 0); // avoid crash so we can see the log
+      // Return a safe timer that does nothing to avoid crash
+      return _setTimeout(() => {
+        // Safe no-op function
+      }, ms ?? 0);
     }
-    return _setTimeout(cb, ms!, ...args);
+    return _setTimeout(cb, ms ?? 0, ...args);
   };
 })();
 

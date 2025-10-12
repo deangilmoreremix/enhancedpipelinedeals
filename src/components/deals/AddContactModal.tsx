@@ -411,10 +411,10 @@ export const AddContactModal: React.FC<AddContactModalProps> = ({
   if (isSuccess) {
     return (
       <div className="fixed inset-0 bg-black/90 backdrop-blur-sm z-[75] flex items-center justify-center p-4">
-        <div className="bg-white rounded-xl p-8 max-w-md w-full text-center shadow-2xl">
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-8 max-w-md w-full text-center shadow-2xl">
           <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
-          <h3 className="text-2xl font-bold text-green-900 mb-2">Contact Created!</h3>
-          <p className="text-green-700 mb-4">
+          <h3 className="text-2xl font-bold text-green-900 dark:text-green-100 mb-2">Contact Created!</h3>
+          <p className="text-green-700 dark:text-green-300 mb-4">
             {formData.firstName} {formData.lastName} has been added to your contacts.
           </p>
           {lastEnrichmentData && (
@@ -432,19 +432,19 @@ export const AddContactModal: React.FC<AddContactModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black/90 backdrop-blur-sm z-[75] flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
+      <div className="bg-white dark:bg-gray-900 rounded-xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
         {/* Header with AI Features */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50 flex-shrink-0">
+        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-blue-50 via-cyan-50 to-teal-50 dark:from-gray-800 dark:via-gray-800 dark:to-gray-800 flex-shrink-0">
           <div className="flex items-center space-x-3">
-            <div className="p-3 bg-gradient-to-r from-blue-500 via-purple-600 to-pink-600 rounded-xl text-white">
+            <div className="p-3 bg-gradient-to-r from-blue-500 via-cyan-600 to-teal-600 rounded-xl text-white">
               <UserPlus className="w-6 h-6" />
             </div>
             <div>
-              <h2 className="text-2xl font-bold text-gray-900 flex items-center">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
                 New Contact
                 <Sparkles className="w-5 h-5 ml-2 text-yellow-500" />
               </h2>
-              <p className="text-gray-600">Add a contact with AI-powered research and auto-fill</p>
+              <p className="text-gray-600 dark:text-gray-300">Add a contact with AI-powered research and auto-fill</p>
             </div>
           </div>
           
@@ -469,9 +469,9 @@ export const AddContactModal: React.FC<AddContactModalProps> = ({
         <div className="flex-1 overflow-y-auto p-6">
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* AI-Enhanced Basic Information */}
-            <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6 shadow-sm">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
                   <User className="w-5 h-5 mr-2 text-blue-500" />
                   Personal Information
                 </h3>
@@ -488,7 +488,7 @@ export const AddContactModal: React.FC<AddContactModalProps> = ({
                       onDataFound={handleAIAutoFill}
                       variant="outline"
                       size="sm"
-                      className="bg-gradient-to-r from-purple-50 to-blue-50 border-purple-200 text-purple-700 hover:from-purple-100 hover:to-blue-100"
+                      className="bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-gray-700 dark:to-gray-700 border-blue-200 dark:border-blue-600 text-blue-700 dark:text-blue-300 hover:from-blue-100 hover:to-cyan-100 dark:hover:from-gray-600 dark:hover:to-gray-600"
                     />
                   </div>
                 )}
@@ -637,13 +637,13 @@ export const AddContactModal: React.FC<AddContactModalProps> = ({
 
               {/* AI Enhancement Indicator */}
               {lastEnrichmentData && (
-                <div className="mt-4 p-3 bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg">
+                <div className="mt-4 p-3 bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-gray-700 dark:to-gray-700 border border-blue-200 dark:border-blue-600 rounded-lg">
                   <div className="flex items-center space-x-2">
-                    <Sparkles className="w-4 h-4 text-purple-600" />
-                    <span className="text-sm font-medium text-purple-900">
+                    <Sparkles className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                    <span className="text-sm font-medium text-blue-900 dark:text-blue-100">
                       Enhanced with AI Research
                     </span>
-                    <span className="text-xs text-purple-600">
+                    <span className="text-xs text-blue-600 dark:text-blue-400">
                       ({lastEnrichmentData.confidence || 75}% confidence)
                     </span>
                   </div>
@@ -666,8 +666,8 @@ export const AddContactModal: React.FC<AddContactModalProps> = ({
             </div>
 
             {/* Professional Information */}
-            <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6 shadow-sm">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
                 <Building2 className="w-5 h-5 mr-2 text-green-500" />
                 Professional Information
               </h3>
@@ -749,8 +749,8 @@ export const AddContactModal: React.FC<AddContactModalProps> = ({
             </div>
 
             {/* Location Information */}
-            <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6 shadow-sm">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
                 <MapPin className="w-5 h-5 mr-2 text-red-500" />
                 Location Information
               </h3>
@@ -824,8 +824,8 @@ export const AddContactModal: React.FC<AddContactModalProps> = ({
             </div>
 
             {/* Lead Information */}
-            <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6 shadow-sm">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
                 <Target className="w-5 h-5 mr-2 text-orange-500" />
                 Lead Information
               </h3>
@@ -893,9 +893,9 @@ export const AddContactModal: React.FC<AddContactModalProps> = ({
             </div>
 
             {/* Social Profiles */}
-            <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6 shadow-sm">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
                   <Globe className="w-5 h-5 mr-2 text-blue-500" />
                   Social Profiles & Contact Methods
                 </h3>
@@ -906,7 +906,7 @@ export const AddContactModal: React.FC<AddContactModalProps> = ({
                     onDataFound={handleAIAutoFill}
                     variant="outline"
                     size="sm"
-                    className="bg-blue-50 border-blue-200 text-blue-700"
+                    className="bg-blue-50 dark:bg-gray-700 border-blue-200 dark:border-blue-600 text-blue-700 dark:text-blue-300"
                   />
                 )}
               </div>
@@ -948,10 +948,10 @@ export const AddContactModal: React.FC<AddContactModalProps> = ({
             </div>
 
             {/* Custom Fields */}
-            <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6 shadow-sm">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-                  <Database className="w-5 h-5 mr-2 text-purple-500" />
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
+                  <Database className="w-5 h-5 mr-2 text-blue-500" />
                   Custom Fields
                 </h3>
                 <button
@@ -1034,8 +1034,8 @@ export const AddContactModal: React.FC<AddContactModalProps> = ({
             </div>
 
             {/* Additional Information */}
-            <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6 shadow-sm">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
                 <Tag className="w-5 h-5 mr-2 text-yellow-500" />
                 Additional Information
               </h3>
@@ -1087,9 +1087,9 @@ export const AddContactModal: React.FC<AddContactModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="flex justify-end items-center p-6 border-t border-gray-200 bg-gray-50">
-          <div className="flex items-center space-x-2 text-sm text-gray-600 mr-auto">
-            <Brain className="w-4 h-4 text-purple-500" />
+        <div className="flex justify-end items-center p-6 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+          <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400 mr-auto">
+            <Brain className="w-4 h-4 text-blue-500" />
             <span>Powered by OpenAI & Gemini AI</span>
           </div>
           

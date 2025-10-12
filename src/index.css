@@ -615,6 +615,23 @@ textarea:focus-visible {
   color: hsl(var(--foreground)) !important;
 }
 
+/* AI Button specific dark mode fixes */
+.dark button[class*="bg-gradient"] {
+  color: white !important;
+}
+
+.dark button[class*="border-blue"],
+.dark button[class*="border-purple"] {
+  border-color: rgb(59 130 246) !important;
+  color: rgb(147 197 253) !important;
+}
+
+.dark button[class*="border-blue"]:hover,
+.dark button[class*="border-purple"]:hover {
+  background-color: rgb(55 65 81) !important;
+  color: white !important;
+}
+
 /* Ensure colored buttons maintain proper text contrast in dark mode */
 .dark .bg-blue-600,
 .dark .bg-blue-700,

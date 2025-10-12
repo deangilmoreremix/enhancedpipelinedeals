@@ -111,8 +111,8 @@ export const AIResearchButton: React.FC<AIResearchButtonProps> = ({
       variant={variant}
       size={size}
       onClick={handleResearch}
-      disabled={isSearching} 
-      className={`dark:focus:ring-offset-gray-900 ${className}`}
+      disabled={isSearching}
+      className={`dark:focus:ring-offset-gray-900 dark:text-white ${className}`}
     >
       {isSearching ? (
         <>

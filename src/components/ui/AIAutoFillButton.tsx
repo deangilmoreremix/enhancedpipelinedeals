@@ -96,22 +96,22 @@ export const AIAutoFillButton: React.FC<AIAutoFillButtonProps> = ({
   } else if (hasEnriched) {
     Icon = CheckCircle;
     buttonText = 'Enriched!';
-    buttonStyle = 'bg-green-600 hover:bg-green-700 text-white dark:bg-green-700 dark:hover:bg-green-800';
+    buttonStyle = 'bg-green-600 hover:bg-green-700 text-white dark:bg-green-700 dark:hover:bg-green-800 dark:text-white';
   } else if (error) {
     Icon = AlertCircle;
     buttonText = 'Try Again';
-    buttonStyle = 'bg-red-600 hover:bg-red-700 text-white dark:bg-red-700 dark:hover:bg-red-800';
+    buttonStyle = 'bg-red-600 hover:bg-red-700 text-white dark:bg-red-700 dark:hover:bg-red-800 dark:text-white';
   } else {
     // Default styling based on variant
     switch(variant) {
       case 'primary':
-        buttonStyle = 'bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white dark:from-purple-700 dark:to-blue-700 dark:hover:from-purple-800 dark:hover:to-blue-800';
+        buttonStyle = 'bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white dark:from-blue-700 dark:to-cyan-700 dark:hover:from-blue-800 dark:hover:to-cyan-800 dark:text-white';
         break;
       case 'secondary':
-        buttonStyle = 'bg-gray-600 hover:bg-gray-700 text-white dark:bg-gray-700 dark:hover:bg-gray-800';
+        buttonStyle = 'bg-gray-600 hover:bg-gray-700 text-white dark:bg-gray-700 dark:hover:bg-gray-800 dark:text-white';
         break;
       case 'outline':
-        buttonStyle = 'bg-white border border-purple-300 text-purple-700 hover:bg-purple-50 dark:bg-gray-800 dark:border-purple-500 dark:text-purple-400 dark:hover:bg-gray-700';
+        buttonStyle = 'bg-white border border-blue-300 text-blue-700 hover:bg-blue-50 dark:bg-gray-800 dark:border-blue-500 dark:text-blue-300 dark:hover:bg-gray-700';
         break;
     }
   }

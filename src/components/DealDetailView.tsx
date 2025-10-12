@@ -485,21 +485,21 @@ export const DealDetailView: React.FC<DealDetailViewProps> = ({
         }
       }}
     >
-      <div className="bg-white rounded-xl w-full max-w-[95vw] h-[95vh] overflow-hidden flex animate-scale-in shadow-2xl">
-        
+      <div className="bg-white dark:bg-gray-900 rounded-xl w-full max-w-[95vw] h-[95vh] overflow-hidden flex animate-scale-in shadow-2xl">
+
         {/* Enhanced Deal Profile Sidebar */}
-        <div className="w-80 bg-gradient-to-b from-gray-50 via-white to-gray-50 border-r border-gray-200 flex flex-col h-full">
+        <div className="w-80 bg-gradient-to-b from-gray-50 via-white to-gray-50 dark:from-gray-800 dark:via-gray-800 dark:to-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col h-full">
           {/* Fixed Header with AI Features */}
-          <div className="flex items-center justify-between p-4 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-purple-50 flex-shrink-0">
-            <h2 className="text-lg font-bold text-gray-900 flex items-center">
+          <div className="flex items-center justify-between p-4 border-b border-gray-100 dark:border-gray-700 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-gray-800 dark:to-gray-800 flex-shrink-0">
+            <h2 className="text-lg font-bold text-gray-900 dark:text-white flex items-center">
               Deal Profile
-              <Sparkles className="w-4 h-4 ml-2 text-purple-500" />
+              <Sparkles className="w-4 h-4 ml-2 text-purple-500 dark:text-purple-400" />
             </h2>
             <div className="flex space-x-2">
               <button
                 onClick={handleAnalyzeDeal}
                 disabled={isAnalyzing}
-                className="p-2 bg-blue-100 text-blue-700 hover:bg-blue-200 rounded-lg transition-colors disabled:opacity-50 relative"
+                className="p-2 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-900/50 rounded-lg transition-colors disabled:opacity-50 relative"
                 title="AI Analysis"
               >
                 <Brain className="w-4 h-4" />
@@ -511,7 +511,7 @@ export const DealDetailView: React.FC<DealDetailViewProps> = ({
               </button>
               <button
                 onClick={onClose}
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                className="p-2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -521,7 +521,7 @@ export const DealDetailView: React.FC<DealDetailViewProps> = ({
           {/* Scrollable Content Area */}
           <div className="flex-1 overflow-y-auto">
             {/* Deal Header with Company Info */}
-            <div className="p-5 text-center border-b border-gray-100 bg-white">
+            <div className="p-5 text-center border-b border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800">
               <div className="relative inline-block mb-4">
                 <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-xl font-bold shadow-lg">
                   {editedDeal.company.charAt(0)}
@@ -542,8 +542,8 @@ export const DealDetailView: React.FC<DealDetailViewProps> = ({
                 )}
               </div>
               
-              <h3 className="text-xl font-bold text-gray-900 mb-2 leading-tight">{editedDeal.title}</h3>
-              <p className="text-gray-600 font-medium mb-1">{editedDeal.company}</p>
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2 leading-tight">{editedDeal.title}</h3>
+              <p className="text-gray-600 dark:text-gray-300 font-medium mb-1">{editedDeal.company}</p>
               
               {/* Stage and Priority */}
               <div className="flex items-center justify-center space-x-2 mt-3">
@@ -569,15 +569,15 @@ export const DealDetailView: React.FC<DealDetailViewProps> = ({
             </div>
 
             {/* AI Tools Section - PROMINENTLY DISPLAYED */}
-            <div className="p-4 border-b border-gray-100 bg-gradient-to-r from-purple-50 to-blue-50">
-              <h4 className="text-sm font-bold text-gray-900 mb-3 flex items-center">
-                <Brain className="w-4 h-4 mr-2 text-purple-600" />
+            <div className="p-4 border-b border-gray-100 dark:border-gray-700 bg-gradient-to-r from-purple-50 to-blue-50 dark:from-gray-800 dark:to-gray-800">
+              <h4 className="text-sm font-bold text-gray-900 dark:text-white mb-3 flex items-center">
+                <Brain className="w-4 h-4 mr-2 text-purple-600 dark:text-purple-400" />
                 AI Assistant Tools
               </h4>
               
               {/* AI Goals Button */}
               <div className="mb-3">
-                <button className="w-full flex items-center justify-center py-3 px-4 bg-gradient-to-r from-indigo-500 to-purple-500 text-white rounded-lg hover:from-indigo-600 hover:to-purple-600 text-sm font-medium transition-all duration-200 border border-indigo-300/50 shadow-sm hover:shadow-md hover:scale-105">
+                <button className="w-full flex items-center justify-center py-3 px-4 bg-gradient-to-r from-indigo-500 to-purple-500 dark:from-indigo-600 dark:to-purple-600 text-white rounded-lg hover:from-indigo-600 hover:to-purple-600 dark:hover:from-indigo-700 dark:hover:to-purple-700 text-sm font-medium transition-all duration-200 border border-indigo-300/50 dark:border-indigo-500/50 shadow-sm hover:shadow-md hover:scale-105">
                   <Target className="w-4 h-4 mr-2" />
                   AI Goals
                 </button>
@@ -586,9 +586,9 @@ export const DealDetailView: React.FC<DealDetailViewProps> = ({
               {/* Quick AI Actions Grid */}
               <div className="grid grid-cols-2 gap-2 mb-3">
                 {/* Lead Score */}
-                <button 
+                <button
                   onClick={handleAnalyzeDeal}
-                  className="p-3 flex flex-col items-center justify-center rounded-lg font-medium transition-all duration-200 border shadow-sm hover:shadow-md hover:scale-105 min-h-[3.5rem] bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 border-blue-300/50"
+                  className="p-3 flex flex-col items-center justify-center rounded-lg font-medium transition-all duration-200 border shadow-sm hover:shadow-md hover:scale-105 min-h-[3.5rem] bg-gradient-to-r from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700 text-white hover:from-blue-600 hover:to-blue-700 dark:hover:from-blue-700 dark:hover:to-blue-800 border-blue-300/50 dark:border-blue-500/50"
                 >
                   <BarChart3 className="w-4 h-4 mb-1" />
                   <span className="text-xs leading-tight text-center">Lead Score</span>
@@ -603,14 +603,14 @@ export const DealDetailView: React.FC<DealDetailViewProps> = ({
                     }
                   }}
                   disabled={!linkedContact?.email}
-                  className="p-3 flex flex-col items-center justify-center rounded-lg font-medium transition-all duration-200 border shadow-sm hover:shadow-md hover:scale-105 min-h-[3.5rem] bg-gradient-to-r from-gray-50 to-gray-100 text-gray-700 hover:from-gray-100 hover:to-gray-200 border-gray-200/50 disabled:opacity-50"
+                  className="p-3 flex flex-col items-center justify-center rounded-lg font-medium transition-all duration-200 border shadow-sm hover:shadow-md hover:scale-105 min-h-[3.5rem] bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 text-gray-700 dark:text-gray-100 hover:from-gray-100 hover:to-gray-200 dark:hover:from-gray-600 dark:hover:to-gray-500 border-gray-200/50 dark:border-gray-600/50 disabled:opacity-50"
                 >
                   <Mail className="w-4 h-4 mb-1" />
                   <span className="text-xs leading-tight text-center">Email AI</span>
                 </button>
                 
                 {/* Enrich */}
-                <button 
+                <button
                   onClick={() => {
                     if (linkedContact) {
                       const enrichData: ContactEnrichmentData = {
@@ -623,16 +623,16 @@ export const DealDetailView: React.FC<DealDetailViewProps> = ({
                       handleContactEnrichment(enrichData);
                     }
                   }}
-                  className="p-3 flex flex-col items-center justify-center rounded-lg font-medium transition-all duration-200 border shadow-sm hover:shadow-md hover:scale-105 min-h-[3.5rem] bg-gradient-to-r from-gray-50 to-gray-100 text-gray-700 hover:from-gray-100 hover:to-gray-200 border-gray-200/50"
+                  className="p-3 flex flex-col items-center justify-center rounded-lg font-medium transition-all duration-200 border shadow-sm hover:shadow-md hover:scale-105 min-h-[3.5rem] bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 text-gray-700 dark:text-gray-100 hover:from-gray-100 hover:to-gray-200 dark:hover:from-gray-600 dark:hover:to-gray-500 border-gray-200/50 dark:border-gray-600/50"
                 >
                   <Search className="w-4 h-4 mb-1" />
                   <span className="text-xs leading-tight text-center">Enrich</span>
                 </button>
                 
                 {/* Insights */}
-                <button 
+                <button
                   onClick={() => setActiveTab('insights')}
-                  className="p-3 flex flex-col items-center justify-center rounded-lg font-medium transition-all duration-200 border shadow-sm hover:shadow-md hover:scale-105 min-h-[3.5rem] bg-gradient-to-r from-gray-50 to-gray-100 text-gray-700 hover:from-gray-100 hover:to-gray-200 border-gray-200/50"
+                  className="p-3 flex flex-col items-center justify-center rounded-lg font-medium transition-all duration-200 border shadow-sm hover:shadow-md hover:scale-105 min-h-[3.5rem] bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 text-gray-700 dark:text-gray-100 hover:from-gray-100 hover:to-gray-200 dark:hover:from-gray-600 dark:hover:to-gray-500 border-gray-200/50 dark:border-gray-600/50"
                 >
                   <TrendingUp className="w-4 h-4 mb-1" />
                   <span className="text-xs leading-tight text-center">Insights</span>
@@ -640,7 +640,7 @@ export const DealDetailView: React.FC<DealDetailViewProps> = ({
               </div>
 
               {/* AI Auto-Enrich Button */}
-              <button 
+              <button
                 onClick={() => {
                   if (linkedContact) {
                     const mockEnrichment: ContactEnrichmentData = {
@@ -656,27 +656,27 @@ export const DealDetailView: React.FC<DealDetailViewProps> = ({
                     handleContactEnrichment(mockEnrichment);
                   }
                 }}
-                className="w-full flex items-center justify-center py-2 px-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 text-sm font-medium transition-all duration-200 border border-purple-300/50 shadow-sm hover:shadow-md hover:scale-105"
+                className="w-full flex items-center justify-center py-2 px-3 bg-gradient-to-r from-purple-600 to-blue-600 dark:from-purple-700 dark:to-blue-700 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 dark:hover:from-purple-800 dark:hover:to-blue-800 text-sm font-medium transition-all duration-200 border border-purple-300/50 dark:border-purple-500/50 shadow-sm hover:shadow-md hover:scale-105"
               >
                 <Wand2 className="w-4 h-4 mr-2" />
                 AI Auto-Enrich
-                <Sparkles className="w-3 h-3 ml-2 text-yellow-300" />
+                <Sparkles className="w-3 h-3 ml-2 text-yellow-300 dark:text-yellow-200" />
               </button>
             </div>
 
             {/* Quick Action Buttons */}
-            <div className="p-4 border-b border-gray-100 bg-white">
-              <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center">
-                <Zap className="w-4 h-4 mr-2 text-blue-500" />
+            <div className="p-4 border-b border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800">
+              <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-3 flex items-center">
+                <Zap className="w-4 h-4 mr-2 text-blue-500 dark:text-blue-400" />
                 Quick Actions
               </h4>
               <div className="grid grid-cols-4 gap-2">
-                <button 
+                <button
                   onClick={() => setIsEditing(true)}
-                  className="p-3 flex flex-col items-center hover:bg-blue-50 rounded-lg transition-all text-center"
+                  className="p-3 flex flex-col items-center hover:bg-blue-50 dark:hover:bg-gray-700 rounded-lg transition-all text-center"
                 >
-                  <Edit className="w-4 h-4 mb-1 text-blue-600" />
-                  <span className="text-xs font-medium">Edit</span>
+                  <Edit className="w-4 h-4 mb-1 text-blue-600 dark:text-blue-400" />
+                  <span className="text-xs font-medium dark:text-gray-200">Edit</span>
                 </button>
                 <button
                   onClick={(e) => {
@@ -687,10 +687,10 @@ export const DealDetailView: React.FC<DealDetailViewProps> = ({
                     }
                   }}
                   disabled={!linkedContact?.email}
-                  className="p-3 flex flex-col items-center hover:bg-green-50 rounded-lg transition-all text-center disabled:opacity-50"
+                  className="p-3 flex flex-col items-center hover:bg-green-50 dark:hover:bg-gray-700 rounded-lg transition-all text-center disabled:opacity-50"
                 >
-                  <Mail className="w-4 h-4 mb-1 text-green-600" />
-                  <span className="text-xs font-medium">Email</span>
+                  <Mail className="w-4 h-4 mb-1 text-green-600 dark:text-green-400" />
+                  <span className="text-xs font-medium dark:text-gray-200">Email</span>
                 </button>
                 <button
                   onClick={(e) => {
@@ -701,32 +701,32 @@ export const DealDetailView: React.FC<DealDetailViewProps> = ({
                     }
                   }}
                   disabled={!linkedContact?.phone}
-                  className="p-3 flex flex-col items-center hover:bg-yellow-50 rounded-lg transition-all text-center disabled:opacity-50"
+                  className="p-3 flex flex-col items-center hover:bg-yellow-50 dark:hover:bg-gray-700 rounded-lg transition-all text-center disabled:opacity-50"
                 >
-                  <Phone className="w-4 h-4 mb-1 text-yellow-600" />
-                  <span className="text-xs font-medium">Call</span>
+                  <Phone className="w-4 h-4 mb-1 text-yellow-600 dark:text-yellow-400" />
+                  <span className="text-xs font-medium dark:text-gray-200">Call</span>
                 </button>
-                <button 
+                <button
                   onClick={() => window.open(`https://calendar.google.com/calendar/u/0/r/eventedit?text=Meeting+about+${editedDeal.title}&details=${editedDeal.company}`, '_blank')}
-                  className="p-3 flex flex-col items-center hover:bg-indigo-50 rounded-lg transition-all text-center"
+                  className="p-3 flex flex-col items-center hover:bg-indigo-50 dark:hover:bg-gray-700 rounded-lg transition-all text-center"
                 >
-                  <Calendar className="w-4 h-4 mb-1 text-indigo-600" />
-                  <span className="text-xs font-medium">Meet</span>
+                  <Calendar className="w-4 h-4 mb-1 text-indigo-600 dark:text-indigo-400" />
+                  <span className="text-xs font-medium dark:text-gray-200">Meet</span>
                 </button>
               </div>
               
               {/* Secondary Actions */}
               <div className="grid grid-cols-2 gap-2 mt-2">
-                <button 
+                <button
                   onClick={() => setShowAddField(true)}
-                  className="p-2 flex items-center justify-center hover:bg-purple-50 rounded-lg transition-all text-center text-xs font-medium text-purple-600"
+                  className="p-2 flex items-center justify-center hover:bg-purple-50 dark:hover:bg-gray-700 rounded-lg transition-all text-center text-xs font-medium text-purple-600 dark:text-purple-400"
                 >
                   <Plus className="w-3 h-3 mr-1" />
                   Add Field
                 </button>
-                <button 
+                <button
                   onClick={() => setActiveTab('journey')}
-                  className="p-2 flex items-center justify-center hover:bg-orange-50 rounded-lg transition-all text-center text-xs font-medium text-orange-600"
+                  className="p-2 flex items-center justify-center hover:bg-orange-50 dark:hover:bg-gray-700 rounded-lg transition-all text-center text-xs font-medium text-orange-600 dark:text-orange-400"
                 >
                   <FileText className="w-3 h-3 mr-1" />
                   Files
@@ -736,10 +736,10 @@ export const DealDetailView: React.FC<DealDetailViewProps> = ({
 
             {/* Contact Person Section - ENHANCED */}
             {linkedContact ? (
-              <div className="p-4 border-b border-gray-100 bg-white">
+              <div className="p-4 border-b border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800">
                 <div className="flex items-center justify-between mb-3">
-                  <h4 className="text-sm font-semibold text-gray-900 flex items-center">
-                    <User className="w-4 h-4 mr-2 text-green-500" />
+                  <h4 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center">
+                    <User className="w-4 h-4 mr-2 text-green-500 dark:text-green-400" />
                     Contact Person
                   </h4>
                   <div className="flex space-x-1">
@@ -759,16 +759,16 @@ export const DealDetailView: React.FC<DealDetailViewProps> = ({
                         className="p-1 bg-purple-100 text-purple-700 hover:bg-purple-200 border-purple-200"
                       />
                     )}
-                    <button 
+                    <button
                       onClick={() => setShowContactSelector(true)}
-                      className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
+                      className="p-1 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
                       title="Change Contact"
                     >
                       <Edit className="w-3 h-3" />
                     </button>
-                    <button 
+                    <button
                       onClick={handleRemoveContact}
-                      className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                      className="p-1 text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded transition-colors"
                       title="Remove Contact"
                     >
                       <UserX className="w-3 h-3" />
@@ -777,7 +777,7 @@ export const DealDetailView: React.FC<DealDetailViewProps> = ({
                 </div>
 
                 {/* Contact Profile Display */}
-                <div className="bg-gradient-to-r from-blue-50 to-green-50 rounded-lg p-4 border border-blue-200">
+                <div className="bg-gradient-to-r from-blue-50 to-green-50 dark:from-gray-700 dark:to-gray-700 rounded-lg p-4 border border-blue-200 dark:border-gray-600">
                   <div className="flex items-center space-x-3 mb-3">
                     <div className="relative">
                       <AvatarWithStatus
@@ -813,15 +813,15 @@ export const DealDetailView: React.FC<DealDetailViewProps> = ({
                     </div>
                     
                     <div className="flex-1">
-                      <h5 className="font-semibold text-gray-900">{linkedContact.name}</h5>
-                      <p className="text-sm text-gray-600">{linkedContact.title}</p>
-                      <p className="text-xs text-gray-500">{linkedContact.company}</p>
+                      <h5 className="font-semibold text-gray-900 dark:text-white">{linkedContact.name}</h5>
+                      <p className="text-sm text-gray-600 dark:text-gray-300">{linkedContact.title}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{linkedContact.company}</p>
                       
                       {/* Interest Level Indicator */}
                       {linkedContact.interestLevel && (
                         <div className="flex items-center space-x-1 mt-1">
                           <div className={`w-2 h-2 rounded-full ${interestColors[linkedContact.interestLevel]} animate-pulse`} />
-                          <span className="text-xs font-medium text-gray-700">
+                          <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
                             {interestLabels[linkedContact.interestLevel]}
                           </span>
                         </div>
@@ -831,16 +831,16 @@ export const DealDetailView: React.FC<DealDetailViewProps> = ({
 
                   {/* Contact AI Tools */}
                   <div className="grid grid-cols-2 gap-2 mb-3">
-                    <button 
+                    <button
                       onClick={handleContactAnalysis}
                       disabled={isAnalyzing}
-                      className="p-2 flex items-center justify-center rounded-lg font-medium transition-all duration-200 border shadow-sm hover:shadow-md hover:scale-105 bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 border-blue-300/50"
+                      className="p-2 flex items-center justify-center rounded-lg font-medium transition-all duration-200 border shadow-sm hover:shadow-md hover:scale-105 bg-gradient-to-r from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700 text-white hover:from-blue-600 hover:to-blue-700 dark:hover:from-blue-700 dark:hover:to-blue-800 border-blue-300/50 dark:border-blue-500/50"
                     >
                       <Target className="w-3 h-3 mr-1" />
                       <span className="text-xs">AI Score</span>
                     </button>
                     
-                    <button 
+                    <button
                       onClick={(e) => {
                         e.stopPropagation();
                         if (onAddContact) {
@@ -851,9 +851,9 @@ export const DealDetailView: React.FC<DealDetailViewProps> = ({
                         }
                       }}
                       className={`p-2 flex items-center justify-center rounded-lg font-medium transition-all duration-200 border shadow-sm hover:shadow-md hover:scale-105 ${
-                        linkedContact.isFavorite 
-                          ? 'bg-red-100 text-red-700 border-red-200' 
-                          : 'bg-gray-100 text-gray-700 border-gray-200'
+                        linkedContact.isFavorite
+                          ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 border-red-200 dark:border-red-700'
+                          : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 border-gray-200 dark:border-gray-600'
                       }`}
                     >
                       <Heart className={`w-3 h-3 mr-1 ${linkedContact.isFavorite ? 'fill-current' : ''}`} />
@@ -868,7 +868,7 @@ export const DealDetailView: React.FC<DealDetailViewProps> = ({
                         e.stopPropagation();
                         setShowEmailComposer(true);
                       }}
-                      className="p-2 flex items-center justify-center hover:bg-green-50 rounded-lg transition-all text-center text-xs font-medium text-green-600 border border-green-200"
+                      className="p-2 flex items-center justify-center hover:bg-green-50 dark:hover:bg-green-900/30 rounded-lg transition-all text-center text-xs font-medium text-green-600 dark:text-green-400 border border-green-200 dark:border-green-700"
                     >
                       <Mail className="w-3 h-3 mr-1" />
                       Email
@@ -882,7 +882,7 @@ export const DealDetailView: React.FC<DealDetailViewProps> = ({
                         }
                       }}
                       disabled={!linkedContact?.phone}
-                      className="p-2 flex items-center justify-center hover:bg-yellow-50 rounded-lg transition-all text-center text-xs font-medium text-yellow-600 border border-yellow-200 disabled:opacity-50"
+                      className="p-2 flex items-center justify-center hover:bg-yellow-50 dark:hover:bg-yellow-900/30 rounded-lg transition-all text-center text-xs font-medium text-yellow-600 dark:text-yellow-400 border border-yellow-200 dark:border-yellow-700 disabled:opacity-50"
                     >
                       <Phone className="w-3 h-3 mr-1" />
                       Call
@@ -891,19 +891,19 @@ export const DealDetailView: React.FC<DealDetailViewProps> = ({
                 </div>
               </div>
             ) : (
-              <div className="p-4 border-b border-gray-100 bg-white">
+              <div className="p-4 border-b border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800">
                 <div className="flex items-center justify-between mb-3">
-                  <h4 className="text-sm font-semibold text-gray-900 flex items-center">
-                    <User className="w-4 h-4 mr-2 text-green-500" />
+                  <h4 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center">
+                    <User className="w-4 h-4 mr-2 text-green-500 dark:text-green-400" />
                     Contact Person
                   </h4>
                 </div>
-                <div className="bg-gray-50 rounded-lg p-4 border border-gray-200 text-center">
-                  <UserPlus className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                  <p className="text-sm text-gray-600 mb-3">No contact assigned to this deal</p>
-                  <button 
+                <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 border border-gray-200 dark:border-gray-600 text-center">
+                  <UserPlus className="w-8 h-8 text-gray-400 dark:text-gray-500 mx-auto mb-2" />
+                  <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">No contact assigned to this deal</p>
+                  <button
                     onClick={() => setShowContactSelector(true)}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                    className="px-4 py-2 bg-blue-600 dark:bg-blue-700 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-800 transition-colors text-sm font-medium"
                   >
                     Add Contact
                   </button>

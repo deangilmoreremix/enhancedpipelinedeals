@@ -29,8 +29,14 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return 'auto';
   });
 
-  const [isDarkMode, setIsDarkMode] = useState(false);
-  const [isInitialized, setIsInitialized] = useState<boolean>(false);
+  // Initialize dark mode based on current state (already set by blocking script)
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return document.documentElement.classList.contains('dark');
+    }
+    return false;
+  });
+  const [isInitialized, setIsInitialized] = useState<boolean>(true);
   
   // Helper to set theme with localStorage persistence
   const setTheme = (newTheme: 'light' | 'dark' | 'auto') => {
@@ -60,27 +66,19 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return () => mediaQuery.removeEventListener('change', updateTheme);
   }, [theme]); 
 
-  // Apply theme to document, set metadata, and mark as initialized
+  // Apply theme to document and set metadata
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    
-    // Only apply after we have determined the theme
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('theme', theme);
-    }
-    
+
     // Apply the dark class to the document element
     document.documentElement.classList.toggle('dark', isDarkMode);
-    
+
     // Update theme-color meta tag for mobile browsers
     const metaThemeColor = document.querySelector('meta[name="theme-color"]');
     if (metaThemeColor) {
       metaThemeColor.setAttribute('content', isDarkMode ? '#121212' : '#ffffff');
     }
-    
-    // Prevent flash by marking as initialized after the theme is applied
-    setIsInitialized(true);
-  }, [theme, isDarkMode, isInitialized]);
+  }, [isDarkMode]);
 
   // Accessible toggle function
   const toggleDarkMode = () => {

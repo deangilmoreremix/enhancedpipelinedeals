@@ -5,6 +5,27 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Smart CRM Pipeline Deals Component</title>
+    <script>
+      // Prevent flash of unstyled content by applying theme before page loads
+      (function() {
+        // Add preload class to prevent transitions during initial load
+        document.documentElement.classList.add('preload');
+
+        // Apply theme immediately
+        const theme = localStorage.getItem('theme') || 'auto';
+        const isDark = theme === 'dark' || (theme === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        if (isDark) {
+          document.documentElement.classList.add('dark');
+        }
+
+        // Remove preload class after a brief delay to enable transitions
+        window.addEventListener('DOMContentLoaded', function() {
+          setTimeout(function() {
+            document.documentElement.classList.remove('preload');
+          }, 100);
+        });
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

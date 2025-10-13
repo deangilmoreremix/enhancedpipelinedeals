@@ -63,6 +63,11 @@
   }
 }
 
+/* Prevent transitions on page load to avoid flash */
+html.preload * {
+  transition: none !important;
+}
+
 /* Apply transitions to elements for smooth theme changes */
 html {
   transition: var(--theme-transition);

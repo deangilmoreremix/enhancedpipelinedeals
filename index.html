@@ -18,11 +18,17 @@
           document.documentElement.classList.add('dark');
         }
 
-        // Remove preload class after a brief delay to enable transitions
+        // Set a data attribute to signal that initial theme is applied
+        document.documentElement.setAttribute('data-theme-ready', 'true');
+
+        // Remove preload class after React hydration to enable smooth transitions
         window.addEventListener('DOMContentLoaded', function() {
-          setTimeout(function() {
-            document.documentElement.classList.remove('preload');
-          }, 100);
+          // Wait for React to mount before removing preload
+          requestAnimationFrame(function() {
+            setTimeout(function() {
+              document.documentElement.classList.remove('preload');
+            }, 50);
+          });
         });
       })();
     </script>

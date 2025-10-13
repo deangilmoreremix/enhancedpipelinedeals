@@ -16,7 +16,7 @@ function AppContent() {
   console.log('🎨 Theme initialized:', isInitialized);
 
   return (
-    <div className={`min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300 text-gray-900 dark:text-white ${
+    <div className={`min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white transition-all duration-200 ${
       isInitialized ? 'opacity-100' : 'opacity-0'
     }`}>
       {/* Header */}

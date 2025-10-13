@@ -36,7 +36,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
     return false;
   });
-  const [isInitialized, setIsInitialized] = useState<boolean>(true);
+  const [isInitialized, setIsInitialized] = useState<boolean>(false);
   
   // Helper to set theme with localStorage persistence
   const setTheme = (newTheme: 'light' | 'dark' | 'auto') => {
@@ -78,7 +78,14 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (metaThemeColor) {
       metaThemeColor.setAttribute('content', isDarkMode ? '#121212' : '#ffffff');
     }
-  }, [isDarkMode]);
+
+    // Set initialization flag after first render to prevent flash
+    if (!isInitialized) {
+      requestAnimationFrame(() => {
+        setIsInitialized(true);
+      });
+    }
+  }, [isDarkMode, isInitialized]);
 
   // Accessible toggle function
   const toggleDarkMode = () => {

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { AvatarWithStatus } from '../ui/AvatarWithStatus';
 import { ModernButton } from '../ui/ModernButton';
-import { CustomizableAIToolbar } from '../ui/CustomizableAIToolbar';
+import { CustomizableAIToolbar, AIGoalsButton } from '../ui/CustomizableAIToolbar';
 import { AIResearchButton } from '../ui/AIResearchButton';
 import { aiEnrichmentService, ContactEnrichmentData } from '../../services/aiEnrichmentService';
 import { ContactJourneyTimeline } from '../contacts/ContactJourneyTimeline';
@@ -582,10 +582,14 @@ export const ContactDetailView: React.FC<ContactDetailViewProps> = ({
               
               {/* AI Goals Button */}
               <div className="mb-3">
-                <button className="w-full flex items-center justify-center py-3 px-4 bg-gradient-to-r from-indigo-500 to-purple-500 text-white rounded-lg hover:from-indigo-600 hover:to-purple-600 text-sm font-medium transition-all duration-200 border border-indigo-300/50 shadow-sm hover:shadow-md hover:scale-105">
-                  <Target className="w-4 h-4 mr-2" />
-                  AI Goals
-                </button>
+                <AIGoalsButton
+                  entityType="contact"
+                  entityId={editedContact.id}
+                  entityData={editedContact}
+                  size="md"
+                  variant="primary"
+                  className="w-full"
+                />
               </div>
 
               {/* Quick AI Actions Grid */}

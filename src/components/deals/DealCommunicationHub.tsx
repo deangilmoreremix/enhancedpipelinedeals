@@ -2,15 +2,16 @@ import React, { useState } from 'react';
 import { Deal } from '../../types';
 import { Contact } from '../../types/contact';
 import { AICoachingPanel } from '../common/AICoachingPanel';
-import { 
+import { openEmailClient } from '../../utils/validation';
+import {
   Brain,
-  Mail, 
-  Phone, 
-  Calendar, 
-  MessageSquare, 
-  Video, 
-  FileText, 
-  Send, 
+  Mail,
+  Phone,
+  Calendar,
+  MessageSquare,
+  Video,
+  FileText,
+  Send,
   MicOff,
   Mic,
   Video as VideoIcon,
@@ -21,7 +22,10 @@ import {
   RefreshCw,
   Clock,
   MoreHorizontal,
-  User
+  User,
+  Zap,
+  Users,
+  AlertCircle
 } from 'lucide-react';
 
 interface DealCommunicationHubProps {
@@ -181,23 +185,46 @@ P.S. I've also attached a case study from a client in a similar situation who ac
     setIsGenerating(false);
   };
 
+  const handleSendEmail = () => {
+    const emailToUse = contact?.email || (deal.contact ? deal.contact : null);
+
+    if (!emailToUse) {
+      alert('No email address available for this contact');
+      return;
+    }
+
+    const result = openEmailClient(emailToUse);
+
+    if (!result.success) {
+      console.error('Email error:', result.error);
+      alert(result.error || 'Failed to open email client');
+    }
+  };
+
   const handleStartCall = () => {
+    const phoneToUse = contact?.phone;
+
+    if (!phoneToUse) {
+      alert('No phone number available for this contact');
+      return;
+    }
+
     setCallStatus('connecting');
     setTimeout(() => setCallStatus('active'), 1500);
-    
+
     // Start timer for call duration
     const timer = setInterval(() => {
       setCallDuration(prev => prev + 1);
     }, 1000);
-    
+
     // Cleanup function
     return () => clearInterval(timer);
   };
-  
+
   const handleEndCall = () => {
     setCallStatus('ended');
     setCallDuration(0);
-    
+
     // Add call to history
     const newMsg: Message = {
       id: Date.now().toString(),
@@ -207,7 +234,7 @@ P.S. I've also attached a case study from a client in a similar situation who ac
       status: 'sent',
       type: 'call'
     };
-    
+
     setMessages([...messages, newMsg]);
   };
   
@@ -379,10 +406,18 @@ P.S. I've also attached a case study from a client in a similar situation who ac
               </div>
             </div>
             <div className="flex space-x-2 mt-2">
-              <button className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors">
+              <button
+                onClick={handleSendEmail}
+                className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+                title="Send Email"
+              >
                 <Mail className="h-4 w-4" />
               </button>
-              <button className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors">
+              <button
+                onClick={handleStartCall}
+                className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+                title="Make Call"
+              >
                 <Phone className="h-4 w-4" />
               </button>
               <button className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors">

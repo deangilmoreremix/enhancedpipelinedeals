@@ -11,6 +11,7 @@ import { AutomationPanel } from '../contacts/AutomationPanel';
 import { ContactAnalytics } from '../contacts/ContactAnalytics';
 import { ContactEmailPanel } from '../contacts/ContactEmailPanel';
 import { Contact } from '../../types/contact';
+import { openEmailClient } from '../../utils/validation';
 import { 
   X, Edit, Mail, Phone, Plus, MessageSquare, FileText, Calendar, MoreHorizontal, 
   User, Globe, Clock, Building, Tag, Star, ExternalLink, Brain, TrendingUp, 
@@ -418,12 +419,25 @@ export const ContactDetailView: React.FC<ContactDetailViewProps> = ({
   };
 
   const handleSendEmail = () => {
-    window.open(`mailto:${editedContact.email}`, '_blank');
+    const result = openEmailClient(editedContact.email);
+
+    if (!result.success) {
+      console.error('Email error:', result.error);
+      alert(result.error || 'Failed to open email client');
+    }
   };
 
   const handleMakeCall = () => {
-    if (editedContact.phone) {
-      window.open(`tel:${editedContact.phone}`, '_blank');
+    if (!editedContact.phone) {
+      alert('No phone number available for this contact');
+      return;
+    }
+
+    try {
+      window.location.href = `tel:${editedContact.phone}`;
+    } catch (error) {
+      console.error('Failed to initiate call:', error);
+      alert('Failed to open phone dialer. Your device may not support this feature.');
     }
   };
 

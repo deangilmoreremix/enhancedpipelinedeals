@@ -412,12 +412,12 @@ export function checkDataSecurity(data: Record<string, any>): {
       if (value.includes('<script') || value.includes('javascript:') || value.includes('onerror=')) {
         risks.push(`Potential XSS in field: ${key}`);
       }
-      
+
       // Check for SQL injection patterns
       if (value.includes("'") && (value.includes('DROP') || value.includes('DELETE') || value.includes('UPDATE'))) {
         risks.push(`Potential SQL injection in field: ${key}`);
       }
-      
+
       // Sanitize the value
       sanitizedData[key] = sanitizeInput(value);
     } else {
@@ -430,4 +430,89 @@ export function checkDataSecurity(data: Record<string, any>): {
     risks,
     sanitizedData
   };
+}
+
+/**
+ * Validate email address format
+ */
+export function isValidEmail(email: string | null | undefined): boolean {
+  if (!email || typeof email !== 'string') {
+    return false;
+  }
+
+  const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailPattern.test(email.trim());
+}
+
+/**
+ * Safely create a mailto link
+ */
+export function createMailtoLink(email: string | null | undefined, subject?: string, body?: string): string | null {
+  if (!isValidEmail(email)) {
+    return null;
+  }
+
+  const sanitizedEmail = normalizeEmail(email!);
+  let mailtoUrl = `mailto:${sanitizedEmail}`;
+
+  const params: string[] = [];
+
+  if (subject) {
+    params.push(`subject=${encodeURIComponent(subject)}`);
+  }
+
+  if (body) {
+    params.push(`body=${encodeURIComponent(body)}`);
+  }
+
+  if (params.length > 0) {
+    mailtoUrl += `?${params.join('&')}`;
+  }
+
+  return mailtoUrl;
+}
+
+/**
+ * Safely open email client with error handling
+ */
+export function openEmailClient(email: string | null | undefined, subject?: string, body?: string): {
+  success: boolean;
+  error?: string;
+} {
+  if (!email) {
+    return {
+      success: false,
+      error: 'No email address provided'
+    };
+  }
+
+  if (!isValidEmail(email)) {
+    return {
+      success: false,
+      error: 'Invalid email address format'
+    };
+  }
+
+  try {
+    const mailtoLink = createMailtoLink(email, subject, body);
+
+    if (!mailtoLink) {
+      return {
+        success: false,
+        error: 'Failed to create mailto link'
+      };
+    }
+
+    window.location.href = mailtoLink;
+
+    return {
+      success: true
+    };
+  } catch (error) {
+    console.error('Failed to open email client:', error);
+    return {
+      success: false,
+      error: 'Failed to open email client. Your browser may have blocked this action.'
+    };
+  }
 }

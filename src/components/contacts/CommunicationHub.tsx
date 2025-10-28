@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
 import { Contact } from '../../types/contact';
 import { AICoachingPanel } from '../common/AICoachingPanel';
-import { 
-  Mail, 
-  Phone, 
-  Calendar, 
-  MessageSquare, 
-  Video, 
-  FileText, 
-  Send, 
+import { openEmailClient } from '../../utils/validation';
+import {
+  Mail,
+  Phone,
+  Calendar,
+  MessageSquare,
+  Video,
+  FileText,
+  Send,
   MicOff,
   Mic,
   Video as VideoIcon,
@@ -18,7 +19,13 @@ import {
   Loader2,
   RefreshCw,
   Clock,
-  MoreHorizontal
+  MoreHorizontal,
+  Brain,
+  Sparkles,
+  CheckCircle,
+  AlertCircle,
+  Zap,
+  Users
 } from 'lucide-react';
 
 interface CommunicationHubProps {
@@ -174,23 +181,37 @@ Best regards,
     setIsGenerating(false);
   };
 
+  const handleSendEmail = () => {
+    const result = openEmailClient(contact.email);
+
+    if (!result.success) {
+      console.error('Email error:', result.error);
+      alert(result.error || 'Failed to open email client');
+    }
+  };
+
   const handleStartCall = () => {
+    if (!contact.phone) {
+      alert('No phone number available for this contact');
+      return;
+    }
+
     setCallStatus('connecting');
     setTimeout(() => setCallStatus('active'), 1500);
-    
+
     // Start timer for call duration
     const timer = setInterval(() => {
       setCallDuration(prev => prev + 1);
     }, 1000);
-    
+
     // Cleanup function
     return () => clearInterval(timer);
   };
-  
+
   const handleEndCall = () => {
     setCallStatus('ended');
     setCallDuration(0);
-    
+
     // Add call to history
     const newMsg: Message = {
       id: Date.now().toString(),
@@ -200,7 +221,7 @@ Best regards,
       status: 'sent',
       type: 'call'
     };
-    
+
     setMessages([...messages, newMsg]);
   };
   
@@ -367,10 +388,18 @@ Best regards,
               </div>
             </div>
             <div className="flex space-x-2 mt-2">
-              <button className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors">
+              <button
+                onClick={handleSendEmail}
+                className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+                title="Send Email"
+              >
                 <Mail className="h-4 w-4" />
               </button>
-              <button className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors">
+              <button
+                onClick={handleStartCall}
+                className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+                title="Make Call"
+              >
                 <Phone className="h-4 w-4" />
               </button>
               <button className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors">

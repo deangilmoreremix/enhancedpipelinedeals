@@ -916,22 +916,22 @@ export const DealDetailView: React.FC<DealDetailViewProps> = ({
             )}
 
             {/* Deal Value & Probability */}
-            <div className="p-4 border-b border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800">
-              <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-3 flex items-center">
-                <DollarSign className="w-4 h-4 mr-2 text-green-500 dark:text-green-400" />
+            <div className="p-4 border-b border-gray-100 bg-white">
+              <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center">
+                <DollarSign className="w-4 h-4 mr-2 text-green-500" />
                 Deal Value & Probability
               </h4>
-
+              
               <div className="space-y-4">
                 {/* Deal Value */}
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide font-medium">Deal Value</p>
-                    <p className="text-2xl font-bold text-green-700 dark:text-green-400">{formatCurrency(editedDeal.value)}</p>
+                    <p className="text-xs text-gray-500 uppercase tracking-wide font-medium">Deal Value</p>
+                    <p className="text-2xl font-bold text-green-700">{formatCurrency(editedDeal.value)}</p>
                   </div>
-                  <button
+                  <button 
                     onClick={() => handleStartEditingField('value')}
-                    className="p-1 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                    className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
                   >
                     <Edit className="w-4 h-4" />
                   </button>
@@ -940,11 +940,11 @@ export const DealDetailView: React.FC<DealDetailViewProps> = ({
                 {/* Probability */}
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide font-medium">Probability</p>
-                    <span className="text-lg font-bold text-blue-700 dark:text-blue-400">{editedDeal.probability}%</span>
+                    <p className="text-xs text-gray-500 uppercase tracking-wide font-medium">Probability</p>
+                    <span className="text-lg font-bold text-blue-700">{editedDeal.probability}%</span>
                   </div>
-                  <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                    <div
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div 
                       className={`h-2 rounded-full transition-all duration-300 ${
                         editedDeal.probability >= 80 ? 'bg-green-500' :
                         editedDeal.probability >= 60 ? 'bg-blue-500' :
@@ -959,12 +959,12 @@ export const DealDetailView: React.FC<DealDetailViewProps> = ({
                 {editedDeal.dueDate && (
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide font-medium">Due Date</p>
-                      <p className="text-sm font-medium text-gray-900 dark:text-white">
+                      <p className="text-xs text-gray-500 uppercase tracking-wide font-medium">Due Date</p>
+                      <p className="text-sm font-medium text-gray-900">
                         {editedDeal.dueDate.toLocaleDateString()}
                       </p>
                     </div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                    <div className="text-xs text-gray-500">
                       {Math.ceil((editedDeal.dueDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} days
                     </div>
                   </div>
@@ -973,24 +973,24 @@ export const DealDetailView: React.FC<DealDetailViewProps> = ({
             </div>
 
             {/* Timeline */}
-            <div className="p-4 border-b border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800">
-              <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-3 flex items-center">
-                <Clock className="w-4 h-4 mr-2 text-blue-500 dark:text-blue-400" />
+            <div className="p-4 border-b border-gray-100 bg-white">
+              <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center">
+                <Clock className="w-4 h-4 mr-2 text-blue-500" />
                 Timeline
               </h4>
-
+              
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide font-medium">Created</p>
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">{editedDeal.createdAt.toLocaleDateString()}</p>
+                    <p className="text-xs text-gray-500 uppercase tracking-wide font-medium">Created</p>
+                    <p className="text-sm font-medium text-gray-900">{editedDeal.createdAt.toLocaleDateString()}</p>
                   </div>
                 </div>
-
+                
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide font-medium">Days Active</p>
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">
+                    <p className="text-xs text-gray-500 uppercase tracking-wide font-medium">Days Active</p>
+                    <p className="text-sm font-medium text-gray-900">
                       {Math.ceil((new Date().getTime() - editedDeal.createdAt.getTime()) / (1000 * 60 * 60 * 24))}
                     </p>
                   </div>
@@ -999,31 +999,31 @@ export const DealDetailView: React.FC<DealDetailViewProps> = ({
             </div>
 
             {/* Custom Fields */}
-            <div className="p-4 border-b border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800">
+            <div className="p-4 border-b border-gray-100 bg-white">
               <div className="flex items-center justify-between mb-3">
-                <h4 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center">
-                  <Database className="w-4 h-4 mr-2 text-purple-500 dark:text-purple-400" />
+                <h4 className="text-sm font-semibold text-gray-900 flex items-center">
+                  <Database className="w-4 h-4 mr-2 text-purple-500" />
                   Custom Fields
                 </h4>
-                <button
+                <button 
                   onClick={() => setShowAddField(true)}
-                  className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
+                  className="text-gray-400 hover:text-gray-600"
                 >
                   <Plus className="w-4 h-4" />
                 </button>
               </div>
-
+              
               {editedDeal.customFields && Object.keys(editedDeal.customFields).length > 0 ? (
                 <div className="space-y-2">
                   {Object.entries(editedDeal.customFields).map(([key, value], index) => (
-                    <div key={index} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700 rounded-md">
+                    <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded-md">
                       <div>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">{key}</p>
-                        <p className="text-sm font-medium text-gray-900 dark:text-white">{String(value)}</p>
+                        <p className="text-xs text-gray-500">{key}</p>
+                        <p className="text-sm font-medium text-gray-900">{String(value)}</p>
                       </div>
-                      <button
+                      <button 
                         onClick={() => handleRemoveCustomField(key)}
-                        className="text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400"
+                        className="text-gray-400 hover:text-red-600"
                       >
                         <X className="w-3 h-3" />
                       </button>
@@ -1031,7 +1031,7 @@ export const DealDetailView: React.FC<DealDetailViewProps> = ({
                   ))}
                 </div>
               ) : (
-                <p className="text-gray-500 dark:text-gray-400 text-sm">No custom fields</p>
+                <p className="text-gray-500 text-sm">No custom fields</p>
               )}
 
               {showAddField && (
@@ -1072,10 +1072,10 @@ export const DealDetailView: React.FC<DealDetailViewProps> = ({
             </div>
 
             {/* Tags */}
-            <div className="p-4 border-b border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800">
+            <div className="p-4 border-b border-gray-100 bg-white">
               <div className="flex items-center justify-between mb-3">
-                <h4 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center">
-                  <Tag className="w-4 h-4 mr-2 text-yellow-500 dark:text-yellow-400" />
+                <h4 className="text-sm font-semibold text-gray-900 flex items-center">
+                  <Tag className="w-4 h-4 mr-2 text-yellow-500" />
                   Tags
                 </h4>
               </div>
@@ -1116,70 +1116,70 @@ export const DealDetailView: React.FC<DealDetailViewProps> = ({
             </div>
 
             {/* Files & Attachments */}
-            <div className="p-4 border-b border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800">
+            <div className="p-4 border-b border-gray-100 bg-white">
               <div className="flex items-center justify-between mb-3">
-                <h4 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center">
-                  <Paperclip className="w-4 h-4 mr-2 text-orange-500 dark:text-orange-400" />
+                <h4 className="text-sm font-semibold text-gray-900 flex items-center">
+                  <Paperclip className="w-4 h-4 mr-2 text-orange-500" />
                   Files & Attachments
                 </h4>
-                <button
+                <button 
                   onClick={() => {/* Handle file upload */}}
-                  className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
+                  className="text-gray-400 hover:text-gray-600"
                 >
                   <Plus className="w-4 h-4" />
                 </button>
               </div>
-
+              
               {editedDeal.attachments && editedDeal.attachments.length > 0 ? (
                 <div className="space-y-2">
                   {editedDeal.attachments.map((file, index) => (
-                    <div key={index} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700 rounded-md">
+                    <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded-md">
                       <div className="flex items-center space-x-2">
-                        <FileText className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-                        <span className="text-sm text-gray-900 dark:text-white">{file.name}</span>
+                        <FileText className="w-4 h-4 text-gray-500" />
+                        <span className="text-sm text-gray-900">{file.name}</span>
                       </div>
-                      <button className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300">
+                      <button className="text-gray-400 hover:text-gray-600">
                         <Download className="w-3 h-3" />
                       </button>
                     </div>
                   ))}
                 </div>
               ) : (
-                <p className="text-gray-500 dark:text-gray-400 text-sm">No files attached</p>
+                <p className="text-gray-500 text-sm">No files attached</p>
               )}
             </div>
 
             {/* External Links */}
-            <div className="p-4 bg-white dark:bg-gray-800">
+            <div className="p-4 bg-white">
               <div className="flex items-center justify-between mb-3">
-                <h4 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center">
-                  <Link className="w-4 h-4 mr-2 text-indigo-500 dark:text-indigo-400" />
+                <h4 className="text-sm font-semibold text-gray-900 flex items-center">
+                  <Link className="w-4 h-4 mr-2 text-indigo-500" />
                   External Links
                 </h4>
-                <button
+                <button 
                   onClick={() => setShowAddLink(true)}
-                  className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
+                  className="text-gray-400 hover:text-gray-600"
                 >
                   <Plus className="w-4 h-4" />
                 </button>
               </div>
-
+              
               {editedDeal.links && editedDeal.links.length > 0 ? (
                 <div className="space-y-2">
                   {editedDeal.links.map((link, index) => (
-                    <div key={index} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700 rounded-md">
+                    <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded-md">
                       <div>
-                        <p className="text-sm font-medium text-gray-900 dark:text-white">{link.title}</p>
-                        <a href={link.url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 dark:text-blue-400 hover:underline">
+                        <p className="text-sm font-medium text-gray-900">{link.title}</p>
+                        <a href={link.url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:underline">
                           {link.url}
                         </a>
                       </div>
-                      <ExternalLink className="w-3 h-3 text-gray-400 dark:text-gray-500" />
+                      <ExternalLink className="w-3 h-3 text-gray-400" />
                     </div>
                   ))}
                 </div>
               ) : (
-                <p className="text-gray-500 dark:text-gray-400 text-sm">No links added</p>
+                <p className="text-gray-500 text-sm">No links added</p>
               )}
 
               {showAddLink && (
@@ -1438,21 +1438,21 @@ export const DealDetailView: React.FC<DealDetailViewProps> = ({
                         Based on analysis of similar deals, key decision factors for this type of client include:
                       </p>
                       <div className="grid grid-cols-2 gap-2">
-                        <div className="bg-white dark:bg-gray-700 p-2 rounded border border-blue-100 dark:border-blue-700">
-                          <p className="text-xs font-medium text-blue-800 dark:text-blue-200">Implementation Time</p>
-                          <p className="text-xs text-blue-600 dark:text-blue-400">Critical factor</p>
+                        <div className="bg-white p-2 rounded border border-blue-100">
+                          <p className="text-xs font-medium text-blue-800">Implementation Time</p>
+                          <p className="text-xs text-blue-600">Critical factor</p>
                         </div>
-                        <div className="bg-white dark:bg-gray-700 p-2 rounded border border-blue-100 dark:border-blue-700">
-                          <p className="text-xs font-medium text-blue-800 dark:text-blue-200">ROI Timeline</p>
-                          <p className="text-xs text-blue-600 dark:text-blue-400">High importance</p>
+                        <div className="bg-white p-2 rounded border border-blue-100">
+                          <p className="text-xs font-medium text-blue-800">ROI Timeline</p>
+                          <p className="text-xs text-blue-600">High importance</p>
                         </div>
-                        <div className="bg-white dark:bg-gray-700 p-2 rounded border border-blue-100 dark:border-blue-700">
-                          <p className="text-xs font-medium text-blue-800 dark:text-blue-200">Technical Support</p>
-                          <p className="text-xs text-blue-600 dark:text-blue-400">Medium importance</p>
+                        <div className="bg-white p-2 rounded border border-blue-100">
+                          <p className="text-xs font-medium text-blue-800">Technical Support</p>
+                          <p className="text-xs text-blue-600">Medium importance</p>
                         </div>
-                        <div className="bg-white dark:bg-gray-700 p-2 rounded border border-blue-100 dark:border-blue-700">
-                          <p className="text-xs font-medium text-blue-800 dark:text-blue-200">Pricing Model</p>
-                          <p className="text-xs text-blue-600 dark:text-blue-400">Medium importance</p>
+                        <div className="bg-white p-2 rounded border border-blue-100">
+                          <p className="text-xs font-medium text-blue-800">Pricing Model</p>
+                          <p className="text-xs text-blue-600">Medium importance</p>
                         </div>
                       </div>
                     </div>
@@ -1463,16 +1463,16 @@ export const DealDetailView: React.FC<DealDetailViewProps> = ({
                         Main competitors pursuing similar deals in this space:
                       </p>
                       <div className="space-y-2">
-                        <div className="flex justify-between bg-white dark:bg-gray-700 p-2 rounded border border-green-100 dark:border-green-700">
-                          <p className="text-xs font-medium text-green-800 dark:text-green-200">CompetitorX</p>
+                        <div className="flex justify-between bg-white p-2 rounded border border-green-100">
+                          <p className="text-xs font-medium text-green-800">CompetitorX</p>
                           <div className="flex items-center">
-                            <span className="text-xs text-red-600 dark:text-red-400">Weakness: Implementation time</span>
+                            <span className="text-xs text-red-600">Weakness: Implementation time</span>
                           </div>
                         </div>
-                        <div className="flex justify-between bg-white dark:bg-gray-700 p-2 rounded border border-green-100 dark:border-green-700">
-                          <p className="text-xs font-medium text-green-800 dark:text-green-200">CompetitorY</p>
+                        <div className="flex justify-between bg-white p-2 rounded border border-green-100">
+                          <p className="text-xs font-medium text-green-800">CompetitorY</p>
                           <div className="flex items-center">
-                            <span className="text-xs text-red-600 dark:text-red-400">Weakness: Limited support</span>
+                            <span className="text-xs text-red-600">Weakness: Limited support</span>
                           </div>
                         </div>
                       </div>

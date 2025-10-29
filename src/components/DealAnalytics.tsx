@@ -1,19 +1,19 @@
 import React, { useState, useMemo } from 'react';
-import { Tooltip as CustomTooltip } from './ui/Tooltip';
-import {
-  LineChart,
-  Line,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell
+import { Tooltip } from './ui/Tooltip';
+import { 
+  LineChart, 
+  Line, 
+  BarChart, 
+  Bar, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  Legend, 
+  ResponsiveContainer, 
+  PieChart, 
+  Pie, 
+  Cell 
 } from 'recharts';
 import { 
   DollarSign, 
@@ -201,7 +201,7 @@ const DealAnalytics: React.FC<DealAnalyticsProps> = ({ deals, contacts = [] }) =
       {/* KPI Metrics Dashboard */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {kpiMetrics.map((metric, index) => (
-          <CustomTooltip key={index} content={`${metric.title}: ${metric.description}. ${metric.changeType === 'increase' ? 'Up' : 'Down'} ${Math.abs(metric.change)}% from last period`} position="bottom">
+          <Tooltip key={index} content={`${metric.title}: ${metric.description}. ${metric.changeType === 'increase' ? 'Up' : 'Down'} ${Math.abs(metric.change)}% from last period`} position="bottom">
             <div className="relative overflow-hidden bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4">
               <div className="flex items-center justify-between mb-3">
                   <metric.icon className="h-5 w-5 text-blue-600 dark:text-blue-400" />
@@ -219,7 +219,7 @@ const DealAnalytics: React.FC<DealAnalyticsProps> = ({ deals, contacts = [] }) =
                 <p className="text-xs text-gray-500 dark:text-gray-400">{metric.description}</p>
               </div>
             </div>
-          </CustomTooltip>
+          </Tooltip>
         ))}
       </div>
 
@@ -269,7 +269,7 @@ const DealAnalytics: React.FC<DealAnalyticsProps> = ({ deals, contacts = [] }) =
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-base font-semibold text-gray-900">Revenue Performance Trend</h3>
             <div className="flex gap-2">
-              <CustomTooltip content="View last 7 days of performance data" position="bottom">
+              <Tooltip content="View last 7 days of performance data" position="bottom">
                 <button
                   onClick={() => setSelectedPeriod('week')}
                   className={`px-3 py-1 text-sm rounded-md transition-colors ${
@@ -280,8 +280,8 @@ const DealAnalytics: React.FC<DealAnalyticsProps> = ({ deals, contacts = [] }) =
                 >
                   Week
                 </button>
-              </CustomTooltip>
-              <CustomTooltip content="View last 30 days of performance data" position="bottom">
+              </Tooltip>
+              <Tooltip content="View last 30 days of performance data" position="bottom">
                 <button
                   onClick={() => setSelectedPeriod('month')}
                   className={`px-3 py-1 text-sm rounded-md transition-colors ${
@@ -292,8 +292,8 @@ const DealAnalytics: React.FC<DealAnalyticsProps> = ({ deals, contacts = [] }) =
                 >
                   Month
                 </button>
-              </CustomTooltip>
-              <CustomTooltip content="View last 90 days of performance data" position="bottom">
+              </Tooltip>
+              <Tooltip content="View last 90 days of performance data" position="bottom">
                 <button
                   onClick={() => setSelectedPeriod('quarter')}
                   className={`px-3 py-1 text-sm rounded-md transition-colors ${
@@ -304,7 +304,7 @@ const DealAnalytics: React.FC<DealAnalyticsProps> = ({ deals, contacts = [] }) =
                 >
                   Quarter
                 </button>
-              </CustomTooltip>
+              </Tooltip>
             </div>
           </div>
           <ResponsiveContainer width="100%" height={280}>

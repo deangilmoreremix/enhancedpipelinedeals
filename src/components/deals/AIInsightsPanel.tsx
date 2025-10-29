@@ -299,14 +299,14 @@ export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({ deal }) => {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between mb-2">
-        <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-          <Brain className="w-5 h-5 mr-2 text-purple-600" />
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
+          <Brain className="w-5 h-5 mr-2 text-purple-600 dark:text-purple-400" />
           AI Insights & Recommendations
         </h3>
         <button
           onClick={handleRefreshInsights}
           disabled={isRefreshing}
-          className="flex items-center space-x-1 text-sm text-purple-600 font-medium hover:text-purple-800 disabled:opacity-50"
+          className="flex items-center space-x-1 text-sm text-purple-600 dark:text-purple-400 font-medium hover:text-purple-800 dark:hover:text-purple-300 disabled:opacity-50"
         >
           <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
           <span>{isRefreshing ? 'Refreshing...' : 'Refresh'}</span>
@@ -314,13 +314,13 @@ export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({ deal }) => {
       </div>
       
       {/* AI Source Information */}
-      <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg p-3 border border-purple-200 flex items-center justify-between">
+      <div className="bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 rounded-lg p-3 border border-purple-200 dark:border-purple-700 flex items-center justify-between">
         <div className="flex items-center">
-          <Sparkles className="w-4 h-4 text-purple-600 mr-2" />
-          <span className="text-sm text-purple-900 font-medium">AI Insights by {aiProvider}</span>
+          <Sparkles className="w-4 h-4 text-purple-600 dark:text-purple-400 mr-2" />
+          <span className="text-sm text-purple-900 dark:text-purple-300 font-medium">AI Insights by {aiProvider}</span>
         </div>
-        <div className="flex items-center bg-white px-2 py-1 rounded-lg">
-          <span className="text-xs font-medium mr-1">Deal Score:</span>
+        <div className="flex items-center bg-white dark:bg-gray-700 px-2 py-1 rounded-lg">
+          <span className="text-xs font-medium mr-1 dark:text-gray-200">Deal Score:</span>
           <span className={`text-xs font-bold ${
             deal.probability >= 80 ? 'text-green-600' :
             deal.probability >= 60 ? 'text-blue-600' :
@@ -333,38 +333,38 @@ export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({ deal }) => {
       </div>
       
       {/* Deal Intelligence Summary */}
-      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-200">
-        <h4 className="text-sm font-semibold text-blue-900 mb-3">Deal Intelligence Summary</h4>
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg p-4 border border-blue-200 dark:border-blue-700">
+        <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-300 mb-3">Deal Intelligence Summary</h4>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-white p-3 rounded-lg border border-blue-100">
+          <div className="bg-white dark:bg-gray-700 p-3 rounded-lg border border-blue-100 dark:border-blue-800">
             <div className="flex items-center mb-2">
-              <TrendingUp className="w-4 h-4 text-blue-600 mr-2" />
-              <h5 className="text-sm font-medium text-blue-900">Probability Analysis</h5>
+              <TrendingUp className="w-4 h-4 text-blue-600 dark:text-blue-400 mr-2" />
+              <h5 className="text-sm font-medium text-blue-900 dark:text-blue-300">Probability Analysis</h5>
             </div>
-            <p className="text-xs text-blue-800">
+            <p className="text-xs text-blue-800 dark:text-blue-400">
               This deal has a <span className="font-semibold">{deal.probability}%</span> probability of closing, 
               which is {deal.probability > 60 ? 'above' : 'below'} average for deals in {deal.stage} stage.
             </p>
           </div>
           
-          <div className="bg-white p-3 rounded-lg border border-blue-100">
+          <div className="bg-white dark:bg-gray-700 p-3 rounded-lg border border-blue-100 dark:border-blue-800">
             <div className="flex items-center mb-2">
-              <Calendar className="w-4 h-4 text-blue-600 mr-2" />
-              <h5 className="text-sm font-medium text-blue-900">Timeline Prediction</h5>
+              <Calendar className="w-4 h-4 text-blue-600 dark:text-blue-400 mr-2" />
+              <h5 className="text-sm font-medium text-blue-900 dark:text-blue-300">Timeline Prediction</h5>
             </div>
-            <p className="text-xs text-blue-800">
+            <p className="text-xs text-blue-800 dark:text-blue-400">
               {deal.stage === 'closed-won' || deal.stage === 'closed-lost' 
                 ? 'Deal has reached final stage.' 
                 : `Based on similar deals, expected to close in ${Math.floor(Math.random() * 30) + 15} days.`}
             </p>
           </div>
           
-          <div className="bg-white p-3 rounded-lg border border-blue-100">
+          <div className="bg-white dark:bg-gray-700 p-3 rounded-lg border border-blue-100 dark:border-blue-800">
             <div className="flex items-center mb-2">
-              <DollarSign className="w-4 h-4 text-blue-600 mr-2" />
-              <h5 className="text-sm font-medium text-blue-900">Value Optimization</h5>
+              <DollarSign className="w-4 h-4 text-blue-600 dark:text-blue-400 mr-2" />
+              <h5 className="text-sm font-medium text-blue-900 dark:text-blue-300">Value Optimization</h5>
             </div>
-            <p className="text-xs text-blue-800">
+            <p className="text-xs text-blue-800 dark:text-blue-400">
               Deal value of {formatCurrency(deal.value)} could be increased by 15% with service add-ons.
             </p>
           </div>
@@ -372,7 +372,7 @@ export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({ deal }) => {
       </div>
       
       {/* Category Tabs */}
-      <div className="flex space-x-2 border-b border-gray-200">
+      <div className="flex space-x-2 border-b border-gray-200 dark:border-gray-700">
         {[
           { id: 'all', label: 'All Insights', count: insights.length },
           { id: 'action', label: 'Action Items', count: insights.filter(i => i.type === 'action').length },
@@ -383,9 +383,9 @@ export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({ deal }) => {
             key={category.id}
             onClick={() => setActiveCategory(category.id as any)}
             className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-              activeCategory === category.id 
-                ? 'border-purple-600 text-purple-600' 
-                : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
+              activeCategory === category.id
+                ? 'border-purple-600 dark:border-purple-400 text-purple-600 dark:text-purple-400'
+                : 'border-transparent text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:border-gray-300 dark:hover:border-gray-600'
             }`}
           >
             {category.label} ({category.count})
@@ -398,10 +398,10 @@ export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({ deal }) => {
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
         </div>
       ) : filteredInsights.length === 0 ? (
-        <div className="text-center py-12 bg-gray-50 rounded-lg border border-gray-200">
-          <Brain className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-          <h4 className="text-lg font-medium text-gray-700 mb-2">No insights available</h4>
-          <p className="text-sm text-gray-500 mb-4">
+        <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+          <Brain className="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto mb-3" />
+          <h4 className="text-lg font-medium text-gray-700 dark:text-gray-300 mb-2">No insights available</h4>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
             AI hasn't generated any {activeCategory !== 'all' ? activeCategory : ''} insights for this deal yet.
           </p>
           <button
@@ -416,7 +416,7 @@ export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({ deal }) => {
           {/* High Priority Insights */}
           {highPriorityInsights.length > 0 && (
             <div>
-              <h4 className="text-sm font-medium text-red-700 uppercase tracking-wide mb-3 flex items-center">
+              <h4 className="text-sm font-medium text-red-700 dark:text-red-400 uppercase tracking-wide mb-3 flex items-center">
                 <AlertCircle className="w-4 h-4 mr-1" /> High Priority
               </h4>
               <div className="space-y-3">
@@ -434,7 +434,7 @@ export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({ deal }) => {
           {/* Medium Priority Insights */}
           {mediumPriorityInsights.length > 0 && (
             <div>
-              <h4 className="text-sm font-medium text-yellow-700 uppercase tracking-wide mb-3 flex items-center">
+              <h4 className="text-sm font-medium text-yellow-700 dark:text-yellow-400 uppercase tracking-wide mb-3 flex items-center">
                 <Bell className="w-4 h-4 mr-1" /> Medium Priority
               </h4>
               <div className="space-y-3">
@@ -452,7 +452,7 @@ export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({ deal }) => {
           {/* Low Priority Insights */}
           {lowPriorityInsights.length > 0 && (
             <div>
-              <h4 className="text-sm font-medium text-green-700 uppercase tracking-wide mb-3 flex items-center">
+              <h4 className="text-sm font-medium text-green-700 dark:text-green-400 uppercase tracking-wide mb-3 flex items-center">
                 <HelpCircle className="w-4 h-4 mr-1" /> Good to Know
               </h4>
               <div className="space-y-3">
@@ -470,88 +470,88 @@ export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({ deal }) => {
       )}
       
       {/* Action Summary */}
-      <div className="bg-gray-50 rounded-lg border border-gray-200 p-4">
-        <h4 className="text-sm font-medium text-gray-700 mb-3">Recommended Next Steps</h4>
+      <div className="bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+        <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Recommended Next Steps</h4>
         <div className="space-y-2">
           {insights
             .filter(i => i.type === 'action')
             .map((action, index) => (
               <div key={index} className="flex items-start space-x-3">
                 <div className="flex-shrink-0 mt-0.5">
-                  <CheckCircle className="w-4 h-4 text-green-600" />
+                  <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
                 </div>
-                <p className="text-sm text-gray-700">{action.description}</p>
+                <p className="text-sm text-gray-700 dark:text-gray-300">{action.description}</p>
               </div>
             ))}
           {insights.filter(i => i.type === 'action').length === 0 && (
-            <p className="text-sm text-gray-500 italic">No action items currently recommended.</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 italic">No action items currently recommended.</p>
           )}
         </div>
       </div>
       
       {/* AI Research & Competitive Analysis */}
-      <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 border border-gray-200 dark:border-gray-700">
         <div className="flex items-center justify-between mb-4">
-          <h4 className="text-base font-medium text-gray-900 flex items-center">
-            <Search className="w-4 h-4 mr-2 text-purple-600" />
+          <h4 className="text-base font-medium text-gray-900 dark:text-white flex items-center">
+            <Search className="w-4 h-4 mr-2 text-purple-600 dark:text-purple-400" />
             AI Research & Competitive Analysis
           </h4>
-          <button className="text-sm text-purple-600 hover:text-purple-700 flex items-center">
+          <button className="text-sm text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 flex items-center">
             <RefreshCw className="w-3 h-3 mr-1" />
             Update
           </button>
         </div>
         
         <div className="space-y-4">
-          <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
-            <h5 className="text-sm font-medium text-purple-900 mb-2">Company Analysis</h5>
-            <p className="text-xs text-purple-700">
+          <div className="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-lg border border-purple-200 dark:border-purple-700">
+            <h5 className="text-sm font-medium text-purple-900 dark:text-purple-300 mb-2">Company Analysis</h5>
+            <p className="text-xs text-purple-700 dark:text-purple-400">
               {deal.company} is a mid-sized company in the technology sector with an estimated annual revenue of $50-100M.
               Recent news indicates they're expanding operations and investing in digital transformation initiatives.
             </p>
           </div>
           
-          <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-            <h5 className="text-sm font-medium text-blue-900 mb-2">Decision Factors</h5>
-            <p className="text-xs text-blue-700 mb-2">
+          <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-200 dark:border-blue-700">
+            <h5 className="text-sm font-medium text-blue-900 dark:text-blue-300 mb-2">Decision Factors</h5>
+            <p className="text-xs text-blue-700 dark:text-blue-400 mb-2">
               Based on analysis of similar deals, key decision factors for this type of client include:
             </p>
             <div className="grid grid-cols-2 gap-2">
-              <div className="bg-white p-2 rounded border border-blue-100">
-                <p className="text-xs font-medium text-blue-800">Implementation Time</p>
-                <p className="text-xs text-blue-600">Critical factor</p>
+              <div className="bg-white dark:bg-gray-700 p-2 rounded border border-blue-100 dark:border-blue-800">
+                <p className="text-xs font-medium text-blue-800 dark:text-blue-300">Implementation Time</p>
+                <p className="text-xs text-blue-600 dark:text-blue-400">Critical factor</p>
               </div>
-              <div className="bg-white p-2 rounded border border-blue-100">
-                <p className="text-xs font-medium text-blue-800">ROI Timeline</p>
-                <p className="text-xs text-blue-600">High importance</p>
+              <div className="bg-white dark:bg-gray-700 p-2 rounded border border-blue-100 dark:border-blue-800">
+                <p className="text-xs font-medium text-blue-800 dark:text-blue-300">ROI Timeline</p>
+                <p className="text-xs text-blue-600 dark:text-blue-400">High importance</p>
               </div>
-              <div className="bg-white p-2 rounded border border-blue-100">
-                <p className="text-xs font-medium text-blue-800">Technical Support</p>
-                <p className="text-xs text-blue-600">Medium importance</p>
+              <div className="bg-white dark:bg-gray-700 p-2 rounded border border-blue-100 dark:border-blue-800">
+                <p className="text-xs font-medium text-blue-800 dark:text-blue-300">Technical Support</p>
+                <p className="text-xs text-blue-600 dark:text-blue-400">Medium importance</p>
               </div>
-              <div className="bg-white p-2 rounded border border-blue-100">
-                <p className="text-xs font-medium text-blue-800">Pricing Model</p>
-                <p className="text-xs text-blue-600">Medium importance</p>
+              <div className="bg-white dark:bg-gray-700 p-2 rounded border border-blue-100 dark:border-blue-800">
+                <p className="text-xs font-medium text-blue-800 dark:text-blue-300">Pricing Model</p>
+                <p className="text-xs text-blue-600 dark:text-blue-400">Medium importance</p>
               </div>
             </div>
           </div>
           
-          <div className="bg-green-50 p-4 rounded-lg border border-green-200">
-            <h5 className="text-sm font-medium text-green-900 mb-2">Competitive Landscape</h5>
-            <p className="text-xs text-green-700 mb-2">
+          <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg border border-green-200 dark:border-green-700">
+            <h5 className="text-sm font-medium text-green-900 dark:text-green-300 mb-2">Competitive Landscape</h5>
+            <p className="text-xs text-green-700 dark:text-green-400 mb-2">
               Main competitors pursuing similar deals in this space:
             </p>
             <div className="space-y-2">
-              <div className="flex justify-between bg-white p-2 rounded border border-green-100">
-                <p className="text-xs font-medium text-green-800">CompetitorX</p>
+              <div className="flex justify-between bg-white dark:bg-gray-700 p-2 rounded border border-green-100 dark:border-green-800">
+                <p className="text-xs font-medium text-green-800 dark:text-green-300">CompetitorX</p>
                 <div className="flex items-center">
-                  <span className="text-xs text-red-600">Weakness: Implementation time</span>
+                  <span className="text-xs text-red-600 dark:text-red-400">Weakness: Implementation time</span>
                 </div>
               </div>
-              <div className="flex justify-between bg-white p-2 rounded border border-green-100">
-                <p className="text-xs font-medium text-green-800">CompetitorY</p>
+              <div className="flex justify-between bg-white dark:bg-gray-700 p-2 rounded border border-green-100 dark:border-green-800">
+                <p className="text-xs font-medium text-green-800 dark:text-green-300">CompetitorY</p>
                 <div className="flex items-center">
-                  <span className="text-xs text-red-600">Weakness: Limited support</span>
+                  <span className="text-xs text-red-600 dark:text-red-400">Weakness: Limited support</span>
                 </div>
               </div>
             </div>
@@ -560,13 +560,13 @@ export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({ deal }) => {
       </div>
       
       {/* Dynamic Sales Coaching Panel */}
-      <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 border border-gray-200 dark:border-gray-700">
         <div className="flex items-center justify-between mb-4">
-          <h4 className="text-base font-medium text-gray-900 flex items-center">
-            <Headphones className="w-5 h-5 mr-2 text-indigo-600" />
+          <h4 className="text-base font-medium text-gray-900 dark:text-white flex items-center">
+            <Headphones className="w-5 h-5 mr-2 text-indigo-600 dark:text-indigo-400" />
             AI Sales Coach
           </h4>
-          <button className="text-sm text-indigo-600 hover:text-indigo-700 flex items-center">
+          <button className="text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 flex items-center">
             <RefreshCw className="w-3 h-3 mr-1" />
             Get Coaching
           </button>
@@ -612,16 +612,16 @@ const InsightCard: React.FC<{
         
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between">
-            <h5 className="text-sm font-semibold text-gray-900">{insight.title}</h5>
-            <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-white text-gray-700 border border-gray-200">
+            <h5 className="text-sm font-semibold text-gray-900 dark:text-white">{insight.title}</h5>
+            <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600">
               {typeLabels[insight.type]}
             </span>
           </div>
           
-          <p className="text-sm text-gray-700 mt-1">{insight.description}</p>
+          <p className="text-sm text-gray-700 dark:text-gray-300 mt-1">{insight.description}</p>
           
           {(insight.confidence || insight.accuracy) && (
-            <div className="mt-2 flex items-center text-xs text-gray-600">
+            <div className="mt-2 flex items-center text-xs text-gray-600 dark:text-gray-400">
               {insight.confidence && (
                 <div className="flex items-center">
                   <Brain className="w-3 h-3 mr-1" />
@@ -638,8 +638,8 @@ const InsightCard: React.FC<{
           )}
           
           {expanded && (
-            <div className="mt-3 pt-3 border-t border-gray-200">
-              <div className="text-xs text-gray-500 flex items-center mb-2">
+            <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+              <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center mb-2">
                 <Calendar className="w-3 h-3 mr-1" />
                 Generated {insight.createdAt.toLocaleDateString()} by {insight.source}
               </div>
@@ -662,7 +662,7 @@ const InsightCard: React.FC<{
       <div className="flex items-center justify-between mt-3">
         <button
           onClick={() => setExpanded(!expanded)}
-          className="text-xs text-gray-600 hover:text-gray-900"
+          className="text-xs text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
         >
           {expanded ? 'Show less' : 'Show more'}
         </button>
@@ -743,8 +743,8 @@ const SalesCoachingPanel: React.FC<{ deal: any }> = ({ deal }) => {
   if (isLoadingCoaching) {
     return (
       <div className="text-center py-6">
-        <Loader2 className="w-6 h-6 text-indigo-600 mx-auto mb-2 animate-spin" />
-        <p className="text-sm text-gray-600">AI Coach analyzing deal context...</p>
+        <Loader2 className="w-6 h-6 text-indigo-600 dark:text-indigo-400 mx-auto mb-2 animate-spin" />
+        <p className="text-sm text-gray-600 dark:text-gray-400">AI Coach analyzing deal context...</p>
       </div>
     );
   }
@@ -752,8 +752,8 @@ const SalesCoachingPanel: React.FC<{ deal: any }> = ({ deal }) => {
   if (!coachingData) {
     return (
       <div className="text-center py-6">
-        <Headphones className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-        <p className="text-sm text-gray-500">Click "Get Coaching" for AI-powered sales advice</p>
+        <Headphones className="w-8 h-8 text-gray-400 dark:text-gray-500 mx-auto mb-2" />
+        <p className="text-sm text-gray-500 dark:text-gray-400">Click "Get Coaching" for AI-powered sales advice</p>
       </div>
     );
   }
@@ -761,66 +761,66 @@ const SalesCoachingPanel: React.FC<{ deal: any }> = ({ deal }) => {
   return (
     <div className="space-y-4">
       {/* Situational Advice */}
-      <div className="p-3 bg-indigo-50 rounded-lg border border-indigo-200">
-        <h5 className="text-sm font-medium text-indigo-900 mb-2 flex items-center">
+      <div className="p-3 bg-indigo-50 dark:bg-indigo-900/20 rounded-lg border border-indigo-200 dark:border-indigo-700">
+        <h5 className="text-sm font-medium text-indigo-900 dark:text-indigo-300 mb-2 flex items-center">
           <Lightbulb className="w-4 h-4 mr-1" />
           Situational Advice
         </h5>
-        <p className="text-sm text-indigo-800">{coachingData.situationalAdvice}</p>
+        <p className="text-sm text-indigo-800 dark:text-indigo-400">{coachingData.situationalAdvice}</p>
       </div>
 
       {/* Key Strategies */}
-      <div className="p-3 bg-green-50 rounded-lg border border-green-200">
-        <h5 className="text-sm font-medium text-green-900 mb-2">Key Strategies</h5>
+      <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-700">
+        <h5 className="text-sm font-medium text-green-900 dark:text-green-300 mb-2">Key Strategies</h5>
         <div className="space-y-1">
           {coachingData.keyStrategies.map((strategy: string, index: number) => (
             <div key={index} className="flex items-start space-x-2">
-              <CheckCircle className="w-3 h-3 text-green-600 mt-1" />
-              <p className="text-sm text-green-800">{strategy}</p>
+              <CheckCircle className="w-3 h-3 text-green-600 dark:text-green-400 mt-1" />
+              <p className="text-sm text-green-800 dark:text-green-400">{strategy}</p>
             </div>
           ))}
         </div>
       </div>
 
       {/* Next Meeting Preparation */}
-      <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
-        <h5 className="text-sm font-medium text-blue-900 mb-2 flex items-center">
+      <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
+        <h5 className="text-sm font-medium text-blue-900 dark:text-blue-300 mb-2 flex items-center">
           <Calendar className="w-4 h-4 mr-1" />
           Next Meeting Prep
         </h5>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
           <div>
-            <p className="font-medium text-blue-800 mb-1">Agenda</p>
+            <p className="font-medium text-blue-800 dark:text-blue-300 mb-1">Agenda</p>
             {coachingData.nextMeeting.agenda.map((item: string, index: number) => (
-              <p key={index} className="text-blue-700">• {item}</p>
+              <p key={index} className="text-blue-700 dark:text-blue-400">• {item}</p>
             ))}
           </div>
           <div>
-            <p className="font-medium text-blue-800 mb-1">Talking Points</p>
+            <p className="font-medium text-blue-800 dark:text-blue-300 mb-1">Talking Points</p>
             {coachingData.nextMeeting.talking_points.map((point: string, index: number) => (
-              <p key={index} className="text-blue-700">• {point}</p>
+              <p key={index} className="text-blue-700 dark:text-blue-400">• {point}</p>
             ))}
           </div>
           <div>
-            <p className="font-medium text-red-800 mb-1">Avoid</p>
+            <p className="font-medium text-red-800 dark:text-red-300 mb-1">Avoid</p>
             {coachingData.nextMeeting.avoid.map((item: string, index: number) => (
-              <p key={index} className="text-red-700">• {item}</p>
+              <p key={index} className="text-red-700 dark:text-red-400">• {item}</p>
             ))}
           </div>
         </div>
       </div>
 
       {/* Risk Mitigation */}
-      <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-200">
-        <h5 className="text-sm font-medium text-yellow-900 mb-2 flex items-center">
+      <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-700">
+        <h5 className="text-sm font-medium text-yellow-900 dark:text-yellow-300 mb-2 flex items-center">
           <AlertTriangle className="w-4 h-4 mr-1" />
           Risk Mitigation
         </h5>
         <div className="space-y-1">
           {coachingData.riskMitigation.map((action: string, index: number) => (
             <div key={index} className="flex items-start space-x-2">
-              <Target className="w-3 h-3 text-yellow-600 mt-1" />
-              <p className="text-sm text-yellow-800">{action}</p>
+              <Target className="w-3 h-3 text-yellow-600 dark:text-yellow-400 mt-1" />
+              <p className="text-sm text-yellow-800 dark:text-yellow-400">{action}</p>
             </div>
           ))}
         </div>

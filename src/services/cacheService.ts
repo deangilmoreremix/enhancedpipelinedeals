@@ -26,14 +26,18 @@ interface CacheStats {
 
 class CacheService {
   private cache = new Map<string, CacheEntry>();
-  private maxSize = 100; // Maximum number of entries
+  private maxSize = 200; // Maximum number of entries (increased for better performance)
   private defaultTTL = 30 * 60 * 1000; // 30 minutes in milliseconds
+  private maxMemoryMB = 50; // Maximum memory usage in MB
   private stats = {
     hits: 0,
     misses: 0,
     totalRequests: 0,
-    responseTimes: [] as number[]
+    responseTimes: [] as number[],
+    evictions: 0,
+    memoryOverflows: 0
   };
+  private cleanupInterval: NodeJS.Timeout | null = null;
 
   // Generate cache key from request parameters
   generateKey(service: string, method: string, params: any): string {
@@ -84,8 +88,16 @@ class CacheService {
       metadata
     };
 
+    // Check memory usage before adding
+    const currentMemoryMB = this.getMemoryUsageMB();
+    if (currentMemoryMB >= this.maxMemoryMB) {
+      this.stats.memoryOverflows++;
+      this.evictLRU();
+    }
+
     // Implement LRU eviction if cache is full
     if (this.cache.size >= this.maxSize) {
+      this.stats.evictions++;
       this.evictLRU();
     }
 
@@ -117,7 +129,7 @@ class CacheService {
   }
 
   // Clear expired entries
-  async clearExpired(): Promise<number> {
+  clearExpired(): number {
     let cleared = 0;
     for (const [key, entry] of this.cache.entries()) {
       if (Date.now() > entry.expiresAt) {
@@ -203,6 +215,61 @@ class CacheService {
     if (oldestKey) {
       this.cache.delete(oldestKey);
     }
+  }
+
+  // Get current memory usage in MB
+  private getMemoryUsageMB(): number {
+    let totalBytes = 0;
+    for (const entry of this.cache.values()) {
+      totalBytes += JSON.stringify(entry).length * 2;
+    }
+    return totalBytes / (1024 * 1024);
+  }
+
+  // Start automatic cleanup interval
+  startAutoCleanup(intervalMs: number = 5 * 60 * 1000): void {
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval);
+    }
+
+    this.cleanupInterval = setInterval(() => {
+      const cleared = this.clearExpired();
+      if (cleared > 0) {
+        console.log(`Cache auto-cleanup: removed ${cleared} expired entries`);
+      }
+    }, intervalMs);
+  }
+
+  // Stop automatic cleanup
+  stopAutoCleanup(): void {
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval);
+      this.cleanupInterval = null;
+    }
+  }
+
+  // Set maximum memory limit
+  setMaxMemory(maxMemoryMB: number): void {
+    this.maxMemoryMB = maxMemoryMB;
+    while (this.getMemoryUsageMB() > this.maxMemoryMB) {
+      this.evictLRU();
+    }
+  }
+
+  // Get memory statistics
+  getMemoryStats(): {
+    currentMemoryMB: number;
+    maxMemoryMB: number;
+    utilizationPercent: number;
+    entriesCount: number;
+  } {
+    const currentMemoryMB = this.getMemoryUsageMB();
+    return {
+      currentMemoryMB,
+      maxMemoryMB: this.maxMemoryMB,
+      utilizationPercent: (currentMemoryMB / this.maxMemoryMB) * 100,
+      entriesCount: this.cache.size
+    };
   }
 
   // Specialized caching for AI responses

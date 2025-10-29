@@ -1438,21 +1438,21 @@ export const DealDetailView: React.FC<DealDetailViewProps> = ({
                         Based on analysis of similar deals, key decision factors for this type of client include:
                       </p>
                       <div className="grid grid-cols-2 gap-2">
-                        <div className="bg-white p-2 rounded border border-blue-100">
-                          <p className="text-xs font-medium text-blue-800">Implementation Time</p>
-                          <p className="text-xs text-blue-600">Critical factor</p>
+                        <div className="bg-white dark:bg-gray-700 p-2 rounded border border-blue-100 dark:border-blue-700">
+                          <p className="text-xs font-medium text-blue-800 dark:text-blue-200">Implementation Time</p>
+                          <p className="text-xs text-blue-600 dark:text-blue-400">Critical factor</p>
                         </div>
-                        <div className="bg-white p-2 rounded border border-blue-100">
-                          <p className="text-xs font-medium text-blue-800">ROI Timeline</p>
-                          <p className="text-xs text-blue-600">High importance</p>
+                        <div className="bg-white dark:bg-gray-700 p-2 rounded border border-blue-100 dark:border-blue-700">
+                          <p className="text-xs font-medium text-blue-800 dark:text-blue-200">ROI Timeline</p>
+                          <p className="text-xs text-blue-600 dark:text-blue-400">High importance</p>
                         </div>
-                        <div className="bg-white p-2 rounded border border-blue-100">
-                          <p className="text-xs font-medium text-blue-800">Technical Support</p>
-                          <p className="text-xs text-blue-600">Medium importance</p>
+                        <div className="bg-white dark:bg-gray-700 p-2 rounded border border-blue-100 dark:border-blue-700">
+                          <p className="text-xs font-medium text-blue-800 dark:text-blue-200">Technical Support</p>
+                          <p className="text-xs text-blue-600 dark:text-blue-400">Medium importance</p>
                         </div>
-                        <div className="bg-white p-2 rounded border border-blue-100">
-                          <p className="text-xs font-medium text-blue-800">Pricing Model</p>
-                          <p className="text-xs text-blue-600">Medium importance</p>
+                        <div className="bg-white dark:bg-gray-700 p-2 rounded border border-blue-100 dark:border-blue-700">
+                          <p className="text-xs font-medium text-blue-800 dark:text-blue-200">Pricing Model</p>
+                          <p className="text-xs text-blue-600 dark:text-blue-400">Medium importance</p>
                         </div>
                       </div>
                     </div>
@@ -1463,16 +1463,16 @@ export const DealDetailView: React.FC<DealDetailViewProps> = ({
                         Main competitors pursuing similar deals in this space:
                       </p>
                       <div className="space-y-2">
-                        <div className="flex justify-between bg-white p-2 rounded border border-green-100">
-                          <p className="text-xs font-medium text-green-800">CompetitorX</p>
+                        <div className="flex justify-between bg-white dark:bg-gray-700 p-2 rounded border border-green-100 dark:border-green-700">
+                          <p className="text-xs font-medium text-green-800 dark:text-green-200">CompetitorX</p>
                           <div className="flex items-center">
-                            <span className="text-xs text-red-600">Weakness: Implementation time</span>
+                            <span className="text-xs text-red-600 dark:text-red-400">Weakness: Implementation time</span>
                           </div>
                         </div>
-                        <div className="flex justify-between bg-white p-2 rounded border border-green-100">
-                          <p className="text-xs font-medium text-green-800">CompetitorY</p>
+                        <div className="flex justify-between bg-white dark:bg-gray-700 p-2 rounded border border-green-100 dark:border-green-700">
+                          <p className="text-xs font-medium text-green-800 dark:text-green-200">CompetitorY</p>
                           <div className="flex items-center">
-                            <span className="text-xs text-red-600">Weakness: Limited support</span>
+                            <span className="text-xs text-red-600 dark:text-red-400">Weakness: Limited support</span>
                           </div>
                         </div>
                       </div>

@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Moon, Sun, Laptop, ChevronDown } from 'lucide-react';
+import { Tooltip } from './Tooltip';
 
 export const DarkModeToggle: React.FC = () => {
   const { isDarkMode, toggleDarkMode, theme, setTheme } = useTheme();
@@ -32,47 +33,51 @@ export const DarkModeToggle: React.FC = () => {
 
   return (
     <div className="relative" onKeyDown={handleKeyDown}>
-      <button
-        ref={buttonRef}
-        onClick={toggleDarkMode}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            toggleDarkMode();
-          }
-        }}
-        className="p-2 rounded-full bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-blue-400 focus:ring-offset-white dark:focus:ring-offset-gray-900"
-        aria-label={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
-        aria-pressed={isDarkMode}
-        role="switch"
-      >
-        {isDarkMode ? (
-          <Sun className="h-5 w-5 text-yellow-400" aria-hidden="true" />
-        ) : (
-          <Moon className="h-5 w-5 text-gray-700" aria-hidden="true" />
-        )}
-        <span className="sr-only">
-          {isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
-        </span>
-      </button>
+      <Tooltip content={isDarkMode ? 'Switch to Light Mode - Better for bright environments' : 'Switch to Dark Mode - Easier on the eyes in low light'} position="bottom">
+        <button
+          ref={buttonRef}
+          onClick={toggleDarkMode}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              toggleDarkMode();
+            }
+          }}
+          className="p-2 rounded-full bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-blue-400 focus:ring-offset-white dark:focus:ring-offset-gray-900"
+          aria-label={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+          aria-pressed={isDarkMode}
+          role="switch"
+        >
+          {isDarkMode ? (
+            <Sun className="h-5 w-5 text-yellow-400" aria-hidden="true" />
+          ) : (
+            <Moon className="h-5 w-5 text-gray-700" aria-hidden="true" />
+          )}
+          <span className="sr-only">
+            {isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+          </span>
+        </button>
+      </Tooltip>
       
       {/* Theme options dropdown button */}
-      <button
-        onClick={() => setIsMenuOpen(!isMenuOpen)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            setIsMenuOpen(!isMenuOpen);
-          }
-        }}
-        className="ml-1 p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-gray-900 rounded-md"
-        aria-label="More theme options"
-        aria-expanded={isMenuOpen}
-        aria-controls="theme-menu"
-        aria-haspopup="menu"
-      >
-        <ChevronDown className="h-4 w-4" />
-      </button>
+      <Tooltip content="Theme Options - Choose light, dark, or system preference" position="bottom">
+        <button
+          onClick={() => setIsMenuOpen(!isMenuOpen)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              setIsMenuOpen(!isMenuOpen);
+            }
+          }}
+          className="ml-1 p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-gray-900 rounded-md"
+          aria-label="More theme options"
+          aria-expanded={isMenuOpen}
+          aria-controls="theme-menu"
+          aria-haspopup="menu"
+        >
+          <ChevronDown className="h-4 w-4" />
+        </button>
+      </Tooltip>
       
       {/* Dropdown menu */}
       <div 

@@ -26,6 +26,7 @@ import { DealCalendarView } from './deals/DealCalendarView';
 import { DealTimelineView } from './deals/DealTimelineView';
 import { DealDashboardView } from './deals/DealDashboardView';
 import { useViewPreferences, DealViewType } from '../hooks/useViewPreferences';
+import { Tooltip } from './ui/Tooltip';
 import { 
   Search, Upload, Download, Brain, Sparkles, Plus, Filter, BarChart3, 
   Settings, Grid, List, Target, Zap, TrendingUp, Users, Calendar,
@@ -596,86 +597,96 @@ const Pipeline: React.FC = () => {
         <div className="flex items-center space-x-3">
           {/* View Selection Buttons */}
           <div className="flex bg-gray-100 dark:bg-gray-800 rounded-lg p-1 space-x-1">
-            <button
-              onClick={() => handleViewChange('kanban')}
-              className={`px-4 py-2 text-sm rounded-md transition-colors flex items-center space-x-2 ${
-                currentView === 'kanban' ? 'bg-white dark:bg-gray-700 text-blue-600 shadow-sm' : 'text-gray-600 dark:text-gray-400'
-              }`}
-              title="Kanban Board View"
-            >
-              <Grid className="w-4 h-4" />
-              <span>Kanban</span>
-            </button>
-            <button
-              onClick={() => handleViewChange('list')}
-              className={`px-4 py-2 text-sm rounded-md transition-colors flex items-center space-x-2 ${
-                currentView === 'list' ? 'bg-white dark:bg-gray-700 text-blue-600 shadow-sm' : 'text-gray-600 dark:text-gray-400'
-              }`}
-              title="List View"
-            >
-              <List className="w-4 h-4" />
-              <span>List</span>
-            </button>
-            <button
-              onClick={() => handleViewChange('table')}
-              className={`px-4 py-2 text-sm rounded-md transition-colors flex items-center space-x-2 ${
-                currentView === 'table' ? 'bg-white dark:bg-gray-700 text-blue-600 shadow-sm' : 'text-gray-600 dark:text-gray-400'
-              }`}
-              title="Table View"
-            >
-              <Table className="w-4 h-4" />
-              <span>Table</span>
-            </button>
-            <button
-              onClick={() => handleViewChange('calendar')}
-              className={`px-4 py-2 text-sm rounded-md transition-colors flex items-center space-x-2 ${
-                currentView === 'calendar' ? 'bg-white dark:bg-gray-700 text-blue-600 shadow-sm' : 'text-gray-600 dark:text-gray-400'
-              }`}
-              title="Calendar View"
-            >
-              <Calendar className="w-4 h-4" />
-              <span>Calendar</span>
-            </button>
-            <button
-              onClick={() => handleViewChange('dashboard')}
-              className={`px-4 py-2 text-sm rounded-md transition-colors flex items-center space-x-2 ${
-                currentView === 'dashboard' ? 'bg-white dark:bg-gray-700 text-blue-600 shadow-sm' : 'text-gray-600 dark:text-gray-400'
-              }`}
-              title="Dashboard/Analytics View"
-            >
-              <BarChart className="w-4 h-4" />
-              <span>Dashboard</span>
-            </button>
-            <button
-              onClick={() => handleViewChange('timeline')}
-              className={`px-4 py-2 text-sm rounded-md transition-colors flex items-center space-x-2 ${
-                currentView === 'timeline' ? 'bg-white dark:bg-gray-700 text-blue-600 shadow-sm' : 'text-gray-600 dark:text-gray-400'
-              }`}
-              title="Timeline View"
-            >
-              <Activity className="w-4 h-4" />
-              <span>Timeline</span>
-            </button>
+            <Tooltip content="Kanban Board - Visual pipeline with drag-and-drop cards organized by deal stage" position="bottom">
+              <button
+                onClick={() => handleViewChange('kanban')}
+                className={`px-4 py-2 text-sm rounded-md transition-colors flex items-center space-x-2 ${
+                  currentView === 'kanban' ? 'bg-white dark:bg-gray-700 text-blue-600 shadow-sm' : 'text-gray-600 dark:text-gray-400'
+                }`}
+              >
+                <Grid className="w-4 h-4" />
+                <span>Kanban</span>
+              </button>
+            </Tooltip>
+            <Tooltip content="List View - Compact list showing key deal information in a scrollable format" position="bottom">
+              <button
+                onClick={() => handleViewChange('list')}
+                className={`px-4 py-2 text-sm rounded-md transition-colors flex items-center space-x-2 ${
+                  currentView === 'list' ? 'bg-white dark:bg-gray-700 text-blue-600 shadow-sm' : 'text-gray-600 dark:text-gray-400'
+                }`}
+              >
+                <List className="w-4 h-4" />
+                <span>List</span>
+              </button>
+            </Tooltip>
+            <Tooltip content="Table View - Spreadsheet-style display with sortable columns and bulk actions" position="bottom">
+              <button
+                onClick={() => handleViewChange('table')}
+                className={`px-4 py-2 text-sm rounded-md transition-colors flex items-center space-x-2 ${
+                  currentView === 'table' ? 'bg-white dark:bg-gray-700 text-blue-600 shadow-sm' : 'text-gray-600 dark:text-gray-400'
+                }`}
+              >
+                <Table className="w-4 h-4" />
+                <span>Table</span>
+              </button>
+            </Tooltip>
+            <Tooltip content="Calendar View - Time-based view showing deals by due dates and follow-up schedules" position="bottom">
+              <button
+                onClick={() => handleViewChange('calendar')}
+                className={`px-4 py-2 text-sm rounded-md transition-colors flex items-center space-x-2 ${
+                  currentView === 'calendar' ? 'bg-white dark:bg-gray-700 text-blue-600 shadow-sm' : 'text-gray-600 dark:text-gray-400'
+                }`}
+              >
+                <Calendar className="w-4 h-4" />
+                <span>Calendar</span>
+              </button>
+            </Tooltip>
+            <Tooltip content="Dashboard View - Analytics and insights with charts, metrics, and performance trends" position="bottom">
+              <button
+                onClick={() => handleViewChange('dashboard')}
+                className={`px-4 py-2 text-sm rounded-md transition-colors flex items-center space-x-2 ${
+                  currentView === 'dashboard' ? 'bg-white dark:bg-gray-700 text-blue-600 shadow-sm' : 'text-gray-600 dark:text-gray-400'
+                }`}
+              >
+                <BarChart className="w-4 h-4" />
+                <span>Dashboard</span>
+              </button>
+            </Tooltip>
+            <Tooltip content="Timeline View - Chronological activity feed showing deal progression and history" position="bottom">
+              <button
+                onClick={() => handleViewChange('timeline')}
+                className={`px-4 py-2 text-sm rounded-md transition-colors flex items-center space-x-2 ${
+                  currentView === 'timeline' ? 'bg-white dark:bg-gray-700 text-blue-600 shadow-sm' : 'text-gray-600 dark:text-gray-400'
+                }`}
+              >
+                <Activity className="w-4 h-4" />
+                <span>Timeline</span>
+              </button>
+            </Tooltip>
           </div>
 
           {/* Team Management */}
-          <button
-            onClick={() => {
-              setShowTeamModal(true);
-            }}
-            className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-lg transition-colors font-medium shadow-sm"
-          >
-            <Users className="w-4 h-4" />
-            <span>Gamification Dashboard</span>
-          </button>
+          <Tooltip content="Gamification Dashboard - View leaderboard, achievements, and team performance metrics" position="bottom">
+            <button
+              onClick={() => {
+                setShowTeamModal(true);
+              }}
+              className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-lg transition-colors font-medium shadow-sm"
+            >
+              <Users className="w-4 h-4" />
+              <span>Gamification Dashboard</span>
+            </button>
+          </Tooltip>
 
-          <button 
-            onClick={() => setShowAddDealModal(true)}
-            className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            <span>New Deal</span>
-          </button>
+          <Tooltip content="Create New Deal - Add a new deal to your pipeline with AI-powered insights" position="bottom">
+            <button
+              onClick={() => setShowAddDealModal(true)}
+              className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              <span>New Deal</span>
+            </button>
+          </Tooltip>
         </div>
       </div>
 
@@ -694,81 +705,96 @@ const Pipeline: React.FC = () => {
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center space-x-4">
           {/* Search */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-            <input
-              type="text"
-              placeholder="Search deals..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all w-64 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-            />
-          </div>
+          <Tooltip content="Search deals by name, company, or contact - supports fuzzy matching" position="bottom">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <input
+                type="text"
+                placeholder="Search deals..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all w-64 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+              />
+            </div>
+          </Tooltip>
           
           {/* Stage Filter */}
-          <select
-            value={filterStage}
-            onChange={(e) => setFilterStage(e.target.value)}
-            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-          >
-            <option value="all">All Stages</option>
-            <option value="qualification">Qualification</option>
-            <option value="proposal">Proposal</option>
-            <option value="negotiation">Negotiation</option>
-            <option value="closed-won">Closed Won</option>
-            <option value="closed-lost">Closed Lost</option>
-          </select>
+          <Tooltip content="Filter by pipeline stage - narrow down deals by their current position in the sales process" position="bottom">
+            <select
+              value={filterStage}
+              onChange={(e) => setFilterStage(e.target.value)}
+              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+            >
+              <option value="all">All Stages</option>
+              <option value="qualification">Qualification</option>
+              <option value="proposal">Proposal</option>
+              <option value="negotiation">Negotiation</option>
+              <option value="closed-won">Closed Won</option>
+              <option value="closed-lost">Closed Lost</option>
+            </select>
+          </Tooltip>
 
           {/* Contact Management Buttons */}
-          <button
-            onClick={handleImportDeals}
-            className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
-          >
-            <Upload className="w-4 h-4" />
-            <span>Import Contacts</span>
-          </button>
+          <Tooltip content="Import Contacts - Upload contacts from CSV, Excel, or other CRM systems" position="bottom">
+            <button
+              onClick={handleImportDeals}
+              className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+            >
+              <Upload className="w-4 h-4" />
+              <span>Import Contacts</span>
+            </button>
+          </Tooltip>
           
-          <button
-            onClick={handleExportDeals}
-            className="flex items-center space-x-2 px-4 py-2 bg-indigo-50 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-700 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-800/60 transition-colors font-medium"
-          >
-            <Download className="w-4 h-4" />
-            <span>Export Contacts</span>
-          </button>
+          <Tooltip content="Export Contacts - Download your contacts as CSV, Excel, or JSON for backup or analysis" position="bottom">
+            <button
+              onClick={handleExportDeals}
+              className="flex items-center space-x-2 px-4 py-2 bg-indigo-50 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-700 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-800/60 transition-colors font-medium"
+            >
+              <Download className="w-4 h-4" />
+              <span>Export Contacts</span>
+            </button>
+          </Tooltip>
           
-          <button
-            onClick={handleAIScoreAll}
-            className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-lg transition-colors font-medium shadow-sm"
-          >
-            <Brain className="w-4 h-4" />
-            <span>AI Score All</span>
-            <Sparkles className="w-3 h-3 text-yellow-300" />
-          </button>
+          <Tooltip content="AI Score All - Analyze all visible deals with AI to generate win probability scores based on multiple factors" position="bottom">
+            <button
+              onClick={handleAIScoreAll}
+              className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-lg transition-colors font-medium shadow-sm"
+            >
+              <Brain className="w-4 h-4" />
+              <span>AI Score All</span>
+              <Sparkles className="w-3 h-3 text-yellow-300" />
+            </button>
+          </Tooltip>
 
           {/* Contacts & Team Management */}
-          <button
-            onClick={() => {
-              setContactsModalInitialView('external');
-              setShowContactsModal(true);
-            }}
-            className="flex items-center space-x-2 px-4 py-2 bg-blue-50 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-800/60 transition-colors font-medium"
-          >
-            <Target className="w-4 h-4" />
-            <span>Manage Contacts</span>
-          </button>
+          <Tooltip content="Manage Contacts - View, edit, and organize all your contacts with AI enrichment" position="bottom">
+            <button
+              onClick={() => {
+                setContactsModalInitialView('external');
+                setShowContactsModal(true);
+              }}
+              className="flex items-center space-x-2 px-4 py-2 bg-blue-50 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-800/60 transition-colors font-medium"
+            >
+              <Target className="w-4 h-4" />
+              <span>Manage Contacts</span>
+            </button>
+          </Tooltip>
         </div>
 
         <div className="flex items-center space-x-2">
-          <button 
-            onClick={() => setShowStats(!showStats)}
-            className="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-            title="Toggle Statistics"
-          >
-            <BarChart3 className="w-4 h-4" />
-          </button>
-          <button className="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
-            <Settings className="w-4 h-4" />
-          </button>
+          <Tooltip content="Toggle Statistics - Show or hide pipeline metrics and KPIs" position="left">
+            <button
+              onClick={() => setShowStats(!showStats)}
+              className="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+            >
+              <BarChart3 className="w-4 h-4" />
+            </button>
+          </Tooltip>
+          <Tooltip content="Settings - Configure pipeline preferences, notifications, and integrations" position="left">
+            <button className="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
+              <Settings className="w-4 h-4" />
+            </button>
+          </Tooltip>
         </div>
       </div>
       )}

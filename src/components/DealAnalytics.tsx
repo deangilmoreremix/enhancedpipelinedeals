@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { Tooltip } from './ui/Tooltip';
 import { 
   LineChart, 
   Line, 
@@ -200,23 +201,25 @@ const DealAnalytics: React.FC<DealAnalyticsProps> = ({ deals, contacts = [] }) =
       {/* KPI Metrics Dashboard */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {kpiMetrics.map((metric, index) => (
-          <div key={index} className="relative overflow-hidden bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4">
-            <div className="flex items-center justify-between mb-3">
-                <metric.icon className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-              <span className={`text-xs px-2 py-1 rounded-full font-medium ${
-                metric.changeType === 'increase' 
-                  ? 'bg-green-100 text-green-800' 
-                  : 'bg-red-100 text-red-800'
-              }`}>
-                {metric.changeType === 'increase' ? '+' : ''}{metric.change}%
-              </span>
+          <Tooltip key={index} content={`${metric.title}: ${metric.description}. ${metric.changeType === 'increase' ? 'Up' : 'Down'} ${Math.abs(metric.change)}% from last period`} position="bottom">
+            <div className="relative overflow-hidden bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+              <div className="flex items-center justify-between mb-3">
+                  <metric.icon className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+                  metric.changeType === 'increase'
+                    ? 'bg-green-100 text-green-800'
+                    : 'bg-red-100 text-red-800'
+                }`}>
+                  {metric.changeType === 'increase' ? '+' : ''}{metric.change}%
+                </span>
+              </div>
+              <div className="space-y-1">
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">{metric.value}</p>
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-300">{metric.title}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">{metric.description}</p>
+              </div>
             </div>
-            <div className="space-y-1">
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">{metric.value}</p>
-              <p className="text-sm font-medium text-gray-600 dark:text-gray-300">{metric.title}</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">{metric.description}</p>
-            </div>
-          </div>
+          </Tooltip>
         ))}
       </div>
 
@@ -266,36 +269,42 @@ const DealAnalytics: React.FC<DealAnalyticsProps> = ({ deals, contacts = [] }) =
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-base font-semibold text-gray-900">Revenue Performance Trend</h3>
             <div className="flex gap-2">
-              <button
-                onClick={() => setSelectedPeriod('week')}
-                className={`px-3 py-1 text-sm rounded-md transition-colors ${
-                  selectedPeriod === 'week' 
-                    ? 'bg-blue-100 text-blue-700' 
-                    : 'text-gray-600 hover:bg-gray-100'
-                }`}
-              >
-                Week
-              </button>
-              <button
-                onClick={() => setSelectedPeriod('month')}
-                className={`px-3 py-1 text-sm rounded-md transition-colors ${
-                  selectedPeriod === 'month' 
-                    ? 'bg-blue-100 text-blue-700' 
-                    : 'text-gray-600 hover:bg-gray-100'
-                }`}
-              >
-                Month
-              </button>
-              <button
-                onClick={() => setSelectedPeriod('quarter')}
-                className={`px-3 py-1 text-sm rounded-md transition-colors ${
-                  selectedPeriod === 'quarter' 
-                    ? 'bg-blue-100 text-blue-700' 
-                    : 'text-gray-600 hover:bg-gray-100'
-                }`}
-              >
-                Quarter
-              </button>
+              <Tooltip content="View last 7 days of performance data" position="bottom">
+                <button
+                  onClick={() => setSelectedPeriod('week')}
+                  className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                    selectedPeriod === 'week'
+                      ? 'bg-blue-100 text-blue-700'
+                      : 'text-gray-600 hover:bg-gray-100'
+                  }`}
+                >
+                  Week
+                </button>
+              </Tooltip>
+              <Tooltip content="View last 30 days of performance data" position="bottom">
+                <button
+                  onClick={() => setSelectedPeriod('month')}
+                  className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                    selectedPeriod === 'month'
+                      ? 'bg-blue-100 text-blue-700'
+                      : 'text-gray-600 hover:bg-gray-100'
+                  }`}
+                >
+                  Month
+                </button>
+              </Tooltip>
+              <Tooltip content="View last 90 days of performance data" position="bottom">
+                <button
+                  onClick={() => setSelectedPeriod('quarter')}
+                  className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                    selectedPeriod === 'quarter'
+                      ? 'bg-blue-100 text-blue-700'
+                      : 'text-gray-600 hover:bg-gray-100'
+                  }`}
+                >
+                  Quarter
+                </button>
+              </Tooltip>
             </div>
           </div>
           <ResponsiveContainer width="100%" height={280}>

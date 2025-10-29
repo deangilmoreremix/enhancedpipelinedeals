@@ -4,6 +4,7 @@ import { CustomizableAIToolbar } from './ui/CustomizableAIToolbar';
 import { EmailComposer } from './communication/EmailComposer';
 import { getEmailService } from '../services/emailService';
 import { getPhoneService } from '../services/phoneService';
+import { Tooltip } from './ui/Tooltip';
 import { 
   Calendar, 
   DollarSign, 
@@ -410,58 +411,62 @@ export const AIEnhancedDealCard: React.FC<AIEnhancedDealCardProps> = ({
       <div className="absolute top-4 right-4 flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
         {/* AI Analysis Button - Prominently Featured */}
         {onAnalyze && showAnalyzeButton && (
-          <button 
-            onClick={handleAnalyzeClick}
-            disabled={analyzing}
-            className={`p-2 rounded-lg transition-all duration-200 relative ${
-              deal.probability > 70
-                ? 'bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-300 hover:bg-purple-200 dark:hover:bg-purple-800/60 border border-purple-200 dark:border-purple-700' 
-                : 'bg-gradient-to-r from-blue-500 to-purple-500 text-white hover:from-blue-600 hover:to-purple-600 shadow-lg dark:from-blue-600 dark:to-purple-600 dark:hover:from-blue-700 dark:hover:to-purple-700 border border-blue-400 dark:border-blue-500'
-            }`}
-            title={deal.probability > 70 ? 'Re-analyze with AI' : 'Analyze with AI'}
-          >
-            {analyzing ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Brain className="w-4 h-4" />
-            )}
-            {deal.probability < 70 && !analyzing && (
-              <div className="absolute -top-1 -right-1 w-2 h-2 bg-yellow-400 rounded-full animate-pulse"></div>
-            )}
-          </button>
+          <Tooltip content={deal.probability > 70 ? 'Re-analyze with AI - Update win probability and insights' : 'AI Analysis - Generate win probability and strategic insights'} position="bottom">
+            <button
+              onClick={handleAnalyzeClick}
+              disabled={analyzing}
+              className={`p-2 rounded-lg transition-all duration-200 relative ${
+                deal.probability > 70
+                  ? 'bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-300 hover:bg-purple-200 dark:hover:bg-purple-800/60 border border-purple-200 dark:border-purple-700'
+                  : 'bg-gradient-to-r from-blue-500 to-purple-500 text-white hover:from-blue-600 hover:to-purple-600 shadow-lg dark:from-blue-600 dark:to-purple-600 dark:hover:from-blue-700 dark:hover:to-purple-700 border border-blue-400 dark:border-blue-500'
+              }`}
+            >
+              {analyzing ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Brain className="w-4 h-4" />
+              )}
+              {deal.probability < 70 && !analyzing && (
+                <div className="absolute -top-1 -right-1 w-2 h-2 bg-yellow-400 rounded-full animate-pulse"></div>
+              )}
+            </button>
+          </Tooltip>
         )}
         
         {/* Favorite Button */}
         {onToggleFavorite && (
-          <button
-            onClick={handleFavoriteClick}
-            className={`p-2 rounded-lg transition-colors ${
-              deal.isFavorite 
-                ? 'text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 border border-red-200 dark:border-red-700' 
-                : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-600'
-            }`}
-            title={deal.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
-          >
-            <Heart className={`w-4 h-4 ${deal.isFavorite ? 'fill-current' : ''}`} />
-          </button>
+          <Tooltip content={deal.isFavorite ? 'Remove from Favorites - Unmark this deal' : 'Add to Favorites - Quick access to important deals'} position="bottom">
+            <button
+              onClick={handleFavoriteClick}
+              className={`p-2 rounded-lg transition-colors ${
+                deal.isFavorite
+                  ? 'text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 border border-red-200 dark:border-red-700'
+                  : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-600'
+              }`}
+            >
+              <Heart className={`w-4 h-4 ${deal.isFavorite ? 'fill-current' : ''}`} />
+            </button>
+          </Tooltip>
         )}
         
-        <button
-          onClick={handleEditClick}
-          className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors border border-gray-200 dark:border-gray-600"
-          title="Edit deal"
-        >
-          <Edit className="w-3 h-3" />
-        </button>
-        <button 
-          onClick={(e) => {
-            e.stopPropagation();
-            // Handle more actions
-          }}
-          className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors border border-gray-200 dark:border-gray-600"
-        >
-          <MoreHorizontal className="w-3 h-3" />
-        </button>
+        <Tooltip content="Edit Deal - Modify deal details, stage, and notes" position="bottom">
+          <button
+            onClick={handleEditClick}
+            className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors border border-gray-200 dark:border-gray-600"
+          >
+            <Edit className="w-3 h-3" />
+          </button>
+        </Tooltip>
+        <Tooltip content="More Actions - Additional options and workflows" position="bottom">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+            }}
+            className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors border border-gray-200 dark:border-gray-600"
+          >
+            <MoreHorizontal className="w-3 h-3" />
+          </button>
+        </Tooltip>
       </div>
 
       <div className="p-6">
@@ -483,18 +488,19 @@ export const AIEnhancedDealCard: React.FC<AIEnhancedDealCardProps> = ({
                 
                 {/* Image search button */}
                 {onFindNewImage && (
-                  <button
-                    onClick={handleFindImageClick}
-                    disabled={isFinding}
-                    className="absolute -bottom-1 -right-1 p-0.5 bg-blue-600 dark:bg-blue-700 text-white rounded-full hover:bg-blue-700 dark:hover:bg-blue-800 transition-colors shadow-sm"
-                    title="Find company image"
-                  >
-                    {isFinding ? (
-                      <div className="w-2 h-2 border border-white border-t-transparent rounded-full animate-spin"></div>
-                    ) : (
-                      <Camera className="w-2 h-2" />
-                    )}
-                  </button>
+                  <Tooltip content="Update Company Avatar - Find a new profile image" position="right">
+                    <button
+                      onClick={handleFindImageClick}
+                      disabled={isFinding}
+                      className="absolute -bottom-1 -right-1 p-0.5 bg-blue-600 dark:bg-blue-700 text-white rounded-full hover:bg-blue-700 dark:hover:bg-blue-800 transition-colors shadow-sm"
+                    >
+                      {isFinding ? (
+                        <div className="w-2 h-2 border border-white border-t-transparent rounded-full animate-spin"></div>
+                      ) : (
+                        <Camera className="w-2 h-2" />
+                      )}
+                    </button>
+                  </Tooltip>
                 )}
               </div>
               <div className="text-gray-600 dark:text-gray-300">
@@ -513,16 +519,16 @@ export const AIEnhancedDealCard: React.FC<AIEnhancedDealCardProps> = ({
                 
                 {/* Image search button */}
                 {onFindNewImage && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      // Handle contact image search
-                    }}
-                    className="absolute -bottom-1 -right-1 p-0.5 bg-purple-600 dark:bg-purple-700 text-white rounded-full hover:bg-purple-700 dark:hover:bg-purple-800 transition-colors shadow-sm"
-                    title="Find contact image"
-                  >
-                    <Camera className="w-2 h-2" />
-                  </button>
+                  <Tooltip content="Update Contact Avatar - Find contact profile picture" position="right">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                      }}
+                      className="absolute -bottom-1 -right-1 p-0.5 bg-purple-600 dark:bg-purple-700 text-white rounded-full hover:bg-purple-700 dark:hover:bg-purple-800 transition-colors shadow-sm"
+                    >
+                      <Camera className="w-2 h-2" />
+                    </button>
+                  </Tooltip>
                 )}
               </div>
               <div className="text-gray-500 dark:text-gray-400">
@@ -543,28 +549,30 @@ export const AIEnhancedDealCard: React.FC<AIEnhancedDealCardProps> = ({
           
           {/* Deal Score Display */}
           <div className="flex flex-col items-center space-y-2">
-            <div className={`h-12 w-12 rounded-full ${getScoreColor(deal.probability)} text-white flex items-center justify-center font-bold text-lg shadow-lg ring-2 ring-white relative`}>
-              {deal.probability}%
-              
-              {/* Analysis Loading Indicator */}
-              {analyzing && (
-                <div className="absolute inset-0 bg-black/20 rounded-full flex items-center justify-center">
-                  <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                </div>
-              )}
-              
-              {/* AI Enhanced Indicator */}
-              {deal.probability > 70 && (
-                <Sparkles className="absolute -top-1 -right-1 w-3 h-3 text-yellow-300" />
-              )}
-              
-              {/* Favorite Badge */}
-              {deal.isFavorite && (
-                <div className="absolute -top-1 -left-1 h-4 w-4 rounded-full bg-red-500 text-white flex items-center justify-center shadow-lg ring-1 ring-white">
-                  <Heart className="w-2 h-2" />
-                </div>
-              )}
-            </div>
+            <Tooltip content={`Win Probability: ${deal.probability}% - AI-calculated likelihood of closing this deal`} position="left">
+              <div className={`h-12 w-12 rounded-full ${getScoreColor(deal.probability)} text-white flex items-center justify-center font-bold text-lg shadow-lg ring-2 ring-white relative`}>
+                {deal.probability}%
+
+                {/* Analysis Loading Indicator */}
+                {analyzing && (
+                  <div className="absolute inset-0 bg-black/20 rounded-full flex items-center justify-center">
+                    <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  </div>
+                )}
+
+                {/* AI Enhanced Indicator */}
+                {deal.probability > 70 && (
+                  <Sparkles className="absolute -top-1 -right-1 w-3 h-3 text-yellow-300" />
+                )}
+
+                {/* Favorite Badge */}
+                {deal.isFavorite && (
+                  <div className="absolute -top-1 -left-1 h-4 w-4 rounded-full bg-red-500 text-white flex items-center justify-center shadow-lg ring-1 ring-white">
+                    <Heart className="w-2 h-2" />
+                  </div>
+                )}
+              </div>
+            </Tooltip>
             <span className="text-xs text-gray-500 font-medium">
               {analyzing ? 'Analyzing...' : 'Probability'}
             </span>
@@ -600,12 +608,14 @@ export const AIEnhancedDealCard: React.FC<AIEnhancedDealCardProps> = ({
         )}
 
         {/* Priority Level */}
-        <div className="flex items-center justify-center space-x-2 mb-4">
-          <div className={`w-2 h-2 rounded-full ${getPriorityColor(deal.priority)} animate-pulse`} />
-          <span className="text-xs text-gray-700 dark:text-gray-300 font-medium">
-            {getPriorityLabel(deal.priority)}
-          </span>
-        </div>
+        <Tooltip content={`Priority: ${getPriorityLabel(deal.priority)} - Determines urgency and resource allocation`} position="top">
+          <div className="flex items-center justify-center space-x-2 mb-4">
+            <div className={`w-2 h-2 rounded-full ${getPriorityColor(deal.priority)} animate-pulse`} />
+            <span className="text-xs text-gray-700 dark:text-gray-300 font-medium">
+              {getPriorityLabel(deal.priority)}
+            </span>
+          </div>
+        </Tooltip>
 
         {/* Deal Value and Stage */}
         <div className="mb-4">
@@ -669,44 +679,50 @@ export const AIEnhancedDealCard: React.FC<AIEnhancedDealCardProps> = ({
           
           <div className="grid grid-cols-2 gap-2 mb-3">
             {/* Lead Score */}
-            <button 
-              onClick={handleAnalyzeClick}
-              disabled={analyzing}
-              className="p-2 flex flex-col items-center justify-center rounded-lg text-xs font-medium transition-all duration-200 border shadow-sm hover:shadow-md hover:scale-105 bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 border-blue-300/50 dark:from-blue-600 dark:to-blue-700 dark:hover:from-blue-700 dark:hover:to-blue-800 dark:border-blue-500/50"
-            >
-              {analyzing ? (
-                <Loader2 className="w-3 h-3 animate-spin mb-0.5" />
-              ) : (
-                <Target className="w-3 h-3 mb-0.5" />
-              )}
-              <span className="text-[10px]">Score</span>
-            </button>
+            <Tooltip content="AI Score - Calculate win probability based on deal characteristics" position="top">
+              <button
+                onClick={handleAnalyzeClick}
+                disabled={analyzing}
+                className="p-2 flex flex-col items-center justify-center rounded-lg text-xs font-medium transition-all duration-200 border shadow-sm hover:shadow-md hover:scale-105 bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 border-blue-300/50 dark:from-blue-600 dark:to-blue-700 dark:hover:from-blue-700 dark:hover:to-blue-800 dark:border-blue-500/50"
+              >
+                {analyzing ? (
+                  <Loader2 className="w-3 h-3 animate-spin mb-0.5" />
+                ) : (
+                  <Target className="w-3 h-3 mb-0.5" />
+                )}
+                <span className="text-[10px]">Score</span>
+              </button>
+            </Tooltip>
             
             {/* Email AI */}
-            <button
-              onClick={handleEmailClick}
-              className="p-2 flex flex-col items-center justify-center rounded-lg text-xs font-medium transition-all duration-200 border shadow-sm hover:shadow-md hover:scale-105 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 text-gray-700 dark:text-gray-200 hover:from-gray-100 hover:to-gray-200 dark:hover:from-gray-600 dark:hover:to-gray-500 border-gray-200/50 dark:border-gray-600/50"
-            >
-              <Mail className="w-3 h-3 mb-0.5" />
-              <span className="text-[10px] text-gray-700 dark:text-gray-200">Email</span>
-            </button>
+            <Tooltip content="AI Email - Generate personalized email with AI assistance" position="top">
+              <button
+                onClick={handleEmailClick}
+                className="p-2 flex flex-col items-center justify-center rounded-lg text-xs font-medium transition-all duration-200 border shadow-sm hover:shadow-md hover:scale-105 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 text-gray-700 dark:text-gray-200 hover:from-gray-100 hover:to-gray-200 dark:hover:from-gray-600 dark:hover:to-gray-500 border-gray-200/50 dark:border-gray-600/50"
+              >
+                <Mail className="w-3 h-3 mb-0.5" />
+                <span className="text-[10px] text-gray-700 dark:text-gray-200">Email</span>
+              </button>
+            </Tooltip>
             
             {/* AI Auto-Enrich */}
-            <button
-              onClick={handleAIEnrichClick}
-              disabled={localEnriching}
-              className="p-2 flex flex-col items-center justify-center rounded-lg text-xs font-medium transition-all duration-200 border shadow-sm hover:shadow-md hover:scale-105 bg-gradient-to-r from-purple-600 to-blue-600 dark:from-purple-700 dark:to-blue-700 text-white hover:from-purple-700 hover:to-blue-700 dark:hover:from-purple-800 dark:hover:to-blue-800 border-purple-300/50 dark:border-purple-500/50 col-span-2 relative"
-            >
-              {localEnriching ? (
-                <Loader2 className="w-3 h-3 animate-spin mb-0.5" />
-              ) : (
-                <Wand2 className="w-3 h-3 mb-0.5" />
-              )}
-              <span className="text-[10px] text-white">AI Auto-Enrich</span>
-              {!localEnriching && (
-                <Sparkles className="w-2 h-2 absolute top-1 right-1 text-yellow-300" />
-              )}
-            </button>
+            <Tooltip content="AI Enrich - Automatically enrich contact and company data from multiple sources" position="top">
+              <button
+                onClick={handleAIEnrichClick}
+                disabled={localEnriching}
+                className="p-2 flex flex-col items-center justify-center rounded-lg text-xs font-medium transition-all duration-200 border shadow-sm hover:shadow-md hover:scale-105 bg-gradient-to-r from-purple-600 to-blue-600 dark:from-purple-700 dark:to-blue-700 text-white hover:from-purple-700 hover:to-blue-700 dark:hover:from-purple-800 dark:hover:to-blue-800 border-purple-300/50 dark:border-purple-500/50 col-span-2 relative"
+              >
+                {localEnriching ? (
+                  <Loader2 className="w-3 h-3 animate-spin mb-0.5" />
+                ) : (
+                  <Wand2 className="w-3 h-3 mb-0.5" />
+                )}
+                <span className="text-[10px] text-white">AI Auto-Enrich</span>
+                {!localEnriching && (
+                  <Sparkles className="w-2 h-2 absolute top-1 right-1 text-yellow-300" />
+                )}
+              </button>
+            </Tooltip>
           </div>
         </div>
 

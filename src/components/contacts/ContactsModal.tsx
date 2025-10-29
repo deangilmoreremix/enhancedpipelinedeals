@@ -12,10 +12,11 @@ import { importService } from '../../services/importService';
 import { aiEnrichmentService, ContactEnrichmentData } from '../../services/aiEnrichmentService';
 import { aiAnalysisLimiter } from '../../utils/validation';
 import Fuse from 'fuse.js';
-import { 
+import {
   X, Search, Filter, Plus, Users, ChevronDown, Brain, Download, Upload, Zap, CheckCheck,
   Grid, List, Settings, UserPlus, Crown, Star, Loader2, Sparkles, RefreshCw
 } from 'lucide-react';
+import { Tooltip } from '../ui/Tooltip';
 
 interface ContactsModalProps {
   isOpen: boolean;
@@ -555,54 +556,62 @@ export const ContactsModal: React.FC<ContactsModalProps> = ({
             <div className="flex items-center space-x-3">
               {/* Team/External Tab Toggle */}
               <div className="flex bg-gray-100 rounded-lg p-1">
-                <button
-                  onClick={() => {
-                    setActiveTab('external');
-                    setSelectedContacts([]);
-                  }}
-                  className={`px-4 py-2 text-sm rounded-md transition-colors flex items-center space-x-2 ${
-                    activeTab === 'external' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600'
-                  }`}
-                >
-                  <Users className="w-4 h-4" />
-                  <span>External Contacts</span>
-                </button>
-                <button
-                  onClick={() => {
-                    setActiveTab('team');
-                    setSelectedContacts([]);
-                  }}
-                  className={`px-4 py-2 text-sm rounded-md transition-colors flex items-center space-x-2 ${
-                    activeTab === 'team' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600'
-                  }`}
-                >
-                  <Crown className="w-4 h-4" />
-                  <span>Team Members</span>
-                </button>
+                <Tooltip content="External Contacts - Manage prospects, leads, and customers" position="bottom">
+                  <button
+                    onClick={() => {
+                      setActiveTab('external');
+                      setSelectedContacts([]);
+                    }}
+                    className={`px-4 py-2 text-sm rounded-md transition-colors flex items-center space-x-2 ${
+                      activeTab === 'external' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600'
+                    }`}
+                  >
+                    <Users className="w-4 h-4" />
+                    <span>External Contacts</span>
+                  </button>
+                </Tooltip>
+                <Tooltip content="Team Members - Manage internal sales team and assignments" position="bottom">
+                  <button
+                    onClick={() => {
+                      setActiveTab('team');
+                      setSelectedContacts([]);
+                    }}
+                    className={`px-4 py-2 text-sm rounded-md transition-colors flex items-center space-x-2 ${
+                      activeTab === 'team' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600'
+                    }`}
+                  >
+                    <Crown className="w-4 h-4" />
+                    <span>Team Members</span>
+                  </button>
+                </Tooltip>
               </div>
 
               {/* AI Analysis Button */}
-              <button
-                onClick={handleAnalyzeAll}
-                disabled={isAnalyzing || contactsWithoutScores === 0}
-                className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white border border-purple-500 rounded-lg transition-colors disabled:opacity-50"
-              >
-                {isAnalyzing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Brain className="w-4 h-4" />}
-                <span>
-                  {isAnalyzing ? 'Analyzing...' : `AI Score All (${contactsWithoutScores})`}
-                </span>
-                <Sparkles className="w-3 h-3 text-yellow-300" />
-              </button>
+              <Tooltip content="AI Score All - Analyze all contacts without scores using AI to generate engagement scores" position="bottom">
+                <button
+                  onClick={handleAnalyzeAll}
+                  disabled={isAnalyzing || contactsWithoutScores === 0}
+                  className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white border border-purple-500 rounded-lg transition-colors disabled:opacity-50"
+                >
+                  {isAnalyzing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Brain className="w-4 h-4" />}
+                  <span>
+                    {isAnalyzing ? 'Analyzing...' : `AI Score All (${contactsWithoutScores})`}
+                  </span>
+                  <Sparkles className="w-3 h-3 text-yellow-300" />
+                </button>
+              </Tooltip>
 
               {/* Export Button */}
-              <button
-                onClick={handleExportContacts}
-                disabled={isAnalyzing || selectedContacts.length === 0}
-                className="flex items-center space-x-2 px-4 py-2 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-lg hover:bg-indigo-100 transition-colors disabled:opacity-50"
-              >
-                <Download className="w-4 h-4" />
-                <span>Export ({selectedContacts.length || filteredContacts.length})</span>
-              </button>
+              <Tooltip content={`Export Contacts - Download ${selectedContacts.length > 0 ? 'selected' : 'filtered'} contacts as CSV or Excel`} position="bottom">
+                <button
+                  onClick={handleExportContacts}
+                  disabled={isAnalyzing || selectedContacts.length === 0}
+                  className="flex items-center space-x-2 px-4 py-2 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-lg hover:bg-indigo-100 transition-colors disabled:opacity-50"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>Export ({selectedContacts.length || filteredContacts.length})</span>
+                </button>
+              </Tooltip>
 
               {/* Bulk Actions */}
               {selectedContacts.length > 0 && (
@@ -665,20 +674,24 @@ export const ContactsModal: React.FC<ContactsModalProps> = ({
                 </div>
               )}
 
-              <button 
-                onClick={() => setShowAddContactModal(true)}
-                className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                <Plus className="w-4 h-4" />
-                <span>New Contact</span>
-              </button>
+              <Tooltip content="New Contact - Add a new contact to your CRM with optional AI enrichment" position="bottom">
+                <button
+                  onClick={() => setShowAddContactModal(true)}
+                  className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>New Contact</span>
+                </button>
+              </Tooltip>
               
-              <button
-                onClick={onClose}
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <X className="w-6 h-6" />
-              </button>
+              <Tooltip content="Close - Return to main pipeline view" position="left">
+                <button
+                  onClick={onClose}
+                  className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </Tooltip>
             </div>
           </div>
 

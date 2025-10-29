@@ -235,9 +235,9 @@ const QuickAIButton: React.FC<QuickAIButtonProps> = ({
   };
 
   const sizeClasses = size === 'sm' ? 'p-2 text-xs' : 'p-3 text-sm';
-  const variantClasses = variant === 'primary' 
-    ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700' 
-    : 'bg-gradient-to-r from-gray-50 to-gray-100 text-gray-700 hover:from-gray-100 hover:to-gray-200';
+  const variantClasses = variant === 'primary'
+    ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 dark:from-blue-600 dark:to-blue-700 dark:hover:from-blue-700 dark:hover:to-blue-800'
+    : 'bg-gradient-to-r from-gray-50 to-gray-100 text-gray-700 hover:from-gray-100 hover:to-gray-200 dark:from-gray-700 dark:to-gray-600 dark:text-white dark:hover:from-gray-600 dark:hover:to-gray-500';
 
   return (
     <div className="relative">
@@ -248,8 +248,8 @@ const QuickAIButton: React.FC<QuickAIButtonProps> = ({
           ${sizeClasses} ${variantClasses} ${className}
           flex flex-col items-center justify-center rounded-lg font-medium transition-all duration-200
           border shadow-sm hover:shadow-md hover:scale-105 min-h-[3rem] disabled:opacity-50 disabled:cursor-not-allowed
-          ${variant === 'primary' ? 'border-blue-300/50' : 'border-gray-200/50'}
-          ${result ? 'ring-2 ring-green-300' : ''}
+          ${variant === 'primary' ? 'border-blue-300/50 dark:border-blue-700/50' : 'border-gray-200/50 dark:border-gray-600/50'}
+          ${result ? 'ring-2 ring-green-300 dark:ring-green-500' : ''}
         `}
       >
         {isExecuting ? (
@@ -339,8 +339,9 @@ export const AIGoalsButton: React.FC<{
           flex items-center justify-center py-2 px-3
           bg-gradient-to-r from-indigo-500 to-purple-500 text-white
           rounded-lg hover:from-indigo-600 hover:to-purple-600
+          dark:from-indigo-600 dark:to-purple-600 dark:hover:from-indigo-700 dark:hover:to-purple-700
           ${size === 'sm' ? 'text-sm' : 'text-base'} font-medium
-          transition-all duration-200 border border-indigo-300/50 shadow-sm hover:shadow-md hover:scale-105
+          transition-all duration-200 border border-indigo-300/50 dark:border-indigo-700/50 shadow-sm hover:shadow-md hover:scale-105
         `}
       >
         <Target size={size === 'sm' ? 14 : 16} className="mr-2" />
@@ -499,14 +500,14 @@ export const CustomizableAIToolbar: React.FC<CustomizableAIToolbarProps> = ({
           <div className="flex items-center justify-between">
             <button
               onClick={() => setShowCustomizeModal(true)}
-              className="flex-1 flex items-center justify-center py-2 px-3 bg-gradient-to-r from-indigo-50 to-purple-50 text-indigo-700 rounded-lg hover:from-indigo-100 hover:to-purple-100 text-sm font-medium transition-all duration-200 border border-indigo-200/50 shadow-sm border-dashed mr-2"
+              className="flex-1 flex items-center justify-center py-2 px-3 bg-gradient-to-r from-indigo-50 to-purple-50 text-indigo-700 rounded-lg hover:from-indigo-100 hover:to-purple-100 dark:from-indigo-900/30 dark:to-purple-900/30 dark:text-indigo-300 dark:hover:from-indigo-900/50 dark:hover:to-purple-900/50 text-sm font-medium transition-all duration-200 border border-indigo-200/50 dark:border-indigo-700/50 shadow-sm border-dashed mr-2"
             >
               <Plus size={14} className="mr-2" />
               Add Custom AI Goals
             </button>
             <button
               onClick={() => setShowCustomizeModal(true)}
-              className="p-2 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+              className="p-2 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 dark:text-gray-400 dark:hover:text-indigo-400 dark:hover:bg-indigo-900/30 rounded-lg transition-colors"
               title="Customize buttons"
             >
               <Settings size={16} />

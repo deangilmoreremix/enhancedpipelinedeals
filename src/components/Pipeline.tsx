@@ -1,14 +1,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
-import { ContactsModal } from './contacts/ContactsModal';
-import { TeamModal } from './team/TeamModal';
-import { ImportDealsModal } from './modals/ImportContactsModal';
 import { useSmartAI } from '../hooks/useSmartAI';
 import { useGamificationUpdates } from '../hooks/useGamificationUpdates';
-import AddDealModal from './deals/AddDealModal';
 import { DealCard } from './ui/DealCard';
-import { ExportModal } from './modals/ExportModal';
-import { ImportModal } from './modals/ImportModal';
 import { ImageUpload } from './ui/ImageUpload';
 import { AIEnhancedDealCard } from './AIEnhancedDealCard';
 import { EnhancedAIStatusIndicator } from './ui/EnhancedAIStatusIndicator';
@@ -21,30 +15,19 @@ import { getSupabaseService } from '../services/supabaseService';
 import { getOpenAIFunctionService } from '../services/openaiFunctionCallingService';
 import { Contact } from '../types/contact';
 import { Deal, PipelineColumn } from '../types';
-import { DealListView } from './deals/DealListView';
-import { DealTableView } from './deals/DealTableView';
-import { DealCalendarView } from './deals/DealCalendarView';
-import { DealTimelineView } from './deals/DealTimelineView';
-import { DealDashboardView } from './deals/DealDashboardView';
-import { useViewPreferences, DealViewType } from '../hooks/useViewPreferences';
 import { Tooltip } from './ui/Tooltip';
-import { 
-  Search, Upload, Download, Brain, Sparkles, Plus, Filter, BarChart3, 
+import {
+  Search, Upload, Download, Brain, Sparkles, Plus, Filter, BarChart3,
   Settings, Grid, List, Target, Zap, TrendingUp, Users, Calendar,
   Mail, Phone, CheckCircle, AlertCircle, Clock, DollarSign, Crown,
   Loader2, X, Table, BarChart, Activity
 } from 'lucide-react';
 
+type DealViewType = 'kanban' | 'list' | 'table' | 'calendar' | 'dashboard' | 'timeline';
+
 const Pipeline: React.FC = () => {
   // Modal states
-  const [showContactsModal, setShowContactsModal] = useState(false);
-  const [showImportModal, setShowImportModal] = useState(false);
-  const [showExportModal, setShowExportModal] = useState(false);
-  const [showNewImportModal, setShowNewImportModal] = useState(false);
-  const [showAddDealModal, setShowAddDealModal] = useState(false);
-  const [showTeamModal, setShowTeamModal] = useState(false);
   const [showClearDataModal, setShowClearDataModal] = useState(false);
-  const [contactsModalInitialView, setContactsModalInitialView] = useState<'external' | 'team'>('external');
 
   // Pipeline states
   const [deals, setDeals] = useState<Record<string, Deal>>({});
@@ -72,9 +55,6 @@ const Pipeline: React.FC = () => {
 
   // Gamification hook
   const { handleDealStageChange: updateGamification, handleDealValueChange: updateGamificationValue } = useGamificationUpdates();
-
-  // View preferences hook
-  const { preferences, isLoading: preferencesLoading, setDefaultView } = useViewPreferences();
 
   // Data sync service
   const dataSyncService = getDataSyncService();
@@ -158,17 +138,10 @@ const Pipeline: React.FC = () => {
     };
   }, [dataSource]);
 
-  // Set initial view from preferences
-  useEffect(() => {
-    if (!preferencesLoading && preferences.defaultView !== currentView) {
-      setCurrentView(preferences.defaultView);
-    }
-  }, [preferences.defaultView, preferencesLoading]);
 
   // Save view preference when changed
   const handleViewChange = (view: DealViewType) => {
     setCurrentView(view);
-    setDefaultView(view);
   };
 
   // Filter and search deals
@@ -423,11 +396,11 @@ const Pipeline: React.FC = () => {
   };
 
   const handleImportDeals = () => {
-    setShowNewImportModal(true);
+    console.log('Import functionality not yet implemented');
   };
 
   const handleExportDeals = () => {
-    setShowExportModal(true);
+    console.log('Export functionality not yet implemented');
   };
 
   const handleClearAllData = async () => {
@@ -452,19 +425,6 @@ const Pipeline: React.FC = () => {
     }
   };
 
-  const handleImportComplete = (data: Deal[] | Contact[]) => {
-    // Handle imported deals
-    if (data.length > 0 && 'value' in data[0]) {
-      const importedDeals = data as Deal[];
-      const newDealsMap = importedDeals.reduce((acc, deal) => {
-        acc[deal.id] = deal;
-        return acc;
-      }, {} as Record<string, Deal>);
-
-      setDeals(prev => ({ ...prev, ...newDealsMap }));
-    }
-    // Note: Contact import would be handled by the ContactsModal component
-  };
 
   const handleAIScoreAll = async () => {
     // Find deals that don't have AI scores
@@ -588,11 +548,9 @@ const Pipeline: React.FC = () => {
         }));
       }
 
-      setShowAddDealModal(false);
+      console.log('✅ Deal created successfully');
     } catch (error) {
       console.error('Failed to create deal:', error);
-      // Still close modal but show error
-      setShowAddDealModal(false);
     }
   };
 
@@ -697,28 +655,6 @@ const Pipeline: React.FC = () => {
             </Tooltip>
           </div>
 
-          {/* Team Management */}
-          <Tooltip content="Gamification Dashboard - View leaderboard, achievements, and team performance metrics" position="bottom">
-            <button
-              onClick={() => {
-                setShowTeamModal(true);
-              }}
-              className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-lg transition-colors font-medium shadow-sm"
-            >
-              <Users className="w-4 h-4" />
-              <span>Gamification Dashboard</span>
-            </button>
-          </Tooltip>
-
-          <Tooltip content="Create New Deal - Add a new deal to your pipeline with AI-powered insights" position="bottom">
-            <button
-              onClick={() => setShowAddDealModal(true)}
-              className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              <Plus className="w-4 h-4" />
-              <span>New Deal</span>
-            </button>
-          </Tooltip>
         </div>
       </div>
 
@@ -808,19 +744,6 @@ const Pipeline: React.FC = () => {
             </button>
           </Tooltip>
 
-          {/* Contacts & Team Management */}
-          <Tooltip content="Manage Contacts - View, edit, and organize all your contacts with AI enrichment" position="bottom">
-            <button
-              onClick={() => {
-                setContactsModalInitialView('external');
-                setShowContactsModal(true);
-              }}
-              className="flex items-center space-x-2 px-4 py-2 bg-blue-50 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-800/60 transition-colors font-medium"
-            >
-              <Target className="w-4 h-4" />
-              <span>Manage Contacts</span>
-            </button>
-          </Tooltip>
         </div>
 
         <div className="flex items-center space-x-2">
@@ -1010,46 +933,6 @@ const Pipeline: React.FC = () => {
           onClose={() => setSelectedDealId(null)}
         />
       )}
-
-      {/* Contact Modals */}
-      <ContactsModal 
-        isOpen={showContactsModal}
-        onClose={() => setShowContactsModal(false)}
-      />
-      
-      {/* Team/Gamification Modal */}
-      <TeamModal
-        isOpen={showTeamModal}
-        onClose={() => setShowTeamModal(false)}
-      />
-      
-      <ImportDealsModal 
-        isOpen={showImportModal}
-        onClose={() => setShowImportModal(false)}
-      />
-      
-      {/* Add Deal Modal */}
-      <AddDealModal 
-        isOpen={showAddDealModal}
-        onClose={() => setShowAddDealModal(false)}
-        onSave={handleAddDeal}
-      />
-      
-      {/* Export Modal */}
-      <ExportModal
-        isOpen={showExportModal}
-        onClose={() => setShowExportModal(false)}
-        data={Object.values(deals)}
-        dataType="deals"
-      />
-      
-      {/* Import Modal */}
-      <ImportModal
-        isOpen={showNewImportModal}
-        onClose={() => setShowNewImportModal(false)}
-        dataType="deals"
-        onImportComplete={handleImportComplete}
-      />
 
       {/* Clear Data Confirmation Modal */}
       {showClearDataModal && (

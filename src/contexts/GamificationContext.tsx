@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useContactStore } from '../store/contactStore';
 import { Contact } from '../types/contact';
+import { getGamificationService } from '../services/gamificationService';
 
 interface Achievement {
   id: string;
@@ -127,10 +128,24 @@ const sampleChallenges: Challenge[] = [
 
 export const GamificationProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { contacts, updateContact, updateTeamMemberStats: updateContactStats } = useContactStore();
-  const [achievements, setAchievements] = useState<Achievement[]>(sampleAchievements);
-  const [challenges, setChallenges] = useState<Challenge[]>(sampleChallenges);
+  const [achievements, setAchievements] = useState<Achievement[]>([]);
+  const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [teamMembers, setTeamMembers] = useState<Contact[]>([]);
+  const gamificationService = getGamificationService();
+
+  // Load achievements and challenges from database
+  useEffect(() => {
+    const loadGamificationData = async () => {
+      const [dbAchievements, dbChallenges] = await Promise.all([
+        gamificationService.getAllAchievements(),
+        gamificationService.getActiveChallenges(),
+      ]);
+      setAchievements(dbAchievements);
+      setChallenges(dbChallenges);
+    };
+    loadGamificationData();
+  }, []);
 
   // Update team members whenever contacts change
   useEffect(() => {
@@ -195,31 +210,39 @@ export const GamificationProvider: React.FC<{ children: ReactNode }> = ({ childr
   const awardAchievement = async (contactId: string, achievementId: string) => {
     const contact = contacts.find(c => c.id === contactId);
     if (!contact || !contact.gamificationStats) throw new Error('Contact not found or not a team member');
-    
+
     // Check if achievement already earned
     if (contact.gamificationStats.achievements?.includes(achievementId)) {
-      return; // Already has this achievement
+      return;
     }
-    
+
     // Find achievement to get points
     const achievement = achievements.find(a => a.id === achievementId);
     if (!achievement) throw new Error('Achievement not found');
-    
+
     // Update achievement list and add points
     const newAchievements = [...(contact.gamificationStats.achievements || []), achievementId];
     const newPoints = (contact.gamificationStats.points || 0) + achievement.points;
-    
+
     // Calculate level (every 1000 points = 1 level)
     const newLevel = Math.floor(newPoints / 1000) + 1;
-    
+
     await updateContactStats(contactId, {
       achievements: newAchievements,
       points: newPoints,
-      level: newLevel
+      level: newLevel,
+      lastAchievementDate: new Date()
     });
-    
+
+    // Save to database
+    try {
+      await gamificationService.unlockAchievement(contactId, achievementId);
+    } catch (error) {
+      console.error('Failed to save achievement to database:', error);
+    }
+
     // Update achievement list to mark it as unlocked
-    setAchievements(prev => prev.map(a => 
+    setAchievements(prev => prev.map(a =>
       a.id === achievementId
         ? { ...a, unlocked: true, unlockedAt: new Date() }
         : a

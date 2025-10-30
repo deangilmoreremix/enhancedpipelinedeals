@@ -4,6 +4,7 @@ import { ContactsModal } from './contacts/ContactsModal';
 import { TeamModal } from './team/TeamModal';
 import { ImportDealsModal } from './modals/ImportContactsModal';
 import { useSmartAI } from '../hooks/useSmartAI';
+import { useGamificationUpdates } from '../hooks/useGamificationUpdates';
 import AddDealModal from './deals/AddDealModal';
 import { DealCard } from './ui/DealCard';
 import { ExportModal } from './modals/ExportModal';
@@ -67,6 +68,9 @@ const Pipeline: React.FC = () => {
 
   // Smart AI hook
   const { smartScoreContact } = useSmartAI();
+
+  // Gamification hook
+  const { handleDealStageChange: updateGamification, handleDealValueChange: updateGamificationValue } = useGamificationUpdates();
 
   // View preferences hook
   const { preferences, isLoading: preferencesLoading, setDefaultView } = useViewPreferences();
@@ -283,16 +287,16 @@ const Pipeline: React.FC = () => {
 
       // Trigger gamification updates for value changes
       const previousDeal = deals[id];
-      const previousValue = previousDeal?.value || 0;
-      if (updates.value && updates.value !== previousValue) {
-        const updatedDeal = { ...previousDeal, ...updates };
-        handleDealValueChange(updatedDeal, previousValue);
-      }
-
       // Trigger gamification updates for stage changes
       if (updates.stage && updates.stage !== previousDeal?.stage) {
-        const updatedDeal = { ...previousDeal, ...updates };
-        handleDealStageChange(updatedDeal, previousDeal?.stage);
+        const updatedDeal = { ...previousDeal, ...updates } as Deal;
+        updateGamification(updatedDeal, previousDeal?.stage);
+      }
+
+      // Trigger gamification updates for value changes
+      if (updates.value && updates.value !== previousDeal?.value && previousDeal?.value) {
+        const updatedDeal = { ...previousDeal, ...updates } as Deal;
+        updateGamificationValue(updatedDeal, previousDeal.value);
       }
     } catch (error) {
       console.error('Failed to update deal:', error);
@@ -309,16 +313,6 @@ const Pipeline: React.FC = () => {
 
     // Open deal detail modal
     setSelectedDealId(dealId);
-  };
-
-  const handleDealValueChange = (deal: Deal, previousValue: number) => {
-    // This would trigger gamification updates
-    console.log('Deal value changed:', deal.title, previousValue, '->', deal.value);
-  };
-
-  const handleDealStageChange = (deal: Deal, previousStage?: string) => {
-    // This would trigger gamification updates
-    console.log('Deal stage changed:', deal.title, previousStage, '->', deal.stage);
   };
 
   const handleAIResearch = async (deal: Deal): Promise<boolean> => {

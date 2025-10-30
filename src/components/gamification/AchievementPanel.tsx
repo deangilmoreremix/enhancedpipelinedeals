@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useGamification } from '../../contexts/GamificationContext';
 import { Contact } from '../../types/contact';
+import { getGamificationService } from '../../services/gamificationService';
 import {
   Trophy,
   Award,
@@ -20,6 +21,22 @@ import {
 
 export const AchievementPanel: React.FC = () => {
   const { leaderboard, teamMembers, challenges } = useGamification();
+  const [recentAchievements, setRecentAchievements] = useState<Array<{
+    contactId: string;
+    contactName: string;
+    achievementTitle: string;
+    achievementIcon: string;
+    unlockedAt: Date;
+  }>>([]);
+
+  useEffect(() => {
+    const loadRecentAchievements = async () => {
+      const gamificationService = getGamificationService();
+      const recent = await gamificationService.getRecentTeamAchievements(3);
+      setRecentAchievements(recent);
+    };
+    loadRecentAchievements();
+  }, [teamMembers]);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 bg-white rounded-xl p-6 border border-gray-200 shadow-sm">
@@ -189,38 +206,32 @@ export const AchievementPanel: React.FC = () => {
             <Award className="w-4 h-4 mr-2 text-yellow-500" />
             Recent Team Achievements
           </h4>
-          
-          <div className="bg-gray-50 rounded-lg border border-gray-200 p-3">
-            <div className="flex items-center space-x-2 mb-2">
-              <div className="p-1.5 bg-yellow-100 rounded-full">
-                <Star className="w-3 h-3 text-yellow-600" />
-              </div>
-              <div>
-                <p className="font-medium text-gray-800 text-sm">Sarah Johnson earned "First Deal"</p>
-                <p className="text-xs text-gray-500">2 days ago</p>
-              </div>
+
+          {recentAchievements.length === 0 ? (
+            <div className="bg-gray-50 rounded-lg border border-gray-200 p-4 text-center">
+              <Star className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+              <p className="text-sm text-gray-500">No achievements unlocked yet</p>
             </div>
-            
-            <div className="flex items-center space-x-2 mb-2">
-              <div className="p-1.5 bg-green-100 rounded-full">
-                <DollarSign className="w-3 h-3 text-green-600" />
-              </div>
-              <div>
-                <p className="font-medium text-gray-800 text-sm">Alex Rivera reached "$100K Revenue"</p>
-                <p className="text-xs text-gray-500">1 week ago</p>
-              </div>
+          ) : (
+            <div className="bg-gray-50 rounded-lg border border-gray-200 p-3 space-y-2">
+              {recentAchievements.map((achievement, index) => {
+                const timeAgo = getTimeAgo(achievement.unlockedAt);
+                return (
+                  <div key={index} className="flex items-center space-x-2">
+                    <div className="p-1.5 bg-yellow-100 rounded-full">
+                      <span className="text-xs">{achievement.achievementIcon}</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-gray-800 text-sm truncate">
+                        {achievement.contactName} earned "{achievement.achievementTitle}"
+                      </p>
+                      <p className="text-xs text-gray-500">{timeAgo}</p>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-            
-            <div className="flex items-center space-x-2">
-              <div className="p-1.5 bg-indigo-100 rounded-full">
-                <Zap className="w-3 h-3 text-indigo-600" />
-              </div>
-              <div>
-                <p className="font-medium text-gray-800 text-sm">Michael Chen achieved "5 Deal Streak"</p>
-                <p className="text-xs text-gray-500">2 weeks ago</p>
-              </div>
-            </div>
-          </div>
+          )}
         </div>
       </div>
     </div>
@@ -276,3 +287,14 @@ const TeamMemberCard: React.FC<{ member: Contact }> = ({ member }) => {
     </div>
   );
 };
+
+function getTimeAgo(date: Date): string {
+  const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000);
+
+  if (seconds < 60) return 'just now';
+  if (seconds < 3600) return `${Math.floor(seconds / 60)} minutes ago`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)} hours ago`;
+  if (seconds < 604800) return `${Math.floor(seconds / 86400)} days ago`;
+  if (seconds < 2592000) return `${Math.floor(seconds / 604800)} weeks ago`;
+  return `${Math.floor(seconds / 2592000)} months ago`;
+}

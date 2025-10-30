@@ -43,6 +43,7 @@ const Pipeline: React.FC = () => {
   const [showNewImportModal, setShowNewImportModal] = useState(false);
   const [showAddDealModal, setShowAddDealModal] = useState(false);
   const [showTeamModal, setShowTeamModal] = useState(false);
+  const [showClearDataModal, setShowClearDataModal] = useState(false);
   const [contactsModalInitialView, setContactsModalInitialView] = useState<'external' | 'team'>('external');
 
   // Pipeline states
@@ -429,6 +430,28 @@ const Pipeline: React.FC = () => {
     setShowExportModal(true);
   };
 
+  const handleClearAllData = async () => {
+    setShowClearDataModal(false);
+
+    try {
+      const supabase = getSupabaseService();
+
+      await Promise.all([
+        supabase.client.from('deals').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
+        supabase.client.from('contacts').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
+        supabase.client.from('user_achievements').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
+        supabase.client.from('activities').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
+      ]);
+
+      setDeals({});
+      await loadDeals();
+
+      console.log('✅ All data cleared successfully');
+    } catch (error) {
+      console.error('Failed to clear data:', error);
+    }
+  };
+
   const handleImportComplete = (data: Deal[] | Contact[]) => {
     // Handle imported deals
     if (data.length > 0 && 'value' in data[0]) {
@@ -505,6 +528,21 @@ const Pipeline: React.FC = () => {
     setAiResults({ success: successCount, failed: failedCount });
     setAnalysisProgress(null);
     setIsAnalyzing(false);
+  };
+
+  const handleDealDelete = async (dealId: string) => {
+    try {
+      if (dataSyncService.isDatabaseConnected()) {
+        await dataSyncService.deleteDeal(dealId);
+      }
+
+      const { [dealId]: removed, ...remainingDeals } = deals;
+      setDeals(remainingDeals);
+
+      console.log(`✅ Deal deleted: ${dealId}`);
+    } catch (error) {
+      console.error('Failed to delete deal:', error);
+    }
   };
 
   const handleAddDeal = async (dealData: Omit<Deal, 'id' | 'createdAt' | 'updatedAt'>) => {
@@ -748,6 +786,16 @@ const Pipeline: React.FC = () => {
               <span>Export Contacts</span>
             </button>
           </Tooltip>
+
+          <Tooltip content="Clear All Data - Delete all contacts, deals, and achievements from the database" position="bottom">
+            <button
+              onClick={() => setShowClearDataModal(true)}
+              className="flex items-center space-x-2 px-4 py-2 bg-red-50 dark:bg-red-900/50 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-700 rounded-lg hover:bg-red-100 dark:hover:bg-red-800/60 transition-colors font-medium"
+            >
+              <X className="w-4 h-4" />
+              <span>Clear All Data</span>
+            </button>
+          </Tooltip>
           
           <Tooltip content="AI Score All - Analyze all visible deals with AI to generate win probability scores based on multiple factors" position="bottom">
             <button
@@ -928,6 +976,7 @@ const Pipeline: React.FC = () => {
                                      // For now, just open the deal detail modal for editing
                                      setSelectedDealId(deal.id);
                                    }}
+                                   onDelete={handleDealDelete}
                                    isOpenAIFunctionCalling={openAIFunctionCalling.includes(deal.id)}
                                    openAIResult={openAIResults[deal.id]}
                                  />
@@ -1001,6 +1050,39 @@ const Pipeline: React.FC = () => {
         dataType="deals"
         onImportComplete={handleImportComplete}
       />
+
+      {/* Clear Data Confirmation Modal */}
+      {showClearDataModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full mx-4 p-6">
+            <div className="flex items-center mb-4">
+              <div className="p-3 bg-red-100 rounded-full mr-4">
+                <AlertCircle className="w-6 h-6 text-red-600" />
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900">Clear All Data?</h3>
+            </div>
+
+            <p className="text-gray-600 mb-6">
+              This will permanently delete all contacts, deals, achievements, and activities from your database. This action cannot be undone.
+            </p>
+
+            <div className="flex space-x-3">
+              <button
+                onClick={() => setShowClearDataModal(false)}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleClearAllData}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
+              >
+                Clear All Data
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

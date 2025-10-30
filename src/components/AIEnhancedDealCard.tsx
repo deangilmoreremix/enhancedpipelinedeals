@@ -5,13 +5,13 @@ import { EmailComposer } from './communication/EmailComposer';
 import { getEmailService } from '../services/emailService';
 import { getPhoneService } from '../services/phoneService';
 import { Tooltip } from './ui/Tooltip';
-import { 
-  Calendar, 
-  DollarSign, 
-  User, 
-  Building2, 
-  AlertTriangle, 
-  CheckCircle, 
+import {
+  Calendar,
+  DollarSign,
+  User,
+  Building2,
+  AlertTriangle,
+  CheckCircle,
   Clock,
   Zap,
   TrendingUp,
@@ -37,7 +37,8 @@ import {
   ThumbsDown,
   Linkedin,
   Twitter,
-  Facebook
+  Facebook,
+  Trash2
 } from 'lucide-react';
 
 interface AIEnhancedDealCardProps {
@@ -52,6 +53,7 @@ interface AIEnhancedDealCardProps {
   onToggleFavorite?: (deal: Deal) => Promise<void>;
   onFindNewImage?: (deal: Deal) => Promise<void>;
   onEdit?: (deal: Deal) => void;
+  onDelete?: (dealId: string) => void;
   isOpenAIFunctionCalling?: boolean;
   openAIResult?: any;
 }
@@ -68,6 +70,7 @@ export const AIEnhancedDealCard: React.FC<AIEnhancedDealCardProps> = ({
   onToggleFavorite,
   onFindNewImage,
   onEdit,
+  onDelete,
   isOpenAIFunctionCalling = false,
   openAIResult
 }) => {
@@ -457,6 +460,21 @@ export const AIEnhancedDealCard: React.FC<AIEnhancedDealCardProps> = ({
             <Edit className="w-3 h-3" />
           </button>
         </Tooltip>
+        {onDelete && (
+          <Tooltip content="Delete Deal - Permanently remove this deal" position="bottom">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                if (window.confirm('Are you sure you want to delete this deal? This action cannot be undone.')) {
+                  onDelete(deal.id);
+                }
+              }}
+              className="p-1.5 text-red-400 dark:text-red-500 hover:text-red-600 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors border border-red-200 dark:border-red-600"
+            >
+              <Trash2 className="w-3 h-3" />
+            </button>
+          </Tooltip>
+        )}
         <Tooltip content="More Actions - Additional options and workflows" position="bottom">
           <button
             onClick={(e) => {

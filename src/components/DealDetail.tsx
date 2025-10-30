@@ -1,7 +1,6 @@
 import React from 'react';
 import { useState, useEffect } from 'react';
 import { DealDetailView } from './DealDetailView';
-import { SelectContactModal } from './deals/SelectContactModal';
 import { mockDeals } from '../data/mockDeals';
 import { useContactStore } from '../store/contactStore';
 import { Contact } from '../types/contact';
@@ -61,12 +60,6 @@ const DealDetail: React.FC<DealDetailProps> = ({ dealId, onClose }) => {
         onAddContact={handleAddContact}
       />
       
-      <SelectContactModal
-        isOpen={showContactModal}
-        onClose={() => setShowContactModal(false)}
-        onSelectContact={handleSelectContact}
-        selectedContactId={deal.contactId}
-      />
     </>
   );
 };

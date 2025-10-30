@@ -1,9 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { Deal } from '../types';
 import { CustomizableAIToolbar } from './ui/CustomizableAIToolbar';
-import { EmailComposer } from './communication/EmailComposer';
-import { getEmailService } from '../services/emailService';
-import { getPhoneService } from '../services/phoneService';
 import { Tooltip } from './ui/Tooltip';
 import {
   Calendar,
@@ -79,7 +76,6 @@ export const AIEnhancedDealCard: React.FC<AIEnhancedDealCardProps> = ({
   const [localEnriching, setLocalEnriching] = useState(false);
   const [isFinding, setIsFinding] = useState(false);
   const [showCustomFields, setShowCustomFields] = useState(false);
-  const [showEmailComposer, setShowEmailComposer] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
 
   // New state to track AI enrichment status
@@ -302,12 +298,7 @@ export const AIEnhancedDealCard: React.FC<AIEnhancedDealCardProps> = ({
       console.error('AI email generation failed:', error);
     }
 
-    setShowEmailComposer(true);
-  };
-
-  const handleEmailSend = (emailData: any) => {
-    console.log('📧 Email sent from deal card:', emailData);
-    // Here you could log the email activity or update deal status
+    console.log('📧 Email composer not yet implemented');
   };
 
   const handleEditClick = (e: React.MouseEvent) => {
@@ -319,19 +310,7 @@ export const AIEnhancedDealCard: React.FC<AIEnhancedDealCardProps> = ({
 
   const handleCallClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    const phoneService = getPhoneService();
-
-    // Use a default phone number for demo purposes
-    const phoneNumber = '+1-555-0123'; // Default for demo
-
-    try {
-      const success = await phoneService.makeCall(phoneNumber, deal.contact, deal.title);
-      if (success) {
-        console.log('📞 Call initiated successfully');
-      }
-    } catch (error) {
-      console.error('Failed to initiate call:', error);
-    }
+    console.log('📞 Call functionality not yet implemented');
   };
 
   const handleFeedbackClick = async (e: React.MouseEvent, feedbackType: 'positive' | 'negative') => {
@@ -919,14 +898,6 @@ export const AIEnhancedDealCard: React.FC<AIEnhancedDealCardProps> = ({
           </p>
         </div>
       </div>
-
-      {/* Email Composer Modal */}
-      <EmailComposer
-        deal={deal}
-        isOpen={showEmailComposer}
-        onClose={() => setShowEmailComposer(false)}
-        onSend={handleEmailSend}
-      />
     </div>
   );
 }

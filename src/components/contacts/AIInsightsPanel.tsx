@@ -41,7 +41,7 @@ interface Insight {
   source?: string; // AI model that generated this
 }
 
-const aiModels = ['GPT-4o', 'Gemini Pro'];
+const aiModels = ['GPT-5', 'Gemini Pro'];
 
 export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({ contact }) => {
   const [insights, setInsights] = useState<Insight[]>([]);

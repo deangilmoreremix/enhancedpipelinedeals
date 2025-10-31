@@ -1,4 +1,4 @@
-e /**
+/**
  * Research Status Overlay Component
  * Real-time status updates and progress tracking for AI research processes
  */

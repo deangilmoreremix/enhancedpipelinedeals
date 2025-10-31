@@ -434,7 +434,7 @@ export const AIEnhancedDealCard: React.FC<AIEnhancedDealCardProps> = ({
         <Tooltip content="Edit Deal - Modify deal details, stage, and notes" position="bottom">
           <button
             onClick={handleEditClick}
-            className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors border border-gray-200 dark:border-gray-600"
+            className="p-1.5 text-gray-600 dark:text-gray-200 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors border border-gray-300 dark:border-gray-500 bg-white dark:bg-gray-700"
           >
             <Edit className="w-3 h-3" />
           </button>
@@ -459,7 +459,7 @@ export const AIEnhancedDealCard: React.FC<AIEnhancedDealCardProps> = ({
             onClick={(e) => {
               e.stopPropagation();
             }}
-            className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors border border-gray-200 dark:border-gray-600"
+            className="p-1.5 text-gray-600 dark:text-gray-200 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors border border-gray-300 dark:border-gray-500 bg-white dark:bg-gray-700"
           >
             <MoreHorizontal className="w-3 h-3" />
           </button>

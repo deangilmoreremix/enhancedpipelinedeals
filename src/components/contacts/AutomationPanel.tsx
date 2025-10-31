@@ -393,8 +393,8 @@ export const AutomationPanel: React.FC<AutomationPanelProps> = ({ contact }) => 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between mb-6">
-        <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-          <Zap className="w-5 h-5 mr-2 text-purple-600" />
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
+          <Zap className="w-5 h-5 mr-2 text-purple-600 dark:text-purple-400" />
           Contact Automations
         </h3>
         <div>
@@ -427,14 +427,14 @@ export const AutomationPanel: React.FC<AutomationPanelProps> = ({ contact }) => 
         </button>
 
         {showAIBuilder && (
-          <div className="mt-3 p-6 bg-white rounded-xl border border-purple-200 shadow-sm">
-            <h4 className="text-lg font-semibold text-gray-900 mb-4">Generate Personalized Automation</h4>
+          <div className="mt-3 p-6 bg-white dark:bg-gray-800 rounded-xl border border-purple-200 dark:border-purple-700 shadow-sm">
+            <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Generate Personalized Automation</h4>
 
             {aiGenerating ? (
               <div className="text-center py-6">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
-                <h5 className="text-lg font-medium text-gray-900 mb-2">AI is generating your automation...</h5>
-                <p className="text-gray-600 max-w-md mx-auto">
+                <h5 className="text-lg font-medium text-gray-900 dark:text-white mb-2">AI is generating your automation...</h5>
+                <p className="text-gray-600 dark:text-gray-300 max-w-md mx-auto">
                   Creating a personalized sequence based on {contact.firstName}'s profile, industry, and behavior patterns.
                 </p>
               </div>
@@ -442,10 +442,10 @@ export const AutomationPanel: React.FC<AutomationPanelProps> = ({ contact }) => 
               <>
                 <div className="space-y-4 mb-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Automation Goal
                     </label>
-                    <select className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    <select className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
                       <option>Lead Qualification</option>
                       <option>Prospect Nurturing</option>
                       <option>Conversion to Customer</option>
@@ -455,25 +455,25 @@ export const AutomationPanel: React.FC<AutomationPanelProps> = ({ contact }) => 
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Contact Information to Include
                     </label>
                     <div className="space-y-2">
                       <div className="flex items-center">
                         <input type="checkbox" defaultChecked className="h-4 w-4 text-blue-600 rounded" id="include-industry" />
-                        <label htmlFor="include-industry" className="ml-2 text-sm text-gray-700">
+                        <label htmlFor="include-industry" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
                           Industry: {contact.industry || 'Not specified'}
                         </label>
                       </div>
                       <div className="flex items-center">
                         <input type="checkbox" defaultChecked className="h-4 w-4 text-blue-600 rounded" id="include-status" />
-                        <label htmlFor="include-status" className="ml-2 text-sm text-gray-700">
+                        <label htmlFor="include-status" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
                           Status: {contact.status}
                         </label>
                       </div>
                       <div className="flex items-center">
                         <input type="checkbox" defaultChecked className="h-4 w-4 text-blue-600 rounded" id="include-interest" />
-                        <label htmlFor="include-interest" className="ml-2 text-sm text-gray-700">
+                        <label htmlFor="include-interest" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
                           Interest Level: {contact.interestLevel}
                         </label>
                       </div>
@@ -484,7 +484,7 @@ export const AutomationPanel: React.FC<AutomationPanelProps> = ({ contact }) => 
                 <div className="flex justify-end space-x-3">
                   <button
                     onClick={() => setShowAIBuilder(false)}
-                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                    className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                   >
                     Cancel
                   </button>
@@ -505,15 +505,15 @@ export const AutomationPanel: React.FC<AutomationPanelProps> = ({ contact }) => 
       {/* Active Automations */}
       <div>
         <div className="flex items-center justify-between mb-3">
-          <h4 className="text-base font-medium text-gray-900">Active Automations</h4>
-          <span className="text-sm text-gray-500">{activeAutomations.length} active</span>
+          <h4 className="text-base font-medium text-gray-900 dark:text-white">Active Automations</h4>
+          <span className="text-sm text-gray-500 dark:text-gray-400">{activeAutomations.length} active</span>
         </div>
 
         {activeAutomations.length === 0 ? (
-          <div className="bg-gray-50 rounded-lg border border-gray-200 p-8 text-center">
-            <Zap className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-            <h4 className="text-lg font-medium text-gray-700 mb-2">No active automations</h4>
-            <p className="text-gray-500 text-sm mb-4">
+          <div className="bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-8 text-center">
+            <Zap className="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto mb-3" />
+            <h4 className="text-lg font-medium text-gray-700 dark:text-gray-300 mb-2">No active automations</h4>
+            <p className="text-gray-500 dark:text-gray-400 text-sm mb-4">
               Create your first automation to start nurturing {contact.firstName}
             </p>
             <button
@@ -527,11 +527,11 @@ export const AutomationPanel: React.FC<AutomationPanelProps> = ({ contact }) => 
         ) : (
           <div className="space-y-4">
             {activeAutomations.map(automation => (
-              <div key={automation.id} className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+              <div key={automation.id} className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
                 <div className="p-4">
                   <div className="flex items-start justify-between">
                     <div className="flex items-start space-x-3">
-                      <div className="p-2 rounded-lg bg-gray-100">
+                      <div className="p-2 rounded-lg bg-gray-100 dark:bg-gray-700">
                         {React.createElement(getAutomationTypeIcon(automation.type), {
                           className: `w-5 h-5 ${getAutomationTypeColor(automation.type)}`
                         })}
@@ -539,7 +539,7 @@ export const AutomationPanel: React.FC<AutomationPanelProps> = ({ contact }) => 
 
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center space-x-2 mb-1">
-                          <h5 className="text-base font-medium text-gray-900">{automation.name}</h5>
+                          <h5 className="text-base font-medium text-gray-900 dark:text-white">{automation.name}</h5>
                           <span className={`px-2 py-0.5 text-xs rounded-full ${getAutomationTypeBadgeColor(automation.type)}`}>
                             {automation.type === 'drip' ? 'Sequence' :
                              automation.type === 'event' ? 'Event-Based' :
@@ -550,7 +550,7 @@ export const AutomationPanel: React.FC<AutomationPanelProps> = ({ contact }) => 
                           </span>
                         </div>
 
-                        <p className="text-sm text-gray-600 mb-2">{automation.description}</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">{automation.description}</p>
 
                         {automation.progress !== undefined && (
                           <div className="mb-3">
@@ -567,7 +567,7 @@ export const AutomationPanel: React.FC<AutomationPanelProps> = ({ contact }) => 
                           </div>
                         )}
 
-                        <div className="flex items-center space-x-4 text-xs text-gray-500">
+                        <div className="flex items-center space-x-4 text-xs text-gray-500 dark:text-gray-400">
                           <span>Steps: {automation.steps.length}</span>
                           {automation.lastRun && (
                             <span>Last run: {automation.lastRun.toLocaleDateString()}</span>
@@ -598,9 +598,9 @@ export const AutomationPanel: React.FC<AutomationPanelProps> = ({ contact }) => 
 
                 {/* Expanded Steps */}
                 {expandedAutomations.includes(automation.id) && (
-                  <div className="border-t border-gray-200 bg-gray-50">
+                  <div className="border-t border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700">
                     <div className="p-4">
-                      <h6 className="text-sm font-medium text-gray-700 mb-3">Automation Steps</h6>
+                      <h6 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Automation Steps</h6>
                       <div className="space-y-3">
                         {automation.steps.map((step, index) => {
                           const StepIcon = getStepIcon(step.type);
@@ -613,19 +613,19 @@ export const AutomationPanel: React.FC<AutomationPanelProps> = ({ contact }) => 
 
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center space-x-2">
-                                  <h6 className="text-sm font-medium text-gray-900">{step.name}</h6>
+                                  <h6 className="text-sm font-medium text-gray-900 dark:text-white">{step.name}</h6>
                                   <span className={`px-2 py-0.5 text-xs rounded-full ${
-                                    step.status === 'completed' ? 'bg-green-100 text-green-800' :
-                                    step.status === 'active' ? 'bg-blue-100 text-blue-800' :
-                                    step.status === 'failed' ? 'bg-red-100 text-red-800' :
-                                    'bg-gray-100 text-gray-800'
+                                    step.status === 'completed' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
+                                    step.status === 'active' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' :
+                                    step.status === 'failed' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
+                                    'bg-gray-100 text-gray-800 dark:bg-gray-600 dark:text-gray-200'
                                   }`}>
                                     {step.status}
                                   </span>
                                 </div>
-                                <p className="text-xs text-gray-600">{step.details}</p>
+                                <p className="text-xs text-gray-600 dark:text-gray-300">{step.details}</p>
                                 {step.scheduledAt && (
-                                  <p className="text-xs text-gray-500">
+                                  <p className="text-xs text-gray-500 dark:text-gray-400">
                                     Scheduled: {step.scheduledAt.toLocaleDateString()}
                                   </p>
                                 )}
@@ -650,20 +650,20 @@ export const AutomationPanel: React.FC<AutomationPanelProps> = ({ contact }) => 
       {/* Available Automations */}
       <div>
         <div className="flex items-center justify-between mb-3">
-          <h4 className="text-base font-medium text-gray-900">Available Automations</h4>
-          <span className="text-sm text-gray-500">{availableAutomations.length} available</span>
+          <h4 className="text-base font-medium text-gray-900 dark:text-white">Available Automations</h4>
+          <span className="text-sm text-gray-500 dark:text-gray-400">{availableAutomations.length} available</span>
         </div>
 
         {availableAutomations.length === 0 ? (
-          <div className="bg-gray-50 rounded-lg border border-gray-200 p-4 text-center">
-            <p className="text-gray-500 text-sm">No available automations</p>
+          <div className="bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 text-center">
+            <p className="text-gray-500 dark:text-gray-400 text-sm">No available automations</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {availableAutomations.map(automation => (
-              <div key={automation.id} className="bg-white rounded-lg border border-gray-200 shadow-sm p-4 hover:shadow-md transition-shadow duration-200">
+              <div key={automation.id} className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm p-4 hover:shadow-md transition-shadow duration-200">
                 <div className="flex items-start space-x-3">
-                  <div className="p-2 rounded-lg bg-gray-100">
+                  <div className="p-2 rounded-lg bg-gray-100 dark:bg-gray-700">
                     {React.createElement(getAutomationTypeIcon(automation.type), {
                       className: `w-5 h-5 ${getAutomationTypeColor(automation.type)}`
                     })}
@@ -671,7 +671,7 @@ export const AutomationPanel: React.FC<AutomationPanelProps> = ({ contact }) => 
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
-                      <h5 className="text-base font-medium text-gray-900 truncate">{automation.name}</h5>
+                      <h5 className="text-base font-medium text-gray-900 dark:text-white truncate">{automation.name}</h5>
                       <span className={`px-2 py-0.5 text-xs rounded-full ${getAutomationTypeBadgeColor(automation.type)}`}>
                         {automation.type === 'drip' ? 'Sequence' :
                          automation.type === 'event' ? 'Event-Based' :
@@ -679,10 +679,10 @@ export const AutomationPanel: React.FC<AutomationPanelProps> = ({ contact }) => 
                       </span>
                     </div>
 
-                    <p className="text-sm text-gray-600 mt-1 line-clamp-2">{automation.description}</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-300 mt-1 line-clamp-2">{automation.description}</p>
 
                     <div className="mt-3 flex items-center justify-between">
-                      <div className="flex items-center text-xs text-gray-500">
+                      <div className="flex items-center text-xs text-gray-500 dark:text-gray-400">
                         <Clock className="w-3 h-3 mr-1" />
                         <span>{automation.steps.length} steps</span>
                       </div>
@@ -690,13 +690,13 @@ export const AutomationPanel: React.FC<AutomationPanelProps> = ({ contact }) => 
                       <div className="flex space-x-2">
                         <button
                           onClick={() => toggleExpand(automation.id)}
-                          className="text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"
+                          className="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
                         >
                           Preview
                         </button>
                         <button
                           onClick={() => activateAutomation(automation.id)}
-                          className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded hover:bg-green-200 transition-colors"
+                          className="text-xs px-2 py-1 bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 rounded hover:bg-green-200 dark:hover:bg-green-800 transition-colors"
                         >
                           Activate
                         </button>
@@ -707,20 +707,20 @@ export const AutomationPanel: React.FC<AutomationPanelProps> = ({ contact }) => 
 
                 {/* Expanded Preview */}
                 {expandedAutomations.includes(automation.id) && (
-                  <div className="mt-4 pt-4 border-t border-gray-200">
-                    <h6 className="text-xs font-medium text-gray-700 uppercase mb-2">Steps Preview</h6>
+                  <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-600">
+                    <h6 className="text-xs font-medium text-gray-700 dark:text-gray-300 uppercase mb-2">Steps Preview</h6>
                     <div className="space-y-2">
                       {automation.steps.map((step, index) => {
                         const StepIcon = getStepIcon(step.type);
 
                         return (
                           <div key={step.id} className="flex items-center space-x-2">
-                            <div className="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center">
-                              <StepIcon className="w-3 h-3 text-gray-600" />
+                            <div className="w-5 h-5 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+                              <StepIcon className="w-3 h-3 text-gray-600 dark:text-gray-400" />
                             </div>
-                            <span className="text-xs text-gray-700">{step.name}</span>
+                            <span className="text-xs text-gray-700 dark:text-gray-300">{step.name}</span>
                             {index < automation.steps.length - 1 && (
-                              <ArrowRight className="w-3 h-3 text-gray-400" />
+                              <ArrowRight className="w-3 h-3 text-gray-400 dark:text-gray-500" />
                             )}
                           </div>
                         );
@@ -737,12 +737,12 @@ export const AutomationPanel: React.FC<AutomationPanelProps> = ({ contact }) => 
       {/* Create New Automation Modal */}
       {isCreatingNew && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl w-full max-w-md max-h-[90vh] overflow-y-auto p-6 shadow-xl">
+          <div className="bg-white dark:bg-gray-800 rounded-xl w-full max-w-md max-h-[90vh] overflow-y-auto p-6 shadow-xl">
             <div className="flex items-center justify-between mb-6">
-              <h4 className="text-xl font-semibold text-gray-900">Create New Automation</h4>
+              <h4 className="text-xl font-semibold text-gray-900 dark:text-white">Create New Automation</h4>
               <button
                 onClick={() => setIsCreatingNew(false)}
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -751,47 +751,47 @@ export const AutomationPanel: React.FC<AutomationPanelProps> = ({ contact }) => 
             {/* Basic Info */}
             <div className="space-y-4 mb-6">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Automation Name
                 </label>
                 <input
                   type="text"
                   placeholder="e.g., Welcome Sequence"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Description
                 </label>
                 <textarea
                   placeholder="Describe the purpose of this automation"
                   rows={3}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Automation Type
                 </label>
                 <div className="grid grid-cols-2 gap-3">
-                  <button className="flex flex-col items-center border border-blue-500 bg-blue-50 rounded-lg p-3 hover:bg-blue-100 transition-colors">
-                    <Mail className="h-6 w-6 text-blue-600 mb-2" />
-                    <span className="text-sm font-medium text-blue-600">Drip Sequence</span>
+                  <button className="flex flex-col items-center border border-blue-500 bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors">
+                    <Mail className="h-6 w-6 text-blue-600 dark:text-blue-400 mb-2" />
+                    <span className="text-sm font-medium text-blue-600 dark:text-blue-400">Drip Sequence</span>
                   </button>
-                  <button className="flex flex-col items-center border border-gray-300 rounded-lg p-3 hover:bg-gray-50 transition-colors">
-                    <Zap className="h-6 w-6 text-purple-600 mb-2" />
-                    <span className="text-sm font-medium text-gray-700">Event-Based</span>
+                  <button className="flex flex-col items-center border border-gray-300 dark:border-gray-600 rounded-lg p-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                    <Zap className="h-6 w-6 text-purple-600 dark:text-purple-400 mb-2" />
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Event-Based</span>
                   </button>
-                  <button className="flex flex-col items-center border border-gray-300 rounded-lg p-3 hover:bg-gray-50 transition-colors">
-                    <Calendar className="h-6 w-6 text-yellow-600 mb-2" />
-                    <span className="text-sm font-medium text-gray-700">Date-Based</span>
+                  <button className="flex flex-col items-center border border-gray-300 dark:border-gray-600 rounded-lg p-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                    <Calendar className="h-6 w-6 text-yellow-600 dark:text-yellow-400 mb-2" />
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Date-Based</span>
                   </button>
-                  <button className="flex flex-col items-center border border-gray-300 rounded-lg p-3 hover:bg-gray-50 transition-colors">
-                    <Brain className="h-6 w-6 text-indigo-600 mb-2" />
-                    <span className="text-sm font-medium text-gray-700">AI-Powered</span>
+                  <button className="flex flex-col items-center border border-gray-300 dark:border-gray-600 rounded-lg p-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                    <Brain className="h-6 w-6 text-indigo-600 dark:text-indigo-400 mb-2" />
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">AI-Powered</span>
                   </button>
                 </div>
               </div>
@@ -800,75 +800,75 @@ export const AutomationPanel: React.FC<AutomationPanelProps> = ({ contact }) => 
             {/* Steps Builder */}
             <div className="mb-6">
               <div className="flex items-center justify-between mb-3">
-                <h5 className="text-base font-medium text-gray-900">Automation Steps</h5>
-                <button className="text-sm text-blue-600 hover:text-blue-800 flex items-center">
+                <h5 className="text-base font-medium text-gray-900 dark:text-white">Automation Steps</h5>
+                <button className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 flex items-center">
                   <PlusCircle className="w-4 h-4 mr-1" />
                   Add Step
                 </button>
               </div>
 
               <div className="space-y-3">
-                <div className="border border-gray-200 rounded-lg p-3 bg-gray-50">
+                <div className="border border-gray-200 dark:border-gray-600 rounded-lg p-3 bg-gray-50 dark:bg-gray-700">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center space-x-2">
-                      <div className="p-1 bg-blue-100 rounded">
-                        <Mail className="w-4 h-4 text-blue-600" />
+                      <div className="p-1 bg-blue-100 dark:bg-blue-900 rounded">
+                        <Mail className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                       </div>
-                      <h6 className="text-sm font-medium text-gray-900">Welcome Email</h6>
+                      <h6 className="text-sm font-medium text-gray-900 dark:text-white">Welcome Email</h6>
                     </div>
                     <div className="flex space-x-1">
-                      <button className="p-1 text-gray-400 hover:text-gray-600">
+                      <button className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
                         <Edit className="w-4 h-4" />
                       </button>
-                      <button className="p-1 text-gray-400 hover:text-red-600">
+                      <button className="p-1 text-gray-400 hover:text-red-600 dark:hover:text-red-400">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
                   </div>
-                  <p className="text-xs text-gray-600">Send initial welcome email with value proposition</p>
+                  <p className="text-xs text-gray-600 dark:text-gray-300">Send initial welcome email with value proposition</p>
                 </div>
 
-                <div className="border border-gray-200 rounded-lg p-3 bg-gray-50">
+                <div className="border border-gray-200 dark:border-gray-600 rounded-lg p-3 bg-gray-50 dark:bg-gray-700">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center space-x-2">
-                      <div className="p-1 bg-gray-200 rounded">
-                        <Clock className="w-4 h-4 text-gray-600" />
+                      <div className="p-1 bg-gray-200 dark:bg-gray-600 rounded">
+                        <Clock className="w-4 h-4 text-gray-600 dark:text-gray-400" />
                       </div>
-                      <h6 className="text-sm font-medium text-gray-900">Wait 3 Days</h6>
+                      <h6 className="text-sm font-medium text-gray-900 dark:text-white">Wait 3 Days</h6>
                     </div>
                     <div className="flex space-x-1">
-                      <button className="p-1 text-gray-400 hover:text-gray-600">
+                      <button className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
                         <Edit className="w-4 h-4" />
                       </button>
-                      <button className="p-1 text-gray-400 hover:text-red-600">
+                      <button className="p-1 text-gray-400 hover:text-red-600 dark:hover:text-red-400">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
                   </div>
-                  <p className="text-xs text-gray-600">Wait 3 days before next action</p>
+                  <p className="text-xs text-gray-600 dark:text-gray-300">Wait 3 days before next action</p>
                 </div>
 
-                <div className="border border-gray-200 rounded-lg p-3 bg-gray-50">
+                <div className="border border-gray-200 dark:border-gray-600 rounded-lg p-3 bg-gray-50 dark:bg-gray-700">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center space-x-2">
-                      <div className="p-1 bg-blue-100 rounded">
-                        <Mail className="w-4 h-4 text-blue-600" />
+                      <div className="p-1 bg-blue-100 dark:bg-blue-900 rounded">
+                        <Mail className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                       </div>
-                      <h6 className="text-sm font-medium text-gray-900">Follow-up Email</h6>
+                      <h6 className="text-sm font-medium text-gray-900 dark:text-white">Follow-up Email</h6>
                     </div>
                     <div className="flex space-x-1">
-                      <button className="p-1 text-gray-400 hover:text-gray-600">
+                      <button className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
                         <Edit className="w-4 h-4" />
                       </button>
-                      <button className="p-1 text-gray-400 hover:text-red-600">
+                      <button className="p-1 text-gray-400 hover:text-red-600 dark:hover:text-red-400">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
                   </div>
-                  <p className="text-xs text-gray-600">Send follow-up email with additional resources</p>
+                  <p className="text-xs text-gray-600 dark:text-gray-300">Send follow-up email with additional resources</p>
                 </div>
 
-                <button className="w-full border border-dashed border-gray-300 rounded-lg py-3 text-sm text-gray-500 hover:bg-gray-50 transition-colors flex items-center justify-center">
+                <button className="w-full border border-dashed border-gray-300 dark:border-gray-600 rounded-lg py-3 text-sm text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center justify-center">
                   <PlusCircle className="w-4 h-4 mr-2" />
                   Add Another Step
                 </button>
@@ -878,7 +878,7 @@ export const AutomationPanel: React.FC<AutomationPanelProps> = ({ contact }) => 
             <div className="flex justify-end space-x-3">
               <button
                 onClick={() => setIsCreatingNew(false)}
-                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium"
+                className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-sm font-medium"
               >
                 Cancel
               </button>

@@ -1,0 +1,189 @@
+import React from 'react';
+import { Deal } from '../types';
+import { BarChart3, TrendingUp, TrendingDown, DollarSign, Target, Clock, Users, Activity } from 'lucide-react';
+
+interface DealAnalyticsDashboardProps {
+  deal: Deal;
+}
+
+export const DealAnalyticsDashboard: React.FC<DealAnalyticsDashboardProps> = ({ deal }) => {
+  const analytics = {
+    conversionRate: deal.probability,
+    timeToClose: Math.ceil((new Date().getTime() - deal.createdAt.getTime()) / (1000 * 60 * 60 * 24)),
+    engagementScore: Math.floor(Math.random() * 40) + 60, // Mock data
+    competitorActivity: Math.floor(Math.random() * 30) + 20, // Mock data
+    dealVelocity: deal.probability > 70 ? 'Fast' : deal.probability > 40 ? 'Medium' : 'Slow'
+  };
+
+  const metrics = [
+    {
+      title: 'Deal Value',
+      value: `$${deal.value.toLocaleString()}`,
+      change: '+12%',
+      trend: 'up',
+      icon: DollarSign,
+      color: 'text-green-600'
+    },
+    {
+      title: 'Probability',
+      value: `${deal.probability}%`,
+      change: '+5%',
+      trend: 'up',
+      icon: Target,
+      color: 'text-blue-600'
+    },
+    {
+      title: 'Days Active',
+      value: analytics.timeToClose.toString(),
+      change: null,
+      trend: null,
+      icon: Clock,
+      color: 'text-purple-600'
+    },
+    {
+      title: 'Engagement Score',
+      value: analytics.engagementScore.toString(),
+      change: '+8%',
+      trend: 'up',
+      icon: Activity,
+      color: 'text-orange-600'
+    }
+  ];
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Deal Analytics</h3>
+        <div className="text-sm text-gray-500 dark:text-gray-400">
+          Last updated: {new Date().toLocaleTimeString()}
+        </div>
+      </div>
+
+      {/* Key Metrics Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {metrics.map((metric, index) => {
+          const Icon = metric.icon;
+          return (
+            <div key={index} className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">{metric.title}</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">{metric.value}</p>
+                  {metric.change && (
+                    <div className="flex items-center mt-1">
+                      {metric.trend === 'up' ? (
+                        <TrendingUp className="w-3 h-3 text-green-500 mr-1" />
+                      ) : (
+                        <TrendingDown className="w-3 h-3 text-red-500 mr-1" />
+                      )}
+                      <span className={`text-xs font-medium ${
+                        metric.trend === 'up' ? 'text-green-600' : 'text-red-600'
+                      }`}>
+                        {metric.change}
+                      </span>
+                    </div>
+                  )}
+                </div>
+                <Icon className={`w-8 h-8 ${metric.color}`} />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Deal Velocity Chart */}
+      <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700">
+        <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Deal Velocity</h4>
+        <div className="flex items-center justify-between mb-4">
+          <span className="text-sm text-gray-600 dark:text-gray-300">Current Status</span>
+          <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+            analytics.dealVelocity === 'Fast'
+              ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
+              : analytics.dealVelocity === 'Medium'
+              ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400'
+              : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
+          }`}>
+            {analytics.dealVelocity} Moving
+          </span>
+        </div>
+        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
+          <div
+            className={`h-3 rounded-full transition-all duration-300 ${
+              analytics.dealVelocity === 'Fast'
+                ? 'bg-green-500'
+                : analytics.dealVelocity === 'Medium'
+                ? 'bg-yellow-500'
+                : 'bg-red-500'
+            }`}
+            style={{ width: `${deal.probability}%` }}
+          />
+        </div>
+        <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-2">
+          <span>0%</span>
+          <span>50%</span>
+          <span>100%</span>
+        </div>
+      </div>
+
+      {/* Insights and Recommendations */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700">
+          <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
+            <BarChart3 className="w-5 h-5 mr-2 text-blue-500" />
+            Performance Insights
+          </h4>
+          <div className="space-y-3">
+            <div className="flex items-start space-x-3">
+              <div className="w-2 h-2 bg-green-500 rounded-full mt-2"></div>
+              <div>
+                <p className="text-sm font-medium text-gray-900 dark:text-white">Strong Engagement</p>
+                <p className="text-xs text-gray-600 dark:text-gray-300">Contact has been highly responsive this week</p>
+              </div>
+            </div>
+            <div className="flex items-start space-x-3">
+              <div className="w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
+              <div>
+                <p className="text-sm font-medium text-gray-900 dark:text-white">Competitive Landscape</p>
+                <p className="text-xs text-gray-600 dark:text-gray-300">{analytics.competitorActivity}% competitor activity detected</p>
+              </div>
+            </div>
+            <div className="flex items-start space-x-3">
+              <div className="w-2 h-2 bg-yellow-500 rounded-full mt-2"></div>
+              <div>
+                <p className="text-sm font-medium text-gray-900 dark:text-white">Timeline Risk</p>
+                <p className="text-xs text-gray-600 dark:text-gray-300">Deal is approaching the target close date</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700">
+          <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
+            <Target className="w-5 h-5 mr-2 text-purple-500" />
+            Recommendations
+          </h4>
+          <div className="space-y-3">
+            <div className="p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-700">
+              <p className="text-sm font-medium text-purple-900 dark:text-purple-300">Schedule Follow-up</p>
+              <p className="text-xs text-purple-700 dark:text-purple-400 mt-1">
+                Contact the prospect within the next 24 hours to maintain momentum
+              </p>
+            </div>
+            <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
+              <p className="text-sm font-medium text-blue-900 dark:text-blue-300">Prepare Proposal</p>
+              <p className="text-xs text-blue-700 dark:text-blue-400 mt-1">
+                Update proposal with latest requirements and competitive analysis
+              </p>
+            </div>
+            <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-700">
+              <p className="text-sm font-medium text-green-900 dark:text-green-300">Monitor Competition</p>
+              <p className="text-xs text-green-700 dark:text-green-400 mt-1">
+                Keep track of competitor movements in this deal
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};

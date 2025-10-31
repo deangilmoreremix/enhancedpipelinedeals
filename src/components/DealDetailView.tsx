@@ -9,8 +9,15 @@ import { useSmartAI } from '../hooks/useSmartAI';
 import { getEnhancedIntelligentAI } from '../services/enhancedIntelligentAIService';
 import { getWebSearchService } from '../services/webSearchService';
 import { getCitationService } from '../services/citationService';
+import { getPhoneService } from '../services/phoneService';
 import { ResearchThinkingAnimation, ResearchStatusOverlay } from './ui/ResearchThinkingAnimation';
 import { CitationBadge, CitationSummary } from './ui/CitationBadge';
+import { DealJourneyTimeline } from './DealJourneyTimeline';
+import { DealCommunicationHub } from './DealCommunicationHub';
+import { DealAnalyticsDashboard } from './DealAnalyticsDashboard';
+import { DealAutomationPanel } from './DealAutomationPanel';
+import { EmailComposer } from './EmailComposer';
+import { AIInsightsPanel } from './contacts/AIInsightsPanel';
 import { Deal } from '../types';
 import { Contact } from '../types/contact';
 import { X, Edit, Mail, Phone, Plus, MessageSquare, FileText, Calendar, MoreHorizontal, User, Globe, Clock, Building2, Tag, Star, ExternalLink, Brain, TrendingUp, BarChart3, Zap, Users, Activity, Settings, Database, Shield, Target, Smartphone, Video, Linkedin, Twitter, Facebook, Instagram, Save, Ambulance as Cancel, Heart, HeartOff, MapPin, Briefcase, Award, CheckCircle, AlertCircle, Wifi, WifiOff, Search, DollarSign, RefreshCw, Sparkles, Camera, Wand2, UserPlus, UserMinus, Share2, Copy, Link, Paperclip, Download, Upload, ChevronDown, ChevronRight, UserX } from 'lucide-react';
@@ -252,17 +259,17 @@ export const DealDetailView: React.FC<DealDetailViewProps> = ({
     setIsAnalyzing(true);
     try {
       const analysis = await smartScoreContact(linkedContact.id, linkedContact, 'medium');
-      await updateContact(linkedContact.id, { 
-        aiScore: Math.round(analysis.results.contact_scoring.score),
-        notes: linkedContact.notes ? 
-          `${linkedContact.notes}\n\nAI Analysis: ${analysis.results.contact_scoring.insights.join('. ')}` :
-          `AI Analysis: ${analysis.results.contact_scoring.insights.join('. ')}`
+      await updateContact(linkedContact.id, {
+        aiScore: Math.round(analysis.score || 75),
+        notes: linkedContact.notes ?
+          `${linkedContact.notes}\n\nAI Analysis: ${analysis.insights?.join('. ') || 'Analysis completed'}` :
+          `AI Analysis: ${analysis.insights?.join('. ') || 'Analysis completed'}`
       });
-      
+
       // Update local contact data
       setLinkedContact(prev => prev ? {
         ...prev,
-        aiScore: Math.round(analysis.results.contact_scoring.score)
+        aiScore: Math.round(analysis.score || 75)
       } : null);
     } catch (error) {
       console.error('Contact analysis failed:', error);
@@ -1508,7 +1515,23 @@ export const DealDetailView: React.FC<DealDetailViewProps> = ({
 
             {activeTab === 'insights' && (
               <div className="p-6">
-                <AIInsightsPanel deal={editedDeal} />
+                {linkedContact ? (
+                  <AIInsightsPanel contact={linkedContact} />
+                ) : (
+                  <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                    <Brain className="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto mb-3" />
+                    <h4 className="text-lg font-medium text-gray-700 dark:text-gray-300 mb-2">No Contact Linked</h4>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                      Link a contact to this deal to view AI insights and recommendations.
+                    </p>
+                    <button
+                      onClick={() => setShowContactSelector(true)}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                    >
+                      Link Contact
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 

@@ -230,14 +230,14 @@ export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({ contact }) => 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between mb-2">
-        <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-          <Brain className="w-5 h-5 mr-2 text-purple-600" />
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
+          <Brain className="w-5 h-5 mr-2 text-purple-600 dark:text-purple-400" />
           AI Insights & Recommendations
         </h3>
         <button
           onClick={handleRefreshInsights}
           disabled={isRefreshing}
-          className="flex items-center space-x-1 text-sm text-purple-600 font-medium hover:text-purple-800 disabled:opacity-50"
+          className="flex items-center space-x-1 text-sm text-purple-600 dark:text-purple-400 font-medium hover:text-purple-800 dark:hover:text-purple-300 disabled:opacity-50"
         >
           <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
           <span>{isRefreshing ? 'Refreshing...' : 'Refresh'}</span>
@@ -245,19 +245,19 @@ export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({ contact }) => 
       </div>
 
       {/* AI Source Information */}
-      <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg p-3 border border-purple-200 flex items-center justify-between">
+      <div className="bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 rounded-lg p-3 border border-purple-200 dark:border-purple-700 flex items-center justify-between">
         <div className="flex items-center">
-          <Sparkles className="w-4 h-4 text-purple-600 mr-2" />
-          <span className="text-sm text-purple-900 font-medium">AI Insights by {aiProvider}</span>
+          <Sparkles className="w-4 h-4 text-purple-600 dark:text-purple-400 mr-2" />
+          <span className="text-sm text-purple-900 dark:text-purple-100 font-medium">AI Insights by {aiProvider}</span>
         </div>
         {contact.aiScore && (
-          <div className="flex items-center bg-white px-2 py-1 rounded-lg">
-            <span className="text-xs font-medium mr-1">Contact Score:</span>
+          <div className="flex items-center bg-white dark:bg-gray-800 px-2 py-1 rounded-lg">
+            <span className="text-xs font-medium mr-1 text-gray-700 dark:text-gray-300">Contact Score:</span>
             <span className={`text-xs font-bold ${
-              contact.aiScore >= 80 ? 'text-green-600' :
-              contact.aiScore >= 60 ? 'text-blue-600' :
-              contact.aiScore >= 40 ? 'text-yellow-600' :
-              'text-red-600'
+              contact.aiScore >= 80 ? 'text-green-600 dark:text-green-400' :
+              contact.aiScore >= 60 ? 'text-blue-600 dark:text-blue-400' :
+              contact.aiScore >= 40 ? 'text-yellow-600 dark:text-yellow-400' :
+              'text-red-600 dark:text-red-400'
             }`}>
               {contact.aiScore}%
             </span>
@@ -266,7 +266,7 @@ export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({ contact }) => 
       </div>
 
       {/* Category Tabs */}
-      <div className="flex space-x-2 border-b border-gray-200">
+      <div className="flex space-x-2 border-b border-gray-200 dark:border-gray-700">
         {[
           { id: 'all', label: 'All Insights', count: insights.length },
           { id: 'action', label: 'Action Items', count: insights.filter(i => i.type === 'action').length },
@@ -278,8 +278,8 @@ export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({ contact }) => 
             onClick={() => setActiveCategory(category.id as any)}
             className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
               activeCategory === category.id
-                ? 'border-purple-600 text-purple-600'
-                : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
+                ? 'border-purple-600 dark:border-purple-400 text-purple-600 dark:text-purple-400'
+                : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:border-gray-300 dark:hover:border-gray-600'
             }`}
           >
             {category.label} ({category.count})
@@ -292,10 +292,10 @@ export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({ contact }) => 
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
         </div>
       ) : filteredInsights.length === 0 ? (
-        <div className="text-center py-12 bg-gray-50 rounded-lg border border-gray-200">
-          <Brain className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-          <h4 className="text-lg font-medium text-gray-700 mb-2">No insights available</h4>
-          <p className="text-sm text-gray-500 mb-4">
+        <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+          <Brain className="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto mb-3" />
+          <h4 className="text-lg font-medium text-gray-700 dark:text-gray-300 mb-2">No insights available</h4>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
             AI hasn't generated any {activeCategory !== 'all' ? activeCategory : ''} insights for this contact yet.
           </p>
           <button
@@ -310,7 +310,7 @@ export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({ contact }) => 
           {/* High Priority Insights */}
           {highPriorityInsights.length > 0 && (
             <div>
-              <h4 className="text-sm font-medium text-red-700 uppercase tracking-wide mb-3 flex items-center">
+              <h4 className="text-sm font-medium text-red-700 dark:text-red-400 uppercase tracking-wide mb-3 flex items-center">
                 <AlertCircle className="w-4 h-4 mr-1" /> High Priority
               </h4>
               <div className="space-y-3">
@@ -328,7 +328,7 @@ export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({ contact }) => 
           {/* Medium Priority Insights */}
           {mediumPriorityInsights.length > 0 && (
             <div>
-              <h4 className="text-sm font-medium text-yellow-700 uppercase tracking-wide mb-3 flex items-center">
+              <h4 className="text-sm font-medium text-yellow-700 dark:text-yellow-400 uppercase tracking-wide mb-3 flex items-center">
                 <Bell className="w-4 h-4 mr-1" /> Medium Priority
               </h4>
               <div className="space-y-3">
@@ -346,7 +346,7 @@ export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({ contact }) => 
           {/* Low Priority Insights */}
           {lowPriorityInsights.length > 0 && (
             <div>
-              <h4 className="text-sm font-medium text-green-700 uppercase tracking-wide mb-3 flex items-center">
+              <h4 className="text-sm font-medium text-green-700 dark:text-green-400 uppercase tracking-wide mb-3 flex items-center">
                 <HelpCircle className="w-4 h-4 mr-1" /> Good to Know
               </h4>
               <div className="space-y-3">
@@ -364,21 +364,21 @@ export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({ contact }) => 
       )}
 
       {/* Action Summary */}
-      <div className="bg-gray-50 rounded-lg border border-gray-200 p-4">
-        <h4 className="text-sm font-medium text-gray-700 mb-3">Suggested Next Steps</h4>
+      <div className="bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+        <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Suggested Next Steps</h4>
         <div className="space-y-2">
           {insights
             .filter(i => i.type === 'action')
             .map((action, index) => (
               <div key={index} className="flex items-start space-x-3">
                 <div className="flex-shrink-0 mt-0.5">
-                  <CheckCircle className="w-4 h-4 text-green-600" />
+                  <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
                 </div>
-                <p className="text-sm text-gray-700">{action.description}</p>
+                <p className="text-sm text-gray-700 dark:text-gray-300">{action.description}</p>
               </div>
             ))}
           {insights.filter(i => i.type === 'action').length === 0 && (
-            <p className="text-sm text-gray-500 italic">No action items currently recommended.</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400 italic">No action items currently recommended.</p>
           )}
         </div>
       </div>
@@ -394,12 +394,12 @@ const InsightCard: React.FC<{
   const [expanded, setExpanded] = useState(false);
 
   const typeColors = {
-    'action': 'bg-blue-50 border-blue-200',
-    'prediction': 'bg-purple-50 border-purple-200',
-    'observation': 'bg-green-50 border-green-200',
-    'risk': 'bg-red-50 border-red-200',
-    'opportunity': 'bg-yellow-50 border-yellow-200',
-    'status': 'bg-gray-50 border-gray-200'
+    'action': 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700',
+    'prediction': 'bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-700',
+    'observation': 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700',
+    'risk': 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-700',
+    'opportunity': 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-700',
+    'status': 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
   };
 
   const typeLabels = {
@@ -420,16 +420,16 @@ const InsightCard: React.FC<{
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between">
-            <h5 className="text-sm font-semibold text-gray-900">{insight.title}</h5>
-            <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-white text-gray-700 border border-gray-200">
+            <h5 className="text-sm font-semibold text-gray-900 dark:text-white">{insight.title}</h5>
+            <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600">
               {typeLabels[insight.type]}
             </span>
           </div>
-
-          <p className="text-sm text-gray-700 mt-1">{insight.description}</p>
+  
+          <p className="text-sm text-gray-700 dark:text-gray-300 mt-1">{insight.description}</p>
 
           {(insight.confidence || insight.accuracy) && (
-            <div className="mt-2 flex items-center text-xs text-gray-600">
+            <div className="mt-2 flex items-center text-xs text-gray-600 dark:text-gray-400">
               {insight.confidence && (
                 <div className="flex items-center">
                   <Brain className="w-3 h-3 mr-1" />
@@ -446,8 +446,8 @@ const InsightCard: React.FC<{
           )}
 
           {expanded && (
-            <div className="mt-3 pt-3 border-t border-gray-200">
-              <div className="text-xs text-gray-500 flex items-center mb-2">
+            <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-600">
+              <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center mb-2">
                 <Calendar className="w-3 h-3 mr-1" />
                 Generated {insight.createdAt.toLocaleDateString()} by {insight.source}
               </div>
@@ -470,7 +470,7 @@ const InsightCard: React.FC<{
       <div className="flex items-center justify-between mt-3">
         <button
           onClick={() => setExpanded(!expanded)}
-          className="text-xs text-gray-600 hover:text-gray-900"
+          className="text-xs text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
         >
           {expanded ? 'Show less' : 'Show more'}
         </button>

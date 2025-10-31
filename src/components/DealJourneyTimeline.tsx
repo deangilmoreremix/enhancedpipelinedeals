@@ -1,11 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Deal } from '../types';
-import { Calendar, TrendingUp, Clock, CheckCircle, AlertCircle, Plus, Edit, Trash2, Paperclip, Upload, X, FileText, Eye, Sparkles } from 'lucide-react';
-import { getWebSearchService } from '../services/webSearchService';
-import { getSupabaseService } from '../services/supabaseService';
-import ResearchStatusOverlay from './ui/ResearchStatusOverlay';
+import { Calendar, TrendingUp, Clock, CheckCircle, AlertCircle, Plus, Paperclip, Upload, X, FileText, Eye, Sparkles } from 'lucide-react';
 import { ModernButton } from './ui/ModernButton';
-import { getStorageBucketService } from '../services/storageBucketService';
 
 interface DealJourneyTimelineProps {
   deal: Deal;
@@ -49,7 +45,64 @@ export const DealJourneyTimeline: React.FC<DealJourneyTimelineProps> = ({ deal }
       icon: AlertCircle,
       status: deal.stage === 'negotiation' || deal.stage === 'closed-won' || deal.stage === 'closed-lost' ? 'completed' : 'pending'
     }
-  ];
+  ]);
+
+  // Add missing state variables
+  const [showAddEvent, setShowAddEvent] = useState(false);
+  const [newEventTitle, setNewEventTitle] = useState('');
+  const [newEventDescription, setNewEventDescription] = useState('');
+  const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
+  const [documentSummaries, setDocumentSummaries] = useState<Record<string, string>>({});
+  const [summarizingFiles, setSummarizingFiles] = useState<Set<string>>(new Set());
+  const [showSummary, setShowSummary] = useState<string | null>(null);
+
+  // Add missing functions
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    setAttachedFiles(prev => [...prev, ...files]);
+  };
+
+  const removeAttachment = (index: number) => {
+    setAttachedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const summarizeDocument = async (file: File, fileId: string) => {
+    setSummarizingFiles(prev => new Set(prev).add(fileId));
+    try {
+      // Placeholder for document summarization logic
+      // This would integrate with AI services to summarize the document
+      const summary = `Summary of ${file.name}: This is a placeholder summary.`;
+      setDocumentSummaries(prev => ({ ...prev, [fileId]: summary }));
+    } catch (error) {
+      console.error('Error summarizing document:', error);
+    } finally {
+      setSummarizingFiles(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(fileId);
+        return newSet;
+      });
+    }
+  };
+
+  const addNewEvent = () => {
+    if (!newEventTitle.trim()) return;
+
+    const newEvent = {
+      id: Date.now().toString(),
+      title: newEventTitle,
+      description: newEventDescription,
+      date: new Date(),
+      type: 'custom',
+      icon: Calendar,
+      status: 'pending'
+    };
+
+    setTimelineEvents(prev => [...prev, newEvent]);
+    setNewEventTitle('');
+    setNewEventDescription('');
+    setAttachedFiles([]);
+    setShowAddEvent(false);
+  };
 
   return (
     <div className="space-y-6">
@@ -306,6 +359,5 @@ export const DealJourneyTimeline: React.FC<DealJourneyTimelineProps> = ({ deal }
         </div>
       )}
     </div>
-    </>
   );
 };

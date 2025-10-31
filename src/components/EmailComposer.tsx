@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { Contact } from '../types/contact';
 import { Deal } from '../types';
 import { X, Send, Paperclip, Bold, Italic, Link, Smile } from 'lucide-react';
+import { ModernButton } from './ui/ModernButton';
+import { getStorageBucketService } from '../services/storageBucketService';
 
 interface EmailComposerProps {
   contact: Contact;
@@ -61,11 +63,83 @@ Best regards,
     }
   };
 
-  const handleAttachment = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAttachment = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
-    if (files) {
-      setAttachments(prev => [...prev, ...Array.from(files)]);
+    if (!files || files.length === 0) return;
+
+    const storageService = getStorageBucketService();
+    const isStorageConfigured = storageService.isStorageConfigured();
+
+    const validFiles = Array.from(files).filter(file => {
+      // Validate file size (max 10MB)
+      const maxSize = 10 * 1024 * 1024; // 10MB
+      if (file.size > maxSize) {
+        console.warn(`File ${file.name} is too large. Maximum size is 10MB.`);
+        return false;
+      }
+
+      // Validate file type
+      const allowedTypes = [
+        'image/jpeg', 'image/png', 'image/gif', 'image/webp',
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'text/plain'
+      ];
+
+      if (!allowedTypes.includes(file.type)) {
+        console.warn(`File type ${file.type} is not allowed for ${file.name}`);
+        return false;
+      }
+
+      return true;
+    });
+
+    if (validFiles.length !== files.length) {
+      console.info(`${files.length - validFiles.length} file(s) were rejected due to size or type restrictions.`);
     }
+
+    if (validFiles.length === 0) return;
+
+    // If storage is configured, upload files immediately
+    if (isStorageConfigured) {
+      const uploadPromises = validFiles.map(async (file) => {
+        const fileId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        const filePath = `email-attachments/${deal.id}/${fileId}-${file.name}`;
+
+        const result = await storageService.uploadFile('deal-attachments', filePath, file);
+
+        if (result.success && result.url) {
+          console.log(`✅ Uploaded email attachment ${file.name} to ${result.url}`);
+          return {
+            ...file,
+            id: fileId,
+            url: result.url,
+            storagePath: filePath
+          };
+        } else {
+          console.error(`❌ Failed to upload ${file.name}:`, result.error);
+          return file; // Keep original file if upload fails
+        }
+      });
+
+      try {
+        const uploadedFiles = await Promise.all(uploadPromises);
+        setAttachments(prev => [...prev, ...uploadedFiles]);
+        console.log(`✅ Successfully processed ${uploadedFiles.length} email attachment(s)`);
+      } catch (error) {
+        console.error('Error uploading email attachments:', error);
+        // Fall back to local files if upload fails
+        setAttachments(prev => [...prev, ...validFiles]);
+      }
+    } else {
+      // Storage not configured - use local files only
+      console.warn('Storage service not configured - attachments will be local only');
+      setAttachments(prev => [...prev, ...validFiles]);
+    }
+
+    // Reset input value to allow re-uploading the same file
+    event.target.value = '';
   };
 
   const removeAttachment = (index: number) => {
@@ -143,7 +217,7 @@ Best regards,
                   multiple
                   onChange={handleAttachment}
                   className="hidden"
-                  accept="image/*,.pdf,.doc,.docx,.txt"
+                  accept="image/*,.pdf,.doc,.docx,.txt,.xlsx,.pptx"
                 />
               </label>
             </div>
@@ -158,22 +232,36 @@ Best regards,
             {/* Attachments */}
             {attachments.length > 0 && (
               <div className="mt-4 space-y-2">
-                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Attachments:</p>
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Attachments ({attachments.length}):
+                </p>
                 {attachments.map((file, index) => (
-                  <div key={index} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                    <div className="flex items-center space-x-2">
-                      <Paperclip className="w-4 h-4 text-gray-500" />
-                      <span className="text-sm text-gray-900 dark:text-white">{file.name}</span>
-                      <span className="text-xs text-gray-500">({(file.size / 1024).toFixed(1)} KB)</span>
+                  <div key={index} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+                    <div className="flex items-center space-x-3">
+                      <div className="p-1 bg-blue-100 dark:bg-blue-900 rounded">
+                        <Paperclip className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                      </div>
+                      <div>
+                        <span className="text-sm font-medium text-gray-900 dark:text-white">{file.name}</span>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                          {(file.size / 1024).toFixed(1)} KB • {file.type || 'Unknown type'}
+                        </div>
+                      </div>
                     </div>
                     <button
                       onClick={() => removeAttachment(index)}
-                      className="text-red-500 hover:text-red-700"
+                      className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900 rounded transition-colors"
+                      title="Remove attachment"
                     >
                       <X className="w-4 h-4" />
                     </button>
                   </div>
                 ))}
+                {attachments.length > 5 && (
+                  <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
+                    ⚠️ Large number of attachments may affect deliverability
+                  </p>
+                )}
               </div>
             )}
           </div>
@@ -185,29 +273,21 @@ Best regards,
             {body.length} characters
           </div>
           <div className="flex space-x-3">
-            <button
+            <ModernButton
+              variant="outline"
               onClick={onClose}
-              className="px-4 py-2 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
             >
               Cancel
-            </button>
-            <button
+            </ModernButton>
+            <ModernButton
+              variant="primary"
+              leftIcon={<Send className="w-4 h-4" />}
               onClick={handleSend}
-              disabled={!subject.trim() || !body.trim() || isSending}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center"
+              disabled={!subject.trim() || !body.trim()}
+              loading={isSending}
             >
-              {isSending ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Sending...
-                </>
-              ) : (
-                <>
-                  <Send className="w-4 h-4 mr-2" />
-                  Send Email
-                </>
-              )}
-            </button>
+              Send Email
+            </ModernButton>
           </div>
         </div>
       </div>

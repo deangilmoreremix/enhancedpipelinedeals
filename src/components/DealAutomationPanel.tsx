@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { Deal } from '../types';
-import { Zap, Clock, Mail, Phone, Calendar, MessageSquare, CheckCircle, Settings, Play, Pause, RotateCcw } from 'lucide-react';
+import { Zap, Clock, Mail, Phone, Calendar, MessageSquare, CheckCircle, Settings, Play, Pause, RotateCcw, Brain, Sparkles, Wand2 } from 'lucide-react';
+import { getSupabaseService } from '../services/supabaseService';
+import ResearchStatusOverlay from './ui/ResearchStatusOverlay';
+import { ModernButton } from './ui/ModernButton';
 
 interface DealAutomationPanelProps {
   deal: Deal;
@@ -60,6 +63,12 @@ export const DealAutomationPanel: React.FC<DealAutomationPanelProps> = ({ deal }
     }
   ]);
 
+  const [showAIBuilder, setShowAIBuilder] = useState(false);
+  const [aiGenerating, setAiGenerating] = useState(false);
+  const [researchStatus, setResearchStatus] = useState<any>(null);
+
+  const supabaseService = getSupabaseService();
+
   const toggleRuleStatus = (ruleId: string) => {
     setAutomationRules(prev =>
       prev.map(rule =>
@@ -72,6 +81,106 @@ export const DealAutomationPanel: React.FC<DealAutomationPanelProps> = ({ deal }
           : rule
       )
     );
+  };
+
+  const handleGenerateAutomation = async () => {
+    setAiGenerating(true);
+    setResearchStatus({
+      isVisible: true,
+      statuses: [{
+        id: 'automation-gen',
+        stage: 'analyzing',
+        message: '🧠 AI is analyzing your deal to create optimal automation...',
+        progress: 0,
+        timestamp: new Date()
+      }]
+    });
+
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      if (!supabaseUrl) {
+        throw new Error('Supabase URL not configured');
+      }
+
+      const response = await fetch(`${supabaseUrl}/functions/v1/deal-automation`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify({
+          deal: {
+            title: deal.title,
+            company: deal.company,
+            value: deal.value,
+            stage: deal.stage,
+            probability: deal.probability
+          },
+          automationGoal: 'Deal progression and nurturing',
+          sequenceLength: 'Medium (5-7 steps)',
+          communicationStyle: 'Professional consultative'
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        throw new Error(`Automation generation failed: ${errorData.error || response.statusText}`);
+      }
+
+      const data = await response.json();
+
+      // Extract automation from AI response
+      let automation;
+      if (data.choices && data.choices[0] && data.choices[0].message) {
+        automation = JSON.parse(data.choices[0].message.content);
+      } else if (data.candidates && data.candidates[0] && data.candidates[0].content) {
+        automation = JSON.parse(data.candidates[0].content.parts[0].text);
+      } else {
+        throw new Error('Invalid response format from AI service');
+      }
+
+      // Transform AI-generated automation to our format
+      const newAutomation: AutomationRule = {
+        id: Date.now().toString(),
+        name: automation.name || `${deal.title} AI Sequence`,
+        description: automation.description || 'AI-generated automation sequence for deal progression',
+        trigger: automation.trigger || 'Deal stage changes',
+        action: automation.action || 'Execute automated sequence',
+        status: 'paused',
+        successCount: 0,
+        lastRun: undefined
+      };
+
+      setAutomationRules(prev => [...prev, newAutomation]);
+      setShowAIBuilder(false);
+
+      setResearchStatus({
+        isVisible: true,
+        statuses: [{
+          id: 'automation-gen',
+          stage: 'complete',
+          message: '✅ AI automation generated successfully!',
+          progress: 100,
+          timestamp: new Date()
+        }]
+      });
+
+    } catch (error) {
+      console.error('Error generating automation:', error);
+      setResearchStatus({
+        isVisible: true,
+        statuses: [{
+          id: 'automation-gen',
+          stage: 'error',
+          message: '❌ Automation generation failed',
+          progress: 0,
+          timestamp: new Date()
+        }]
+      });
+    } finally {
+      setAiGenerating(false);
+      setTimeout(() => setResearchStatus(null), 3000);
+    }
   };
 
   const runRuleManually = (ruleId: string) => {
@@ -103,16 +212,41 @@ export const DealAutomationPanel: React.FC<DealAutomationPanelProps> = ({ deal }
   };
 
   return (
-    <div className="space-y-6">
+    <>
+      {/* Research Status Overlay */}
+      {researchStatus && (
+        <ResearchStatusOverlay
+          isVisible={researchStatus.isVisible}
+          statuses={researchStatus.statuses}
+          onClose={() => setResearchStatus(null)}
+          position="top-right"
+          size="md"
+        />
+      )}
+
+      <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
           <Zap className="w-5 h-5 mr-2 text-purple-600 dark:text-purple-400" />
           Deal Automation
         </h3>
-        <button className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium">
-          <Settings className="w-4 h-4 inline mr-2" />
-          Create Rule
-        </button>
+        <div className="flex space-x-2">
+          <ModernButton
+            variant="primary"
+            size="sm"
+            leftIcon={<Brain className="w-4 h-4" />}
+            onClick={() => setShowAIBuilder(true)}
+          >
+            AI Generate
+          </ModernButton>
+          <ModernButton
+            variant="secondary"
+            size="sm"
+            leftIcon={<Settings className="w-4 h-4" />}
+          >
+            Create Rule
+          </ModernButton>
+        </div>
       </div>
 
       {/* Automation Stats */}
@@ -227,36 +361,115 @@ export const DealAutomationPanel: React.FC<DealAutomationPanelProps> = ({ deal }
         })}
       </div>
 
+      {/* AI Automation Builder */}
+      {showAIBuilder && (
+        <div className="bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 p-6 rounded-lg border border-purple-200 dark:border-purple-700">
+          <h4 className="text-lg font-semibold text-purple-900 dark:text-purple-300 mb-4">AI Automation Builder</h4>
+
+          {aiGenerating ? (
+            <div className="text-center py-6">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
+              <h5 className="text-lg font-medium text-gray-900 dark:text-white mb-2">AI is generating your automation...</h5>
+              <p className="text-gray-600 dark:text-gray-300 max-w-md mx-auto">
+                Creating a personalized automation sequence for {deal.title} at {deal.company}.
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className="space-y-4 mb-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Automation Goal
+                  </label>
+                  <select className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                    <option>Deal Qualification</option>
+                    <option>Proposal Follow-up</option>
+                    <option>Negotiation Support</option>
+                    <option>Close Acceleration</option>
+                    <option>Post-Close Engagement</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Deal Information to Include
+                  </label>
+                  <div className="space-y-2">
+                    <div className="flex items-center">
+                      <input type="checkbox" defaultChecked className="h-4 w-4 text-blue-600 rounded" id="include-company" />
+                      <label htmlFor="include-company" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                        Company: {deal.company}
+                      </label>
+                    </div>
+                    <div className="flex items-center">
+                      <input type="checkbox" defaultChecked className="h-4 w-4 text-blue-600 rounded" id="include-value" />
+                      <label htmlFor="include-value" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                        Deal Value: ${deal.value.toLocaleString()}
+                      </label>
+                    </div>
+                    <div className="flex items-center">
+                      <input type="checkbox" defaultChecked className="h-4 w-4 text-blue-600 rounded" id="include-stage" />
+                      <label htmlFor="include-stage" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                        Current Stage: {deal.stage}
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={() => setShowAIBuilder(false)}
+                  className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleGenerateAutomation}
+                  className="px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 transition-colors flex items-center"
+                >
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  Generate Automation
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
       {/* Suggested Automations */}
-      <div className="bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 p-6 rounded-lg border border-purple-200 dark:border-purple-700">
-        <h4 className="text-lg font-semibold text-purple-900 dark:text-purple-300 mb-4">Suggested Automations</h4>
-        <div className="space-y-3">
-          <div className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg border border-purple-200 dark:border-purple-700">
-            <div className="flex items-center space-x-3">
-              <Mail className="w-5 h-5 text-purple-600" />
-              <div>
-                <p className="font-medium text-gray-900 dark:text-white">Welcome Email Sequence</p>
-                <p className="text-sm text-gray-600 dark:text-gray-300">Send automated welcome emails to new contacts</p>
+      {!showAIBuilder && (
+        <div className="bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 p-6 rounded-lg border border-purple-200 dark:border-purple-700">
+          <h4 className="text-lg font-semibold text-purple-900 dark:text-purple-300 mb-4">Suggested Automations</h4>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg border border-purple-200 dark:border-purple-700">
+              <div className="flex items-center space-x-3">
+                <Mail className="w-5 h-5 text-purple-600" />
+                <div>
+                  <p className="font-medium text-gray-900 dark:text-white">Proposal Follow-up Sequence</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">Automated follow-ups after proposal delivery</p>
+                </div>
               </div>
+              <button className="px-3 py-1 bg-purple-600 text-white rounded text-sm font-medium hover:bg-purple-700 transition-colors">
+                Enable
+              </button>
             </div>
-            <button className="px-3 py-1 bg-purple-600 text-white rounded text-sm font-medium hover:bg-purple-700 transition-colors">
-              Enable
-            </button>
-          </div>
-          <div className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg border border-purple-200 dark:border-purple-700">
-            <div className="flex items-center space-x-3">
-              <MessageSquare className="w-5 h-5 text-purple-600" />
-              <div>
-                <p className="font-medium text-gray-900 dark:text-white">Follow-up Reminders</p>
-                <p className="text-sm text-gray-600 dark:text-gray-300">Remind sales team of pending follow-ups</p>
+            <div className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg border border-purple-200 dark:border-purple-700">
+              <div className="flex items-center space-x-3">
+                <MessageSquare className="w-5 h-5 text-purple-600" />
+                <div>
+                  <p className="font-medium text-gray-900 dark:text-white">Negotiation Reminders</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">Keep negotiations on track with timely reminders</p>
+                </div>
               </div>
+              <button className="px-3 py-1 bg-purple-600 text-white rounded text-sm font-medium hover:bg-purple-700 transition-colors">
+                Enable
+              </button>
             </div>
-            <button className="px-3 py-1 bg-purple-600 text-white rounded text-sm font-medium hover:bg-purple-700 transition-colors">
-              Enable
-            </button>
           </div>
         </div>
-      </div>
+      )}
     </div>
+    </>
   );
 };

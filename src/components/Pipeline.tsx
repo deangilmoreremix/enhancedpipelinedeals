@@ -766,19 +766,19 @@ const Pipeline: React.FC = () => {
 
       {/* AI Analysis Progress */}
       {(isAnalyzing || analysisProgress || aiResults) && (
-        <div className="p-4 bg-gradient-to-r from-purple-50 to-blue-50 border-b border-purple-200 mb-6">
+        <div className="p-4 bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/30 dark:to-blue-900/30 border-b border-purple-200 dark:border-purple-700 mb-6">
           {analysisProgress && (
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2">
-                <Loader2 className="w-5 h-5 text-purple-600 animate-spin duration-700" />
-                <span className="font-medium text-purple-900">
+                <Loader2 className="w-5 h-5 text-purple-600 dark:text-purple-400 animate-spin duration-700" />
+                <span className="font-medium text-purple-900 dark:text-purple-200">
                   Analyzing deals... ({analysisProgress.current}/{analysisProgress.total})
                 </span>
               </div>
               <div className="flex-1 max-w-xs">
-                <div className="w-full bg-purple-200 rounded-full h-2">
+                <div className="w-full bg-purple-200 dark:bg-purple-800 rounded-full h-2">
                   <div 
-                    className="bg-purple-600 h-2 rounded-full transition-all duration-300"
+                    className="bg-purple-600 dark:bg-purple-400 h-2 rounded-full transition-all duration-300"
                     style={{ width: `${(analysisProgress.current / analysisProgress.total) * 100}%` }}
                   ></div>
                 </div>
@@ -789,14 +789,14 @@ const Pipeline: React.FC = () => {
           {aiResults && (
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
-                <CheckCircle className="w-5 h-5 text-green-600" />
-                <span className="font-medium text-green-900">
+                <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
+                <span className="font-medium text-green-900 dark:text-green-200">
                   Analysis complete: {aiResults.success} successful, {aiResults.failed} failed
                 </span>
               </div>
               <button
                 onClick={() => setAiResults(null)}
-                className="text-gray-500 hover:text-gray-700"
+                className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
               >
                 <X className="w-4 h-4" />
               </button>

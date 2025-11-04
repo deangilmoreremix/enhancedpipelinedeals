@@ -147,46 +147,69 @@ export const DealAnalyticsDashboard: React.FC<DealAnalyticsDashboardProps> = ({ 
   const handleExport = async () => {
     setExporting(true);
     try {
+      // Sanitize data to prevent XSS
+      const sanitizeString = (str: string) => str.replace(/[<>]/g, '').substring(0, 1000);
+      const sanitizeNumber = (num: number) => Math.max(0, Math.min(num, 999999999));
+
       const exportData = {
         deal: {
-          title: deal.title,
-          company: deal.company,
-          value: deal.value,
-          probability: deal.probability,
-          stage: deal.stage,
-          createdAt: deal.createdAt,
-          dueDate: deal.dueDate
+          title: sanitizeString(deal.title),
+          company: sanitizeString(deal.company),
+          value: sanitizeNumber(deal.value),
+          probability: Math.max(0, Math.min(100, deal.probability)),
+          stage: sanitizeString(deal.stage),
+          createdAt: deal.createdAt?.toISOString() || new Date().toISOString(),
+          dueDate: deal.dueDate?.toISOString() || null
         },
-        metrics: dealMetrics,
-        trendData,
+        metrics: {
+          totalRevenue: sanitizeNumber(dealMetrics.totalRevenue),
+          totalDeals: sanitizeNumber(dealMetrics.totalDeals),
+          wonDeals: sanitizeNumber(dealMetrics.wonDeals),
+          conversionRate: Math.max(0, Math.min(100, dealMetrics.conversionRate)),
+          avgDealSize: sanitizeNumber(dealMetrics.avgDealSize),
+          timeToClose: sanitizeNumber(dealMetrics.timeToClose),
+          pipelineValue: sanitizeNumber(dealMetrics.pipelineValue)
+        },
+        trendData: trendData.map(item => ({
+          month: sanitizeString(item.month),
+          revenue: sanitizeNumber(item.revenue),
+          deals: sanitizeNumber(item.deals),
+          pipeline: sanitizeNumber(item.pipeline)
+        })),
         analytics: {
-          conversionRate: analytics.conversionRate,
-          timeToClose: analytics.timeToClose,
-          engagementScore: analytics.engagementScore,
-          competitorActivity: analytics.competitorActivity,
-          dealVelocity: analytics.dealVelocity
+          conversionRate: Math.max(0, Math.min(100, analytics.conversionRate)),
+          timeToClose: sanitizeNumber(analytics.timeToClose),
+          engagementScore: Math.max(0, Math.min(100, analytics.engagementScore)),
+          competitorActivity: sanitizeNumber(analytics.competitorActivity),
+          dealVelocity: ['Slow', 'Medium', 'Fast'].includes(analytics.dealVelocity) ? analytics.dealVelocity : 'Medium'
         },
         generatedAt: new Date().toISOString(),
         exportedBy: 'DealAnalyticsDashboard'
       };
 
-      // Create JSON blob
+      // Create JSON blob with sanitized data
       const jsonBlob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
       const jsonUrl = URL.createObjectURL(jsonBlob);
 
-      // Create CSV export for metrics
+      // Create CSV export for metrics with sanitized data
       const csvData = [
         ['Metric', 'Value', 'Change', 'Trend'],
-        ...metrics.map(m => [m.title, m.value, m.change || 'N/A', m.trend || 'N/A'])
+        ...metrics.map(m => [
+          sanitizeString(m.title),
+          sanitizeString(m.value),
+          m.change ? sanitizeString(m.change) : 'N/A',
+          m.trend || 'N/A'
+        ])
       ];
-      const csvContent = csvData.map(row => row.join(',')).join('\n');
-      const csvBlob = new Blob([csvContent], { type: 'text/csv' });
+      const csvContent = csvData.map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
+      const csvBlob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
       const csvUrl = URL.createObjectURL(csvBlob);
 
       // Download JSON file
       const jsonLink = document.createElement('a');
       jsonLink.href = jsonUrl;
-      jsonLink.download = `deal-analytics-${deal.title.replace(/\s+/g, '-').toLowerCase()}-${new Date().toISOString().split('T')[0]}.json`;
+      jsonLink.download = `deal-analytics-${sanitizeString(deal.title).replace(/\s+/g, '-').toLowerCase()}-${new Date().toISOString().split('T')[0]}.json`;
+      jsonLink.style.display = 'none';
       document.body.appendChild(jsonLink);
       jsonLink.click();
       document.body.removeChild(jsonLink);
@@ -195,7 +218,8 @@ export const DealAnalyticsDashboard: React.FC<DealAnalyticsDashboardProps> = ({ 
       setTimeout(() => {
         const csvLink = document.createElement('a');
         csvLink.href = csvUrl;
-        csvLink.download = `deal-metrics-${deal.title.replace(/\s+/g, '-').toLowerCase()}-${new Date().toISOString().split('T')[0]}.csv`;
+        csvLink.download = `deal-metrics-${sanitizeString(deal.title).replace(/\s+/g, '-').toLowerCase()}-${new Date().toISOString().split('T')[0]}.csv`;
+        csvLink.style.display = 'none';
         document.body.appendChild(csvLink);
         csvLink.click();
         document.body.removeChild(csvLink);
@@ -207,7 +231,8 @@ export const DealAnalyticsDashboard: React.FC<DealAnalyticsDashboardProps> = ({ 
 
     } catch (error) {
       console.error('Export failed:', error);
-      // Could add toast notification here
+      // In a real app, show user-friendly error message
+      alert('Export failed. Please try again.');
     } finally {
       setExporting(false);
     }

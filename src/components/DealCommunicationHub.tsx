@@ -1,4 +1,20 @@
-import React, { useState, useEffect } from 'react';
+/**
+ * DealCommunicationHub Component
+ *
+ * A comprehensive communication management interface for deal interactions.
+ * Provides tabs for messages, calls, emails, and meetings with real-time updates.
+ *
+ * Features:
+ * - Real-time communication tracking
+ * - File upload with validation
+ * - AI-powered document summarization
+ * - Communication analytics
+ * - Integration with contact management
+ *
+ * @param deal - The deal object containing deal information
+ * @param contact - Optional contact associated with the deal
+ */
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Deal } from '../types';
 import { Contact } from '../types/contact';
 import { MessageSquare, Mail, Phone, Calendar, FileText, Send, Paperclip, Clock, Zap, Wifi, WifiOff, Eye, Sparkles, X } from 'lucide-react';
@@ -15,20 +31,58 @@ interface DealCommunicationHubProps {
 
 export const DealCommunicationHub: React.FC<DealCommunicationHubProps> = ({ deal, contact }) => {
   const [activeTab, setActiveTab] = useState<'messages' | 'calls' | 'emails' | 'meetings'>('messages');
-  const [documentSummaries, setDocumentSummaries] = useState<{[key: string]: string}>({});
-  const [summarizingFiles, setSummarizingFiles] = useState<Set<string>>(new Set());
+  const [documentSummaries, setDocumentSummaries] = useState<Record<string, string>>({});
+  const [summarizingFiles, setSummarizingFiles] = useState<Set<string>>(new Set<string>());
   const [showSummary, setShowSummary] = useState<string | null>(null);
-  const [researchStatus, setResearchStatus] = useState<any>(null);
+  const [researchStatus, setResearchStatus] = useState<{
+    isVisible: boolean;
+    statuses: Array<{
+      id: string;
+      stage: 'analyzing' | 'complete' | 'error';
+      message: string;
+      progress: number;
+      timestamp: Date;
+      sourceCount?: number;
+    }>;
+  } | null>(null);
 
   const webSearchService = getWebSearchService();
+
   const [isOnline, setIsOnline] = useState(true);
-  const [realTimeMessages, setRealTimeMessages] = useState<any[]>([]);
-  const [realTimeCalls, setRealTimeCalls] = useState<any[]>([]);
-  const [realTimeEmails, setRealTimeEmails] = useState<any[]>([]);
-  const [realTimeMeetings, setRealTimeMeetings] = useState<any[]>([]);
+  const [realTimeMessages, setRealTimeMessages] = useState<Array<{
+    id: string;
+    type: string;
+    content: string;
+    sender: string;
+    timestamp: Date;
+    direction: 'incoming' | 'outgoing';
+  }>>([]);
+  const [realTimeCalls, setRealTimeCalls] = useState<Array<{
+    id: string;
+    duration: string;
+    type: string;
+    timestamp: Date;
+    notes?: string;
+  }>>([]);
+  const [realTimeEmails, setRealTimeEmails] = useState<Array<{
+    id: string;
+    subject: string;
+    sender: string;
+    recipient: string;
+    timestamp: Date;
+    status: string;
+  }>>([]);
+  const [realTimeMeetings, setRealTimeMeetings] = useState<Array<{
+    id: string;
+    title: string;
+    date: Date;
+    duration: string;
+    attendees: string[];
+    status: string;
+  }>>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
     if (!files || files.length === 0) return;
 
@@ -113,7 +167,7 @@ export const DealCommunicationHub: React.FC<DealCommunicationHubProps> = ({ deal
 
     // Reset input value to allow re-uploading the same file
     event.target.value = '';
-  };
+  }, [deal.id]);
 
   const summarizeDocument = async (file: File, fileId: string) => {
     if (summarizingFiles.has(fileId)) return;
@@ -245,7 +299,7 @@ ${fileContent.substring(0, 10000)}`; // Limit content for API
         content: 'Hi, I\'d like to discuss the proposal you sent.',
         sender: contact?.name || 'John Doe',
         timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
-        direction: 'incoming'
+        direction: 'incoming' as const
       },
       {
         id: '2',
@@ -253,7 +307,7 @@ ${fileContent.substring(0, 10000)}`; // Limit content for API
         content: 'Absolutely! I\'m available tomorrow at 2 PM.',
         sender: 'You',
         timestamp: new Date(Date.now() - 1.5 * 60 * 60 * 1000), // 1.5 hours ago
-        direction: 'outgoing'
+        direction: 'outgoing' as const
       }
     ],
     calls: [
@@ -287,12 +341,13 @@ ${fileContent.substring(0, 10000)}`; // Limit content for API
     ]
   };
 
-  const tabs = [
-    { id: 'messages', label: 'Messages', icon: MessageSquare, count: mockCommunications.messages.length },
-    { id: 'calls', label: 'Calls', icon: Phone, count: mockCommunications.calls.length },
-    { id: 'emails', label: 'Emails', icon: Mail, count: mockCommunications.emails.length },
-    { id: 'meetings', label: 'Meetings', icon: Calendar, count: mockCommunications.meetings.length }
-  ];
+  // Memoize tabs to prevent unnecessary re-renders
+  const tabs = useMemo(() => [
+    { id: 'messages' as const, label: 'Messages', icon: MessageSquare, count: mockCommunications.messages.length },
+    { id: 'calls' as const, label: 'Calls', icon: Phone, count: mockCommunications.calls.length },
+    { id: 'emails' as const, label: 'Emails', icon: Mail, count: mockCommunications.emails.length },
+    { id: 'meetings' as const, label: 'Meetings', icon: Calendar, count: mockCommunications.meetings.length }
+  ], [mockCommunications.messages.length, mockCommunications.calls.length, mockCommunications.emails.length, mockCommunications.meetings.length]);
 
   return (
     <>
@@ -352,7 +407,7 @@ ${fileContent.substring(0, 10000)}`; // Limit content for API
           return (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
+              onClick={() => setActiveTab(tab.id as 'messages' | 'calls' | 'emails' | 'meetings')}
               className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center space-x-2 ${
                 activeTab === tab.id
                   ? 'border-blue-600 dark:border-blue-400 text-blue-600 dark:text-blue-400'

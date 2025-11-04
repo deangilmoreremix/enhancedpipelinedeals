@@ -84,17 +84,43 @@ class EnhancedOpenAIService implements OpenAIService {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+      console.error('❌ AI service error response:', errorData);
       throw new Error(`AI service error: ${errorData.error || response.statusText}`);
     }
 
     const data = await response.json();
-    
+    console.log('📦 AI service response format:', {
+      hasContent: !!data.content,
+      hasChoices: !!data.choices,
+      hasCandidates: !!data.candidates,
+      success: data.success
+    });
+
+    // Handle Supabase Edge Function format (contact-analyzer, deal-analyzer, etc.)
+    if (data.content) {
+      console.log('✅ Using Edge Function format (data.content)');
+      return data.content;
+    }
+
+    // Handle standard OpenAI format
     if (data.choices && data.choices[0] && data.choices[0].message) {
+      console.log('✅ Using OpenAI format (data.choices[0].message.content)');
       return data.choices[0].message.content;
-    } else if (data.candidates && data.candidates[0] && data.candidates[0].content) {
+    }
+
+    // Handle Gemini format
+    if (data.candidates && data.candidates[0] && data.candidates[0].content) {
+      console.log('✅ Using Gemini format (data.candidates[0].content.parts[0].text)');
       return data.candidates[0].content.parts[0].text;
     }
-    
+
+    // Handle error responses from Edge Functions
+    if (data.error) {
+      console.error('❌ Edge Function returned error:', data.error);
+      throw new Error(`AI service error: ${data.error}`);
+    }
+
+    console.error('❌ Invalid response format. Received:', JSON.stringify(data, null, 2));
     throw new Error('Invalid response format from AI service');
   }
 
@@ -736,9 +762,18 @@ Begin streaming analysis immediately with initial assessment, then provide progr
 
     const data = await response.json();
 
+    // Handle Supabase Edge Function format
+    if (data.content) {
+      return data.content;
+    }
+
+    // Handle standard OpenAI format
     if (data.choices && data.choices[0] && data.choices[0].message) {
       return data.choices[0].message.content;
-    } else if (data.candidates && data.candidates[0] && data.candidates[0].content) {
+    }
+
+    // Handle Gemini format
+    if (data.candidates && data.candidates[0] && data.candidates[0].content) {
       return data.candidates[0].content.parts[0].text;
     }
 

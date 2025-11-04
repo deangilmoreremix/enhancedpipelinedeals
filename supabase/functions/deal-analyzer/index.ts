@@ -49,9 +49,11 @@ serve(async (req) => {
     const { messages, taskType, modelId, deal, maxTokens = 1200 } = await req.json()
 
     // Get OpenAI API key from environment
-    const openaiApiKey = Deno.env.get('VITE_OPENAI_API_KEY')
+    // Note: Use OPENAI_API_KEY for Supabase Edge Function secrets (not VITE_ prefix)
+    const openaiApiKey = Deno.env.get('OPENAI_API_KEY')
     if (!openaiApiKey) {
-      throw new Error('OpenAI API key not configured')
+      console.error('❌ OpenAI API key not found in environment')
+      throw new Error('OpenAI API key not configured. Please set OPENAI_API_KEY in Supabase Edge Function secrets.')
     }
 
     // Prepare OpenAI request

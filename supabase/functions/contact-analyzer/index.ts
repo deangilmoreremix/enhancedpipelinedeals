@@ -25,8 +25,13 @@ interface Contact {
   interestLevel: string
   sources: string[]
   notes?: string
-  aiScore?: number
+  lastConnected?: string
   customFields?: Record<string, any>
+}
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
 serve(async (req) => {
@@ -34,10 +39,7 @@ serve(async (req) => {
 
   // Handle CORS
   if (method === 'OPTIONS') {
-    return new Response('ok', { headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-    } })
+    return new Response('ok', { headers: corsHeaders })
   }
 
   try {
@@ -66,7 +68,7 @@ serve(async (req) => {
       temperature: 0.7
     }
 
-    console.log(`🤖 Processing ${taskType} with ${modelId} for contact: ${contact?.name || 'Unknown'}`)
+    console.log(`🧠 Processing ${taskType} with ${modelId} for contact: ${contact?.name || 'Unknown'}`)
 
     // Call OpenAI API
     const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -91,92 +93,31 @@ serve(async (req) => {
       throw new Error('No content received from OpenAI')
     }
 
-    console.log(`✅ Successfully processed ${taskType} for contact: ${contact?.name || 'Unknown'}`)
+    console.log(`✅ Successfully processed ${taskType}`)
 
+    // Return in Edge Function format
     return new Response(
       JSON.stringify({
         success: true,
         content,
-        model: modelId,
-        usage: openaiData.usage,
-        timestamp: new Date().toISOString()
+        taskType,
+        modelUsed: modelId || 'gpt-5'
       }),
       {
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*'
-        }
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
     )
-
   } catch (error) {
     console.error('Contact Analyzer error:', error)
-
-    // Get contact from request body if available for fallback
-    let contactData = null
-    try {
-      const body = await req.json()
-      contactData = body.contact
-    } catch {
-      // Ignore if we can't parse the body
-    }
-
-    // Return fallback response for graceful degradation
-    const fallbackResponse = getFallbackResponse(error.message, contactData)
-
     return new Response(
       JSON.stringify({
-        success: false,
-        error: error.message,
-        fallback: fallbackResponse,
-        timestamp: new Date().toISOString()
+        error: error instanceof Error ? error.message : 'Unknown error',
+        success: false
       }),
       {
         status: 500,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*'
-        }
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
     )
   }
 })
-
-function getFallbackResponse(errorMessage: string, contact?: Contact | null) {
-  // Provide basic fallback analysis when OpenAI is unavailable
-  if (!contact) {
-    return {
-      score: 50,
-      insights: ['Basic analysis available'],
-      recommendations: ['Schedule follow-up meeting'],
-      riskFactors: ['AI analysis temporarily unavailable'],
-      reasoningPath: `Fallback due to: ${errorMessage}`,
-      confidenceLevel: 30
-    }
-  }
-
-  let score = 50
-  if (contact.interestLevel === 'hot') score += 20
-  if (contact.status === 'customer') score += 15
-  if (contact.sources?.includes('Referral')) score += 10
-
-  return {
-    score: Math.min(100, score),
-    insights: [
-      'Contact information available for basic analysis',
-      `Interest level: ${contact.interestLevel}`,
-      `Status: ${contact.status}`
-    ],
-    recommendations: [
-      'Schedule follow-up meeting',
-      'Research company background',
-      'Send personalized introduction'
-    ],
-    riskFactors: [
-      'AI analysis temporarily unavailable',
-      'Limited data for comprehensive scoring'
-    ],
-    reasoningPath: `Basic heuristic analysis due to: ${errorMessage}`,
-    confidenceLevel: 40
-  }
-}

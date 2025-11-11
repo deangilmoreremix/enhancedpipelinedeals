@@ -29,6 +29,41 @@ interface Database {
         Insert: Omit<Database['public']['Tables']['activities']['Row'], 'id' | 'created_at'>;
         Update: Partial<Database['public']['Tables']['activities']['Row']>;
       };
+      communication_records: {
+        Row: {
+          id: string;
+          contact_id: string;
+          deal_id: string | null;
+          type: 'message' | 'call' | 'email' | 'meeting';
+          direction: 'incoming' | 'outgoing';
+          content: string | null;
+          subject: string | null;
+          duration: string | null;
+          timestamp: string;
+          status: string;
+          metadata: any;
+          created_at: string;
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: Omit<Database['public']['Tables']['communication_records']['Row'], 'id' | 'created_at' | 'updated_at'>;
+        Update: Partial<Database['public']['Tables']['communication_records']['Row']>;
+      };
+      communication_logs: {
+        Row: {
+          id: string;
+          contact_id: string;
+          deal_id: string | null;
+          type: string;
+          action: string;
+          details: any;
+          timestamp: string;
+          user_id: string;
+          created_at: string;
+        };
+        Insert: Omit<Database['public']['Tables']['communication_logs']['Row'], 'id' | 'created_at'>;
+        Update: Partial<Database['public']['Tables']['communication_logs']['Row']>;
+      };
     };
   };
 }

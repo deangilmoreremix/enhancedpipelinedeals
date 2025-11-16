@@ -39,6 +39,78 @@ A sophisticated **Smart CRM (Customer Relationship Management) system** built wi
 - **Full Dark Mode Support** with smooth theme transitions
 - **Enterprise-Grade Security** with Row Level Security (RLS)
 
+## Recent Updates
+
+### Latest Enhancements (v1.0.0)
+
+#### 🎯 Unified Button System Implementation
+- **Button Registry**: Centralized configuration system for 25+ button actions with consistent styling, tooltips, and keyboard shortcuts
+- **Unified Action Button**: Polymorphic component with built-in analytics, accessibility, and permission checking
+- **Centralized Action Management**: Single `useButtonActions` hook consolidating all button logic across the application
+- **Duplication Elimination**: Reduced button duplication from 44% (35 buttons → 18 unique functions) through systematic consolidation
+- **Enhanced User Experience**: Consistent button behavior, automatic analytics tracking, and improved accessibility
+- **Developer Experience**: Comprehensive `BUTTON_USAGE_GUIDELINES.md` documentation with migration guide and best practices
+- **Security Improvements**: Consistent event handling, input validation, and permission-based access control
+
+#### 🔄 Supabase Service Updates
+- Enhanced database connection handling with improved error recovery
+- Added comprehensive gamification stats serialization/deserialization
+- Implemented connection testing and automatic fallback mechanisms
+- Added support for communication records and logs tracking
+- Enhanced real-time subscription management for deals and contacts
+
+#### 🛠️ Tooling Infrastructure (.roo/ and .roomodes)
+- Added `.roo/` directory with merge conflict resolution workflows:
+  - `1_workflow.xml`: Core workflow definitions
+  - `2_best_practices.xml`: Development best practices
+  - `3_tool_usage.xml`: Tool usage guidelines
+  - `4_complete_example.xml`: Complete implementation examples
+- Added `.roomodes` configuration for custom AI assistant modes:
+  - Merge Resolver mode for intelligent conflict resolution
+  - Documentation Writer mode for technical documentation
+  - User Story Creator mode for agile requirements
+  - Project Research mode for codebase analysis
+  - Security Reviewer mode for code auditing
+  - Coding Teacher mode for educational guidance
+  - Google GenAI Developer mode for Gemini API development
+  - Jest Test Engineer mode for comprehensive testing
+
+#### 💬 Deal Communication Hub Enhancements
+- **Real-time Communication Tracking**: Live updates for messages, calls, emails, and meetings
+- **AI-Powered Document Summarization**: Automatic analysis of uploaded documents with GPT-5 integration
+- **File Upload with Validation**: Support for multiple file types with size and security validation
+- **Communication Analytics**: Comprehensive tracking of all deal-related interactions
+- **Research Status Overlay**: Visual progress tracking for AI operations
+- **Online Status Indicators**: Real-time connectivity monitoring
+
+#### 🤖 AI Function Orchestrator
+- **Function Registration System**: Dynamic registration of AI-powered functions
+- **Parameter Validation**: Comprehensive validation with custom rules and error messages
+- **Caching Layer**: Intelligent caching for improved performance
+- **Batch Execution**: Support for executing multiple functions simultaneously
+- **Error Handling**: Robust error recovery and fallback mechanisms
+- **Statistics Tracking**: Performance monitoring and analytics
+
+#### 📚 Citation Service
+- **Citation Tracking**: Automatic tracking of AI-generated content sources
+- **Credibility Scoring**: Domain-based credibility assessment for sources
+- **Citation Storage**: Persistent storage of citation data per entity
+- **Source Type Analysis**: Categorization by news, academic, government, etc.
+- **Citation Management**: CRUD operations for citation data
+
+#### 🌐 Web Search Service
+- **Multi-Provider Support**: Integration with SerpAPI, Google Custom Search, and Bing
+- **Industry-Specific Domains**: Pre-configured domain lists for different industries
+- **AI-Enhanced Results**: GPT-5 powered result analysis and summarization
+- **Citation Extraction**: Automatic citation generation from search results
+- **Credibility Assessment**: Domain-based credibility scoring system
+
+#### ⚙️ Configuration Enhancements
+- **Centralized API Configuration**: Unified configuration management for all services
+- **Environment Validation**: Automatic validation of required API keys
+- **Development Mode Support**: Graceful degradation when APIs are unavailable
+- **Type-Safe Configuration**: Full TypeScript support for configuration objects
+
 ## Architecture & Technology Stack
 
 ### Frontend Core
@@ -292,11 +364,12 @@ The application features an intelligent **AI Gateway Service** that automaticall
 - Learning from user feedback
 
 #### 4. AI Function Orchestrator
-- Contextual enhancement of UI interactions
-- Automated task suggestions
-- Workflow optimization
-- Intent recognition
-- Action prediction
+- **Function Registration**: Dynamic registration of AI-powered functions with parameter validation
+- **Batch Execution**: Simultaneous execution of multiple AI functions
+- **Caching Layer**: Intelligent caching for improved performance and cost optimization
+- **Error Handling**: Robust error recovery with fallback mechanisms
+- **Statistics Tracking**: Performance monitoring and execution analytics
+- **Contextual Enhancement**: UI interactions enhanced with AI suggestions
 
 #### 5. AI Research Service
 - Company background research
@@ -320,18 +393,20 @@ The application features an intelligent **AI Gateway Service** that automaticall
 - Speech-to-text integration
 
 #### 8. Web Search Service
-- Real-time information retrieval
-- Source citation
-- Relevance ranking
-- Multi-source aggregation
-- Fact verification
+- **Multi-Provider Support**: SerpAPI, Google Custom Search, and Bing integration
+- **Industry-Specific Domains**: Pre-configured domain lists for targeted research
+- **AI-Enhanced Results**: GPT-5 powered result analysis and summarization
+- **Citation Extraction**: Automatic citation generation from search results
+- **Credibility Assessment**: Domain-based credibility scoring (news: 95%, academic: 90%, etc.)
+- **Real-time Information Retrieval**: Live web search with source validation
 
 #### 9. Citation Service
-- Source tracking for AI content
-- Credibility assessment
-- Reference management
-- Audit trail maintenance
-- Transparency reporting
+- **Citation Tracking**: Automatic tracking of AI-generated content sources
+- **Credibility Scoring**: Domain-based credibility assessment for sources
+- **Citation Storage**: Persistent storage of citation data per entity (contact/deal/company)
+- **Source Type Analysis**: Categorization by news, academic, government, social, etc.
+- **Citation Management**: Full CRUD operations for citation data
+- **Audit Trail**: Complete transparency reporting for AI content
 
 #### 10. Social Media Discovery Service
 - Profile discovery across platforms
@@ -557,6 +632,16 @@ Power-user productivity features:
 - Progress tracking
 - Supabase storage integration
 - Multiple format support
+
+#### Deal Communication Hub
+- **Real-time Communication Tracking**: Live updates for messages, calls, emails, and meetings
+- **AI-Powered Document Summarization**: Automatic analysis of uploaded documents with GPT-5 integration
+- **File Upload with Validation**: Support for multiple file types (PDF, images, audio, video) with size limits (15MB)
+- **Communication Analytics**: Comprehensive tracking of all deal-related interactions
+- **Research Status Overlay**: Visual progress tracking for AI operations
+- **Online Status Indicators**: Real-time connectivity monitoring
+- **Tabbed Interface**: Organized views for different communication types
+- **Mock Data Support**: Works without database connection for demos
 
 ## Data Management
 
@@ -807,6 +892,10 @@ VITE_PHONE_API_KEY=xxxxxxxxxxxxx
 # CRM Bridge
 VITE_CRM_API_URL=https://api.yourcrm.com
 VITE_CRM_API_KEY=xxxxxxxxxxxxx
+
+# Web Search (Optional)
+VITE_WEB_SEARCH_PROVIDER=serpapi
+VITE_WEB_SEARCH_API_KEY=xxxxxxxxxxxxx
 ```
 
 ### Supabase Setup
@@ -869,6 +958,28 @@ npx supabase functions deploy contact-automation
 3. Create an API key
 4. Enable Gemini API access
 5. Note the API key for .env
+
+#### Web Search API Setup (Optional)
+
+The application supports multiple web search providers for AI research features:
+
+##### SerpAPI (Recommended)
+1. Visit [serpapi.com](https://serpapi.com)
+2. Create an account
+3. Get your API key
+4. Set `VITE_WEB_SEARCH_PROVIDER=serpapi`
+
+##### Google Custom Search
+1. Visit [developers.google.com/custom-search](https://developers.google.com/custom-search)
+2. Create a Custom Search Engine
+3. Get your API key and Search Engine ID
+4. Set `VITE_WEB_SEARCH_PROVIDER=google`
+
+##### Bing Web Search
+1. Visit [azure.microsoft.com/en-us/services/cognitive-services/bing-web-search-api/](https://azure.microsoft.com/en-us/services/cognitive-services/bing-web-search-api/)
+2. Create a Bing Search resource
+3. Get your subscription key
+4. Set `VITE_WEB_SEARCH_PROVIDER=bing`
 
 ## Project Structure
 
@@ -956,11 +1067,11 @@ src/
 │   └── PipelineStats.tsx
 ├── services/               # Business logic services (25 files)
 │   ├── aiEnrichmentService.ts       # Contact data enrichment
-│   ├── aiFunctionOrchestrator.ts    # Automated task enhancement
+│   ├── aiFunctionOrchestrator.ts    # Automated task enhancement with function registration
 │   ├── aiGatewayService.ts          # Multi-provider AI routing
 │   ├── aiResearchService.ts         # Company & industry research
 │   ├── cacheService.ts              # Performance caching
-│   ├── citationService.ts           # AI content verification
+│   ├── citationService.ts           # AI content verification and citation tracking
 │   ├── crmBridge.ts                 # External CRM integration
 │   ├── dataSyncService.ts           # Hybrid data management
 │   ├── emailService.ts              # Email integration
@@ -978,9 +1089,9 @@ src/
 │   ├── realOpenAIService.ts         # Direct OpenAI API
 │   ├── socialMediaDiscoveryService.ts  # Social profile discovery
 │   ├── supabaseImageService.ts      # Image storage
-│   ├── supabaseService.ts           # Database operations
+│   ├── supabaseService.ts           # Enhanced database operations with gamification support
 │   ├── voiceAssistantService.ts     # Voice commands
-│   └── webSearchService.ts          # Real-time web search
+│   └── webSearchService.ts          # Real-time web search with AI enhancement
 ├── hooks/                  # Custom React hooks (11 files)
 │   ├── useCRMBridge.ts
 │   ├── useEnhancedSmartAI.ts
@@ -1021,16 +1132,40 @@ src/
 └── index.css              # Global styles
 
 supabase/
-├── migrations/             # Database migrations
-│   └── 20250926154851_morning_sound.sql
+├── migrations/             # Database migrations (10 files)
+│   ├── 20250926154851_morning_sound.sql
+│   ├── 20251029015838_optimize_rls_policies.sql
+│   ├── 20251029020216_20251029015838_optimize_rls_policies.sql
+│   ├── 20251029020307_20251029020100_finalize_rls_optimization.sql
+│   ├── 20251029020345_20251029020200_fix_double_nested_auth.sql
+│   ├── 20251029020418_20251029020300_complete_auth_optimization.sql
+│   ├── 20251029023904_enhance_storage_infrastructure_v2.sql
+│   ├── 20251029032009_fix_comprehensive_security_issues_v3.sql
+│   ├── 20251029032820_fix_remaining_security_issues_v2.sql
+│   ├── 20251029033519_fix_final_security_policies.sql
+│   ├── 20251029034647_remove_all_unused_indexes.sql
+│   ├── 20251029034707_consolidate_remaining_duplicate_policies.sql
+│   ├── 20251029034831_fix_function_search_paths_v3.sql
+│   ├── 20251029035803_add_all_missing_foreign_key_indexes.sql
+│   ├── 20251029035849_finalize_all_security_issues.sql
+│   └── 20251029124541_remove_all_unused_foreign_key_indexes.sql
 ├── functions/              # Edge Functions (5 deployed)
-│   ├── ai-gateway/
-│   ├── contact-analyzer/
-│   ├── contact-automation/
-│   ├── deal-analyzer/
-│   └── email-generator/
+│   ├── ai-gateway/         # AI provider routing
+│   ├── contact-analyzer/   # Contact intelligence analysis
+│   ├── contact-automation/ # Automated contact workflows
+│   ├── deal-analyzer/      # Deal opportunity analysis
+│   └── email-generator/    # AI-powered email generation
 ├── config.toml            # Supabase configuration
 └── seed.sql               # Sample data
+
+.roo/                      # Custom tooling infrastructure
+├── rules-merge-resolver/
+│   ├── 1_workflow.xml     # Core workflow definitions
+│   ├── 2_best_practices.xml # Development best practices
+│   ├── 3_tool_usage.xml   # Tool usage guidelines
+│   └── 4_complete_example.xml # Complete implementation examples
+
+.roomodes                  # Custom AI assistant modes configuration
 
 public/
 ├── examples/               # Integration examples
@@ -1203,10 +1338,15 @@ Serve the `dist/` directory with any static hosting service:
 ### Environment Variables
 
 Set these in your deployment platform:
-- `VITE_OPENAI_API_KEY`
-- `VITE_GEMINI_API_KEY`
-- `VITE_SUPABASE_URL`
-- `VITE_SUPABASE_ANON_KEY`
+- `VITE_OPENAI_API_KEY` - OpenAI API key for GPT-5 access
+- `VITE_GEMINI_API_KEY` - Google Gemini API key for fallback AI
+- `VITE_SUPABASE_URL` - Supabase project URL
+- `VITE_SUPABASE_ANON_KEY` - Supabase anonymous key
+- `VITE_SENDGRID_API_KEY` - SendGrid API key for email features
+- `VITE_WEB_SEARCH_API_KEY` - Web search API key (SerpAPI, Google, or Bing)
+- `VITE_WEB_SEARCH_PROVIDER` - Web search provider (serpapi/google/bing)
+- `VITE_CRM_API_URL` - External CRM API URL (optional)
+- `VITE_CRM_API_KEY` - External CRM API key (optional)
 - All other optional variables from `.env.example`
 
 ## Security Considerations

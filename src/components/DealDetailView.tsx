@@ -3,6 +3,8 @@ import { AvatarWithStatus } from './ui/AvatarWithStatus';
 import { ModernButton } from './ui/ModernButton';
 import { CustomizableAIToolbar, AIGoalsButton } from './ui/CustomizableAIToolbar';
 import { AIResearchButton } from './ui/AIResearchButton';
+import { UnifiedActionButton, EmailButton, CallButton, EditButton, FavoriteButton, AIAnalyzeButton, AIEnrichButton, AIScoreButton, AIAutoEnrichButton, ShareButton, CalendarButton } from './ui/UnifiedActionButton';
+import { useButtonActions } from '../hooks/useButtonActions';
 import { aiEnrichmentService, ContactEnrichmentData } from '../services/aiEnrichmentService';
 import { useContactStore } from '../store/contactStore';
 import { useSmartAI } from '../hooks/useSmartAI';
@@ -68,10 +70,10 @@ const socialPlatforms = [
   { icon: Globe, color: 'bg-purple-500', name: 'Website', key: 'website' }
 ];
 
-export const DealDetailView: React.FC<DealDetailViewProps> = ({ 
-  deal, 
-  isOpen, 
-  onClose, 
+export const DealDetailView: React.FC<DealDetailViewProps> = ({
+  deal,
+  isOpen,
+  onClose,
   onUpdate,
   contactData,
   onAddContact
@@ -104,6 +106,17 @@ export const DealDetailView: React.FC<DealDetailViewProps> = ({
   const [newLinkUrl, setNewLinkUrl] = useState('');
   const [files, setFiles] = useState<any[]>([]);
   const [showEmailComposer, setShowEmailComposer] = useState(false);
+
+  // Unified button actions
+  const { handleAction } = useButtonActions({
+    deal,
+    contact: linkedContact || undefined,
+    onUpdateDeal: onUpdate,
+    onUpdateContact: updateContact,
+    onClose,
+    onOpenEmailComposer: (contact, deal) => setShowEmailComposer(true),
+    onOpenContactSelector: () => setShowContactSelector(true)
+  });
 
   useEffect(() => {
     setEditedDeal(deal);
@@ -488,26 +501,13 @@ export const DealDetailView: React.FC<DealDetailViewProps> = ({
 
         {/* Enhanced Deal Profile Sidebar */}
         <div className="w-80 bg-gradient-to-b from-gray-50 via-white to-gray-50 dark:from-gray-800 dark:via-gray-800 dark:to-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col h-full">
-          {/* Fixed Header with AI Features */}
+          {/* Fixed Header */}
           <div className="flex items-center justify-between p-4 border-b border-gray-100 dark:border-gray-700 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-gray-800 dark:to-gray-800 flex-shrink-0">
             <h2 className="text-lg font-bold text-gray-900 dark:text-white flex items-center">
               Deal Profile
               <Sparkles className="w-4 h-4 ml-2 text-purple-500 dark:text-purple-400" />
             </h2>
             <div className="flex space-x-2">
-              <button
-                onClick={handleAnalyzeDeal}
-                disabled={isAnalyzing}
-                className="p-2 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-900/50 rounded-lg transition-colors disabled:opacity-50 relative"
-                title="AI Analysis"
-              >
-                <Brain className="w-4 h-4" />
-                {isAnalyzing && (
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="animate-spin w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full"></div>
-                  </div>
-                )}
-              </button>
               <button
                 onClick={onClose}
                 className="p-2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
@@ -589,57 +589,43 @@ export const DealDetailView: React.FC<DealDetailViewProps> = ({
               {/* Quick AI Actions Grid */}
               <div className="grid grid-cols-2 gap-2 mb-3">
                 {/* Lead Score */}
-                <button
-                  onClick={handleAnalyzeDeal}
+                <AIAnalyzeButton
+                  onClick={handleAction}
+                  context="detail"
+                  entityId={deal.id}
+                  entityType="deal"
                   className="p-3 flex flex-col items-center justify-center rounded-lg font-medium transition-all duration-200 border shadow-sm hover:shadow-md hover:scale-105 min-h-[3.5rem] bg-gradient-to-r from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700 text-white hover:from-blue-600 hover:to-blue-700 dark:hover:from-blue-700 dark:hover:to-blue-800 border-blue-300/50 dark:border-blue-500/50"
-                >
-                  <BarChart3 className="w-4 h-4 mb-1" />
-                  <span className="text-xs leading-tight text-center">Lead Score</span>
-                </button>
-                
+                />
+
                 {/* Email AI */}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (linkedContact?.email) {
-                      setShowEmailComposer(true);
-                    }
-                  }}
+                <EmailButton
+                  ai={true}
+                  onClick={handleAction}
                   disabled={!linkedContact?.email}
-                  className="p-3 flex flex-col items-center justify-center rounded-lg font-medium transition-all duration-200 border shadow-sm hover:shadow-md hover:scale-105 min-h-[3.5rem] bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 text-gray-700 dark:text-gray-100 hover:from-gray-100 hover:to-gray-200 dark:hover:from-gray-600 dark:hover:to-gray-500 border-gray-200/50 dark:border-gray-600/50 disabled:opacity-50"
-                >
-                  <Mail className="w-4 h-4 mb-1" />
-                  <span className="text-xs leading-tight text-center">Email AI</span>
-                </button>
-                
+                  context="detail"
+                  entityId={deal.id}
+                  entityType="deal"
+                  className="p-3 flex flex-col items-center justify-center rounded-lg font-medium transition-all duration-200 border shadow-sm hover:shadow-md hover:scale-105 min-h-[3.5rem] bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 text-gray-700 dark:text-gray-100 hover:from-gray-100 hover:to-gray-200 dark:hover:from-gray-600 dark:hover:to-gray-500 border-gray-200/50 dark:border-gray-600/50"
+                />
+
                 {/* Enrich */}
-                <button
-                  onClick={() => {
-                    if (linkedContact) {
-                      const enrichData: ContactEnrichmentData = {
-                        email: linkedContact.email,
-                        firstName: linkedContact.firstName,
-                        lastName: linkedContact.lastName,
-                        company: linkedContact.company,
-                        confidence: 75
-                      };
-                      handleContactEnrichment(enrichData);
-                    }
-                  }}
+                <AIEnrichButton
+                  onClick={handleAction}
+                  context="detail"
+                  entityId={linkedContact?.id || deal.id}
+                  entityType={linkedContact ? "contact" : "deal"}
                   className="p-3 flex flex-col items-center justify-center rounded-lg font-medium transition-all duration-200 border shadow-sm hover:shadow-md hover:scale-105 min-h-[3.5rem] bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 text-gray-700 dark:text-gray-100 hover:from-gray-100 hover:to-gray-200 dark:hover:from-gray-600 dark:hover:to-gray-500 border-gray-200/50 dark:border-gray-600/50"
-                >
-                  <Search className="w-4 h-4 mb-1" />
-                  <span className="text-xs leading-tight text-center">Enrich</span>
-                </button>
-                
+                />
+
                 {/* Insights */}
-                <button
-                  onClick={() => setActiveTab('insights')}
+                <UnifiedActionButton
+                  action="view-insights"
+                  onClick={handleAction}
+                  context="detail"
+                  entityId={deal.id}
+                  entityType="deal"
                   className="p-3 flex flex-col items-center justify-center rounded-lg font-medium transition-all duration-200 border shadow-sm hover:shadow-md hover:scale-105 min-h-[3.5rem] bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 text-gray-700 dark:text-gray-100 hover:from-gray-100 hover:to-gray-200 dark:hover:from-gray-600 dark:hover:to-gray-500 border-gray-200/50 dark:border-gray-600/50"
-                >
-                  <TrendingUp className="w-4 h-4 mb-1" />
-                  <span className="text-xs leading-tight text-center">Insights</span>
-                </button>
+                />
               </div>
 
               {/* AI Auto-Enrich Button */}
@@ -674,48 +660,37 @@ export const DealDetailView: React.FC<DealDetailViewProps> = ({
                 Quick Actions
               </h4>
               <div className="grid grid-cols-4 gap-2">
-                <button
-                  onClick={() => setIsEditing(true)}
+                <UnifiedActionButton
+                  action="edit"
+                  onClick={handleAction}
+                  context="detail"
+                  entityId={deal.id}
+                  entityType="deal"
                   className="p-3 flex flex-col items-center hover:bg-blue-50 dark:hover:bg-gray-700 rounded-lg transition-all text-center"
-                >
-                  <Edit className="w-4 h-4 mb-1 text-blue-600 dark:text-blue-400" />
-                  <span className="text-xs font-medium dark:text-gray-200">Edit</span>
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (linkedContact?.email) {
-                      // Open email composer modal
-                      setShowEmailComposer(true);
-                    }
-                  }}
+                />
+                <EmailButton
+                  onClick={handleAction}
                   disabled={!linkedContact?.email}
-                  className="p-3 flex flex-col items-center hover:bg-green-50 dark:hover:bg-gray-700 rounded-lg transition-all text-center disabled:opacity-50"
-                >
-                  <Mail className="w-4 h-4 mb-1 text-green-600 dark:text-green-400" />
-                  <span className="text-xs font-medium dark:text-gray-200">Email</span>
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (linkedContact?.phone) {
-                      const phoneService = getPhoneService();
-                      phoneService.makeCall(linkedContact.phone, linkedContact.name, editedDeal.title);
-                    }
-                  }}
+                  context="detail"
+                  entityId={deal.id}
+                  entityType="deal"
+                  className="p-3 flex flex-col items-center hover:bg-green-50 dark:hover:bg-gray-700 rounded-lg transition-all text-center"
+                />
+                <CallButton
+                  onClick={handleAction}
                   disabled={!linkedContact?.phone}
-                  className="p-3 flex flex-col items-center hover:bg-yellow-50 dark:hover:bg-gray-700 rounded-lg transition-all text-center disabled:opacity-50"
-                >
-                  <Phone className="w-4 h-4 mb-1 text-yellow-600 dark:text-yellow-400" />
-                  <span className="text-xs font-medium dark:text-gray-200">Call</span>
-                </button>
-                <button
-                  onClick={() => window.open(`https://calendar.google.com/calendar/u/0/r/eventedit?text=Meeting+about+${editedDeal.title}&details=${editedDeal.company}`, '_blank')}
+                  context="detail"
+                  entityId={deal.id}
+                  entityType="deal"
+                  className="p-3 flex flex-col items-center hover:bg-yellow-50 dark:hover:bg-gray-700 rounded-lg transition-all text-center"
+                />
+                <CalendarButton
+                  onClick={handleAction}
+                  context="detail"
+                  entityId={deal.id}
+                  entityType="deal"
                   className="p-3 flex flex-col items-center hover:bg-indigo-50 dark:hover:bg-gray-700 rounded-lg transition-all text-center"
-                >
-                  <Calendar className="w-4 h-4 mb-1 text-indigo-600 dark:text-indigo-400" />
-                  <span className="text-xs font-medium dark:text-gray-200">Meet</span>
-                </button>
+                />
               </div>
               
               {/* Secondary Actions */}

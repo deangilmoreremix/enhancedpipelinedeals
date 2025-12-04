@@ -1,121 +1,87 @@
-import React, { useCallback } from 'react';
+import React from 'react';
+import { ButtonAction, ButtonVariant, ButtonSize, getButtonConfig } from './ButtonRegistry';
 import { Tooltip } from './Tooltip';
-import { ModernButton } from './ModernButton';
-import {
-  ButtonAction,
-  ButtonVariant,
-  ButtonSize,
-  ButtonContext,
-  getButtonConfig,
-  getButtonAnalytics
-} from './ButtonRegistry';
 
 interface UnifiedActionButtonProps {
   action: ButtonAction;
-  onClick?: (action: ButtonAction, event: React.MouseEvent) => void;
-  disabled?: boolean;
-  loading?: boolean;
+  onClick?: (action: ButtonAction, event?: React.MouseEvent) => void;
   variant?: ButtonVariant;
   size?: ButtonSize;
-  context?: ButtonContext;
-  entityId?: string;
-  entityType?: string;
+  disabled?: boolean;
   className?: string;
   showTooltip?: boolean;
-  showShortcut?: boolean;
-  analyticsEnabled?: boolean;
 }
 
 export const UnifiedActionButton: React.FC<UnifiedActionButtonProps> = ({
   action,
   onClick,
-  disabled = false,
-  loading = false,
   variant,
   size,
-  context,
-  entityId,
-  entityType,
-  className,
-  showTooltip = true,
-  showShortcut = false,
-  analyticsEnabled = true
+  disabled = false,
+  className = '',
+  showTooltip = true
 }) => {
   const config = getButtonConfig(action);
 
-  const handleClick = useCallback((event: React.MouseEvent) => {
-    event.stopPropagation();
-
-    // Track analytics if enabled
-    if (analyticsEnabled && config.analytics) {
-      try {
-        // Send analytics event
-        if (typeof window !== 'undefined' && (window as any).gtag) {
-          (window as any).gtag('event', config.analytics.action, {
-            event_category: config.analytics.category,
-            event_label: config.analytics.label || `${entityType}_${entityId}`,
-            custom_parameters: {
-              action,
-              context,
-              entityId,
-              entityType
-            }
-          });
-        }
-
-        // Also track with custom analytics service if available
-        console.log('📊 Button analytics:', {
-          action,
-          category: config.analytics.category,
-          label: config.analytics.label,
-          context,
-          entityId,
-          entityType,
-          timestamp: Date.now()
-        });
-      } catch (error) {
-        console.warn('Analytics tracking failed:', error);
-      }
-    }
-
-    // Call the provided onClick handler
+  const handleButtonClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
     if (onClick) {
-      onClick(action, event);
+      onClick(action, e);
     }
-  }, [action, onClick, analyticsEnabled, config, context, entityId, entityType]);
+  };
 
   const buttonVariant = variant || config.variant;
   const buttonSize = size || config.size;
 
-  const buttonContent = (
-    <ModernButton
-      variant={buttonVariant}
-      size={buttonSize}
-      onClick={handleClick}
-      disabled={disabled || loading}
-      loading={loading}
-      className={className}
-      title={config.tooltip}
+  // Base button classes
+  const baseClasses = 'inline-flex items-center justify-center font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed';
+
+  // Variant classes
+  const variantClasses = {
+    primary: 'bg-blue-600 hover:bg-blue-700 text-white focus:ring-blue-500 shadow-sm',
+    secondary: 'bg-gray-100 hover:bg-gray-200 text-gray-900 focus:ring-gray-500 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-white',
+    outline: 'border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-200',
+    ghost: 'text-gray-600 hover:text-gray-900 hover:bg-gray-100 focus:ring-gray-500 dark:text-gray-400 dark:hover:text-white dark:hover:bg-gray-700',
+    danger: 'bg-red-600 hover:bg-red-700 text-white focus:ring-red-500 shadow-sm'
+  };
+
+  // Size classes
+  const sizeClasses = {
+    xs: 'px-2 py-1 text-xs rounded',
+    sm: 'px-3 py-2 text-sm rounded-md',
+    md: 'px-4 py-2 text-sm rounded-md',
+    lg: 'px-6 py-3 text-base rounded-md'
+  };
+
+  const buttonClasses = `${baseClasses} ${variantClasses[buttonVariant]} ${sizeClasses[buttonSize]} ${className}`;
+
+  const Icon = config.icon;
+
+  const button = (
+    <button
+      onClick={handleButtonClick}
+      disabled={disabled}
+      className={buttonClasses}
+      title={!showTooltip ? config.tooltip : undefined}
     >
-      <config.icon className={`w-4 h-4 ${buttonSize === 'xs' ? 'w-3 h-3' : buttonSize === 'lg' ? 'w-5 h-5' : 'w-4 h-4'}`} />
-      {config.label}
-      {showShortcut && config.shortcut && (
-        <span className="ml-1 text-xs opacity-60">
-          ({config.shortcut})
-        </span>
-      )}
-    </ModernButton>
+      <Icon className={`${
+        buttonSize === 'xs' ? 'w-3 h-3' :
+        buttonSize === 'sm' ? 'w-4 h-4' :
+        'w-5 h-5'
+      } ${config.label ? 'mr-2' : ''}`} />
+      {config.label && <span>{config.label}</span>}
+    </button>
   );
 
   if (showTooltip && config.tooltip) {
     return (
       <Tooltip content={config.tooltip} position="top">
-        {buttonContent}
+        {button}
       </Tooltip>
     );
   }
 
-  return buttonContent;
+  return button;
 };
 
 // Specialized button components for common actions
@@ -194,6 +160,3 @@ export const CalendarButton: React.FC<Omit<UnifiedActionButtonProps, 'action'>> 
     {...props}
   />
 );
-
-// Export types for external use
-export type { ButtonAction, ButtonVariant, ButtonSize, ButtonContext };

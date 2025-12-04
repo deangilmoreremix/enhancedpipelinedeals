@@ -1,6 +1,6 @@
 export interface Deal {
   id: string;
-  title: string;
+  title?: string; // Optional title field for deal naming
   company: string;
   contact: string;
   contactId?: string;
@@ -33,12 +33,6 @@ export interface Deal {
     aiProvider?: string;
     timestamp?: Date;
   };
-  links?: Array<{
-    title: string;
-    url: string;
-    type?: string;
-    createdAt?: string;
-  }>;
   attachments?: Array<{
     id: string;
     name: string;

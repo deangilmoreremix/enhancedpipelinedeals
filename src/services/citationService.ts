@@ -27,6 +27,39 @@ interface CitationSummary {
 
 class CitationService {
   private citations: Map<string, Citation[]> = new Map();
+  private readonly STORAGE_KEY = 'enhancedpipelinedeals_citations';
+
+  constructor() {
+    this.loadFromStorage();
+  }
+
+  // Load citations from localStorage
+  private loadFromStorage(): void {
+    try {
+      const stored = localStorage.getItem(this.STORAGE_KEY);
+      if (stored) {
+        const data = JSON.parse(stored);
+        for (const [key, citations] of Object.entries(data)) {
+          this.citations.set(key, citations as Citation[]);
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to load citations from localStorage:', error);
+    }
+  }
+
+  // Save citations to localStorage
+  private saveToStorage(): void {
+    try {
+      const data: Record<string, Citation[]> = {};
+      for (const [key, citations] of this.citations.entries()) {
+        data[key] = citations;
+      }
+      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(data));
+    } catch (error) {
+      console.warn('Failed to save citations to localStorage:', error);
+    }
+  }
 
   async trackCitations(entityType: 'contact' | 'deal' | 'company', entityId: string, citations: any[]): Promise<void> {
     try {
@@ -59,6 +92,7 @@ class CitationService {
       // Keep only the most recent 20 citations per entity
       allCitations.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       this.citations.set(key, allCitations.slice(0, 20));
+      this.saveToStorage();
 
       console.log(`📚 Tracked ${newCitations.length} citations for ${entityType}:${entityId}`);
     } catch (error) {
@@ -122,6 +156,7 @@ class CitationService {
         if (citationIndex !== -1) {
           citations[citationIndex].credibilityScore = Math.max(0, Math.min(100, newScore));
           this.citations.set(key, citations);
+          this.saveToStorage();
           return true;
         }
       }
@@ -138,6 +173,7 @@ class CitationService {
         const filteredCitations = citations.filter(c => c.id !== citationId);
         if (filteredCitations.length !== citations.length) {
           this.citations.set(key, filteredCitations);
+          this.saveToStorage();
           return true;
         }
       }
@@ -165,6 +201,7 @@ class CitationService {
     try {
       const key = `${entityType}:${entityId}`;
       this.citations.delete(key);
+      this.saveToStorage();
       return true;
     } catch (error) {
       console.error('Failed to clear citations for entity:', error);

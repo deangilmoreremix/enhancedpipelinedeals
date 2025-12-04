@@ -42,6 +42,8 @@ export const ImageUpload: React.FC<ImageUploadProps> = ({
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
+  const [isRetrying, setIsRetrying] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -80,20 +82,28 @@ export const ImageUpload: React.FC<ImageUploadProps> = ({
     }
   };
 
-  const handleFileSelect = async (file: File) => {
+  const handleFileSelect = async (file: File, isRetry: boolean = false) => {
     setError(null);
     setSuccess(null);
+
+    if (isRetry) {
+      setIsRetrying(true);
+      setRetryCount(prev => prev + 1);
+    } else {
+      setRetryCount(0);
+    }
 
     // Validate file
     const validation = supabaseImageService.validateImage(file);
     if (!validation.isValid) {
       setError(validation.errors.join(', '));
+      setIsRetrying(false);
       return;
     }
 
     try {
-      // Create preview
-      if (showPreview) {
+      // Create preview (only on first attempt)
+      if (showPreview && !isRetry) {
         const preview = await supabaseImageService.createImagePreview(file);
         setPreviewUrl(preview);
       }
@@ -101,32 +111,40 @@ export const ImageUpload: React.FC<ImageUploadProps> = ({
       setIsUploading(true);
       setUploadProgress({ loaded: 0, total: file.size, percentage: 0, status: 'uploading' });
 
-      // Upload image
+      // Upload image with retry capability
       const result = await supabaseImageService.uploadImage(
         file,
         folder,
         (progress) => {
           setUploadProgress(progress);
-        }
+        },
+        3 // maxRetries
       );
 
       if (result.success) {
         setSuccess('Image uploaded successfully!');
+        setRetryCount(0);
         onImageUploaded(result);
-        
+
         // Clear success message after 3 seconds
         setTimeout(() => setSuccess(null), 3000);
       } else {
         setError(result.error || 'Upload failed');
-        setPreviewUrl(null);
+        if (!isRetry) {
+          setPreviewUrl(null);
+        }
       }
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'Upload failed');
-      setPreviewUrl(null);
+      const errorMessage = error instanceof Error ? error.message : 'Upload failed';
+      setError(`Unexpected error: ${errorMessage}`);
+      if (!isRetry) {
+        setPreviewUrl(null);
+      }
     } finally {
       setIsUploading(false);
+      setIsRetrying(false);
       setUploadProgress(null);
-      
+
       // Clear file input
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
@@ -134,10 +152,18 @@ export const ImageUpload: React.FC<ImageUploadProps> = ({
     }
   };
 
+  const handleRetry = () => {
+    if (fileInputRef.current?.files?.[0]) {
+      handleFileSelect(fileInputRef.current.files[0], true);
+    }
+  };
+
   const handleRemoveImage = () => {
     setPreviewUrl(null);
     setError(null);
     setSuccess(null);
+    setRetryCount(0);
+    setIsRetrying(false);
     if (onImageRemoved) {
       onImageRemoved();
     }
@@ -259,10 +285,25 @@ export const ImageUpload: React.FC<ImageUploadProps> = ({
 
       {/* Error Message */}
       {error && (
-        <div className="mt-2 p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
-          <div className="flex items-center space-x-2">
-            <AlertTriangle className="w-4 h-4 text-red-500" />
-            <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
+        <div className="mt-2 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
+          <div className="flex items-start space-x-2">
+            <AlertTriangle className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" />
+            <div className="flex-1">
+              <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
+              {retryCount < 2 && !isRetrying && (
+                <button
+                  onClick={handleRetry}
+                  className="mt-2 text-xs text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 underline"
+                >
+                  Try again
+                </button>
+              )}
+              {isRetrying && (
+                <p className="mt-2 text-xs text-red-600 dark:text-red-400">
+                  Retrying... ({retryCount}/3)
+                </p>
+              )}
+            </div>
           </div>
         </div>
       )}

@@ -1,19 +1,20 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo, useCallback } from 'react';
 import { Deal } from '../../types';
-import { 
-  DollarSign, 
-  Edit3, 
-  Save, 
+import { getStorageBucketService } from '../../services/storageBucketService';
+import {
+  DollarSign,
+  Edit3,
+  Save,
   X,
-  Trash2, 
-  User, 
-  UserPlus, 
-  Target, 
-  AlertCircle, 
-  CheckCircle, 
-  Calendar, 
-  Clock, 
-  Star, 
+  Trash2,
+  User,
+  UserPlus,
+  Target,
+  AlertCircle,
+  CheckCircle,
+  Calendar,
+  Clock,
+  Star,
   FileText,
   Upload,
   Brain,
@@ -42,7 +43,81 @@ export const DealCard: React.FC<DealCardProps> = ({
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<{[key: string]: number}>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Utility functions (defined before useMemo to avoid hoisting issues)
+  const formatCurrency = useCallback((value: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(value);
+  }, []);
+
+  const formatDate = useCallback((dateString: string) => {
+    if (!dateString) return '';
+    return new Date(dateString).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
+  }, []);
+
+  const isOverdue = useCallback((dateString: string) => {
+    if (!dateString) return false;
+    return new Date(dateString) < new Date();
+  }, []);
+
+  const getCompanyAvatar = useCallback((companyName: string) => {
+    return `https://ui-avatars.com/api/?name=${encodeURIComponent(companyName)}&background=3b82f6&color=ffffff&size=40`;
+  }, []);
+
+  const getContactAvatar = useCallback((contactName: string) => {
+    return `https://ui-avatars.com/api/?name=${encodeURIComponent(contactName)}&background=10b981&color=ffffff&size=32`;
+  }, []);
+
+  const getStageColor = useCallback((stage: string) => {
+    const colors = {
+      'lead': 'bg-gray-100 text-gray-800',
+      'qualified': 'bg-blue-100 text-blue-800',
+      'proposal': 'bg-yellow-100 text-yellow-800',
+      'negotiation': 'bg-orange-100 text-orange-800',
+      'closed-won': 'bg-green-100 text-green-800',
+      'closed-lost': 'bg-red-100 text-red-800'
+    };
+    return colors[stage as keyof typeof colors] || 'bg-gray-100 text-gray-800';
+  }, []);
+
+  const getPriorityColor = useCallback((priority: string) => {
+    const colors = {
+      'low': 'text-green-600',
+      'medium': 'text-yellow-600',
+      'high': 'text-red-600'
+    };
+    return colors[priority as keyof typeof colors] || 'text-gray-600';
+  }, []);
+
+  const getPriorityIcon = useCallback((priority: string) => {
+    switch (priority) {
+      case 'high': return <AlertCircle className="w-4 h-4" />;
+      case 'medium': return <Target className="w-4 h-4" />;
+      case 'low': return <CheckCircle className="w-4 h-4" />;
+      default: return <Target className="w-4 h-4" />;
+    }
+  }, []);
+
+  // Memoized computed values for performance
+  const formattedValue = useMemo(() => formatCurrency(deal.value), [deal.value, formatCurrency]);
+  const companyAvatar = useMemo(() => deal.companyAvatar || getCompanyAvatar(deal.company), [deal.company, deal.companyAvatar, getCompanyAvatar]);
+  const contactAvatar = useMemo(() => getContactAvatar(deal.contact), [deal.contact, getContactAvatar]);
+  const stageColor = useMemo(() => getStageColor(deal.stage), [deal.stage, getStageColor]);
+  const priorityColor = useMemo(() => getPriorityColor(deal.priority), [deal.priority, getPriorityColor]);
+  const priorityIcon = useMemo(() => getPriorityIcon(deal.priority), [deal.priority, getPriorityIcon]);
+  const createdDate = useMemo(() => formatDate(deal.createdAt.toISOString()), [deal.createdAt, formatDate]);
+  const isNextFollowUpOverdue = useMemo(() => deal.nextFollowUp ? isOverdue(deal.nextFollowUp) : false, [deal.nextFollowUp, isOverdue]);
   
   const [editForm, setEditForm] = useState({
     company: deal.company,
@@ -71,7 +146,7 @@ export const DealCard: React.FC<DealCardProps> = ({
         notes: editForm.notes,
         nextFollowUp: editForm.nextFollowUp,
         tags: editForm.tags,
-        updatedAt: new Date().toISOString()
+        updatedAt: new Date()
       };
       
       await onUpdate(deal.id, updates);
@@ -98,7 +173,7 @@ export const DealCard: React.FC<DealCardProps> = ({
     setIsEditing(false);
   };
 
-  const handleCardClick = (e: React.MouseEvent) => {
+  const handleCardClick = (e: React.MouseEvent | React.KeyboardEvent) => {
     // Don't trigger the click if the user is clicking on a button or input
     if (
       (e.target as HTMLElement).closest('button') ||
@@ -106,30 +181,89 @@ export const DealCard: React.FC<DealCardProps> = ({
     ) {
       return;
     }
-    
+
     if (onClick) {
       onClick();
     }
   };
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file && onUpdate) {
-      // In a real app, you'd upload the file to a server
-      // For now, we'll just store the filename
-      const attachment = {
-        id: Date.now().toString(),
+    if (!file || !onUpdate) return;
+
+    setIsUploading(true);
+    const tempId = `temp-${Date.now()}`;
+
+    try {
+      // Validate file size and type
+      const storageService = getStorageBucketService();
+      const bucketConfig = storageService.getBucketConfig('deal-attachments');
+
+      if (bucketConfig && file.size > bucketConfig.fileSizeLimit) {
+        alert(`File size exceeds limit of ${bucketConfig.fileSizeLimit / (1024 * 1024)}MB`);
+        return;
+      }
+
+      if (bucketConfig && !bucketConfig.allowedMimeTypes.includes(file.type)) {
+        alert(`File type ${file.type} is not allowed. Allowed types: ${bucketConfig.allowedMimeTypes.join(', ')}`);
+        return;
+      }
+
+      // Add temporary attachment for UI feedback
+      const tempAttachment = {
+        id: tempId,
         name: file.name,
         size: file.size,
         type: file.type,
         uploadedAt: new Date().toISOString()
       };
-      
+
       const currentAttachments = deal.attachments || [];
       onUpdate(deal.id, {
-        attachments: [...currentAttachments, attachment],
-        updatedAt: new Date().toISOString()
+        attachments: [...currentAttachments, tempAttachment],
+        updatedAt: new Date()
       });
+
+      // Upload file to storage
+      const filePath = `deals/${deal.id}/${Date.now()}-${file.name}`;
+      const uploadResult = await storageService.uploadFile('deal-attachments', filePath, file);
+
+      if (uploadResult.success && uploadResult.url) {
+        // Update attachment with actual URL
+        const updatedAttachments = (deal.attachments || []).map(att =>
+          att.id === tempId
+            ? { ...att, url: uploadResult.url, uploadedAt: new Date().toISOString() }
+            : att
+        );
+
+        onUpdate(deal.id, {
+          attachments: updatedAttachments,
+          updatedAt: new Date()
+        });
+      } else {
+        // Remove failed attachment
+        const filteredAttachments = (deal.attachments || []).filter(att => att.id !== tempId);
+        onUpdate(deal.id, {
+          attachments: filteredAttachments,
+          updatedAt: new Date()
+        });
+        alert(`Upload failed: ${uploadResult.error}`);
+      }
+    } catch (error) {
+      console.error('File upload error:', error);
+      // Remove failed attachment
+      const filteredAttachments = (deal.attachments || []).filter(att => att.id !== tempId);
+      onUpdate(deal.id, {
+        attachments: filteredAttachments,
+        updatedAt: new Date()
+      });
+      alert('Upload failed. Please try again.');
+    } finally {
+      setIsUploading(false);
+      // Clear the input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
   };
 
@@ -142,7 +276,7 @@ export const DealCard: React.FC<DealCardProps> = ({
     
     onUpdate(deal.id, {
       attachments: updatedAttachments,
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date()
     });
   };
 
@@ -162,78 +296,26 @@ export const DealCard: React.FC<DealCardProps> = ({
     }));
   };
 
-  const getStageColor = (stage: string) => {
-    const colors = {
-      'lead': 'bg-gray-100 text-gray-800',
-      'qualified': 'bg-blue-100 text-blue-800',
-      'proposal': 'bg-yellow-100 text-yellow-800',
-      'negotiation': 'bg-orange-100 text-orange-800',
-      'closed-won': 'bg-green-100 text-green-800',
-      'closed-lost': 'bg-red-100 text-red-800'
-    };
-    return colors[stage as keyof typeof colors] || 'bg-gray-100 text-gray-800';
-  };
-
-  const getPriorityColor = (priority: string) => {
-    const colors = {
-      'low': 'text-green-600',
-      'medium': 'text-yellow-600',
-      'high': 'text-red-600'
-    };
-    return colors[priority as keyof typeof colors] || 'text-gray-600';
-  };
-
-  const getPriorityIcon = (priority: string) => {
-    switch (priority) {
-      case 'high': return <AlertCircle className="w-4 h-4" />;
-      case 'medium': return <Target className="w-4 h-4" />;
-      case 'low': return <CheckCircle className="w-4 h-4" />;
-      default: return <Target className="w-4 h-4" />;
-    }
-  };
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(value);
-  };
-
-  const formatDate = (dateString: string) => {
-    if (!dateString) return '';
-    return new Date(dateString).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
-    });
-  };
-
-  const isOverdue = (dateString: string) => {
-    if (!dateString) return false;
-    return new Date(dateString) < new Date();
-  };
-
-  // Generate avatar URLs based on company and contact names
-  const getCompanyAvatar = (companyName: string) => {
-    return `https://ui-avatars.com/api/?name=${encodeURIComponent(companyName)}&background=3b82f6&color=ffffff&size=40`;
-  };
-
-  const getContactAvatar = (contactName: string) => {
-    return `https://ui-avatars.com/api/?name=${encodeURIComponent(contactName)}&background=10b981&color=ffffff&size=32`;
-  };
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 hover:shadow-md transition-shadow cursor-pointer">
+    <div
       className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 hover:shadow-md transition-shadow cursor-pointer"
       onClick={handleCardClick}
+      role="button"
+      tabIndex={0}
+      aria-label={`Deal card for ${deal.title || deal.company}. Value: ${formatCurrency(deal.value)}, Stage: ${deal.stage}, Probability: ${deal.probability}%`}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          handleCardClick(e);
+        }
+      }}
     >
       {/* Header */}
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center space-x-3">
           <img
-            src={deal.companyAvatar || getCompanyAvatar(deal.company)}
+            src={companyAvatar}
             alt={deal.company}
             className="w-10 h-10 rounded-lg object-cover border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700"
           />
@@ -249,11 +331,11 @@ export const DealCard: React.FC<DealCardProps> = ({
               <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{deal.title || deal.company}</h3>
             )}
             <div className="flex items-center space-x-2 mt-1">
-              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStageColor(deal.stage)}`}>
+              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${stageColor}`}>
                 {deal.stage.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}
               </span>
-              <div className={`flex items-center space-x-1 ${getPriorityColor(deal.priority)} dark:text-opacity-90`}>
-                {getPriorityIcon(deal.priority)}
+              <div className={`flex items-center space-x-1 ${priorityColor} dark:text-opacity-90`}>
+                {priorityIcon}
                 <span className="text-xs font-medium capitalize">{deal.priority}</span>
               </div>
             </div>
@@ -351,7 +433,7 @@ export const DealCard: React.FC<DealCardProps> = ({
             />
           ) : (
             <span className="text-lg font-semibold text-green-700 dark:text-green-300">
-              {formatCurrency(deal.value)}
+              {formattedValue}
             </span>
           )}
         </div>
@@ -370,11 +452,11 @@ export const DealCard: React.FC<DealCardProps> = ({
       {/* Next Follow-up (Brief Version) */}
       {deal.nextFollowUp && (
         <div className="mb-4">
-          <div className={`flex items-center space-x-2 ${isOverdue(deal.nextFollowUp) ? 'text-red-600 dark:text-red-400' : 'text-gray-600 dark:text-gray-400'}`}>
+          <div className={`flex items-center space-x-2 ${isNextFollowUpOverdue ? 'text-red-600 dark:text-red-400' : 'text-gray-600 dark:text-gray-400'}`}>
             <Clock className="w-4 h-4" />
             <span className="text-sm font-medium">
               Due: {formatDate(deal.nextFollowUp)}
-              {isOverdue(deal.nextFollowUp) && ' (Overdue)'}
+              {isNextFollowUpOverdue && ' (Overdue)'}
             </span>
           </div>
         </div>
@@ -382,7 +464,7 @@ export const DealCard: React.FC<DealCardProps> = ({
 
       {/* Footer */}
       <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 pt-4 border-t border-gray-100 dark:border-gray-700">
-        <span className="text-gray-600 dark:text-gray-400">{formatDate(deal.createdAt)}</span>
+        <span className="text-gray-600 dark:text-gray-400">{createdDate}</span>
         <span className="text-blue-700 dark:text-blue-300 hover:underline cursor-pointer font-medium">View Details</span>
       </div>
     </div>

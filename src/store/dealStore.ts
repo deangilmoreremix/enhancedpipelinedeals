@@ -69,7 +69,7 @@ export const useDealStore = create<DealStore>((set, get) => ({
     // Sanitize input data
     const sanitizedData = {
       ...dealData,
-      title: sanitizeInput(dealData.title),
+      title: dealData.title ? sanitizeInput(dealData.title) : undefined,
       company: sanitizeInput(dealData.company),
       contact: dealData.contact ? sanitizeInput(dealData.contact) : '',
       notes: dealData.notes ? sanitizeInput(dealData.notes) : undefined
@@ -115,29 +115,48 @@ export const useDealStore = create<DealStore>((set, get) => ({
       if (typeof value === 'string' && ['title', 'company', 'contact', 'notes'].includes(key)) {
         sanitizedUpdates[key as keyof Deal] = sanitizeInput(value) as any;
       } else {
-        sanitizedUpdates[key as keyof Deal] = value;
+        sanitizedUpdates[key as keyof Deal] = value as any;
       }
     });
 
-    set({ isLoading: true, error: null });
+    const state = get();
+    const originalDeal = state.deals[id];
+
+    // Optimistic update - immediately update UI
+    const optimisticDeal = {
+      ...originalDeal,
+      ...sanitizedUpdates,
+      updatedAt: new Date()
+    };
+
+    set(state => ({
+      deals: { ...state.deals, [id]: optimisticDeal },
+      isLoading: true,
+      error: null
+    }));
+
     try {
-      const state = get();
-      
       if (state.isConnectedToDatabase) {
         const supabase = getSupabaseService();
         const updatedDeal = await supabase.updateDeal(id, sanitizedUpdates);
-        
+
+        // Update with server response
         set(state => ({
           deals: { ...state.deals, [id]: updatedDeal },
           isLoading: false
         }));
-        
+
         return updatedDeal;
       } else {
         throw new Error('Database not connected - cannot update deal');
       }
     } catch (error) {
-      set({ error: 'Failed to update deal', isLoading: false });
+      // Revert optimistic update on error
+      set(state => ({
+        deals: { ...state.deals, [id]: originalDeal },
+        error: 'Failed to update deal',
+        isLoading: false
+      }));
       throw error;
     }
   },

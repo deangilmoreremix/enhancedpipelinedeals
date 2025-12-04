@@ -38,6 +38,44 @@ class CacheService {
     memoryOverflows: 0
   };
   private cleanupInterval: NodeJS.Timeout | null = null;
+  private readonly STORAGE_KEY = 'enhancedpipelinedeals_cache';
+
+  constructor() {
+    this.loadFromStorage();
+  }
+
+  // Load cache from localStorage
+  private loadFromStorage(): void {
+    try {
+      const stored = localStorage.getItem(this.STORAGE_KEY);
+      if (stored) {
+        const data = JSON.parse(stored);
+        const now = Date.now();
+        // Only load non-expired entries
+        for (const [key, entry] of Object.entries(data)) {
+          const cacheEntry = entry as CacheEntry;
+          if (now <= cacheEntry.expiresAt) {
+            this.cache.set(key, cacheEntry);
+          }
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to load cache from localStorage:', error);
+    }
+  }
+
+  // Save cache to localStorage
+  private saveToStorage(): void {
+    try {
+      const data: Record<string, CacheEntry> = {};
+      for (const [key, entry] of this.cache.entries()) {
+        data[key] = entry;
+      }
+      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(data));
+    } catch (error) {
+      console.warn('Failed to save cache to localStorage:', error);
+    }
+  }
 
   // Generate cache key from request parameters
   generateKey(service: string, method: string, params: any): string {
@@ -102,6 +140,7 @@ class CacheService {
     }
 
     this.cache.set(key, entry);
+    this.saveToStorage();
   }
 
   // Check if key exists and is valid
@@ -119,13 +158,18 @@ class CacheService {
 
   // Delete specific cache entry
   async delete(key: string): Promise<boolean> {
-    return this.cache.delete(key);
+    const deleted = this.cache.delete(key);
+    if (deleted) {
+      this.saveToStorage();
+    }
+    return deleted;
   }
 
   // Clear all cache entries
   async clear(): Promise<void> {
     this.cache.clear();
     this.resetStats();
+    this.saveToStorage();
   }
 
   // Clear expired entries
@@ -172,7 +216,9 @@ class CacheService {
       hits: 0,
       misses: 0,
       totalRequests: 0,
-      responseTimes: []
+      responseTimes: [],
+      evictions: 0,
+      memoryOverflows: 0
     };
   }
 

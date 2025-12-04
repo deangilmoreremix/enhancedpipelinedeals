@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, Suspense } from 'react';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import { useSmartAI } from '../hooks/useSmartAI';
 import { useGamificationUpdates } from '../hooks/useGamificationUpdates';
@@ -9,11 +9,13 @@ import { EnhancedAIStatusIndicator } from './ui/EnhancedAIStatusIndicator';
 import DealDetail from './DealDetail';
 import PipelineStats from './PipelineStats';
 import DealAnalytics from './DealAnalytics';
-import { DealListView } from './DealListView';
-import { DealTableView } from './DealTableView';
-import { DealCalendarView } from './DealCalendarView';
-import { DealTimelineView } from './DealTimelineView';
-import { DealDashboardView } from './DealDashboardView';
+
+// Lazy load view components for code splitting
+const DealListView = React.lazy(() => import('./DealListView').then(module => ({ default: module.DealListView })));
+const DealTableView = React.lazy(() => import('./DealTableView').then(module => ({ default: module.DealTableView })));
+const DealCalendarView = React.lazy(() => import('./DealCalendarView').then(module => ({ default: module.DealCalendarView })));
+const DealTimelineView = React.lazy(() => import('./DealTimelineView').then(module => ({ default: module.DealTimelineView })));
+const DealDashboardView = React.lazy(() => import('./DealDashboardView').then(module => ({ default: module.DealDashboardView })));
 import { mockColumns, columnOrder } from '../data/mockDeals';
 import { getDataSyncService } from '../services/dataSyncService';
 import { getSupabaseService } from '../services/supabaseService';
@@ -811,33 +813,41 @@ const Pipeline: React.FC = () => {
       )}
 
       {/* Main Content */}
-      {(() => {
-        const commonProps = {
-          deals,
-          onDealClick: handleDealClick,
-          onDealUpdate: handleDealUpdate,
-          searchTerm,
-          filterStage
-        };
+      <Suspense fallback={
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-blue-600" />
+            <p className="text-gray-600 dark:text-gray-400">Loading view...</p>
+          </div>
+        </div>
+      }>
+        {(() => {
+          const commonProps = {
+            deals,
+            onDealClick: handleDealClick,
+            onDealUpdate: handleDealUpdate,
+            searchTerm,
+            filterStage
+          };
 
-        switch (currentView) {
-          case 'list':
-            return <DealListView {...commonProps} />;
-          
-          case 'table':
-            return <DealTableView {...commonProps} />;
-          
-          case 'calendar':
-            return <DealCalendarView {...commonProps} />;
-          
-          case 'timeline':
-            return <DealTimelineView {...commonProps} />;
-          
-          case 'dashboard':
-            return <DealDashboardView deals={deals} contacts={[]} />;
-          
-          case 'kanban':
-          default:
+          switch (currentView) {
+            case 'list':
+              return <DealListView {...commonProps} />;
+
+            case 'table':
+              return <DealTableView {...commonProps} />;
+
+            case 'calendar':
+              return <DealCalendarView {...commonProps} />;
+
+            case 'timeline':
+              return <DealTimelineView {...commonProps} />;
+
+            case 'dashboard':
+              return <DealDashboardView deals={deals} contacts={[]} />;
+
+            case 'kanban':
+            default:
             return (
         <DragDropContext onDragEnd={handleDragEnd}>
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 min-h-[600px]">
@@ -928,8 +938,9 @@ const Pipeline: React.FC = () => {
           </div>
         </DragDropContext>
             );
-        }
-      })()}
+          }
+        })()}
+      </Suspense>
 
       {/* Deal Detail Modal */}
       {selectedDealId && (

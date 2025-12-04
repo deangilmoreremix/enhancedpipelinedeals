@@ -1,41 +1,40 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { Deal } from '../types';
+import { DealCardHeader } from './ui/DealCardHeader';
+import { DealCardActions } from './ui/DealCardActions';
+import { DealCardInsights } from './ui/DealCardInsights';
+import { DealCardMetadata } from './ui/DealCardMetadata';
 import { CustomizableAIToolbar } from './ui/CustomizableAIToolbar';
 import { Tooltip } from './ui/Tooltip';
+import { ErrorBoundary } from './ErrorBoundary';
 import {
   Calendar,
-  DollarSign,
   User,
   Building2,
-  AlertTriangle,
-  CheckCircle,
-  Clock,
-  Zap,
-  TrendingUp,
-  Edit,
-  Camera,
   Database,
   Globe,
   ExternalLink,
-  ArrowRight,
   Activity,
-  Plus,
-  MoreHorizontal,
   Heart,
-  Loader2,
-  Brain,
   Sparkles,
-  Target,
-  Mail,
-  Wand2,
-  Phone,
-  BarChart3,
-  ThumbsUp,
-  ThumbsDown,
   Linkedin,
   Twitter,
   Facebook,
-  Trash2
+  Loader2,
+  Brain,
+  Edit,
+  Camera,
+  Trash2,
+  MoreHorizontal,
+  Target,
+  Mail,
+  Wand2,
+  BarChart3,
+  ThumbsUp,
+  ThumbsDown,
+  ArrowRight,
+  Plus,
+  Phone
 } from 'lucide-react';
 
 interface AIEnhancedDealCardProps {
@@ -390,81 +389,18 @@ export const AIEnhancedDealCard: React.FC<AIEnhancedDealCardProps> = ({
       )}
 
       {/* Header Actions */}
-      <div className="absolute top-4 right-4 flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
-        {/* AI Analysis Button - Prominently Featured */}
-        {onAnalyze && showAnalyzeButton && (
-          <Tooltip content={deal.probability > 70 ? 'Re-analyze with AI - Update win probability and insights' : 'AI Analysis - Generate win probability and strategic insights'} position="bottom">
-            <button
-              onClick={handleAnalyzeClick}
-              disabled={analyzing}
-              className={`p-2 rounded-lg transition-all duration-200 relative ${
-                deal.probability > 70
-                  ? 'bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-300 hover:bg-purple-200 dark:hover:bg-purple-800/60 border border-purple-200 dark:border-purple-700'
-                  : 'bg-gradient-to-r from-blue-500 to-purple-500 text-white hover:from-blue-600 hover:to-purple-600 shadow-lg dark:from-blue-600 dark:to-purple-600 dark:hover:from-blue-700 dark:hover:to-purple-700 border border-blue-400 dark:border-blue-500'
-              }`}
-            >
-              {analyzing ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Brain className="w-4 h-4" />
-              )}
-              {deal.probability < 70 && !analyzing && (
-                <div className="absolute -top-1 -right-1 w-2 h-2 bg-yellow-400 rounded-full animate-pulse"></div>
-              )}
-            </button>
-          </Tooltip>
-        )}
-        
-        {/* Favorite Button */}
-        {onToggleFavorite && (
-          <Tooltip content={deal.isFavorite ? 'Remove from Favorites - Unmark this deal' : 'Add to Favorites - Quick access to important deals'} position="bottom">
-            <button
-              onClick={handleFavoriteClick}
-              className={`p-2 rounded-lg transition-colors ${
-                deal.isFavorite
-                  ? 'text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 border border-red-200 dark:border-red-700'
-                  : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-600'
-              }`}
-            >
-              <Heart className={`w-4 h-4 ${deal.isFavorite ? 'fill-current' : ''}`} />
-            </button>
-          </Tooltip>
-        )}
-        
-        <Tooltip content="Edit Deal - Modify deal details, stage, and notes" position="bottom">
-          <button
-            onClick={handleEditClick}
-            className="p-1.5 text-gray-600 dark:text-gray-200 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors border border-gray-300 dark:border-gray-500 bg-white dark:bg-gray-700"
-          >
-            <Edit className="w-3 h-3" />
-          </button>
-        </Tooltip>
-        {onDelete && (
-          <Tooltip content="Delete Deal - Permanently remove this deal" position="bottom">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                if (window.confirm('Are you sure you want to delete this deal? This action cannot be undone.')) {
-                  onDelete(deal.id);
-                }
-              }}
-              className="p-1.5 text-red-400 dark:text-red-500 hover:text-red-600 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors border border-red-200 dark:border-red-600"
-            >
-              <Trash2 className="w-3 h-3" />
-            </button>
-          </Tooltip>
-        )}
-        <Tooltip content="More Actions - Additional options and workflows" position="bottom">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-            }}
-            className="p-1.5 text-gray-600 dark:text-gray-200 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors border border-gray-300 dark:border-gray-500 bg-white dark:bg-gray-700"
-          >
-            <MoreHorizontal className="w-3 h-3" />
-          </button>
-        </Tooltip>
-      </div>
+      <ErrorBoundary fallback={<div className="p-2 text-red-500 text-xs">Header component failed</div>}>
+        <DealCardHeader
+          deal={deal}
+          onEdit={onEdit}
+          onDelete={onDelete}
+          onToggleFavorite={onToggleFavorite}
+          onFindNewImage={onFindNewImage}
+          onAnalyze={showAnalyzeButton ? onAnalyze : undefined}
+          isAnalyzing={analyzing}
+          isFinding={isFinding}
+        />
+      </ErrorBoundary>
 
       <div className="p-6">
         {/* Company and Person Avatars with Deal Info */}
@@ -614,151 +550,24 @@ export const AIEnhancedDealCard: React.FC<AIEnhancedDealCardProps> = ({
           </div>
         </Tooltip>
 
-        {/* Deal Value and Stage */}
-        <div className="mb-4">
-          <p className="text-xs text-gray-500 dark:text-gray-400 mb-2 text-center">Value & Stage</p>
-          <div className="flex justify-center items-center space-x-3">
-            <div className="text-center text-gray-900 dark:text-white">
-              <p className="text-lg font-bold text-gray-900 dark:text-gray-100">{formatCurrency(deal.value)}</p>
-              <p className="text-xs text-gray-600 dark:text-gray-400">Deal Value</p>
-            </div>
-            <div className="w-px h-8 bg-gray-300 dark:bg-gray-600"></div>
-            <div className="text-center">
-              <span className={`${getStageColor(deal.stage)} text-white text-xs px-2 py-1 rounded-md font-medium`}>
-                {deal.stage === 'closed-won' ? 'Won' :
-                 deal.stage === 'closed-lost' ? 'Lost' :
-                 deal.stage.charAt(0).toUpperCase() + deal.stage.slice(1)}
-              </span>
-            </div>
-          </div>
-        </div>
-        {/* AI Insights Section */}
-        {/* Progress Dots */}
-        <div className="flex items-center justify-center space-x-1 mb-4">
-          {Array.from({ length: 5 }, (_, i) => {
-            const isActive = i < Math.floor(deal.probability / 20);
-            return (
-              <div
-                key={i}
-                className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${
-                  isActive 
-                    ? `${getScoreColor(deal.probability)} shadow-lg` 
-                    : 'bg-gray-300 dark:bg-gray-600 hover:bg-gray-400 dark:hover:bg-gray-500'
-                }`}
-              />
-            );
-          })}
-        </div>
-
-        {/* Due Date Alert */}
-        {deal.dueDate && (
-          <div className={`mb-4 p-2 rounded-lg text-center ${
-            isOverdue ? 'bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300' :
-            isDueSoon ? 'bg-yellow-50 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300' :
-            'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300'
-          }`}>
-            <div className="flex items-center justify-center space-x-2">
-              <Calendar className="w-4 h-4" />
-              <span className="text-xs font-medium">
-                {isOverdue ? 'Overdue' : isDueSoon ? 'Due Soon' : 'On Track'}
-              </span>
-            </div>
-            <p className="text-xs mt-1">{deal.dueDate.toLocaleDateString()}</p>
-          </div>
-        )}
-
-        {/* AI Tools Section - NEW ENHANCED FEATURE */}
-        <div className="mb-4 p-3 bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/30 dark:to-blue-900/30 rounded-lg border border-purple-200 dark:border-purple-700 shadow-sm">
-          <h4 className="text-xs font-semibold text-gray-900 dark:text-gray-100 mb-2 flex items-center justify-center">
-            <Brain className="w-3 h-3 mr-1 text-purple-600 dark:text-purple-400" />
-            AI Assistant Tools
-          </h4>
-          
-          <div className="grid grid-cols-2 gap-2 mb-3">
-            {/* Lead Score */}
-            <Tooltip content="AI Score - Calculate win probability based on deal characteristics" position="top">
-              <button
-                onClick={handleAnalyzeClick}
-                disabled={analyzing}
-                className="p-2 flex flex-col items-center justify-center rounded-lg text-xs font-medium transition-all duration-200 border shadow-sm hover:shadow-md hover:scale-105 bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 border-blue-300/50 dark:from-blue-600 dark:to-blue-700 dark:hover:from-blue-700 dark:hover:to-blue-800 dark:border-blue-500/50"
-              >
-                {analyzing ? (
-                  <Loader2 className="w-3 h-3 animate-spin mb-0.5" />
-                ) : (
-                  <Target className="w-3 h-3 mb-0.5" />
-                )}
-                <span className="text-[10px]">Score</span>
-              </button>
-            </Tooltip>
-            
-            {/* Email AI */}
-            <Tooltip content="AI Email - Generate personalized email with AI assistance" position="top">
-              <button
-                onClick={handleEmailClick}
-                className="p-2 flex flex-col items-center justify-center rounded-lg text-xs font-medium transition-all duration-200 border shadow-sm hover:shadow-md hover:scale-105 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 text-gray-700 dark:text-gray-200 hover:from-gray-100 hover:to-gray-200 dark:hover:from-gray-600 dark:hover:to-gray-500 border-gray-200/50 dark:border-gray-600/50"
-              >
-                <Mail className="w-3 h-3 mb-0.5" />
-                <span className="text-[10px] text-gray-700 dark:text-gray-200">Email</span>
-              </button>
-            </Tooltip>
-            
-            {/* AI Auto-Enrich */}
-            <Tooltip content="AI Enrich - Automatically enrich contact and company data from multiple sources" position="top">
-              <button
-                onClick={handleAIEnrichClick}
-                disabled={localEnriching}
-                className="p-2 flex flex-col items-center justify-center rounded-lg text-xs font-medium transition-all duration-200 border shadow-sm hover:shadow-md hover:scale-105 bg-gradient-to-r from-purple-600 to-blue-600 dark:from-purple-700 dark:to-blue-700 text-white hover:from-purple-700 hover:to-blue-700 dark:hover:from-purple-800 dark:hover:to-blue-800 border-purple-300/50 dark:border-purple-500/50 col-span-2 relative"
-              >
-                {localEnriching ? (
-                  <Loader2 className="w-3 h-3 animate-spin mb-0.5" />
-                ) : (
-                  <Wand2 className="w-3 h-3 mb-0.5" />
-                )}
-                <span className="text-[10px] text-white">AI Auto-Enrich</span>
-                {!localEnriching && (
-                  <Sparkles className="w-2 h-2 absolute top-1 right-1 text-yellow-300" />
-                )}
-              </button>
-            </Tooltip>
-          </div>
-        </div>
+        {/* Deal Metadata */}
+        <ErrorBoundary fallback={<div className="p-2 text-red-500 text-xs">Metadata component failed</div>}>
+          <DealCardMetadata
+            deal={deal}
+            onAnalyze={onAnalyze ? () => handleAnalyzeClick({ stopPropagation: () => {} } as any) : undefined}
+            onAIEnrich={onAIEnrich ? () => handleAIEnrichClick({ stopPropagation: () => {} } as any) : undefined}
+            isAnalyzing={analyzing}
+            isEnriching={localEnriching}
+          />
+        </ErrorBoundary>
 
         {/* AI Insights Section */}
-        <div className="mb-4 p-3 bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/30 dark:to-blue-900/30 rounded-lg border border-purple-200 dark:border-purple-700">
-          <div className="flex justify-between items-center mb-2">
-            <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 flex items-center">
-              <BarChart3 className="w-4 h-4 mr-2 text-purple-500 dark:text-purple-400" />
-              AI Insights
-            </h4>
-            <div className="flex space-x-1">
-              <button
-                onClick={(e) => handleFeedbackClick(e, 'positive')}
-                className="p-1 bg-white dark:bg-gray-700 hover:bg-green-100 dark:hover:bg-green-900/30 rounded text-gray-600 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-400 transition-colors"
-                title="This AI insight was helpful"
-              >
-                <ThumbsUp className="w-3 h-3" />
-              </button>
-              <button
-                onClick={(e) => handleFeedbackClick(e, 'negative')}
-                className="p-1 bg-white dark:bg-gray-700 hover:bg-red-100 dark:hover:bg-red-900/30 rounded text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors"
-                title="This AI insight was not helpful"
-              >
-                <ThumbsDown className="w-3 h-3" />
-              </button>
-            </div>
-          </div> 
-          <p className="text-xs text-gray-800 dark:text-gray-200">
-            {analyzing ? 'AI analysis in progress...' :
-             deal.probability >= 80 ? 'High conversion probability. Top priority for immediate follow-up.' :
-             deal.probability >= 60 ? 'Good potential. Schedule follow-up meeting within 48 hours.' :
-             deal.probability >= 40 ? 'Moderate potential. Continue nurturing with valuable content.' :
-             'Lower probability. Focus on qualification and value demonstration.'}
-          </p>
-          <div className="mt-2 flex items-center space-x-1">
-            <Sparkles className="w-3 h-3 text-purple-500" />
-            <span className="text-xs text-purple-800 dark:text-purple-300 font-medium">AI-powered analysis</span>
-          </div>
-        </div>
+        <ErrorBoundary fallback={<div className="p-2 text-red-500 text-xs">Insights component failed</div>}>
+          <DealCardInsights
+            deal={deal}
+            onFeedback={handleFeedbackClick}
+          />
+        </ErrorBoundary>
         {/* Custom Fields - NEW FEATURE */}
         {/* Custom Fields - NEW FEATURE */}
         {customFields && Object.keys(customFields).length > 0 && (
@@ -843,29 +652,14 @@ export const AIEnhancedDealCard: React.FC<AIEnhancedDealCardProps> = ({
         </div>
         {/* Action Buttons */}
         {/* Action Buttons */}
-        <div className="grid grid-cols-3 gap-1.5">
-          <button
-            onClick={handleEmailClick}
-            className="flex items-center justify-center py-1.5 px-2 bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/40 dark:to-blue-800/40 text-blue-700 dark:text-blue-200 rounded-full hover:from-blue-100 hover:to-blue-200 dark:hover:from-blue-800/60 dark:hover:to-blue-700/60 text-xs font-medium transition-all duration-200 border border-blue-200/50 dark:border-blue-500/50 shadow-sm"
-          >
-            <Mail size={11} className="mr-1" /> Email
-          </button>
-          <button
-            onClick={handleCallClick}
-            className="flex items-center justify-center py-1.5 px-2 bg-gradient-to-r from-green-50 to-green-100 dark:from-green-900/40 dark:to-green-800/40 text-green-700 dark:text-green-200 rounded-full hover:from-green-100 hover:to-green-200 dark:hover:from-green-800/60 dark:hover:to-green-700/60 text-xs font-medium transition-all duration-200 border border-green-200/50 dark:border-green-500/50 shadow-sm"
-          >
-            <Phone size={11} className="mr-1" /> Call
-          </button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onClick();
-            }}
-            className="flex items-center justify-center py-1.5 px-2 bg-gradient-to-r from-purple-50 to-purple-100 dark:from-purple-900/40 dark:to-purple-800/40 text-purple-700 dark:text-purple-200 rounded-full hover:from-purple-100 hover:to-purple-200 dark:hover:from-purple-800/60 dark:hover:to-purple-700/60 text-xs font-medium transition-all duration-200 border border-purple-200/50 dark:border-purple-500/50 shadow-sm"
-          >
-            <Target size={11} className="mr-1" /> View
-          </button>
-        </div>
+        <ErrorBoundary fallback={<div className="p-2 text-red-500 text-xs">Actions component failed</div>}>
+          <DealCardActions
+            deal={deal}
+            onEmail={handleEmailClick}
+            onCall={handleCallClick}
+            onView={onClick}
+          />
+        </ErrorBoundary>
         {/* Tags Display */}
         {/* Tags Display */}
         {deal.tags && deal.tags.length > 0 && (

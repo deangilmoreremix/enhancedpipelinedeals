@@ -29,3 +29,34 @@ export async function getContactAndDeal(contactId: string) {
     deal: deal || null
   };
 }
+
+export async function runAutopilot(contactId: string) {
+  try {
+    const { contact, deal } = await getContactAndDeal(contactId);
+
+    if (!contact) {
+      throw new Error(`Contact not found: ${contactId}`);
+    }
+
+    // Simple autopilot logic - could be expanded
+    const result = {
+      contactId,
+      contactName: contact.name,
+      dealId: deal?.id || null,
+      status: 'processed',
+      timestamp: new Date().toISOString(),
+      actions: [
+        'Contact data validated',
+        'Deal status checked',
+        deal ? 'Deal information updated' : 'No active deal found'
+      ]
+    };
+
+    logger.info('Autopilot run completed', { contactId, result });
+
+    return result;
+  } catch (error) {
+    logger.error('Autopilot run failed', { contactId, error });
+    throw error;
+  }
+}

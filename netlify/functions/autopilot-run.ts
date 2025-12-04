@@ -1,5 +1,5 @@
 import type { Handler } from "@netlify/functions";
-import { runAutopilot } from "../../lib/autopilot/autopilot";
+import { runAutopilot } from "../../../src/lib/autopilot/helpers";
 
 export const handler: Handler = async (event) => {
   if (event.httpMethod !== "POST") {

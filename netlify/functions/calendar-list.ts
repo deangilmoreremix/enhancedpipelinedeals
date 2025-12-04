@@ -1,5 +1,5 @@
 import type { Handler } from "@netlify/functions";
-import { supabase } from "../../lib/core/supabaseClient";
+import { supabase } from "../../../src/lib/core/supabaseClient";
 
 export const handler: Handler = async () => {
   try {

@@ -10,7 +10,7 @@ import { MoodPanel } from "./components/MoodPanel";
 import { CalendarAIPanel } from "./components/CalendarAIPanel";
 import { SDRAgentsPanel } from "./components/SDRAgentsPanel";
 
-export const App: React.FC = () => {
+const App: React.FC = () => {
   return (
     <div
       style={{
@@ -46,3 +46,5 @@ export const App: React.FC = () => {
     </div>
   );
 };
+
+export default App;

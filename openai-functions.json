@@ -1,0 +1,318 @@
+{
+  "functions": [
+    {
+      "name": "save_activity",
+      "description": "Log an activity item to SmartCRM for a specific contact.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "contact_id": { "type": "string" },
+          "type": { "type": "string" },
+          "message": { "type": "string" }
+        },
+        "required": ["contact_id", "type", "message"]
+      }
+    },
+    {
+      "name": "update_contact_status",
+      "description": "Update a contact's status or pipeline stage.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "contact_id": { "type": "string" },
+          "status": { "type": "string" }
+        },
+        "required": ["contact_id", "status"]
+      }
+    },
+    {
+      "name": "write_score",
+      "description": "Write the updated lead score for a contact.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "contact_id": { "type": "string" },
+          "score": { "type": "number" }
+        },
+        "required": ["contact_id", "score"]
+      }
+    },
+    {
+      "name": "enrich_contact",
+      "description": "Store enriched data for a contact including company, role, website, and intelligence.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "contact_id": { "type": "string" },
+          "data": { "type": "object" }
+        },
+        "required": ["contact_id", "data"]
+      }
+    },
+    {
+      "name": "assign_sdr_agent",
+      "description": "Assign one of the SDR agents to the contact.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "contact_id": { "type": "string" },
+          "agent_id": { "type": "string" }
+        },
+        "required": ["contact_id", "agent_id"]
+      }
+    },
+    {
+      "name": "assign_ae_agent",
+      "description": "Assign an AE demo agent to take over the conversation.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "contact_id": { "type": "string" },
+          "agent_id": { "type": "string" }
+        },
+        "required": ["contact_id", "agent_id"]
+      }
+    },
+    {
+      "name": "update_pipeline_stage",
+      "description": "Move a deal to a new pipeline stage.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "deal_id": { "type": "string" },
+          "stage": { "type": "string" }
+        },
+        "required": ["deal_id", "stage"]
+      }
+    },
+    {
+      "name": "compute_deal_risk",
+      "description": "Record AI-generated deal risk score.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "deal_id": { "type": "string" },
+          "risk_score": { "type": "number" }
+        },
+        "required": ["deal_id", "risk_score"]
+      }
+    },
+    {
+      "name": "record_next_action",
+      "description": "Save AI-recommended next action for a deal.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "deal_id": { "type": "string" },
+          "action": { "type": "string" }
+        },
+        "required": ["deal_id", "action"]
+      }
+    },
+    {
+      "name": "update_deal_summary",
+      "description": "Save AI-generated summary or insights for a deal.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "deal_id": { "type": "string" },
+          "summary": { "type": "string" }
+        },
+        "required": ["deal_id", "summary"]
+      }
+    },
+    {
+      "name": "send_email",
+      "description": "Send a new outbound email via AgentMail.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "to": { "type": "string" },
+          "subject": { "type": "string" },
+          "message": { "type": "string" }
+        },
+        "required": ["to", "subject", "message"]
+      }
+    },
+    {
+      "name": "reply_to_email",
+      "description": "Reply to an existing message in a thread.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "thread_id": { "type": "string" },
+          "message": { "type": "string" }
+        },
+        "required": ["thread_id", "message"]
+      }
+    },
+    {
+      "name": "generate_email",
+      "description": "Generate SDR email using existing conversation + persona.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "contact_id": { "type": "string" },
+          "context": { "type": "string" }
+        },
+        "required": ["contact_id", "context"]
+      }
+    },
+    {
+      "name": "set_persona",
+      "description": "Assign a persona to an agent.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "agent_id": { "type": "string" },
+          "persona_id": { "type": "string" }
+        },
+        "required": ["agent_id", "persona_id"]
+      }
+    },
+    {
+      "name": "get_persona",
+      "description": "Fetch persona attributes for SDR or AE agent.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "persona_id": { "type": "string" }
+        },
+        "required": ["persona_id"]
+      }
+    },
+    {
+      "name": "list_personas",
+      "description": "Return all SDR personas.",
+      "parameters": { "type": "object", "properties": {} }
+    },
+    {
+      "name": "trigger_sdr_agent",
+      "description": "Trigger an SDR agent to reply or take action.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "agent_id": { "type": "string" },
+          "contact_id": { "type": "string" },
+          "message": { "type": "string" }
+        },
+        "required": ["agent_id", "contact_id", "message"]
+      }
+    },
+    {
+      "name": "trigger_ae_agent",
+      "description": "Trigger the AE demo agent.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "contact_id": { "type": "string" },
+          "message": { "type": "string" }
+        },
+        "required": ["contact_id", "message"]
+      }
+    },
+    {
+      "name": "trigger_pipeline_ai",
+      "description": "Run pipeline AI insights.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "deal_id": { "type": "string" }
+        },
+        "required": ["deal_id"]
+      }
+    },
+    {
+      "name": "trigger_enrichment_agent",
+      "description": "Run enrichment agent on contact.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "contact_id": { "type": "string" }
+        },
+        "required": ["contact_id"]
+      }
+    },
+    {
+      "name": "schedule_step",
+      "description": "Schedule a step in a SmartCRM sequence.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "sequence_id": { "type": "string" },
+          "step_number": { "type": "number" },
+          "contact_id": { "type": "string" },
+          "run_at": { "type": "string" }
+        },
+        "required": ["sequence_id", "step_number", "contact_id", "run_at"]
+      }
+    },
+    {
+      "name": "run_sequence_step",
+      "description": "Execute a sequence step now.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "sequence_id": { "type": "string" },
+          "step_number": { "type": "number" },
+          "contact_id": { "type": "string" }
+        },
+        "required": ["sequence_id", "step_number", "contact_id"]
+      }
+    },
+    {
+      "name": "cancel_sequence",
+      "description": "Cancel a sequence for a contact.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "sequence_id": { "type": "string" },
+          "contact_id": { "type": "string" }
+        },
+        "required": ["sequence_id", "contact_id"]
+      }
+    },
+    {
+      "name": "browser_search",
+      "description": "Perform web search for prospect research.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "query": { "type": "string" }
+        },
+        "required": ["query"]
+      }
+    },
+    {
+      "name": "browser_open",
+      "description": "Open a URL and extract content.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "url": { "type": "string" }
+        },
+        "required": ["url"]
+      }
+    }
+  ],
+  "metadata": {
+    "version": "2.0",
+    "description": "Complete OpenAI Functions specification for SmartCRM autonomous sales system",
+    "agents_supported": [
+      "sdr_ai_core", "sdr_email_primary", "sdr_objection_crusher", "sdr_cold_outreach",
+      "sdr_followup", "sdr_journeys", "sdr_handoff_hybrid", "sdr_enrichment",
+      "sdr_lead_scoring", "sdr_contact_intel", "sdr_appointment", "sdr_upsell",
+      "sdr_reactivation", "sdr_nurture", "deal_intelligence_ai"
+    ],
+    "personas_supported": 30,
+    "categories": [
+      "contact_crm",
+      "pipeline",
+      "email_agentmail",
+      "persona_engine",
+      "multi_agent_routing",
+      "sequence_automation",
+      "browser_research"
+    ]
+  }
+}

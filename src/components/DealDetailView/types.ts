@@ -62,6 +62,8 @@ export interface DealDetailActionsProps {
   onToggleFavorite: () => Promise<void>;
   onShare: () => Promise<void>;
   onAction: (action: string, event?: React.MouseEvent) => void;
+  onRunSDRAgent?: (agentId: string) => void;
+  isRunningSDR?: boolean;
 }
 
 export type ModalType = 'emailComposer' | 'contactSelector' | 'addField' | 'addLink' | null;

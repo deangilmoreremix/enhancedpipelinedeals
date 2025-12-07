@@ -1,4 +1,8 @@
 import React, { useState } from "react";
+import { SDRAgentConfigurator } from "./sdr/SDRAgentConfigurator";
+import { sdrPreferencesService } from "../services/sdrPreferencesService";
+import { SDRUserPreferences } from "../types/sdr-config";
+import { Settings } from "lucide-react";
 
 interface SDRAgentMeta {
   id: string;
@@ -110,8 +114,30 @@ export const SDRAgentsPanel: React.FC = () => {
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [response, setResponse] = useState<SDRRunResponse | null>(null);
+  const [configuringAgent, setConfiguringAgent] = useState<{ id: string; name: string; config?: SDRUserPreferences } | null>(null);
 
   const selectedAgent = SDR_AGENTS.find((a) => a.id === selectedAgentId) || SDR_AGENTS[0];
+
+  const handleConfigureAgent = async (agentId: string) => {
+    const agent = SDR_AGENTS.find(a => a.id === agentId);
+    if (!agent) return;
+
+    // Load existing user preferences
+    const userPrefs = await sdrPreferencesService.getUserPreferences('user-1', agentId);
+
+    setConfiguringAgent({
+      id: agentId,
+      name: agent.label,
+      config: userPrefs || undefined
+    });
+  };
+
+  const handleSaveConfiguration = async (preferences: any) => {
+    if (!configuringAgent) return;
+
+    await sdrPreferencesService.saveUserPreferences('user-1', configuringAgent.id, preferences);
+    setConfiguringAgent(null);
+  };
 
   const handleRun = async () => {
     setError(null);
@@ -185,7 +211,8 @@ export const SDRAgentsPanel: React.FC = () => {
         >
           {SDRAgentsPanelCards({
             selectedAgentId,
-            onSelect: setSelectedAgentId
+            onSelect: setSelectedAgentId,
+            onConfigure: handleConfigureAgent
           })}
         </div>
 
@@ -337,6 +364,18 @@ export const SDRAgentsPanel: React.FC = () => {
           </pre>
         )}
       </div>
+
+      {/* SDR Agent Configuration Modal */}
+      {configuringAgent && (
+        <SDRAgentConfigurator
+          agentId={configuringAgent.id}
+          agentName={configuringAgent.name}
+          currentConfig={configuringAgent.config}
+          onSave={handleSaveConfiguration}
+          onClose={() => setConfiguringAgent(null)}
+          isOpen={true}
+        />
+      )}
     </div>
   );
 };
@@ -345,59 +384,96 @@ export const SDRAgentsPanel: React.FC = () => {
 interface SDRAgentsPanelCardsProps {
   selectedAgentId: string;
   onSelect: (id: string) => void;
+  onConfigure: (id: string) => void;
 }
 
 function SDRAgentsPanelCards(props: SDRAgentsPanelCardsProps) {
-  const { selectedAgentId, onSelect } = props;
+  const { selectedAgentId, onSelect, onConfigure } = props;
 
   return (
     <>
       {SDR_AGENTS.map((agent) => {
         const isActive = agent.id === selectedAgentId;
         return (
-          <button
+          <div
             key={agent.id}
-            type="button"
-            onClick={() => onSelect(agent.id)}
             style={{
+              position: "relative",
               textAlign: "left",
               padding: 10,
               borderRadius: 10,
               border: isActive ? "2px solid #3182ce" : "1px solid #e2e8f0",
               background: isActive ? "#ebf8ff" : "#ffffff",
-              cursor: "pointer",
               boxShadow: isActive ? "0 0 0 1px rgba(49,130,206,0.2)" : "none"
             }}
           >
-            <div
+            {/* Settings button */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onConfigure(agent.id);
+              }}
               style={{
-                fontSize: 11,
-                textTransform: "uppercase",
-                letterSpacing: 0.5,
-                color: "#718096",
-                marginBottom: 4
+                position: "absolute",
+                top: 8,
+                right: 8,
+                padding: 4,
+                borderRadius: 6,
+                border: "none",
+                background: "rgba(255,255,255,0.8)",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center"
+              }}
+              title={`Configure ${agent.label}`}
+            >
+              <Settings size={14} color="#4a5568" />
+            </button>
+
+            {/* Main card content */}
+            <button
+              type="button"
+              onClick={() => onSelect(agent.id)}
+              style={{
+                width: "100%",
+                textAlign: "left",
+                border: "none",
+                background: "transparent",
+                cursor: "pointer",
+                padding: 0
               }}
             >
-              {agent.category}
-            </div>
-            <div
-              style={{
-                fontSize: 14,
-                fontWeight: 600,
-                marginBottom: 4
-              }}
-            >
-              {agent.label}
-            </div>
-            <div
-              style={{
-                fontSize: 12,
-                color: "#4a5568"
-              }}
-            >
-              {agent.short}
-            </div>
-          </button>
+              <div
+                style={{
+                  fontSize: 11,
+                  textTransform: "uppercase",
+                  letterSpacing: 0.5,
+                  color: "#718096",
+                  marginBottom: 4
+                }}
+              >
+                {agent.category}
+              </div>
+              <div
+                style={{
+                  fontSize: 14,
+                  fontWeight: 600,
+                  marginBottom: 4
+                }}
+              >
+                {agent.label}
+              </div>
+              <div
+                style={{
+                  fontSize: 12,
+                  color: "#4a5568"
+                }}
+              >
+                {agent.short}
+              </div>
+            </button>
+          </div>
         );
       })}
     </>

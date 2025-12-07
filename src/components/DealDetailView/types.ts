@@ -94,6 +94,7 @@ export interface DealDetailState {
   newLinkUrl: string;
   files: any[];
   activeModal: ModalType;
+  isRunningSDR: boolean;
 }
 
 export type DealDetailAction =
@@ -122,4 +123,5 @@ export type DealDetailAction =
   | { type: 'SET_NEW_LINK_URL'; payload: string }
   | { type: 'SET_FILES'; payload: any[] }
   | { type: 'SET_ACTIVE_MODAL'; payload: ModalType }
+  | { type: 'SET_RUNNING_SDR'; payload: boolean }
   | { type: 'RESET_STATE'; payload: { deal: Deal; contactData?: Contact | null } };

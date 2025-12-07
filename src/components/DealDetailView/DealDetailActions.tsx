@@ -3,6 +3,8 @@ import { Heart, HeartOff, Share2, Save, X } from 'lucide-react';
 import { ModernButton } from '../ui/ModernButton';
 import { SDRButtonGroup } from './SDRButtonGroup';
 import { DealDetailActionsProps } from './types';
+import { contextDetectionService } from '../../services/contextDetectionService';
+import { sdrExecutionService } from '../../services/sdrExecutionService';
 
 export const DealDetailActions: React.FC<DealDetailActionsProps> = ({
   deal,
@@ -17,39 +19,47 @@ export const DealDetailActions: React.FC<DealDetailActionsProps> = ({
   onRunSDRAgent,
   isRunningSDR = false
 }) => {
-  // Determine relevant SDR agents based on deal context
+  // Determine relevant SDR agents using intelligent context analysis
   const getRelevantSDRAgents = () => {
-    const agents = [];
+    try {
+      const analysis = contextDetectionService.analyzeContext(deal, linkedContact || undefined);
+      return analysis.recommendedAgents;
+    } catch (error) {
+      console.warn('Context detection failed, falling back to basic logic:', error);
 
-    // Competitor-aware SDR if deal mentions competitors
-    if (deal.notes?.toLowerCase().includes('competitor') ||
-        linkedContact?.notes?.toLowerCase().includes('competitor')) {
-      agents.push('sdr-competitor-aware');
+      // Fallback to basic logic if context detection fails
+      const agents = [];
+
+      // Competitor-aware SDR if deal mentions competitors
+      if (deal.notes?.toLowerCase().includes('competitor') ||
+          linkedContact?.notes?.toLowerCase().includes('competitor')) {
+        agents.push('sdr-competitor-aware');
+      }
+
+      // Objection-handling SDR for negotiation stage
+      if (deal.stage === 'negotiation') {
+        agents.push('sdr-objection-handling');
+      }
+
+      // Data-enrichment SDR if contact data is incomplete
+      if (!linkedContact?.industry) {
+        agents.push('sdr-data-enrichment');
+      }
+
+      // Follow-up SDR if deal is stale (last activity > 7 days)
+      const lastActivity = deal.updatedAt ? new Date(deal.updatedAt) : new Date(deal.createdAt);
+      const daysSinceActivity = (Date.now() - lastActivity.getTime()) / (1000 * 60 * 60 * 24);
+      if (daysSinceActivity > 7) {
+        agents.push('sdr-follow-up');
+      }
+
+      // High-intent SDR for proposal stage
+      if (deal.stage === 'proposal') {
+        agents.push('sdr-high-intent');
+      }
+
+      return agents;
     }
-
-    // Objection-handling SDR for negotiation stage
-    if (deal.stage === 'negotiation') {
-      agents.push('sdr-objection-handling');
-    }
-
-    // Data-enrichment SDR if contact data is incomplete
-    if (!linkedContact?.industry) {
-      agents.push('sdr-data-enrichment');
-    }
-
-    // Follow-up SDR if deal is stale (last activity > 7 days)
-    const lastActivity = deal.updatedAt ? new Date(deal.updatedAt) : new Date(deal.createdAt);
-    const daysSinceActivity = (Date.now() - lastActivity.getTime()) / (1000 * 60 * 60 * 24);
-    if (daysSinceActivity > 7) {
-      agents.push('sdr-follow-up');
-    }
-
-    // High-intent SDR for proposal stage
-    if (deal.stage === 'proposal') {
-      agents.push('sdr-high-intent');
-    }
-
-    return agents;
   };
 
   const relevantAgents = getRelevantSDRAgents();
@@ -116,6 +126,7 @@ export const DealDetailActions: React.FC<DealDetailActionsProps> = ({
           relevantAgents={relevantAgents}
           onRunSDRAgent={onRunSDRAgent}
           isRunning={isRunningSDR}
+          userId="user-1" // TODO: Get from auth context
         />
       )}
     </div>

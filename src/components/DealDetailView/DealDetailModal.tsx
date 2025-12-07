@@ -16,6 +16,11 @@ import { useContactStore } from '../../store/contactStore';
 import { aiEnrichmentService } from '../../services/aiEnrichmentService';
 import { useSmartAI } from '../../hooks/useSmartAI';
 import { DealDetailModalProps } from './types';
+import { sdrExecutionService } from '../../services/sdrExecutionService';
+import { SDRContext } from '../../lib/agents/sdr/base';
+import { SDRAgentConfigurator } from '../sdr/SDRAgentConfigurator';
+import { sdrPreferencesService } from '../../services/sdrPreferencesService';
+import { SDRUserPreferences } from '../../types/sdr-config';
 
 export const DealDetailModal: React.FC<DealDetailModalProps> = ({
   deal,
@@ -32,6 +37,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
   const [sdrResult, setSdrResult] = useState<any>(null);
   const [showSdrModal, setShowSdrModal] = useState(false);
   const [isRunningSdr, setIsRunningSdr] = useState(false);
+  const [configuringAgent, setConfiguringAgent] = useState<{ id: string; name: string; config?: SDRUserPreferences } | null>(null);
 
   // Initialize state with useReducer
   const [state, dispatch] = useReducer(
@@ -299,35 +305,83 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
     }
   }, [state.editedDeal]);
 
-  // SDR Agent execution
+
+
   const handleRunSDRAgent = useCallback(async (agentId: string) => {
-    setIsRunningSdr(true);
+    const startTime = Date.now();
+
     try {
-      const response = await fetch('/.netlify/functions/sdr-run', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          agentId,
-          contactId: state.linkedContact?.id || '',
-          dealId: deal.id
-        })
+      dispatch(dealDetailActions.setRunningSDR(true));
+
+      const context: SDRContext = {
+        contactId: state.linkedContact?.id,
+        dealId: deal.id,
+        metadata: {
+          dealStage: deal.stage,
+          dealValue: deal.value,
+          contactName: state.linkedContact?.name,
+          contactTitle: state.linkedContact?.title,
+          contactCompany: state.linkedContact?.company,
+          lastActivity: deal.updatedAt || deal.createdAt,
+          dealNotes: deal.notes,
+          contactNotes: state.linkedContact?.notes,
+        }
+      };
+
+      console.log(`🤖 Executing SDR Agent: ${agentId}`, {
+        dealId: deal.id,
+        contactId: state.linkedContact?.id,
+        context
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(errorText || 'Failed to run SDR agent');
+      const executionResult = await sdrExecutionService.executeAgent(agentId, context, 'user-1');
+
+      console.log(`✅ SDR Agent ${agentId} completed:`, executionResult);
+
+      // Set result for modal display
+      setSdrResult({
+        success: executionResult.success,
+        agentId,
+        agentName: agentId.replace(/sdr-|-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+        message: executionResult.message || 'Agent executed successfully',
+        emailData: executionResult.emailData,
+        metadata: executionResult.metadata,
+        executionTime: Date.now() - startTime
+      });
+      setShowSdrModal(true);
+
+      // Show success message
+      if (executionResult.success) {
+        console.log(`🎉 ${executionResult.message || 'Agent executed successfully'}`);
+      } else {
+        console.error(`❌ SDR Agent failed:`, executionResult.error);
       }
 
-      const result = await response.json();
-      setSdrResult(result);
-      setShowSdrModal(true);
     } catch (error: any) {
-      console.error('SDR agent execution failed:', error);
-      alert(`Failed to run SDR agent: ${error.message}`);
+      console.error('Failed to execute SDR agent:', error);
+      // Could show error toast here
     } finally {
-      setIsRunningSdr(false);
+      dispatch(dealDetailActions.setRunningSDR(false));
     }
-  }, [state.linkedContact?.id, deal.id]);
+  }, [deal, state.linkedContact]);
+
+  const handleConfigureAgent = async (agentId: string, agentName: string) => {
+    // Load existing user preferences
+    const userPrefs = await sdrPreferencesService.getUserPreferences('user-1', agentId);
+
+    setConfiguringAgent({
+      id: agentId,
+      name: agentName,
+      config: userPrefs || undefined
+    });
+  };
+
+  const handleSaveConfiguration = async (preferences: any) => {
+    if (!configuringAgent) return;
+
+    await sdrPreferencesService.saveUserPreferences('user-1', configuringAgent.id, preferences);
+    setConfiguringAgent(null);
+  };
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -362,7 +416,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
           onContactEnrichment={handleContactEnrichment}
           onFindNewImage={handleFindNewImage}
           onToggleFavorite={handleToggleFavorite}
-          onAction={handleAction}
+          onAction={(action) => handleAction(action as any)}
           onClose={onClose}
         />
 
@@ -386,7 +440,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
             onShare={handleShareDeal}
             onAction={(action) => handleAction(action as any)}
             onRunSDRAgent={handleRunSDRAgent}
-            isRunningSDR={isRunningSdr}
+            isRunningSDR={state.isRunningSDR}
           />
 
           {/* Tab Content */}
@@ -457,6 +511,16 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                             <p className="text-xs text-gray-600 dark:text-gray-400">Enrich contact data & draft email</p>
                           </div>
                         </div>
+                        <button
+                          onClick={() => handleConfigureAgent('sdr-data-enrichment', 'Data-Enrichment SDR')}
+                          className="p-1 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 rounded"
+                          title="Configure Data-Enrichment SDR"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          </svg>
+                        </button>
                       </div>
                       <button
                         onClick={() => handleRunSDRAgent('sdr-data-enrichment')}
@@ -479,6 +543,16 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                             <p className="text-xs text-gray-600 dark:text-gray-400">Position against competitors</p>
                           </div>
                         </div>
+                        <button
+                          onClick={() => handleConfigureAgent('sdr-competitor-aware', 'Competitor-Aware SDR')}
+                          className="p-1 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 rounded"
+                          title="Configure Competitor-Aware SDR"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          </svg>
+                        </button>
                       </div>
                       <button
                         onClick={() => handleRunSDRAgent('sdr-competitor-aware')}
@@ -501,6 +575,16 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                             <p className="text-xs text-gray-600 dark:text-gray-400">Handle negotiation objections</p>
                           </div>
                         </div>
+                        <button
+                          onClick={() => handleConfigureAgent('sdr-objection-handling', 'Objection-Handling SDR')}
+                          className="p-1 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 rounded"
+                          title="Configure Objection-Handling SDR"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          </svg>
+                        </button>
                       </div>
                       <button
                         onClick={() => handleRunSDRAgent('sdr-objection-handling')}
@@ -523,6 +607,16 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                             <p className="text-xs text-gray-600 dark:text-gray-400">Create follow-up sequences</p>
                           </div>
                         </div>
+                        <button
+                          onClick={() => handleConfigureAgent('sdr-follow-up', 'Follow-Up SDR')}
+                          className="p-1 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 rounded"
+                          title="Configure Follow-Up SDR"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          </svg>
+                        </button>
                       </div>
                       <button
                         onClick={() => handleRunSDRAgent('sdr-follow-up')}
@@ -685,6 +779,18 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
           // Could pass the email content to the composer here
         }}
       />
+
+      {/* SDR Agent Configuration Modal */}
+      {configuringAgent && (
+        <SDRAgentConfigurator
+          agentId={configuringAgent.id}
+          agentName={configuringAgent.name}
+          currentConfig={configuringAgent.config}
+          onSave={handleSaveConfiguration}
+          onClose={() => setConfiguringAgent(null)}
+          isOpen={true}
+        />
+      )}
     </div>
   );
 };

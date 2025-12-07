@@ -27,10 +27,9 @@ export const initialDealDetailState = (deal: Deal, contactData?: Contact | null)
   newLinkTitle: '',
   newLinkUrl: '',
   files: [],
-  activeModal: null
+  activeModal: null,
+  isRunningSDR: false
 });
-import { Deal } from '../../types';
-import { Contact } from '../../types/contact';
 
 export const dealDetailReducer = (state: DealDetailState, action: DealDetailAction): DealDetailState => {
   switch (action.type) {
@@ -111,6 +110,9 @@ export const dealDetailReducer = (state: DealDetailState, action: DealDetailActi
 
     case 'SET_ACTIVE_MODAL':
       return { ...state, activeModal: action.payload };
+
+    case 'SET_RUNNING_SDR':
+      return { ...state, isRunningSDR: action.payload };
 
     case 'RESET_STATE':
       return initialDealDetailState(action.payload.deal, action.payload.contactData);
@@ -245,6 +247,11 @@ export const dealDetailActions = {
   setActiveModal: (modal: any): DealDetailAction => ({
     type: 'SET_ACTIVE_MODAL',
     payload: modal
+  }),
+
+  setRunningSDR: (isRunning: boolean): DealDetailAction => ({
+    type: 'SET_RUNNING_SDR',
+    payload: isRunning
   }),
 
   resetState: (deal: Deal, contactData?: Contact | null): DealDetailAction => ({

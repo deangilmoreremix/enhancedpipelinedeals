@@ -79,10 +79,52 @@ interface OrchestratorStats {
   activeFunctions: number;
 }
 
+interface RateLimitEntry {
+  count: number;
+  resetTime: number;
+}
+
+class RateLimiter {
+  private limits = new Map<string, RateLimitEntry>();
+  private windowMs: number;
+  private maxRequests: number;
+
+  constructor(windowMs: number = 15 * 60 * 1000, maxRequests: number = 100) {
+    this.windowMs = windowMs;
+    this.maxRequests = maxRequests;
+  }
+
+  isAllowed(key: string): boolean {
+    const now = Date.now();
+    const entry = this.limits.get(key);
+
+    if (!entry || now > entry.resetTime) {
+      this.limits.set(key, { count: 1, resetTime: now + this.windowMs });
+      return true;
+    }
+
+    if (entry.count >= this.maxRequests) {
+      return false;
+    }
+
+    entry.count++;
+    return true;
+  }
+
+  getRemainingRequests(key: string): number {
+    const entry = this.limits.get(key);
+    if (!entry || Date.now() > entry.resetTime) {
+      return this.maxRequests;
+    }
+    return Math.max(0, this.maxRequests - entry.count);
+  }
+}
+
 class AIFunctionOrchestrator {
   private functions = new Map<string, AIFunction>();
   private executionQueue: FunctionCall[] = [];
   private activeExecutions = new Map<string, Promise<FunctionResult>>();
+  private rateLimiter = new RateLimiter(15 * 60 * 1000, 100); // 100 requests per 15 minutes
   private stats: OrchestratorStats = {
     totalCalls: 0,
     successfulCalls: 0,
@@ -412,11 +454,25 @@ class AIFunctionOrchestrator {
       };
     }
 
+    // Rate limiting check
+    const userKey = context?.userId || 'anonymous';
+    if (!this.rateLimiter.isAllowed(userKey)) {
+      // Track rate limit violation
+      const { getMonitoringService } = await import('./monitoringService');
+      const monitoring = getMonitoringService();
+      monitoring.trackRateLimitExceeded(userKey, functionName);
+
+      return {
+        success: false,
+        error: `Rate limit exceeded. Please try again later.`
+      };
+    }
+
     this.stats.totalCalls++;
     this.stats.activeFunctions++;
 
     try {
-      // Validate parameters
+      // Validate and sanitize parameters
       const validation = await this.validateParameters(func, parameters);
       if (!validation.valid) {
         return {
@@ -424,6 +480,9 @@ class AIFunctionOrchestrator {
           error: `Parameter validation failed: ${validation.errors.join(', ')}`
         };
       }
+
+      // Additional input sanitization for AI safety
+      const sanitizedParams = await this.sanitizeParameters(parameters, func.category);
 
       // Check cache first
       if (func.cacheable) {
@@ -438,13 +497,16 @@ class AIFunctionOrchestrator {
         }
       }
 
-      // Execute function
+      // Execute function with timeout
       const executionId = `${functionName}_${Date.now()}_${Math.random()}`;
-      const executionPromise = func.handler.execute(parameters, context);
+      const executionPromise = func.handler.execute(sanitizedParams, context);
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error(`Function execution timeout after ${func.estimatedDuration}ms`)), func.estimatedDuration)
+      );
 
       this.activeExecutions.set(executionId, executionPromise);
 
-      const result = await executionPromise;
+      const result = await Promise.race([executionPromise, timeoutPromise]);
 
       // Cache successful results
       if (func.cacheable && result.success) {
@@ -464,13 +526,35 @@ class AIFunctionOrchestrator {
       this.stats.averageExecutionTime =
         (this.stats.averageExecutionTime * (this.stats.totalCalls - 1) + (result.metadata?.executionTime || 0)) / this.stats.totalCalls;
 
+      // Track performance metrics
+      const { getMonitoringService } = await import('./monitoringService');
+      const monitoring = getMonitoringService();
+      monitoring.trackAIFunctionCall(
+        functionName,
+        result.metadata?.executionTime || 0,
+        result.success,
+        context?.userId,
+        {
+          tokensUsed: result.metadata?.tokensUsed,
+          cost: result.metadata?.cost,
+          confidence: result.metadata?.confidence
+        }
+      );
+
       return result;
 
     } catch (error) {
       this.stats.failedCalls++;
+      const errorMessage = error instanceof Error ? error.message : 'Function execution failed';
+
+      // Log timeout errors for monitoring
+      if (errorMessage.includes('timeout')) {
+        console.warn(`Function ${functionName} timed out:`, errorMessage);
+      }
+
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Function execution failed'
+        error: errorMessage
       };
     } finally {
       this.stats.activeFunctions--;
@@ -513,6 +597,56 @@ class AIFunctionOrchestrator {
       errors,
       warnings
     };
+  }
+
+  private async sanitizeParameters(params: Record<string, any>, category: string): Promise<Record<string, any>> {
+    const { validateContactData, validateDealData, validateString } = await import('../utils/validation');
+
+    const sanitized = { ...params };
+
+    // Category-specific sanitization
+    switch (category) {
+      case 'contact':
+        if (params.contactData) {
+          const validation = validateContactData(params.contactData);
+          if (validation.isValid) {
+            sanitized.contactData = validation.sanitizedValue;
+          } else {
+            console.warn('Contact data validation failed:', validation.error);
+          }
+        }
+        break;
+
+      case 'deal':
+        if (params.dealData) {
+          const validation = validateDealData(params.dealData);
+          if (validation.isValid) {
+            sanitized.dealData = validation.sanitizedValue;
+          } else {
+            console.warn('Deal data validation failed:', validation.error);
+          }
+        }
+        break;
+
+      case 'communication':
+        if (params.context) {
+          const validation = validateString(params.context, { maxLength: 500 });
+          if (validation.isValid) {
+            sanitized.context = validation.sanitizedValue;
+          }
+        }
+        if (params.tone) {
+          const validation = validateString(params.tone, {
+            allowedValues: ['professional', 'casual', 'friendly', 'formal']
+          });
+          if (validation.isValid) {
+            sanitized.tone = validation.sanitizedValue;
+          }
+        }
+        break;
+    }
+
+    return sanitized;
   }
 
   private generateCacheKey(functionName: string, params: Record<string, any>): string {

@@ -73,6 +73,13 @@ const getCredibilityLabel = (score: number): string => {
   return 'Low';
 };
 
+const getCredibilityBadgeColor = (score: number): string => {
+  if (score >= 90) return 'bg-green-500';
+  if (score >= 80) return 'bg-blue-500';
+  if (score >= 70) return 'bg-yellow-500';
+  return 'bg-red-500';
+};
+
 export const CitationBadge: React.FC<CitationBadgeProps> = ({
   citation,
   size = 'md',
@@ -139,7 +146,7 @@ export const CitationBadge: React.FC<CitationBadgeProps> = ({
             <span className={`px-2 py-0.5 rounded ${config.color} text-white`}>
               {config.label}
             </span>
-            <span className={`px-2 py-0.5 rounded ${credibilityColor.replace('text-', 'bg-').replace('bg-', 'bg-').replace('-600', '-500').replace('-50', '')} text-white`}>
+            <span className={`px-2 py-0.5 rounded ${getCredibilityBadgeColor(citation.credibilityScore)} text-white`}>
               {credibilityLabel}
             </span>
           </div>

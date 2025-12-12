@@ -64,12 +64,104 @@ interface Database {
         Insert: Omit<Database['public']['Tables']['communication_logs']['Row'], 'id' | 'created_at'>;
         Update: Partial<Database['public']['Tables']['communication_logs']['Row']>;
       };
+      custom_personas: {
+        Row: {
+          id: string;
+          user_id: string;
+          name: string;
+          tone: string;
+          ideal_segments: string[];
+          email_style: string;
+          communication_focus: string[];
+          is_default: boolean;
+          usage_count: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Omit<Database['public']['Tables']['custom_personas']['Row'], 'id' | 'created_at' | 'updated_at'>;
+        Update: Partial<Database['public']['Tables']['custom_personas']['Row']>;
+      };
+      ai_feedback: {
+        Row: {
+          id: string;
+          user_id: string;
+          task: string;
+          feature: string;
+          score: number;
+          feedback: string;
+          comments: string | null;
+          context: any;
+          session_id: string | null;
+          timestamp: string;
+        };
+        Insert: Omit<Database['public']['Tables']['ai_feedback']['Row'], 'id' | 'timestamp'>;
+        Update: Partial<Database['public']['Tables']['ai_feedback']['Row']>;
+      };
+      deal_history: {
+        Row: {
+          id: string;
+          deal_id: string;
+          field: string;
+          old_value: string | null;
+          new_value: string;
+          changed_by: string | null;
+          changed_at: string;
+        };
+        Insert: Omit<Database['public']['Tables']['deal_history']['Row'], 'id' | 'changed_at'>;
+        Update: Partial<Database['public']['Tables']['deal_history']['Row']>;
+      };
+      app_settings: {
+        Row: {
+          id: string;
+          user_id: string | null;
+          setting_key: string;
+          setting_value: any;
+          updated_at: string;
+        };
+        Insert: Omit<Database['public']['Tables']['app_settings']['Row'], 'id' | 'updated_at'>;
+        Update: Partial<Database['public']['Tables']['app_settings']['Row']>;
+      };
+      ai_usage_metrics: {
+        Row: {
+          id: string;
+          user_id: string;
+          service_name: string;
+          operation: string;
+          model_used: string | null;
+          tokens_used: number | null;
+          cost_usd: number | null;
+          duration_ms: number | null;
+          success: boolean;
+          error_message: string | null;
+          metadata: any;
+          timestamp: string;
+        };
+        Insert: Omit<Database['public']['Tables']['ai_usage_metrics']['Row'], 'id' | 'timestamp'>;
+        Update: Partial<Database['public']['Tables']['ai_usage_metrics']['Row']>;
+      };
+      prediction_models: {
+        Row: {
+          id: string;
+          name: string;
+          type: string;
+          target: string;
+          features: string[];
+          accuracy: number;
+          last_trained: string | null;
+          status: string;
+          metadata: any;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Omit<Database['public']['Tables']['prediction_models']['Row'], 'id' | 'created_at' | 'updated_at'>;
+        Update: Partial<Database['public']['Tables']['prediction_models']['Row']>;
+      };
     };
   };
 }
 
 class SupabaseService {
-  private supabase: SupabaseClient<Database>;
+  private supabase: any;
   private isConnected: boolean = false;
 
   constructor() {
@@ -421,6 +513,161 @@ class SupabaseService {
 
   async checkConnection(): Promise<boolean> {
     return await this.testConnection();
+  }
+
+  // Communication Records methods
+  async saveCommunicationRecord(record: {
+    contact_id: string;
+    deal_id?: string;
+    type: 'message' | 'call' | 'email' | 'meeting';
+    direction: 'incoming' | 'outgoing';
+    content?: string;
+    subject?: string;
+    duration?: string;
+    status: string;
+    metadata?: any;
+    user_id: string;
+  }): Promise<void> {
+    if (!this.isConnected || !this.supabase) {
+      console.warn('Cannot save communication record - Supabase not connected');
+      return;
+    }
+
+    try {
+      const { error } = await this.supabase
+        .from('communication_records')
+        .insert({
+          ...record,
+          timestamp: new Date().toISOString(),
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        });
+
+      if (error) throw error;
+      console.log('✅ Saved communication record');
+    } catch (error) {
+      console.error('Failed to save communication record:', error);
+      throw error;
+    }
+  }
+
+  async getCommunicationRecords(contactId?: string, dealId?: string): Promise<any[]> {
+    if (!this.isConnected || !this.supabase) {
+      return [];
+    }
+
+    try {
+      let query = this.supabase
+        .from('communication_records')
+        .select('*')
+        .order('timestamp', { ascending: false });
+
+      if (contactId) {
+        query = query.eq('contact_id', contactId);
+      }
+
+      if (dealId) {
+        query = query.eq('deal_id', dealId);
+      }
+
+      const { data, error } = await query.limit(100);
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Failed to get communication records:', error);
+      return [];
+    }
+  }
+
+  // Communication Logs methods
+  async saveCommunicationLog(log: {
+    contact_id: string;
+    deal_id?: string;
+    type: string;
+    action: string;
+    details?: any;
+    user_id: string;
+  }): Promise<void> {
+    if (!this.isConnected || !this.supabase) {
+      console.warn('Cannot save communication log - Supabase not connected');
+      return;
+    }
+
+    try {
+      const { error } = await this.supabase
+        .from('communication_logs')
+        .insert({
+          ...log,
+          timestamp: new Date().toISOString(),
+          created_at: new Date().toISOString()
+        });
+
+      if (error) throw error;
+      console.log('✅ Saved communication log');
+    } catch (error) {
+      console.error('Failed to save communication log:', error);
+      throw error;
+    }
+  }
+
+  // AI Usage Metrics methods
+  async saveAIUsageMetric(metric: {
+    user_id: string;
+    service_name: string;
+    operation: string;
+    model_used?: string;
+    tokens_used?: number;
+    cost_usd?: number;
+    duration_ms?: number;
+    success?: boolean;
+    error_message?: string;
+    metadata?: any;
+  }): Promise<void> {
+    if (!this.isConnected || !this.supabase) {
+      console.warn('Cannot save AI usage metric - Supabase not connected');
+      return;
+    }
+
+    try {
+      const { error } = await this.supabase
+        .from('ai_usage_metrics')
+        .insert({
+          ...metric,
+          timestamp: new Date().toISOString()
+        });
+
+      if (error) throw error;
+      console.log('✅ Saved AI usage metric');
+    } catch (error) {
+      console.error('Failed to save AI usage metric:', error);
+      throw error;
+    }
+  }
+
+  async getAIUsageMetrics(userId?: string, limit: number = 100): Promise<any[]> {
+    if (!this.isConnected || !this.supabase) {
+      return [];
+    }
+
+    try {
+      let query = this.supabase
+        .from('ai_usage_metrics')
+        .select('*')
+        .order('timestamp', { ascending: false });
+
+      if (userId) {
+        query = query.eq('user_id', userId);
+      }
+
+      const { data, error } = await query.limit(limit);
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Failed to get AI usage metrics:', error);
+      return [];
+    }
   }
 
   // App Settings methods

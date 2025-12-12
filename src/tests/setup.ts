@@ -1,4 +1,5 @@
 // Jest setup file for environment mocking
+import '@testing-library/jest-dom';
 import { jest } from '@jest/globals';
 
 // Mock import.meta.env

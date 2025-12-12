@@ -26,7 +26,7 @@
     "@hello-pangea/dnd": "^16.5.0",
     "@originjs/vite-plugin-federation": "^1.4.1",
     "@supabase/supabase-js": "^2.39.0",
-    "agentmail": "^0.1.8",
+    "agentmail": "^0.1.9",
     "agentmail-toolkit": "^0.1.36",
     "ai": "^5.0.106",
     "focus-trap-react": "^11.0.4",

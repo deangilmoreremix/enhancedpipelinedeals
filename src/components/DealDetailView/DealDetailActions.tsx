@@ -2,6 +2,7 @@ import React from 'react';
 import { Heart, HeartOff, Share2, Save, X } from 'lucide-react';
 import { ModernButton } from '../ui/ModernButton';
 import { SDRButtonGroup } from './SDRButtonGroup';
+import { EmbeddedAgentInterface } from '../agents/EmbeddedAgentInterface';
 import { DealDetailActionsProps } from './types';
 import { contextDetectionService } from '../../services/contextDetectionService';
 import { sdrExecutionService } from '../../services/sdrExecutionService';
@@ -119,6 +120,14 @@ export const DealDetailActions: React.FC<DealDetailActionsProps> = ({
           </ModernButton>
         )}
       </div>
+
+      {/* AI Agent Integration */}
+      <EmbeddedAgentInterface
+        contextType="deal"
+        contextData={{ deal, linkedContact }}
+        isCompact={true}
+        className="mb-3"
+      />
 
       {/* Smart SDR Actions */}
       {relevantAgents.length > 0 && onRunSDRAgent && (

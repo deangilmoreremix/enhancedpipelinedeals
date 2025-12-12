@@ -8,7 +8,21 @@ export enum AgentType {
   LEAD_QUALIFIER = 'lead_qualifier',
   CUSTOMER_SUCCESS = 'customer_success',
   RESEARCH_INTELLIGENCE = 'research_intelligence',
-  ADMINISTRATIVE = 'administrative'
+  ADMINISTRATIVE = 'administrative',
+  DEAL_ANALYST = 'deal_analyst',
+  CONTACT_INTELLIGENCE = 'contact_intelligence',
+  COMMUNICATION_MANAGER = 'communication_manager',
+  ANALYTICS_EXPERT = 'analytics_expert',
+  CALENDAR_ASSISTANT = 'calendar_assistant',
+  VIDEO_CREATOR = 'video_creator',
+  VOICE_ASSISTANT = 'voice_assistant',
+  RISK_ASSESSOR = 'risk_assessor',
+  DATA_MANAGER = 'data_manager',
+  ACHIEVEMENT_COACH = 'achievement_coach',
+  SDR_CAMPAIGN_MANAGER = 'sdr_campaign_manager',
+  MEMORY_KEEPER = 'memory_keeper',
+  SYSTEM_MONITOR = 'system_monitor',
+  PERSONALIZATION_ASSISTANT = 'personalization_assistant'
 }
 
 export enum PermissionLevel {
@@ -49,10 +63,10 @@ export interface AgentPermissions {
 }
 
 export interface AgentPersonality {
-  tone: 'professional' | 'casual' | 'enthusiastic' | 'analytical';
-  communicationStyle: 'concise' | 'detailed' | 'conversational';
+  tone: 'professional' | 'casual' | 'enthusiastic' | 'analytical' | 'cautious' | 'motivational' | 'wise' | 'alert' | 'helpful' | 'organized' | 'creative' | 'friendly' | 'strategic' | 'methodical' | 'insightful';
+  communicationStyle: 'concise' | 'detailed' | 'conversational' | 'encouraging' | 'reflective' | 'friendly';
   initiativeLevel: 'reactive' | 'proactive' | 'autonomous';
-  riskTolerance: 'conservative' | 'moderate' | 'aggressive';
+  riskTolerance: 'conservative' | 'moderate' | 'aggressive' | 'low';
   responseLength: 'brief' | 'normal' | 'detailed';
 }
 
@@ -331,6 +345,7 @@ export interface AgentLearningData {
   output: string;
   outcome: 'success' | 'failure' | 'partial';
   feedback?: number; // 1-5 user rating
+  confidence?: number; // AI confidence score
   context: Record<string, any>;
   timestamp: Date;
 }

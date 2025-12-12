@@ -61,7 +61,21 @@ export const AgentManagementDashboard: React.FC = () => {
       [AgentType.LEAD_QUALIFIER]: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
       [AgentType.CUSTOMER_SUCCESS]: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300',
       [AgentType.RESEARCH_INTELLIGENCE]: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300',
-      [AgentType.ADMINISTRATIVE]: 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300'
+      [AgentType.ADMINISTRATIVE]: 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300',
+      [AgentType.DEAL_ANALYST]: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300',
+      [AgentType.CONTACT_INTELLIGENCE]: 'bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300',
+      [AgentType.COMMUNICATION_MANAGER]: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-300',
+      [AgentType.ANALYTICS_EXPERT]: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300',
+      [AgentType.CALENDAR_ASSISTANT]: 'bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-300',
+      [AgentType.VIDEO_CREATOR]: 'bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300',
+      [AgentType.VOICE_ASSISTANT]: 'bg-pink-100 text-pink-800 dark:bg-pink-900/30 dark:text-pink-300',
+      [AgentType.RISK_ASSESSOR]: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300',
+      [AgentType.DATA_MANAGER]: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300',
+      [AgentType.ACHIEVEMENT_COACH]: 'bg-lime-100 text-lime-800 dark:bg-lime-900/30 dark:text-lime-300',
+      [AgentType.SDR_CAMPAIGN_MANAGER]: 'bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-300',
+      [AgentType.MEMORY_KEEPER]: 'bg-slate-100 text-slate-800 dark:bg-slate-900/30 dark:text-slate-300',
+      [AgentType.SYSTEM_MONITOR]: 'bg-stone-100 text-stone-800 dark:bg-stone-900/30 dark:text-stone-300',
+      [AgentType.PERSONALIZATION_ASSISTANT]: 'bg-fuchsia-100 text-fuchsia-800 dark:bg-fuchsia-900/30 dark:text-fuchsia-300'
     };
     return colors[type] || colors[AgentType.SALES_ASSISTANT];
   };
@@ -210,9 +224,20 @@ export const AgentManagementDashboard: React.FC = () => {
               { value: 'all', label: 'All Agents' },
               { value: AgentType.SALES_ASSISTANT, label: 'Sales Assistant' },
               { value: AgentType.LEAD_QUALIFIER, label: 'Lead Qualifier' },
-              { value: AgentType.CUSTOMER_SUCCESS, label: 'Customer Success' },
-              { value: AgentType.RESEARCH_INTELLIGENCE, label: 'Research' },
-              { value: AgentType.ADMINISTRATIVE, label: 'Administrative' }
+              { value: AgentType.DEAL_ANALYST, label: 'Deal Analyst' },
+              { value: AgentType.CONTACT_INTELLIGENCE, label: 'Contact Intelligence' },
+              { value: AgentType.COMMUNICATION_MANAGER, label: 'Communication Manager' },
+              { value: AgentType.ANALYTICS_EXPERT, label: 'Analytics Expert' },
+              { value: AgentType.CALENDAR_ASSISTANT, label: 'Calendar Assistant' },
+              { value: AgentType.VIDEO_CREATOR, label: 'Video Creator' },
+              { value: AgentType.VOICE_ASSISTANT, label: 'Voice Assistant' },
+              { value: AgentType.RISK_ASSESSOR, label: 'Risk Assessor' },
+              { value: AgentType.DATA_MANAGER, label: 'Data Manager' },
+              { value: AgentType.ACHIEVEMENT_COACH, label: 'Achievement Coach' },
+              { value: AgentType.SDR_CAMPAIGN_MANAGER, label: 'SDR Campaign Manager' },
+              { value: AgentType.MEMORY_KEEPER, label: 'Memory Keeper' },
+              { value: AgentType.SYSTEM_MONITOR, label: 'System Monitor' },
+              { value: AgentType.PERSONALIZATION_ASSISTANT, label: 'Personalization Assistant' }
             ].map(({ value, label }) => (
               <button
                 key={value}

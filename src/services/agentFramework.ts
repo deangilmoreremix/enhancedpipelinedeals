@@ -467,7 +467,7 @@ class AgentFramework {
 
   private updateAgentMemory(agent: AIAgent, learningData: AgentLearningData): void {
     // Add to long-term memory if it's a successful pattern
-    if (learningData.outcome === 'success' && learningData.confidence > 0.8) {
+    if (learningData.outcome === 'success' && learningData.confidence && learningData.confidence > 0.8) {
       const pattern: any = {
         id: `pattern_${Date.now()}`,
         pattern: learningData.input,
@@ -642,7 +642,7 @@ class AgentFramework {
   // ============================================================================
 
   private initializeDefaultAgents(): void {
-    // Sales Assistant Agent
+    // 1. Sales Assistant Agent
     this.createAgent({
       name: 'Sales Assistant',
       type: AgentType.SALES_ASSISTANT,
@@ -699,7 +699,7 @@ class AgentFramework {
       creatorId: 'system'
     });
 
-    // Lead Qualifier Agent
+    // 2. Lead Qualifier Agent
     this.createAgent({
       name: 'Lead Qualifier',
       type: AgentType.LEAD_QUALIFIER,
@@ -752,6 +752,804 @@ class AgentFramework {
         },
         notificationPreferences: { email: false, inApp: true },
         performanceTargets: { responseTime: 5, successRate: 85, dailyActions: 75 }
+      },
+      creatorId: 'system'
+    });
+
+    // 3. Deal Detail Analysis Agent
+    this.createAgent({
+      name: 'Deal Analyst',
+      type: AgentType.DEAL_ANALYST,
+      description: 'Provides deep analysis of individual deals and opportunities',
+      capabilities: [
+        {
+          id: 'deal_deep_analysis',
+          name: 'Deep Deal Analysis',
+          description: 'Comprehensive analysis of deal details, risks, and opportunities',
+          functionName: 'analyze_deal_details',
+          triggers: [{ type: TriggerType.MANUAL, conditions: {} }],
+          cooldown: 30,
+          priority: 'high',
+          requiresConfirmation: false
+        },
+        {
+          id: 'competitor_analysis',
+          name: 'Competitor Analysis',
+          description: 'Analyze competitive landscape for deals',
+          functionName: 'analyze_competition',
+          triggers: [{ type: TriggerType.MANUAL, conditions: {} }],
+          cooldown: 300,
+          priority: 'medium',
+          requiresConfirmation: false
+        }
+      ],
+      personality: {
+        tone: 'analytical',
+        communicationStyle: 'detailed',
+        initiativeLevel: 'reactive',
+        riskTolerance: 'conservative',
+        responseLength: 'detailed'
+      },
+      permissions: {
+        level: PermissionLevel.READ_ONLY,
+        allowedEntities: ['deals', 'contacts', 'companies'],
+        restrictedActions: ['delete', 'create'],
+        dataScope: 'all',
+        rateLimits: { actionsPerHour: 100, apiCallsPerMinute: 10 },
+        allowedTriggers: [TriggerType.MANUAL]
+      },
+      configuration: {
+        autoStart: false,
+        workingHours: {
+          enabled: true,
+          timezone: 'UTC',
+          startTime: '09:00',
+          endTime: '18:00',
+          daysOfWeek: [1, 2, 3, 4, 5]
+        },
+        notificationPreferences: { email: false, inApp: true },
+        performanceTargets: { responseTime: 10, successRate: 95, dailyActions: 50 }
+      },
+      creatorId: 'system'
+    });
+
+    // 4. Contact Intelligence Agent
+    this.createAgent({
+      name: 'Contact Intelligence',
+      type: AgentType.CONTACT_INTELLIGENCE,
+      description: 'Provides AI-powered insights about contacts and relationships',
+      capabilities: [
+        {
+          id: 'contact_insights',
+          name: 'Contact Insights',
+          description: 'Generate detailed insights about contact behavior and preferences',
+          functionName: 'generate_contact_insights',
+          triggers: [{ type: TriggerType.MANUAL, conditions: {} }],
+          cooldown: 60,
+          priority: 'medium',
+          requiresConfirmation: false
+        },
+        {
+          id: 'relationship_mapping',
+          name: 'Relationship Mapping',
+          description: 'Map contact relationships and influence networks',
+          functionName: 'map_relationships',
+          triggers: [{ type: TriggerType.MANUAL, conditions: {} }],
+          cooldown: 180,
+          priority: 'low',
+          requiresConfirmation: false
+        }
+      ],
+      personality: {
+        tone: 'insightful',
+        communicationStyle: 'detailed',
+        initiativeLevel: 'reactive',
+        riskTolerance: 'moderate',
+        responseLength: 'detailed'
+      },
+      permissions: {
+        level: PermissionLevel.READ_ONLY,
+        allowedEntities: ['contacts', 'deals'],
+        restrictedActions: ['delete', 'update'],
+        dataScope: 'all',
+        rateLimits: { actionsPerHour: 80, apiCallsPerMinute: 8 },
+        allowedTriggers: [TriggerType.MANUAL]
+      },
+      configuration: {
+        autoStart: false,
+        workingHours: {
+          enabled: true,
+          timezone: 'UTC',
+          startTime: '08:00',
+          endTime: '20:00',
+          daysOfWeek: [1, 2, 3, 4, 5, 6, 7]
+        },
+        notificationPreferences: { email: false, inApp: true },
+        performanceTargets: { responseTime: 8, successRate: 90, dailyActions: 40 }
+      },
+      creatorId: 'system'
+    });
+
+    // 5. Communication Hub Agent
+    this.createAgent({
+      name: 'Communication Manager',
+      type: AgentType.COMMUNICATION_MANAGER,
+      description: 'Manages all communication channels and messaging',
+      capabilities: [
+        {
+          id: 'email_composition',
+          name: 'Email Composition',
+          description: 'Compose professional emails with AI assistance',
+          functionName: 'compose_professional_email',
+          triggers: [{ type: TriggerType.MANUAL, conditions: {} }],
+          cooldown: 10,
+          priority: 'high',
+          requiresConfirmation: true
+        },
+        {
+          id: 'communication_tracking',
+          name: 'Communication Tracking',
+          description: 'Track all communications and follow-ups',
+          functionName: 'track_communications',
+          triggers: [{ type: TriggerType.MANUAL, conditions: {} }],
+          cooldown: 30,
+          priority: 'medium',
+          requiresConfirmation: false
+        }
+      ],
+      personality: {
+        tone: 'professional',
+        communicationStyle: 'concise',
+        initiativeLevel: 'reactive',
+        riskTolerance: 'low',
+        responseLength: 'normal'
+      },
+      permissions: {
+        level: PermissionLevel.READ_WRITE,
+        allowedEntities: ['contacts', 'deals', 'communications'],
+        restrictedActions: ['delete'],
+        dataScope: 'owned',
+        rateLimits: { actionsPerHour: 120, apiCallsPerMinute: 12 },
+        allowedTriggers: [TriggerType.MANUAL]
+      },
+      configuration: {
+        autoStart: false,
+        workingHours: {
+          enabled: true,
+          timezone: 'UTC',
+          startTime: '08:00',
+          endTime: '18:00',
+          daysOfWeek: [1, 2, 3, 4, 5]
+        },
+        notificationPreferences: { email: true, inApp: true },
+        performanceTargets: { responseTime: 3, successRate: 95, dailyActions: 60 }
+      },
+      creatorId: 'system'
+    });
+
+    // 6. Analytics & Reporting Agent
+    this.createAgent({
+      name: 'Analytics Expert',
+      type: AgentType.ANALYTICS_EXPERT,
+      description: 'Provides comprehensive analytics and business intelligence',
+      capabilities: [
+        {
+          id: 'performance_analysis',
+          name: 'Performance Analysis',
+          description: 'Analyze sales performance and KPIs',
+          functionName: 'analyze_performance',
+          triggers: [{ type: TriggerType.TIME_BASED, conditions: { frequency: 'daily' } }],
+          cooldown: 1440, // Daily
+          priority: 'medium',
+          requiresConfirmation: false
+        },
+        {
+          id: 'forecasting',
+          name: 'Sales Forecasting',
+          description: 'Generate sales forecasts and predictions',
+          functionName: 'generate_forecast',
+          triggers: [{ type: TriggerType.TIME_BASED, conditions: { frequency: 'weekly' } }],
+          cooldown: 10080, // Weekly
+          priority: 'high',
+          requiresConfirmation: false
+        }
+      ],
+      personality: {
+        tone: 'analytical',
+        communicationStyle: 'detailed',
+        initiativeLevel: 'proactive',
+        riskTolerance: 'moderate',
+        responseLength: 'detailed'
+      },
+      permissions: {
+        level: PermissionLevel.READ_ONLY,
+        allowedEntities: ['deals', 'contacts', 'analytics'],
+        restrictedActions: ['create', 'update', 'delete'],
+        dataScope: 'all',
+        rateLimits: { actionsPerHour: 50, apiCallsPerMinute: 5 },
+        allowedTriggers: [TriggerType.TIME_BASED, TriggerType.MANUAL]
+      },
+      configuration: {
+        autoStart: true,
+        workingHours: {
+          enabled: true,
+          timezone: 'UTC',
+          startTime: '06:00',
+          endTime: '08:00',
+          daysOfWeek: [1, 2, 3, 4, 5] // Business intelligence early morning
+        },
+        notificationPreferences: { email: true, inApp: true },
+        performanceTargets: { responseTime: 15, successRate: 98, dailyActions: 20 }
+      },
+      creatorId: 'system'
+    });
+
+    // 7. Calendar & Scheduling Agent
+    this.createAgent({
+      name: 'Calendar Assistant',
+      type: AgentType.CALENDAR_ASSISTANT,
+      description: 'Manages scheduling, meetings, and calendar optimization',
+      capabilities: [
+        {
+          id: 'meeting_scheduling',
+          name: 'Meeting Scheduling',
+          description: 'Schedule optimal meeting times with contacts',
+          functionName: 'schedule_meeting',
+          triggers: [{ type: TriggerType.MANUAL, conditions: {} }],
+          cooldown: 15,
+          priority: 'high',
+          requiresConfirmation: true
+        },
+        {
+          id: 'calendar_optimization',
+          name: 'Calendar Optimization',
+          description: 'Optimize calendar for productivity and deal closing',
+          functionName: 'optimize_calendar',
+          triggers: [{ type: TriggerType.TIME_BASED, conditions: { frequency: 'daily' } }],
+          cooldown: 1440,
+          priority: 'medium',
+          requiresConfirmation: false
+        }
+      ],
+      personality: {
+        tone: 'organized',
+        communicationStyle: 'concise',
+        initiativeLevel: 'proactive',
+        riskTolerance: 'low',
+        responseLength: 'brief'
+      },
+      permissions: {
+        level: PermissionLevel.READ_WRITE,
+        allowedEntities: ['calendar', 'contacts', 'deals'],
+        restrictedActions: ['delete'],
+        dataScope: 'owned',
+        rateLimits: { actionsPerHour: 100, apiCallsPerMinute: 10 },
+        allowedTriggers: [TriggerType.TIME_BASED, TriggerType.MANUAL]
+      },
+      configuration: {
+        autoStart: true,
+        workingHours: {
+          enabled: true,
+          timezone: 'UTC',
+          startTime: '07:00',
+          endTime: '19:00',
+          daysOfWeek: [1, 2, 3, 4, 5]
+        },
+        notificationPreferences: { email: true, inApp: true },
+        performanceTargets: { responseTime: 5, successRate: 92, dailyActions: 30 }
+      },
+      creatorId: 'system'
+    });
+
+    // 8. Video Content Agent
+    this.createAgent({
+      name: 'Video Creator',
+      type: AgentType.VIDEO_CREATOR,
+      description: 'Creates video content for deals and marketing',
+      capabilities: [
+        {
+          id: 'video_scripting',
+          name: 'Video Scripting',
+          description: 'Generate video scripts for deal presentations',
+          functionName: 'create_video_script',
+          triggers: [{ type: TriggerType.MANUAL, conditions: {} }],
+          cooldown: 60,
+          priority: 'medium',
+          requiresConfirmation: false
+        },
+        {
+          id: 'video_production',
+          name: 'Video Production',
+          description: 'Produce videos for marketing and sales',
+          functionName: 'produce_video',
+          triggers: [{ type: TriggerType.MANUAL, conditions: {} }],
+          cooldown: 300,
+          priority: 'high',
+          requiresConfirmation: true
+        }
+      ],
+      personality: {
+        tone: 'creative',
+        communicationStyle: 'detailed',
+        initiativeLevel: 'reactive',
+        riskTolerance: 'moderate',
+        responseLength: 'normal'
+      },
+      permissions: {
+        level: PermissionLevel.READ_WRITE,
+        allowedEntities: ['videos', 'deals', 'marketing'],
+        restrictedActions: [],
+        dataScope: 'owned',
+        rateLimits: { actionsPerHour: 20, apiCallsPerMinute: 2 },
+        allowedTriggers: [TriggerType.MANUAL]
+      },
+      configuration: {
+        autoStart: false,
+        workingHours: {
+          enabled: true,
+          timezone: 'UTC',
+          startTime: '09:00',
+          endTime: '17:00',
+          daysOfWeek: [1, 2, 3, 4, 5]
+        },
+        notificationPreferences: { email: true, inApp: true },
+        performanceTargets: { responseTime: 30, successRate: 85, dailyActions: 10 }
+      },
+      creatorId: 'system'
+    });
+
+    // 9. Voice Communication Agent
+    this.createAgent({
+      name: 'Voice Assistant',
+      type: AgentType.VOICE_ASSISTANT,
+      description: 'Handles voice communications and messaging',
+      capabilities: [
+        {
+          id: 'voice_message_creation',
+          name: 'Voice Message Creation',
+          description: 'Create personalized voice messages',
+          functionName: 'create_voice_message',
+          triggers: [{ type: TriggerType.MANUAL, conditions: {} }],
+          cooldown: 30,
+          priority: 'medium',
+          requiresConfirmation: true
+        },
+        {
+          id: 'voice_transcription',
+          name: 'Voice Transcription',
+          description: 'Transcribe voice messages and calls',
+          functionName: 'transcribe_audio',
+          triggers: [{ type: TriggerType.MANUAL, conditions: {} }],
+          cooldown: 10,
+          priority: 'high',
+          requiresConfirmation: false
+        }
+      ],
+      personality: {
+        tone: 'friendly',
+        communicationStyle: 'conversational',
+        initiativeLevel: 'reactive',
+        riskTolerance: 'low',
+        responseLength: 'brief'
+      },
+      permissions: {
+        level: PermissionLevel.READ_WRITE,
+        allowedEntities: ['voice', 'contacts', 'communications'],
+        restrictedActions: ['delete'],
+        dataScope: 'owned',
+        rateLimits: { actionsPerHour: 60, apiCallsPerMinute: 6 },
+        allowedTriggers: [TriggerType.MANUAL]
+      },
+      configuration: {
+        autoStart: false,
+        workingHours: {
+          enabled: true,
+          timezone: 'UTC',
+          startTime: '08:00',
+          endTime: '20:00',
+          daysOfWeek: [1, 2, 3, 4, 5, 6, 7]
+        },
+        notificationPreferences: { email: false, inApp: true },
+        performanceTargets: { responseTime: 10, successRate: 90, dailyActions: 25 }
+      },
+      creatorId: 'system'
+    });
+
+    // 10. Risk Assessment Agent
+    this.createAgent({
+      name: 'Risk Assessor',
+      type: AgentType.RISK_ASSESSOR,
+      description: 'Assesses deal risks and provides mitigation strategies',
+      capabilities: [
+        {
+          id: 'risk_analysis',
+          name: 'Risk Analysis',
+          description: 'Analyze deal risks and probability factors',
+          functionName: 'compute_deal_risk',
+          triggers: [{ type: TriggerType.DEAL_STAGE_CHANGE, conditions: {} }],
+          cooldown: 60,
+          priority: 'high',
+          requiresConfirmation: false
+        },
+        {
+          id: 'risk_mitigation',
+          name: 'Risk Mitigation',
+          description: 'Suggest strategies to reduce deal risks',
+          functionName: 'suggest_risk_mitigation',
+          triggers: [{ type: TriggerType.METRIC_THRESHOLD, conditions: { riskLevel: 'high' } }],
+          cooldown: 180,
+          priority: 'high',
+          requiresConfirmation: false
+        }
+      ],
+      personality: {
+        tone: 'cautious',
+        communicationStyle: 'detailed',
+        initiativeLevel: 'proactive',
+        riskTolerance: 'low',
+        responseLength: 'detailed'
+      },
+      permissions: {
+        level: PermissionLevel.READ_ONLY,
+        allowedEntities: ['deals', 'contacts', 'analytics'],
+        restrictedActions: ['create', 'update', 'delete'],
+        dataScope: 'all',
+        rateLimits: { actionsPerHour: 80, apiCallsPerMinute: 8 },
+        allowedTriggers: [TriggerType.DEAL_STAGE_CHANGE, TriggerType.METRIC_THRESHOLD, TriggerType.MANUAL]
+      },
+      configuration: {
+        autoStart: true,
+        workingHours: {
+          enabled: true,
+          timezone: 'UTC',
+          startTime: '08:00',
+          endTime: '18:00',
+          daysOfWeek: [1, 2, 3, 4, 5]
+        },
+        notificationPreferences: { email: true, inApp: true },
+        performanceTargets: { responseTime: 8, successRate: 95, dailyActions: 40 }
+      },
+      creatorId: 'system'
+    });
+
+    // 11. Data Management Agent
+    this.createAgent({
+      name: 'Data Manager',
+      type: AgentType.DATA_MANAGER,
+      description: 'Handles data import, export, and management operations',
+      capabilities: [
+        {
+          id: 'data_import',
+          name: 'Data Import',
+          description: 'Import data from various sources',
+          functionName: 'import_data',
+          triggers: [{ type: TriggerType.MANUAL, conditions: {} }],
+          cooldown: 60,
+          priority: 'medium',
+          requiresConfirmation: true
+        },
+        {
+          id: 'data_export',
+          name: 'Data Export',
+          description: 'Export data in various formats',
+          functionName: 'export_data',
+          triggers: [{ type: TriggerType.MANUAL, conditions: {} }],
+          cooldown: 30,
+          priority: 'medium',
+          requiresConfirmation: true
+        }
+      ],
+      personality: {
+        tone: 'methodical',
+        communicationStyle: 'concise',
+        initiativeLevel: 'reactive',
+        riskTolerance: 'low',
+        responseLength: 'brief'
+      },
+      permissions: {
+        level: PermissionLevel.READ_WRITE,
+        allowedEntities: ['contacts', 'deals', 'data'],
+        restrictedActions: [],
+        dataScope: 'owned',
+        rateLimits: { actionsPerHour: 40, apiCallsPerMinute: 4 },
+        allowedTriggers: [TriggerType.MANUAL]
+      },
+      configuration: {
+        autoStart: false,
+        workingHours: {
+          enabled: true,
+          timezone: 'UTC',
+          startTime: '09:00',
+          endTime: '17:00',
+          daysOfWeek: [1, 2, 3, 4, 5]
+        },
+        notificationPreferences: { email: true, inApp: true },
+        performanceTargets: { responseTime: 20, successRate: 98, dailyActions: 15 }
+      },
+      creatorId: 'system'
+    });
+
+    // 12. Gamification Coach Agent
+    this.createAgent({
+      name: 'Achievement Coach',
+      type: AgentType.ACHIEVEMENT_COACH,
+      description: 'Helps users maximize gamification rewards and achievements',
+      capabilities: [
+        {
+          id: 'achievement_tracking',
+          name: 'Achievement Tracking',
+          description: 'Track progress toward achievements',
+          functionName: 'track_achievements',
+          triggers: [{ type: TriggerType.MANUAL, conditions: {} }],
+          cooldown: 60,
+          priority: 'low',
+          requiresConfirmation: false
+        },
+        {
+          id: 'goal_setting',
+          name: 'Goal Setting',
+          description: 'Help set and achieve sales goals',
+          functionName: 'set_goals',
+          triggers: [{ type: TriggerType.TIME_BASED, conditions: { frequency: 'weekly' } }],
+          cooldown: 10080,
+          priority: 'medium',
+          requiresConfirmation: false
+        }
+      ],
+      personality: {
+        tone: 'motivational',
+        communicationStyle: 'encouraging',
+        initiativeLevel: 'proactive',
+        riskTolerance: 'moderate',
+        responseLength: 'normal'
+      },
+      permissions: {
+        level: PermissionLevel.READ_ONLY,
+        allowedEntities: ['achievements', 'goals', 'performance'],
+        restrictedActions: ['create', 'update', 'delete'],
+        dataScope: 'owned',
+        rateLimits: { actionsPerHour: 60, apiCallsPerMinute: 6 },
+        allowedTriggers: [TriggerType.TIME_BASED, TriggerType.MANUAL]
+      },
+      configuration: {
+        autoStart: true,
+        workingHours: {
+          enabled: true,
+          timezone: 'UTC',
+          startTime: '08:00',
+          endTime: '20:00',
+          daysOfWeek: [1, 2, 3, 4, 5, 6, 7]
+        },
+        notificationPreferences: { email: false, inApp: true },
+        performanceTargets: { responseTime: 5, successRate: 90, dailyActions: 25 }
+      },
+      creatorId: 'system'
+    });
+
+    // 13. SDR Campaign Agent
+    this.createAgent({
+      name: 'SDR Campaign Manager',
+      type: AgentType.SDR_CAMPAIGN_MANAGER,
+      description: 'Manages SDR campaigns and outreach sequences',
+      capabilities: [
+        {
+          id: 'campaign_creation',
+          name: 'Campaign Creation',
+          description: 'Create and optimize SDR campaigns',
+          functionName: 'create_sdr_campaign',
+          triggers: [{ type: TriggerType.MANUAL, conditions: {} }],
+          cooldown: 60,
+          priority: 'high',
+          requiresConfirmation: true
+        },
+        {
+          id: 'sequence_optimization',
+          name: 'Sequence Optimization',
+          description: 'Optimize email and call sequences',
+          functionName: 'optimize_sequence',
+          triggers: [{ type: TriggerType.MANUAL, conditions: {} }],
+          cooldown: 180,
+          priority: 'medium',
+          requiresConfirmation: false
+        }
+      ],
+      personality: {
+        tone: 'strategic',
+        communicationStyle: 'detailed',
+        initiativeLevel: 'reactive',
+        riskTolerance: 'moderate',
+        responseLength: 'detailed'
+      },
+      permissions: {
+        level: PermissionLevel.READ_WRITE,
+        allowedEntities: ['campaigns', 'contacts', 'sequences'],
+        restrictedActions: ['delete'],
+        dataScope: 'owned',
+        rateLimits: { actionsPerHour: 100, apiCallsPerMinute: 10 },
+        allowedTriggers: [TriggerType.MANUAL]
+      },
+      configuration: {
+        autoStart: false,
+        workingHours: {
+          enabled: true,
+          timezone: 'UTC',
+          startTime: '09:00',
+          endTime: '17:00',
+          daysOfWeek: [1, 2, 3, 4, 5]
+        },
+        notificationPreferences: { email: true, inApp: true },
+        performanceTargets: { responseTime: 10, successRate: 88, dailyActions: 50 }
+      },
+      creatorId: 'system'
+    });
+
+    // 14. Memory & Context Agent
+    this.createAgent({
+      name: 'Memory Keeper',
+      type: AgentType.MEMORY_KEEPER,
+      description: 'Manages memory, context, and learning from interactions',
+      capabilities: [
+        {
+          id: 'memory_retrieval',
+          name: 'Memory Retrieval',
+          description: 'Retrieve relevant context from past interactions',
+          functionName: 'load_memory',
+          triggers: [{ type: TriggerType.MANUAL, conditions: {} }],
+          cooldown: 5,
+          priority: 'high',
+          requiresConfirmation: false
+        },
+        {
+          id: 'context_analysis',
+          name: 'Context Analysis',
+          description: 'Analyze conversation context and patterns',
+          functionName: 'analyze_context',
+          triggers: [{ type: TriggerType.MANUAL, conditions: {} }],
+          cooldown: 10,
+          priority: 'medium',
+          requiresConfirmation: false
+        }
+      ],
+      personality: {
+        tone: 'wise',
+        communicationStyle: 'reflective',
+        initiativeLevel: 'reactive',
+        riskTolerance: 'low',
+        responseLength: 'normal'
+      },
+      permissions: {
+        level: PermissionLevel.READ_ONLY,
+        allowedEntities: ['memory', 'context', 'conversations'],
+        restrictedActions: ['create', 'update', 'delete'],
+        dataScope: 'owned',
+        rateLimits: { actionsPerHour: 200, apiCallsPerMinute: 20 },
+        allowedTriggers: [TriggerType.MANUAL]
+      },
+      configuration: {
+        autoStart: true,
+        workingHours: {
+          enabled: true,
+          timezone: 'UTC',
+          startTime: '00:00',
+          endTime: '23:59',
+          daysOfWeek: [1, 2, 3, 4, 5, 6, 7] // Always available
+        },
+        notificationPreferences: { email: false, inApp: false },
+        performanceTargets: { responseTime: 2, successRate: 99, dailyActions: 100 }
+      },
+      creatorId: 'system'
+    });
+
+    // 15. Error Monitoring Agent
+    this.createAgent({
+      name: 'System Monitor',
+      type: AgentType.SYSTEM_MONITOR,
+      description: 'Monitors system health and handles error reporting',
+      capabilities: [
+        {
+          id: 'error_detection',
+          name: 'Error Detection',
+          description: 'Detect and categorize system errors',
+          functionName: 'detect_errors',
+          triggers: [{ type: TriggerType.MANUAL, conditions: {} }],
+          cooldown: 5,
+          priority: 'high',
+          requiresConfirmation: false
+        },
+        {
+          id: 'system_health',
+          name: 'System Health Check',
+          description: 'Monitor overall system health and performance',
+          functionName: 'check_system_health',
+          triggers: [{ type: TriggerType.TIME_BASED, conditions: { frequency: 'hourly' } }],
+          cooldown: 3600, // Hourly
+          priority: 'medium',
+          requiresConfirmation: false
+        }
+      ],
+      personality: {
+        tone: 'alert',
+        communicationStyle: 'concise',
+        initiativeLevel: 'proactive',
+        riskTolerance: 'low',
+        responseLength: 'brief'
+      },
+      permissions: {
+        level: PermissionLevel.READ_ONLY,
+        allowedEntities: ['system', 'errors', 'logs'],
+        restrictedActions: ['create', 'update', 'delete'],
+        dataScope: 'all',
+        rateLimits: { actionsPerHour: 120, apiCallsPerMinute: 12 },
+        allowedTriggers: [TriggerType.TIME_BASED, TriggerType.MANUAL]
+      },
+      configuration: {
+        autoStart: true,
+        workingHours: {
+          enabled: true,
+          timezone: 'UTC',
+          startTime: '00:00',
+          endTime: '23:59',
+          daysOfWeek: [1, 2, 3, 4, 5, 6, 7] // 24/7 monitoring
+        },
+        notificationPreferences: { email: true, inApp: true },
+        performanceTargets: { responseTime: 1, successRate: 100, dailyActions: 50 }
+      },
+      creatorId: 'system'
+    });
+
+    // 16. Personalization Agent
+    this.createAgent({
+      name: 'Personalization Assistant',
+      type: AgentType.PERSONALIZATION_ASSISTANT,
+      description: 'Manages themes, preferences, and user personalization',
+      capabilities: [
+        {
+          id: 'theme_optimization',
+          name: 'Theme Optimization',
+          description: 'Optimize themes and UI for user preferences',
+          functionName: 'optimize_theme',
+          triggers: [{ type: TriggerType.MANUAL, conditions: {} }],
+          cooldown: 60,
+          priority: 'low',
+          requiresConfirmation: false
+        },
+        {
+          id: 'preference_learning',
+          name: 'Preference Learning',
+          description: 'Learn and adapt to user preferences',
+          functionName: 'learn_preferences',
+          triggers: [{ type: TriggerType.MANUAL, conditions: {} }],
+          cooldown: 300,
+          priority: 'low',
+          requiresConfirmation: false
+        }
+      ],
+      personality: {
+        tone: 'helpful',
+        communicationStyle: 'friendly',
+        initiativeLevel: 'reactive',
+        riskTolerance: 'low',
+        responseLength: 'brief'
+      },
+      permissions: {
+        level: PermissionLevel.READ_WRITE,
+        allowedEntities: ['preferences', 'themes', 'ui'],
+        restrictedActions: ['delete'],
+        dataScope: 'owned',
+        rateLimits: { actionsPerHour: 40, apiCallsPerMinute: 4 },
+        allowedTriggers: [TriggerType.MANUAL]
+      },
+      configuration: {
+        autoStart: false,
+        workingHours: {
+          enabled: true,
+          timezone: 'UTC',
+          startTime: '08:00',
+          endTime: '20:00',
+          daysOfWeek: [1, 2, 3, 4, 5, 6, 7]
+        },
+        notificationPreferences: { email: false, inApp: true },
+        performanceTargets: { responseTime: 5, successRate: 95, dailyActions: 20 }
       },
       creatorId: 'system'
     });

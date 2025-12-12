@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Tooltip as CustomTooltip } from './ui/Tooltip';
+import { EmbeddedAgentInterface } from './agents/EmbeddedAgentInterface';
 import {
   LineChart,
   Line,
@@ -8,20 +9,20 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
-  Tooltip,
+  Tooltip as RechartsTooltip,
   Legend,
   ResponsiveContainer,
   PieChart,
   Pie,
   Cell
 } from 'recharts';
-import { 
-  DollarSign, 
-  Target, 
-  Users, 
-  TrendingUp, 
-  Activity, 
-  ZapOff, 
+import {
+  DollarSign,
+  Target,
+  Users,
+  TrendingUp,
+  Activity,
+  ZapOff,
   Calendar,
   ArrowUp,
   BarChart3,
@@ -198,10 +199,18 @@ const DealAnalytics: React.FC<DealAnalyticsProps> = ({ deals, contacts = [] }) =
 
   return (
     <div className="space-y-6 mb-8">
+      {/* AI Agent Integration */}
+      <EmbeddedAgentInterface
+        contextType="analytics"
+        contextData={{ deals: Object.values(deals), contacts }}
+        isCompact={false}
+        className="mb-6"
+      />
+
       {/* KPI Metrics Dashboard */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {kpiMetrics.map((metric, index) => (
-          <Tooltip key={index} content={`${metric.title}: ${metric.description}. ${metric.changeType === 'increase' ? 'Up' : 'Down'} ${Math.abs(metric.change)}% from last period`} position="bottom">
+          <CustomTooltip key={index} content={`${metric.title}: ${metric.description}. ${metric.changeType === 'increase' ? 'Up' : 'Down'} ${Math.abs(metric.change)}% from last period`} position="bottom">
             <div className="relative overflow-hidden bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4">
               <div className="flex items-center justify-between mb-3">
                   <metric.icon className="h-5 w-5 text-blue-600 dark:text-blue-400" />
@@ -219,7 +228,7 @@ const DealAnalytics: React.FC<DealAnalyticsProps> = ({ deals, contacts = [] }) =
                 <p className="text-xs text-gray-500 dark:text-gray-400">{metric.description}</p>
               </div>
             </div>
-          </Tooltip>
+          </CustomTooltip>
         ))}
       </div>
 
@@ -269,7 +278,7 @@ const DealAnalytics: React.FC<DealAnalyticsProps> = ({ deals, contacts = [] }) =
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-base font-semibold text-gray-900">Revenue Performance Trend</h3>
             <div className="flex gap-2">
-              <Tooltip content="View last 7 days of performance data" position="bottom">
+              <CustomTooltip content="View last 7 days of performance data" position="bottom">
                 <button
                   onClick={() => setSelectedPeriod('week')}
                   className={`px-3 py-1 text-sm rounded-md transition-colors ${
@@ -280,8 +289,8 @@ const DealAnalytics: React.FC<DealAnalyticsProps> = ({ deals, contacts = [] }) =
                 >
                   Week
                 </button>
-              </Tooltip>
-              <Tooltip content="View last 30 days of performance data" position="bottom">
+              </CustomTooltip>
+              <CustomTooltip content="View last 30 days of performance data" position="bottom">
                 <button
                   onClick={() => setSelectedPeriod('month')}
                   className={`px-3 py-1 text-sm rounded-md transition-colors ${
@@ -292,8 +301,8 @@ const DealAnalytics: React.FC<DealAnalyticsProps> = ({ deals, contacts = [] }) =
                 >
                   Month
                 </button>
-              </Tooltip>
-              <Tooltip content="View last 90 days of performance data" position="bottom">
+              </CustomTooltip>
+              <CustomTooltip content="View last 90 days of performance data" position="bottom">
                 <button
                   onClick={() => setSelectedPeriod('quarter')}
                   className={`px-3 py-1 text-sm rounded-md transition-colors ${
@@ -304,7 +313,7 @@ const DealAnalytics: React.FC<DealAnalyticsProps> = ({ deals, contacts = [] }) =
                 >
                   Quarter
                 </button>
-              </Tooltip>
+              </CustomTooltip>
             </div>
           </div>
           <ResponsiveContainer width="100%" height={280}>
@@ -320,13 +329,13 @@ const DealAnalytics: React.FC<DealAnalyticsProps> = ({ deals, contacts = [] }) =
                 axisLine={{ stroke: '#e0e0e0' }}
                 tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`}
               />
-              <Tooltip 
+              <RechartsTooltip
                 formatter={(value: any, name: string) => [
                   name === 'revenue' ? `$${(value / 1000).toFixed(1)}k` : value,
                   name === 'revenue' ? 'Revenue' : name === 'deals' ? 'Deals Closed' : 'Pipeline Value'
                 ]}
                 labelStyle={{ color: '#374151' }}
-                contentStyle={{ 
+                contentStyle={{
                   backgroundColor: '#ffffff',
                   border: '1px solid #e5e7eb',
                   borderRadius: '8px',
@@ -371,7 +380,7 @@ const DealAnalytics: React.FC<DealAnalyticsProps> = ({ deals, contacts = [] }) =
                   <Cell key={`cell-${index}`} fill={entry.color} />
                 ))}
               </Pie>
-              <Tooltip formatter={(value: any) => [`$${(value / 1000).toFixed(1)}k`, 'Value']} />
+              <RechartsTooltip formatter={(value: any) => [`$${(value / 1000).toFixed(1)}k`, 'Value']} />
               <Legend />
             </PieChart>
           </ResponsiveContainer>
@@ -410,7 +419,7 @@ const DealAnalytics: React.FC<DealAnalyticsProps> = ({ deals, contacts = [] }) =
               <CartesianGrid strokeDasharray="3 3" horizontal={false} />
               <XAxis type="number" />
               <YAxis dataKey="stage" type="category" />
-              <Tooltip 
+              <RechartsTooltip
                 formatter={(value: any) => [`${value} deals`, 'Count']}
                 contentStyle={{ borderRadius: '6px' }}
               />

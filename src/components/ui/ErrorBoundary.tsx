@@ -23,7 +23,17 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('ErrorBoundary caught an error:', error, errorInfo);
+    // Sanitize error message to avoid exposing sensitive information
+    const sanitizedError = {
+      message: error.message,
+      name: error.name,
+      // Don't log stack traces in production
+      ...(process.env.NODE_ENV === 'development' && { stack: error.stack })
+    };
+    
+    console.error('ErrorBoundary caught an error:', sanitizedError, {
+      componentStack: errorInfo.componentStack?.substring(0, 200) // Limit stack trace length
+    });
     
     if (this.props.onError) {
       this.props.onError(error, errorInfo);
@@ -103,7 +113,12 @@ export class InlineErrorBoundary extends Component<InlineErrorBoundaryProps, Sta
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error(`Error in ${this.props.componentName || 'component'}:`, error, errorInfo);
+    // Sanitize error logging
+    console.error(
+      `Error in ${this.props.componentName || 'component'}:`,
+      error.name,
+      process.env.NODE_ENV === 'development' ? error.message : 'An error occurred'
+    );
   }
 
   render() {

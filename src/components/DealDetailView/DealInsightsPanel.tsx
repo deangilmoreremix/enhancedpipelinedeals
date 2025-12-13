@@ -4,6 +4,27 @@ import { Deal } from '../../types';
 import { Contact } from '../../types/contact';
 import { daysSince, isDealStale } from '../../utils/dateUtils';
 
+// Health score calculation configuration
+const HEALTH_SCORE_CONFIG = {
+  BASE_SCORE: 50,
+  PROBABILITY_MULTIPLIER: 0.5,
+  CONTACT_BONUS: 10,
+  RECENT_ACTIVITY_BONUS: {
+    VERY_RECENT: 15,    // < 3 days
+    RECENT: 5,          // < 7 days
+    STALE_PENALTY: -20  // > 14 days
+  },
+  STAGE_BONUS: {
+    NEGOTIATION: 10,
+    PROPOSAL: 10
+  },
+  PRIORITY_BONUS: {
+    HIGH: 10
+  },
+  MIN_SCORE: 0,
+  MAX_SCORE: 100
+};
+
 interface DealInsightsPanelProps {
   deal: Deal;
   contact: Contact | null;
@@ -14,31 +35,42 @@ export const DealInsightsPanel: React.FC<DealInsightsPanelProps> = ({ deal, cont
   const [loading, setLoading] = useState(false);
   const [insights, setInsights] = useState<any>(null);
 
-  // Calculate deal health score
+  // Calculate deal health score based on configured weights
   const calculateDealHealth = (): number => {
-    let score = 50; // Base score
+    let score = HEALTH_SCORE_CONFIG.BASE_SCORE;
     
     // Probability boost
-    score += (deal.probability - 50) * 0.5;
+    score += (deal.probability - 50) * HEALTH_SCORE_CONFIG.PROBABILITY_MULTIPLIER;
     
     // Contact linked boost
-    if (contact) score += 10;
+    if (contact) score += HEALTH_SCORE_CONFIG.CONTACT_BONUS;
     
-    // Recent activity boost
+    // Recent activity boost/penalty
     const daysSinceUpdate = daysSince(deal.updatedAt);
-    if (daysSinceUpdate < 3) score += 15;
-    else if (daysSinceUpdate < 7) score += 5;
-    else if (daysSinceUpdate > 14) score -= 20;
+    if (daysSinceUpdate < 3) {
+      score += HEALTH_SCORE_CONFIG.RECENT_ACTIVITY_BONUS.VERY_RECENT;
+    } else if (daysSinceUpdate < 7) {
+      score += HEALTH_SCORE_CONFIG.RECENT_ACTIVITY_BONUS.RECENT;
+    } else if (daysSinceUpdate > 14) {
+      score += HEALTH_SCORE_CONFIG.RECENT_ACTIVITY_BONUS.STALE_PENALTY;
+    }
     
     // Stage-based adjustments
-    if (deal.stage === 'negotiation' || deal.stage === 'proposal') score += 10;
-    if (deal.stage === 'closed-lost') score = 0;
-    if (deal.stage === 'closed-won') score = 100;
+    if (deal.stage === 'negotiation' || deal.stage === 'proposal') {
+      score += HEALTH_SCORE_CONFIG.STAGE_BONUS.NEGOTIATION;
+    }
+    if (deal.stage === 'closed-lost') score = HEALTH_SCORE_CONFIG.MIN_SCORE;
+    if (deal.stage === 'closed-won') score = HEALTH_SCORE_CONFIG.MAX_SCORE;
     
     // Priority boost
-    if (deal.priority === 'high') score += 10;
+    if (deal.priority === 'high') {
+      score += HEALTH_SCORE_CONFIG.PRIORITY_BONUS.HIGH;
+    }
     
-    return Math.min(100, Math.max(0, Math.round(score)));
+    return Math.min(
+      HEALTH_SCORE_CONFIG.MAX_SCORE,
+      Math.max(HEALTH_SCORE_CONFIG.MIN_SCORE, Math.round(score))
+    );
   };
 
   const healthScore = calculateDealHealth();

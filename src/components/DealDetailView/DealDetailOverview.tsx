@@ -1,5 +1,5 @@
 import React from 'react';
-import { User, Search, RefreshCw, FileText, Edit } from 'lucide-react';
+import { User, Search, RefreshCw, FileText, Edit, Mail, Phone, Calendar } from 'lucide-react';
 import { DealDetailOverviewProps } from './types';
 
 export const DealDetailOverview: React.FC<DealDetailOverviewProps> = ({
@@ -92,17 +92,17 @@ export const DealDetailOverview: React.FC<DealDetailOverviewProps> = ({
 
       {/* Contact Information Card */}
       {linkedContact && (
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm">
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
           <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
             <User className="w-5 h-5 mr-2 text-blue-500 dark:text-blue-400" />
             Contact Information
           </h4>
 
-          <div className="flex items-start space-x-4">
+          <div className="flex items-start space-x-4 mb-4">
             <img
               src={linkedContact.avatarSrc || `https://api.dicebear.com/7.x/avataaars/svg?seed=${linkedContact.name}`}
               alt={linkedContact.name}
-              className="w-16 h-16 rounded-lg border border-gray-200 dark:border-gray-600"
+              className="w-16 h-16 rounded-lg border-2 border-gray-200 dark:border-gray-600 shadow-sm"
             />
 
             <div className="flex-1">
@@ -112,20 +112,36 @@ export const DealDetailOverview: React.FC<DealDetailOverviewProps> = ({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Email</p>
-                  <a href={`mailto:${linkedContact.email}`} className="text-blue-600 dark:text-blue-400 hover:underline">
+                  <a href={`mailto:${linkedContact.email}`} className="text-blue-600 dark:text-blue-400 hover:underline text-sm">
                     {linkedContact.email}
                   </a>
                 </div>
                 {linkedContact.phone && (
                   <div>
                     <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Phone</p>
-                    <a href={`tel:${linkedContact.phone}`} className="text-blue-600 dark:text-blue-400 hover:underline">
+                    <a href={`tel:${linkedContact.phone}`} className="text-blue-600 dark:text-blue-400 hover:underline text-sm">
                       {linkedContact.phone}
                     </a>
                   </div>
                 )}
               </div>
             </div>
+          </div>
+
+          {/* Contact Quick Actions */}
+          <div className="grid grid-cols-3 gap-2 pt-4 border-t border-gray-200 dark:border-gray-700">
+            <button className="flex items-center justify-center space-x-2 px-4 py-2 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors text-sm font-medium">
+              <Mail className="w-4 h-4" />
+              <span>Email</span>
+            </button>
+            <button className="flex items-center justify-center space-x-2 px-4 py-2 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-lg hover:bg-green-100 dark:hover:bg-green-900/50 transition-colors text-sm font-medium">
+              <Phone className="w-4 h-4" />
+              <span>Call</span>
+            </button>
+            <button className="flex items-center justify-center space-x-2 px-4 py-2 bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-900/50 transition-colors text-sm font-medium">
+              <Calendar className="w-4 h-4" />
+              <span>Meeting</span>
+            </button>
           </div>
         </div>
       )}

@@ -33,12 +33,18 @@ export const DealDetailOverview: React.FC<DealDetailOverviewProps> = ({
 
   // Calculate deal health metrics
   const dealMetrics = useMemo(() => {
-    const daysActive = Math.ceil((new Date().getTime() - editedDeal.createdAt.getTime()) / (1000 * 60 * 60 * 24));
+    const now = Date.now();
+    const createdTime = editedDeal.createdAt.getTime();
+    const daysActive = Math.ceil((now - createdTime) / (1000 * 60 * 60 * 24));
     const expectedValue = editedDeal.value * (editedDeal.probability / 100);
     const isStale = daysActive > 30;
     const isHighValue = editedDeal.value > 50000;
     
-    return { daysActive, expectedValue, isStale, isHighValue };
+    // Calculate progress bar width based on 90-day cycle
+    const maxDays = 90;
+    const progressWidth = Math.min((daysActive / maxDays) * 100, 100);
+    
+    return { daysActive, expectedValue, isStale, isHighValue, progressWidth };
   }, [editedDeal]);
 
   return (
@@ -97,7 +103,8 @@ export const DealDetailOverview: React.FC<DealDetailOverviewProps> = ({
             <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 mt-2">
               <div 
                 className={`h-1.5 rounded-full ${dealMetrics.isStale ? 'bg-amber-500' : 'bg-blue-500'}`}
-                style={{ width: `${Math.min(dealMetrics.daysActive, 100)}%` }}
+                style={{ width: `${dealMetrics.progressWidth}%` }}
+                title={`${dealMetrics.daysActive} of 90 days`}
               />
             </div>
           </div>
@@ -228,7 +235,19 @@ export const DealDetailOverview: React.FC<DealDetailOverviewProps> = ({
             </div>
           </div>
         ) : (
-          <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 border border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 transition-colors cursor-pointer" onClick={() => onStartEditingField('notes')}>
+          <div 
+            className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 border border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 transition-colors cursor-pointer" 
+            onClick={() => onStartEditingField('notes')}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onStartEditingField('notes');
+              }
+            }}
+            tabIndex={0}
+            role="button"
+            aria-label="Click to edit notes"
+          >
             {editedDeal.notes ? (
               <p className="text-gray-700 dark:text-gray-300 whitespace-pre-line leading-relaxed">
                 {editedDeal.notes}

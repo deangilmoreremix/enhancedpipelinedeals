@@ -94,12 +94,11 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
     } catch (error) {
       console.error('Failed to update deal:', error);
       setError('Failed to save changes. Please try again.');
-      // Revert changes on error
-      dispatch(dealDetailActions.updateEditedDeal(deal));
+      // Note: Keep current edits so user can retry without losing changes
     } finally {
       dispatch(dealDetailActions.setSaving(false));
     }
-  }, [deal, state.editedDeal, onUpdate]);
+  }, [deal.id, state.editedDeal, onUpdate]);
 
   const handleCancel = useCallback(() => {
     dispatch(dealDetailActions.updateEditedDeal(deal));

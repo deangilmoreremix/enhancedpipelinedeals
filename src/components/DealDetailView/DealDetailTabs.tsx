@@ -17,6 +17,13 @@ export const DealDetailTabs: React.FC<DealDetailTabsProps> = ({
 
   // Keyboard navigation support
   const handleKeyPress = useCallback((e: KeyboardEvent) => {
+    // Only handle keyboard shortcuts if the modal is focused
+    // Check if we're in an input field
+    const target = e.target as HTMLElement;
+    if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+      return;
+    }
+    
     // Alt + number to switch tabs
     if (e.altKey && !e.ctrlKey && !e.shiftKey) {
       const tab = tabs.find(t => t.shortcut === e.key);

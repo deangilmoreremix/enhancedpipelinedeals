@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Brain, TrendingUp, AlertTriangle, CheckCircle, Target, Lightbulb, Users, Clock, DollarSign, BarChart3 } from 'lucide-react';
 import { Deal } from '../../types';
 import { Contact } from '../../types/contact';
+import { daysSince, isDealStale } from '../../utils/dateUtils';
 
 interface DealInsightsPanelProps {
   deal: Deal;
@@ -24,7 +25,7 @@ export const DealInsightsPanel: React.FC<DealInsightsPanelProps> = ({ deal, cont
     if (contact) score += 10;
     
     // Recent activity boost
-    const daysSinceUpdate = Math.floor((Date.now() - new Date(deal.updatedAt).getTime()) / (1000 * 60 * 60 * 24));
+    const daysSinceUpdate = daysSince(deal.updatedAt);
     if (daysSinceUpdate < 3) score += 15;
     else if (daysSinceUpdate < 7) score += 5;
     else if (daysSinceUpdate > 14) score -= 20;
@@ -79,8 +80,8 @@ export const DealInsightsPanel: React.FC<DealInsightsPanelProps> = ({ deal, cont
         {
           icon: Clock,
           title: 'Engagement Gap',
-          description: 'Last meaningful interaction was 5 days ago. Risk of losing momentum.',
-          severity: 'high'
+          description: `Last meaningful interaction was ${daysSince(deal.updatedAt)} days ago. Risk of losing momentum.`,
+          severity: isDealStale(deal.updatedAt, 7) ? 'high' : 'medium'
         }
       ],
       strengths: [

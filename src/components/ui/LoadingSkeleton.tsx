@@ -8,6 +8,11 @@ interface LoadingSkeletonProps {
   count?: number;
 }
 
+// Helper to convert size to pixel string
+const toPixels = (size: string | number): string => {
+  return typeof size === 'number' ? `${size}px` : size;
+};
+
 export const LoadingSkeleton: React.FC<LoadingSkeletonProps> = ({
   variant = 'text',
   width = '100%',
@@ -32,10 +37,10 @@ export const LoadingSkeleton: React.FC<LoadingSkeletonProps> = ({
   };
 
   const getDefaultHeight = () => {
-    if (height) return height;
+    if (height) return toPixels(height);
     switch (variant) {
       case 'circular':
-        return width;
+        return toPixels(width);
       case 'card':
         return '200px';
       case 'text':
@@ -46,8 +51,8 @@ export const LoadingSkeleton: React.FC<LoadingSkeletonProps> = ({
   };
 
   const skeletonStyle = {
-    width: typeof width === 'number' ? `${width}px` : width,
-    height: typeof height === 'number' ? `${height}px` : getDefaultHeight()
+    width: toPixels(width),
+    height: getDefaultHeight()
   };
 
   return (

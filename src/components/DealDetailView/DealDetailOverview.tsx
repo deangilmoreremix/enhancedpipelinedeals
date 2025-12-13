@@ -1,6 +1,7 @@
 import React from 'react';
 import { User, Search, RefreshCw, FileText, Edit, Mail, Phone, Calendar } from 'lucide-react';
 import { DealDetailOverviewProps } from './types';
+import { daysSince } from '../../utils/dateUtils';
 
 export const DealDetailOverview: React.FC<DealDetailOverviewProps> = ({
   deal,
@@ -31,9 +32,9 @@ export const DealDetailOverview: React.FC<DealDetailOverviewProps> = ({
     return colors[stage] || 'bg-gray-500';
   };
 
-  // Calculate days in current stage
-  const daysInStage = Math.ceil((Date.now() - new Date(editedDeal.updatedAt).getTime()) / (1000 * 60 * 60 * 24));
-  const daysActive = Math.ceil((Date.now() - new Date(editedDeal.createdAt).getTime()) / (1000 * 60 * 60 * 24));
+  // Calculate days in current stage and total active days
+  const daysInStage = daysSince(editedDeal.updatedAt);
+  const daysActive = daysSince(editedDeal.createdAt);
 
   return (
     <div className="p-6 space-y-6">

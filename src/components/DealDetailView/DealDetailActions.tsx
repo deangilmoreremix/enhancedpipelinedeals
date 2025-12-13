@@ -32,7 +32,7 @@ export const DealDetailActions: React.FC<DealDetailActionsProps> = ({
       getErrorReportingService().reportError(error as Error, {
         context: 'Context detection in DealDetailActions',
         dealId: deal.id,
-        userId: user?.id
+        userId: user?.id || 'anonymous'
       });
 
       // Fallback to basic logic if context detection fails

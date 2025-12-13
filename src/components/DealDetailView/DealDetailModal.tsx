@@ -4,6 +4,7 @@ import { DealDetailTabs } from './DealDetailTabs';
 import { DealDetailOverview } from './DealDetailOverview';
 import { DealDetailActions } from './DealDetailActions';
 import { SDRResultsModal } from './SDRResultsModal';
+import { DealInsightsPanel } from './DealInsightsPanel';
 import { DealJourneyTimeline } from '../DealJourneyTimeline';
 import { DealCommunicationHub } from '../DealCommunicationHub';
 import { DealAnalyticsDashboard } from '../DealAnalyticsDashboard';
@@ -458,25 +459,11 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
             )}
 
             {state.activeTab === 'insights' && (
-              <div className="p-6">
-                {state.linkedContact ? (
-                  <div>AI Insights Panel would go here</div>
-                ) : (
-                  <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-                    <div className="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto mb-3">🤖</div>
-                    <h4 className="text-lg font-medium text-gray-700 dark:text-gray-300 mb-2">No Contact Linked</h4>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                      Link a contact to this deal to view AI insights and recommendations.
-                    </p>
-                    <button
-                      onClick={() => dispatch(dealDetailActions.setShowContactSelector(true))}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-                    >
-                      Link Contact
-                    </button>
-                  </div>
-                )}
-              </div>
+              <DealInsightsPanel
+                deal={state.editedDeal}
+                contact={state.linkedContact}
+                onAction={(action) => handleAction(action as any)}
+              />
             )}
 
             {state.activeTab === 'journey' && (

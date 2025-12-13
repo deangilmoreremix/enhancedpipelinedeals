@@ -16,12 +16,15 @@ import {
   Eye,
   RefreshCw,
   TrendingUp,
-  Target
+  Target,
+  UserPlus
 } from 'lucide-react';
-import { enhancedContactImportService, ContactImportResult, ContactImportProgress } from '../../services/enhancedContactImportService';
+import { enhancedContactImportService, ContactImportResult, ContactImportProgress, AIEnrichmentData } from '../../services/enhancedContactImportService';
 import { contactTemplateService, ContactImportTemplate } from '../../services/contactTemplateService';
 import { contactDuplicateService, DuplicateAnalysis, DuplicateResolution } from '../../services/contactDuplicateService';
 import { AIErrorBoundary } from '../ui/AIErrorBoundary';
+import { Contact } from '../../types/contact';
+import { ContactForm } from './ContactForm';
 
 interface ContactImportWizardProps {
   isOpen: boolean;
@@ -29,9 +32,11 @@ interface ContactImportWizardProps {
   onImportComplete: (results: ContactImportResult<any>) => void;
 }
 
-type WizardStep = 'upload' | 'template' | 'preview' | 'enrichment' | 'duplicates' | 'import' | 'complete';
+type WizardStep = 'method-selection' | 'upload' | 'template' | 'preview' | 'enrichment' | 'duplicates' | 'import' | 'single-form' | 'complete';
+type ImportMethod = 'bulk' | 'single';
 
 interface ImportState {
+  method: ImportMethod;
   file: File | null;
   fileContent: string | ArrayBuffer;
   format: 'csv' | 'json' | 'excel' | 'xml' | 'tsv' | 'yaml';
@@ -47,6 +52,7 @@ interface ImportState {
   previewData: any[];
   importResults: ContactImportResult<any> | null;
   duplicates: DuplicateAnalysis[];
+  singleContactData: Partial<Contact>;
   currentStep: WizardStep;
   isProcessing: boolean;
   progress: ContactImportProgress | null;
@@ -58,6 +64,7 @@ export const ContactImportWizard: React.FC<ContactImportWizardProps> = ({
   onImportComplete
 }) => {
   const [state, setState] = useState<ImportState>({
+    method: 'bulk',
     file: null,
     fileContent: '',
     format: 'csv',
@@ -73,7 +80,8 @@ export const ContactImportWizard: React.FC<ContactImportWizardProps> = ({
     previewData: [],
     importResults: null,
     duplicates: [],
-    currentStep: 'upload',
+    singleContactData: {},
+    currentStep: 'method-selection',
     isProcessing: false,
     progress: null
   });
@@ -222,6 +230,41 @@ export const ContactImportWizard: React.FC<ContactImportWizardProps> = ({
     }
   }, [state, updateState, onImportComplete]);
 
+  const handleSingleContactSubmit = useCallback(async (contact: Contact & AIEnrichmentData) => {
+    updateState({ isProcessing: true });
+
+    try {
+      // For single contact creation, we'll skip duplicate checking for now
+      // In production, you'd implement proper duplicate detection
+      console.log('Creating single contact:', contact.name);
+
+      // Create mock import result for single contact
+      const importResult: ContactImportResult<Contact & AIEnrichmentData> = {
+        success: [contact],
+        errors: [],
+        duplicates: [],
+        totalProcessed: 1,
+        successCount: 1,
+        errorCount: 0,
+        duplicateCount: 0,
+        enrichedCount: 1,
+        processingTime: 0
+      };
+
+      updateState({
+        importResults: importResult,
+        currentStep: 'complete',
+        isProcessing: false
+      });
+
+      onImportComplete(importResult);
+    } catch (error) {
+      console.error('Single contact creation failed:', error);
+      updateState({ isProcessing: false });
+      // Handle error appropriately
+    }
+  }, [updateState, onImportComplete]);
+
   const handleDuplicateResolution = useCallback(async (resolutions: DuplicateResolution[]) => {
     if (!state.importResults) return;
 
@@ -256,21 +299,32 @@ export const ContactImportWizard: React.FC<ContactImportWizardProps> = ({
 
   const renderStepIndicator = () => {
     const steps: { key: WizardStep; label: string; icon: React.ComponentType<any> }[] = [
+      { key: 'method-selection', label: 'Method', icon: Settings },
       { key: 'upload', label: 'Upload', icon: Upload },
       { key: 'template', label: 'Template', icon: Settings },
       { key: 'preview', label: 'Preview', icon: Eye },
       { key: 'enrichment', label: 'Enrich', icon: Zap },
       { key: 'duplicates', label: 'Duplicates', icon: Users },
       { key: 'import', label: 'Import', icon: Download },
+      { key: 'single-form', label: 'Form', icon: UserPlus },
       { key: 'complete', label: 'Complete', icon: CheckCircle }
     ];
 
+    // Filter steps based on selected method
+    const filteredSteps = steps.filter(step => {
+      if (state.method === 'single') {
+        return ['method-selection', 'single-form', 'complete'].includes(step.key);
+      } else {
+        return !['single-form'].includes(step.key);
+      }
+    });
+
     return (
       <div className="flex items-center justify-between mb-8">
-        {steps.map((step, index) => {
+        {filteredSteps.map((step, index) => {
           const Icon = step.icon;
           const isActive = step.key === state.currentStep;
-          const isCompleted = steps.findIndex(s => s.key === state.currentStep) > index;
+          const isCompleted = filteredSteps.findIndex(s => s.key === state.currentStep) > index;
 
           return (
             <React.Fragment key={step.key}>
@@ -284,7 +338,7 @@ export const ContactImportWizard: React.FC<ContactImportWizardProps> = ({
                 </div>
                 <span className="text-xs mt-2 font-medium">{step.label}</span>
               </div>
-              {index < steps.length - 1 && (
+              {index < filteredSteps.length - 1 && (
                 <div className={`flex-1 h-0.5 mx-4 ${
                   isCompleted ? 'bg-green-600' : 'bg-gray-300'
                 }`} />
@@ -295,6 +349,86 @@ export const ContactImportWizard: React.FC<ContactImportWizardProps> = ({
       </div>
     );
   };
+
+  const renderMethodSelection = () => (
+    <div className="space-y-6">
+      <div className="text-center">
+        <Users className="w-16 h-16 text-blue-500 mx-auto mb-4" />
+        <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+          How would you like to add contacts?
+        </h3>
+        <p className="text-gray-600 dark:text-gray-300">
+          Choose between bulk import from files or adding individual contacts with AI enrichment
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Bulk Import Option */}
+        <div
+          onClick={() => updateState({ method: 'bulk', currentStep: 'upload' })}
+          className="border-2 border-gray-200 dark:border-gray-700 rounded-lg p-6 hover:border-blue-500 hover:shadow-md transition-all cursor-pointer"
+        >
+          <Upload className="w-12 h-12 text-blue-500 mx-auto mb-4" />
+          <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+            Bulk Import
+          </h4>
+          <p className="text-gray-600 dark:text-gray-300 text-sm mb-4">
+            Upload CSV, Excel, JSON, XML, TSV, or YAML files with multiple contacts
+          </p>
+          <div className="flex flex-wrap gap-1">
+            {['CSV', 'Excel', 'JSON', 'XML', 'TSV', 'YAML'].map(format => (
+              <span key={format} className="px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 text-xs rounded">
+                {format}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {/* Single Contact Option */}
+        <div
+          onClick={() => updateState({ method: 'single', currentStep: 'single-form' })}
+          className="border-2 border-gray-200 dark:border-gray-700 rounded-lg p-6 hover:border-green-500 hover:shadow-md transition-all cursor-pointer"
+        >
+          <UserPlus className="w-12 h-12 text-green-500 mx-auto mb-4" />
+          <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+            Add Single Contact
+          </h4>
+          <p className="text-gray-600 dark:text-gray-300 text-sm mb-4">
+            Manually add one contact with AI-powered enrichment and validation
+          </p>
+          <div className="flex flex-wrap gap-1">
+            {['AI Enrichment', 'Validation', 'Smart Fields'].map(feature => (
+              <span key={feature} className="px-2 py-1 bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 text-xs rounded">
+                {feature}
+              </span>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderSingleContactForm = () => (
+    <div className="space-y-6">
+      <div className="text-center">
+        <UserPlus className="w-16 h-16 text-green-500 mx-auto mb-4" />
+        <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+          Add New Contact
+        </h3>
+        <p className="text-gray-600 dark:text-gray-300">
+          Enter contact details and we'll enrich them with AI-powered intelligence
+        </p>
+      </div>
+
+      <ContactForm
+        initialData={state.singleContactData}
+        onSubmit={handleSingleContactSubmit}
+        onCancel={() => updateState({ currentStep: 'method-selection' })}
+        enrichmentOptions={state.enrichmentOptions}
+        isLoading={state.isProcessing}
+      />
+    </div>
+  );
 
   const renderUploadStep = () => (
     <div className="space-y-6">
@@ -674,11 +808,13 @@ export const ContactImportWizard: React.FC<ContactImportWizardProps> = ({
           <div className="p-6 overflow-y-auto max-h-[calc(90vh-140px)]">
             {renderStepIndicator()}
 
+            {state.currentStep === 'method-selection' && renderMethodSelection()}
             {state.currentStep === 'upload' && renderUploadStep()}
             {state.currentStep === 'template' && renderTemplateStep()}
             {state.currentStep === 'preview' && renderPreviewStep()}
             {state.currentStep === 'enrichment' && renderEnrichmentStep()}
             {state.currentStep === 'duplicates' && renderDuplicatesStep()}
+            {state.currentStep === 'single-form' && renderSingleContactForm()}
             {state.currentStep === 'complete' && renderCompleteStep()}
 
             {state.isProcessing && state.progress && (

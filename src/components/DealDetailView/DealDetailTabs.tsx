@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useCallback } from 'react';
 import { User, Brain, TrendingUp, MessageSquare, BarChart3, Zap } from 'lucide-react';
 import { DealDetailTabsProps } from './types';
 
@@ -7,37 +7,67 @@ export const DealDetailTabs: React.FC<DealDetailTabsProps> = ({
   onTabChange
 }) => {
   const tabs = [
-    { id: 'overview', label: 'Overview', icon: User },
-    { id: 'insights', label: 'AI Insights', icon: Brain },
-    { id: 'journey', label: 'Journey', icon: TrendingUp },
-    { id: 'communication', label: 'Communication', icon: MessageSquare },
-    { id: 'analytics', label: 'Analytics', icon: BarChart3 },
-    { id: 'automation', label: 'Automation', icon: Zap },
+    { id: 'overview', label: 'Overview', icon: User, shortcut: '1' },
+    { id: 'insights', label: 'AI Insights', icon: Brain, shortcut: '2' },
+    { id: 'journey', label: 'Journey', icon: TrendingUp, shortcut: '3' },
+    { id: 'communication', label: 'Communication', icon: MessageSquare, shortcut: '4' },
+    { id: 'analytics', label: 'Analytics', icon: BarChart3, shortcut: '5' },
+    { id: 'automation', label: 'Automation', icon: Zap, shortcut: '6' },
   ];
+
+  // Keyboard navigation support
+  const handleKeyPress = useCallback((e: KeyboardEvent) => {
+    // Alt + number to switch tabs
+    if (e.altKey && !e.ctrlKey && !e.shiftKey) {
+      const tab = tabs.find(t => t.shortcut === e.key);
+      if (tab) {
+        e.preventDefault();
+        onTabChange(tab.id);
+      }
+    }
+  }, [onTabChange]);
+
+  useEffect(() => {
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, [handleKeyPress]);
 
   return (
     <div className="border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 flex-shrink-0">
-      <div className="flex items-center justify-between p-5">
-        <div className="flex space-x-1">
+      <div className="flex items-center justify-between px-5 py-3">
+        <div className="flex space-x-1 overflow-x-auto">
           {tabs.map((tab) => {
             const Icon = tab.icon;
             return (
               <button
                 key={tab.id}
                 onClick={() => onTabChange(tab.id)}
+                title={`${tab.label} (Alt+${tab.shortcut})`}
                 className={`
-                  px-4 py-2 rounded-lg font-medium text-sm transition-all duration-200 flex items-center space-x-2
+                  relative px-4 py-2 rounded-lg font-medium text-sm transition-all duration-200 flex items-center space-x-2
                   ${activeTab === tab.id
-                    ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 shadow-sm'
+                    ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 shadow-sm scale-105'
                     : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800'
                   }
                 `}
               >
                 <Icon className="w-4 h-4" />
                 <span>{tab.label}</span>
+                {activeTab === tab.id && (
+                  <span className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-3/4 h-0.5 bg-blue-500 rounded-t-full"></span>
+                )}
+                <span className="hidden xl:inline-block text-xs opacity-60 ml-1">
+                  {tab.shortcut}
+                </span>
               </button>
             );
           })}
+        </div>
+        <div className="hidden lg:flex items-center space-x-2 text-xs text-gray-500 dark:text-gray-400">
+          <kbd className="px-2 py-1 bg-gray-100 dark:bg-gray-800 rounded border border-gray-300 dark:border-gray-600">Alt</kbd>
+          <span>+</span>
+          <kbd className="px-2 py-1 bg-gray-100 dark:bg-gray-800 rounded border border-gray-300 dark:border-gray-600">1-6</kbd>
+          <span className="ml-2">to switch tabs</span>
         </div>
       </div>
     </div>

@@ -25,7 +25,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/38</span>
+                <span class='fraction'>0/28</span>
             </div>
         
             
@@ -46,7 +46,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/23</span>
+                <span class='fraction'>0/20</span>
             </div>
         
             
@@ -110,29 +110,18 @@
 <a name='L45'></a><a href='#L45'>45</a>
 <a name='L46'></a><a href='#L46'>46</a>
 <a name='L47'></a><a href='#L47'>47</a>
-<a name='L48'></a><a href='#L48'>48</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
+<a name='L48'></a><a href='#L48'>48</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -142,6 +131,17 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -157,13 +157,13 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js"><span class="cstat-no" title="statement not covered" >import { useState, useEffect } from 'react';</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { useState, useEffect } from 'react';
 &nbsp;
 /**
  * Hook to detect if a media query matches
  * Useful for responsive behavior and feature detection
  */
-<span class="cstat-no" title="statement not covered" >export function <span class="fstat-no" title="function not covered" >u</span>seMediaQuery(</span>query: string): boolean {
+export function <span class="fstat-no" title="function not covered" >useMediaQuery(</span>query: string): boolean {
   // Initialize with the current match state
   const getMatches = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >(): boolean =</span>&gt; {</span>
     // SSR safety check
@@ -196,22 +196,22 @@
 }
 &nbsp;
 // Export common media queries
-export const <span class="cstat-no" title="statement not covered" >useIsDarkMode = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >(</span>) =</span>&gt; <span class="cstat-no" title="statement not covered" >useMediaQuery('(prefers-color-scheme: dark)');</span></span>
-export const <span class="cstat-no" title="statement not covered" >usePrefersReducedMotion = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >(</span>) =</span>&gt; <span class="cstat-no" title="statement not covered" >useMediaQuery('(prefers-reduced-motion: reduce)');</span></span>
-export const <span class="cstat-no" title="statement not covered" >useIsMobile = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >(</span>) =</span>&gt; <span class="cstat-no" title="statement not covered" >useMediaQuery('(max-width: 767px)');</span></span>
-export const <span class="cstat-no" title="statement not covered" >useIsTablet = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >(</span>) =</span>&gt; <span class="cstat-no" title="statement not covered" >useMediaQuery('(min-width: 768px) and (max-width: 1023px)');</span></span>
-export const <span class="cstat-no" title="statement not covered" >useIsDesktop = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >(</span>) =</span>&gt; <span class="cstat-no" title="statement not covered" >useMediaQuery('(min-width: 1024px)');</span></span>
-export const <span class="cstat-no" title="statement not covered" >useIsLargeDesktop = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >(</span>) =</span>&gt; <span class="cstat-no" title="statement not covered" >useMediaQuery('(min-width: 1440px)');</span></span>
-export const <span class="cstat-no" title="statement not covered" >useIsTouchDevice = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >(</span>) =</span>&gt; <span class="cstat-no" title="statement not covered" >useMediaQuery('(hover: none) and (pointer: coarse)');</span></span>
+export const useIsDarkMode = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >() =</span>&gt; <span class="cstat-no" title="statement not covered" >useMediaQuery('(prefers-color-scheme: dark)');</span></span>
+export const usePrefersReducedMotion = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >() =</span>&gt; <span class="cstat-no" title="statement not covered" >useMediaQuery('(prefers-reduced-motion: reduce)');</span></span>
+export const useIsMobile = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >() =</span>&gt; <span class="cstat-no" title="statement not covered" >useMediaQuery('(max-width: 767px)');</span></span>
+export const useIsTablet = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >() =</span>&gt; <span class="cstat-no" title="statement not covered" >useMediaQuery('(min-width: 768px) and (max-width: 1023px)');</span></span>
+export const useIsDesktop = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >() =</span>&gt; <span class="cstat-no" title="statement not covered" >useMediaQuery('(min-width: 1024px)');</span></span>
+export const useIsLargeDesktop = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >() =</span>&gt; <span class="cstat-no" title="statement not covered" >useMediaQuery('(min-width: 1440px)');</span></span>
+export const useIsTouchDevice = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >() =</span>&gt; <span class="cstat-no" title="statement not covered" >useMediaQuery('(hover: none) and (pointer: coarse)');</span></span>
 &nbsp;
-<span class="cstat-no" title="statement not covered" >export default useMediaQuery;</span></pre></td></tr></table></pre>
+export default useMediaQuery;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
             </div><!-- /wrapper -->
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-12-12T05:07:54.305Z
+                at 2025-12-13T19:19:21.831Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

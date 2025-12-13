@@ -25,7 +25,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/310</span>
+                <span class='fraction'>0/291</span>
             </div>
         
             
@@ -39,14 +39,14 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/88</span>
+                <span class='fraction'>0/83</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/267</span>
+                <span class='fraction'>0/253</span>
             </div>
         
             
@@ -1051,23 +1051,19 @@
 <a name='L986'></a><a href='#L986'>986</a>
 <a name='L987'></a><a href='#L987'>987</a>
 <a name='L988'></a><a href='#L988'>988</a>
-<a name='L989'></a><a href='#L989'>989</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<a name='L989'></a><a href='#L989'>989</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -1075,8 +1071,12 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -2039,32 +2039,32 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js"><span class="cstat-no" title="statement not covered" >import React, { useState, useMemo, useEffect, Suspense } from 'react';</span>
-<span class="cstat-no" title="statement not covered" >import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';</span>
-<span class="cstat-no" title="statement not covered" >import { useSmartAI } from '../hooks/useSmartAI';</span>
-<span class="cstat-no" title="statement not covered" >import { useGamificationUpdates } from '../hooks/useGamificationUpdates';</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import React, { useState, useMemo, useEffect, Suspense } from 'react';
+import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
+import { useSmartAI } from '../hooks/useSmartAI';
+import { useGamificationUpdates } from '../hooks/useGamificationUpdates';
 import { DealCard } from './ui/DealCard';
 import { ImageUpload } from './ui/ImageUpload';
-<span class="cstat-no" title="statement not covered" >import { AIEnhancedDealCard } from './AIEnhancedDealCard';</span>
+import { AIEnhancedDealCard } from './AIEnhancedDealCard';
 import { EnhancedAIStatusIndicator } from './ui/EnhancedAIStatusIndicator';
-<span class="cstat-no" title="statement not covered" >import DealDetail from './DealDetail';</span>
-<span class="cstat-no" title="statement not covered" >import PipelineStats from './PipelineStats';</span>
+import DealDetail from './DealDetail';
+import PipelineStats from './PipelineStats';
 import DealAnalytics from './DealAnalytics';
 &nbsp;
 // Lazy load view components for code splitting
-const DealListView = <span class="cstat-no" title="statement not covered" >React.lazy(<span class="fstat-no" title="function not covered" >() =</span>&gt; <span class="cstat-no" title="statement not covered" ><span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >import('</span>./DealListView').t</span>hen(<span class="fstat-no" title="function not covered" >module </span>=&gt; (<span class="cstat-no" title="statement not covered" >{ default: module.DealListView })</span>))</span>;</span>
-const DealTableView = <span class="cstat-no" title="statement not covered" >React.lazy(<span class="fstat-no" title="function not covered" >() =</span>&gt; <span class="cstat-no" title="statement not covered" ><span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >import('</span>./DealTableView').t</span>hen(<span class="fstat-no" title="function not covered" >module </span>=&gt; (<span class="cstat-no" title="statement not covered" >{ default: module.DealTableView })</span>))</span>;</span>
-const DealCalendarView = <span class="cstat-no" title="statement not covered" >React.lazy(<span class="fstat-no" title="function not covered" >() =</span>&gt; <span class="cstat-no" title="statement not covered" ><span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >import('</span>./DealCalendarView').t</span>hen(<span class="fstat-no" title="function not covered" >module </span>=&gt; (<span class="cstat-no" title="statement not covered" >{ default: module.DealCalendarView })</span>))</span>;</span>
-const DealTimelineView = <span class="cstat-no" title="statement not covered" >React.lazy(<span class="fstat-no" title="function not covered" >() =</span>&gt; <span class="cstat-no" title="statement not covered" ><span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >import('</span>./DealTimelineView').t</span>hen(<span class="fstat-no" title="function not covered" >module </span>=&gt; (<span class="cstat-no" title="statement not covered" >{ default: module.DealTimelineView })</span>))</span>;</span>
-const DealDashboardView = <span class="cstat-no" title="statement not covered" >React.lazy(<span class="fstat-no" title="function not covered" >() =</span>&gt; <span class="cstat-no" title="statement not covered" ><span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >import('</span>./DealDashboardView').t</span>hen(<span class="fstat-no" title="function not covered" >module </span>=&gt; (<span class="cstat-no" title="statement not covered" >{ default: module.DealDashboardView })</span>))</span>;</span>
-<span class="cstat-no" title="statement not covered" >import { mockColumns, columnOrder } from '../data/mockDeals';</span>
-<span class="cstat-no" title="statement not covered" >import { getDataSyncService } from '../services/dataSyncService';</span>
-<span class="cstat-no" title="statement not covered" >import { getSupabaseService } from '../services/supabaseService';</span>
-<span class="cstat-no" title="statement not covered" >import { getOpenAIFunctionService } from '../services/openaiFunctionCallingService';</span>
+const DealListView = <span class="cstat-no" title="statement not covered" >React.lazy(<span class="fstat-no" title="function not covered" >() =</span>&gt; <span class="cstat-no" title="statement not covered" >import('./DealListView').then(<span class="fstat-no" title="function not covered" >module </span>=&gt; (<span class="cstat-no" title="statement not covered" >{ default: module.DealListView })</span>))</span>;</span>
+const DealTableView = <span class="cstat-no" title="statement not covered" >React.lazy(<span class="fstat-no" title="function not covered" >() =</span>&gt; <span class="cstat-no" title="statement not covered" >import('./DealTableView').then(<span class="fstat-no" title="function not covered" >module </span>=&gt; (<span class="cstat-no" title="statement not covered" >{ default: module.DealTableView })</span>))</span>;</span>
+const DealCalendarView = <span class="cstat-no" title="statement not covered" >React.lazy(<span class="fstat-no" title="function not covered" >() =</span>&gt; <span class="cstat-no" title="statement not covered" >import('./DealCalendarView').then(<span class="fstat-no" title="function not covered" >module </span>=&gt; (<span class="cstat-no" title="statement not covered" >{ default: module.DealCalendarView })</span>))</span>;</span>
+const DealTimelineView = <span class="cstat-no" title="statement not covered" >React.lazy(<span class="fstat-no" title="function not covered" >() =</span>&gt; <span class="cstat-no" title="statement not covered" >import('./DealTimelineView').then(<span class="fstat-no" title="function not covered" >module </span>=&gt; (<span class="cstat-no" title="statement not covered" >{ default: module.DealTimelineView })</span>))</span>;</span>
+const DealDashboardView = <span class="cstat-no" title="statement not covered" >React.lazy(<span class="fstat-no" title="function not covered" >() =</span>&gt; <span class="cstat-no" title="statement not covered" >import('./DealDashboardView').then(<span class="fstat-no" title="function not covered" >module </span>=&gt; (<span class="cstat-no" title="statement not covered" >{ default: module.DealDashboardView })</span>))</span>;</span>
+import { mockColumns, columnOrder } from '../data/mockDeals';
+import { getDataSyncService } from '../services/dataSyncService';
+import { getSupabaseService } from '../services/supabaseService';
+import { getOpenAIFunctionService } from '../services/openaiFunctionCallingService';
 import { Contact } from '../types/contact';
 import { Deal, PipelineColumn } from '../types';
-<span class="cstat-no" title="statement not covered" >import { Tooltip } from './ui/Tooltip';</span>
-<span class="cstat-no" title="statement not covered" >import {</span>
+import { Tooltip } from './ui/Tooltip';
+import {
   Search, Upload, Download, Brain, Sparkles, Plus, Filter, BarChart3,
   Settings, Grid, List, Target, Zap, TrendingUp, Users, Calendar,
   Mail, Phone, CheckCircle, AlertCircle, Clock, DollarSign, Crown,
@@ -3027,14 +3027,14 @@ const Pipeline: React.FC = <span class="cstat-no" title="statement not covered" 
   );
 };
 &nbsp;
-<span class="cstat-no" title="statement not covered" >export default Pipeline;</span></pre></td></tr></table></pre>
+export default Pipeline;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
             </div><!-- /wrapper -->
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-12-12T05:07:54.305Z
+                at 2025-12-13T19:19:21.831Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

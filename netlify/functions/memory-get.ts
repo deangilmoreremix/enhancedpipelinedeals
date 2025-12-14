@@ -1,5 +1,5 @@
 import type { Handler } from "@netlify/functions";
-import { loadAgentMemory } from "../../lib/memory/loadMemory";
+import { loadAgentMemory } from "../../../src/lib/memory/loadMemory";
 
 export const handler: Handler = async (event) => {
   if (event.httpMethod !== "GET") {

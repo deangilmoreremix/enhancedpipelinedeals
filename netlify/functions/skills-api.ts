@@ -1,6 +1,6 @@
 import type { Handler } from "@netlify/functions";
-import { skillRegistry } from "../../lib/skills/registry";
-import { getContactAndDeal } from "../../lib/autopilot/helpers";
+import { skillRegistry } from "../../../src/lib/skills/registry";
+import { getContactAndDeal } from "../../../src/lib/autopilot/helpers";
 
 export const handler: Handler = async (event) => {
   try {

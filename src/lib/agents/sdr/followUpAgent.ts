@@ -77,8 +77,8 @@ Make it timely and relevant to move the deal forward!`;
         throw new Error('AI response missing required email fields');
       }
 
-      // Send email via AgentMail
-      const agentMailResult = await this.sendEmail({
+      // Send email (stub - AgentMail removed)
+      const emailResult = await this.sendEmail({
         to: contact.email,
         subject: emailData.subject,
         body: emailData.body,
@@ -87,7 +87,7 @@ Make it timely and relevant to move the deal forward!`;
       // Log activity in database
       await this.logActivity(contact.id, 'follow_up_sent', deal?.id, {
         subject: emailData.subject,
-        agentMailResult,
+        emailResult,
         value_add: emailData.value_add,
         urgency_element: emailData.urgency_element,
         next_step: emailData.next_step,
@@ -97,16 +97,16 @@ Make it timely and relevant to move the deal forward!`;
       return {
         success: true,
         action: 'follow_up_sent',
-        message: `Follow-up email sent to ${contact.name} at ${contact.company}`,
+        message: `Follow-up email prepared for ${contact.name} at ${contact.company}`,
         emailData: {
           to: contact.email,
           subject: emailData.subject,
           body: emailData.body,
         },
-        agentMailResult,
         metadata: {
           contactId: contact.id,
           dealId: deal?.id,
+          emailResult,
           value_add: emailData.value_add,
           urgency_element: emailData.urgency_element,
           next_step: emailData.next_step,

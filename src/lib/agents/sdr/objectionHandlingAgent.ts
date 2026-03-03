@@ -75,8 +75,8 @@ Be empathetic, professional, and focused on value!`;
         throw new Error('AI response missing required email fields');
       }
 
-      // Send email via AgentMail
-      const agentMailResult = await this.sendEmail({
+      // Send email (stub - AgentMail removed)
+      const emailResult = await this.sendEmail({
         to: contact.email,
         subject: emailData.subject,
         body: emailData.body,
@@ -85,7 +85,7 @@ Be empathetic, professional, and focused on value!`;
       // Log activity in database
       await this.logActivity(contact.id, 'objection_handled', deal?.id, {
         subject: emailData.subject,
-        agentMailResult,
+        emailResult,
         objection: objection,
         key_points: emailData.key_points,
         evidence_provided: emailData.evidence_provided,
@@ -96,16 +96,16 @@ Be empathetic, professional, and focused on value!`;
       return {
         success: true,
         action: 'objection_handled',
-        message: `Objection-handling email sent to ${contact.name} addressing: "${objection}"`,
+        message: `Objection-handling email prepared for ${contact.name} addressing: "${objection}"`,
         emailData: {
           to: contact.email,
           subject: emailData.subject,
           body: emailData.body,
         },
-        agentMailResult,
         metadata: {
           contactId: contact.id,
           dealId: deal?.id,
+          emailResult,
           objection: objection,
           key_points: emailData.key_points,
           evidence_provided: emailData.evidence_provided,

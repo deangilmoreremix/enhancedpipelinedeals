@@ -1,6 +1,6 @@
 /**
  * SDR Agent Testing Framework
- * Comprehensive testing for OpenAI Agents SDK + AgentMail integration
+ * Comprehensive testing for OpenAI Agents SDK
  */
 
 import { SDRContext, SDRAgentResult } from './base';

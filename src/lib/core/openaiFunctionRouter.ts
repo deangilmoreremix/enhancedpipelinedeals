@@ -32,15 +32,6 @@ export async function openaiFunctionRouter(fnName: string, args: any) {
     case "update_deal_summary":
       return executeTool("SmartCRMTools.update_deal_summary", args);
 
-    case "send_email":
-      return executeTool("AgentMail.send_message", args);
-
-    case "reply_to_email":
-      return executeTool("AgentMail.reply_to_message", args);
-
-    case "generate_email":
-      return executeTool("AgentMail.generate_email", args);
-
     case "set_persona":
       return executeTool("PersonaEngine.set_persona", args);
 

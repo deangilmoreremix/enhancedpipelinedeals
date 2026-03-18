@@ -71,13 +71,7 @@ export const defaultProductionConfig: SDRProductionConfig = {
     },
   },
 
-  agentmail: {
-    webhookUrl: `${process.env.PUBLIC_API_URL || 'https://api.smartcrm.vip'}/api/agentmail/webhook`,
-    rateLimit: {
-      emailsPerHour: 100,
-      emailsPerDay: 1000,
-    },
-  },
+  // Note: AgentMail email service has been removed
 
   database: {
     tablePrefix: 'sdr_',
@@ -161,15 +155,10 @@ export function loadProductionConfig(): SDRProductionConfig {
   if (process.env.OPENAI_API_KEY) {
     config.openai.apiKey = process.env.OPENAI_API_KEY;
   }
-  }
-  if (process.env.PUBLIC_API_URL) {
-    config.agentmail.webhookUrl = `${process.env.PUBLIC_API_URL}/api/agentmail/webhook`;
-  }
+
+  // Note: AgentMail email service has been removed
 
   // Override rate limits from environment
-  if (process.env.SDR_EMAILS_PER_HOUR) {
-    config.agentmail.rateLimit.emailsPerHour = parseInt(process.env.SDR_EMAILS_PER_HOUR);
-  }
   if (process.env.SDR_OPENAI_RPM) {
     config.openai.rateLimit.requestsPerMinute = parseInt(process.env.SDR_OPENAI_RPM);
   }
@@ -188,15 +177,12 @@ export function validateProductionConfig(config: SDRProductionConfig): { valid: 
     errors.push('OpenAI API key is required');
   }
 
-  if (!config.agentmail.webhookUrl) {
-    errors.push('AgentMail webhook URL is required');
-  }
+  // Email service validation (AgentMail removed)
+  // Note: Email sending is not configured
 
   // Validate rate limits
   if (config.openai.rateLimit.requestsPerMinute < 1) {
     errors.push('OpenAI requests per minute must be at least 1');
-  }
-  if (config.agentmail.rateLimit.emailsPerHour < 1) {
   }
 
   return {

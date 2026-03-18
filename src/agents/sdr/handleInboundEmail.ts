@@ -23,16 +23,10 @@ export async function handleInboundEmail(req: any, res: any) {
 
     const leadId = lead.id;
 
-    // Map recipient email to mailbox key
-    const mailboxMap: Record<string, string> = {
-      'deansales@agentmail.to': 'deansales',
-      'sarahsales@agentmail.to': 'sarahsales',
-      // Add more mappings as needed
-    };
+    // Map recipient email to mailbox key (email service not configured)
+    const mailboxKey = 'default';
 
-    const mailboxKey = mailboxMap[emailTo] || 'default';
-
-    // Format inbound email for GPT-5.2
+    // Format inbound email for AI processing
     const inboundEmailContext = `
 New inbound email from lead:
 

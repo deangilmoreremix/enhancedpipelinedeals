@@ -48,7 +48,7 @@ export async function getLeadContextFromSmartCRM(leadId: string): Promise<any> {
 }
 
 
-// Send SDR email via AgentMail
+// Send SDR email (stub - email service not configured)
 export async function sendSdrEmail(args: {
   lead_id: string;
   subject: string;
@@ -67,26 +67,13 @@ export async function sendSdrEmail(args: {
       return { error: 'Lead not found', details: leadError?.message };
     }
 
-    // Map mailbox_key to actual email address
-    const mailboxMap: Record<string, string> = {
-      'deansales': 'deansales@agentmail.to',
-      'sarahsales': 'sarahsales@agentmail.to',
-      // Add more mappings as needed
-    };
-
-    const fromEmail = mailboxMap[args.mailbox_key] || `${args.mailbox_key}@agentmail.to`;
-
-    // Placeholder for AgentMail API call
-    // In production, this would call AgentMail's API
-    const messageId = `msg_${Date.now()}_${args.lead_id}`;
-
-    console.log(`[SDR EMAIL] Sending from ${fromEmail} to ${lead.email}: ${args.subject}`);
+    console.log(`[SDR EMAIL] Email service not configured. Would send to: ${lead.email}`);
 
     return {
-      success: true,
-      message_id: messageId,
+      success: false,
+      error: 'Email service not configured',
+      message_id: null,
       sent_at: new Date().toISOString(),
-      from: fromEmail,
       to: lead.email,
       subject: args.subject
     };

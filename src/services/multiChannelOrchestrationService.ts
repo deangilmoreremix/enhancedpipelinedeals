@@ -138,7 +138,7 @@ class MultiChannelOrchestrationService {
       id: 'cold_outreach',
       name: 'Cold Outreach Sequence',
       description: 'Multi-channel cold outreach with email, LinkedIn, and SMS',
-      channels: ['agentmail', 'linkedin', 'twilio'],
+      channels: ['email', 'linkedin', 'twilio'],
       enabled: true,
       sequence: [
         {
@@ -186,7 +186,7 @@ class MultiChannelOrchestrationService {
       id: 'nurture_sequence',
       name: 'Lead Nurture Sequence',
       description: 'Educational content delivery across multiple channels',
-      channels: ['agentmail', 'whatsapp'],
+      channels: ['email', 'whatsapp'],
       enabled: true,
       sequence: [
         {
@@ -505,7 +505,7 @@ AI Sales Agent`,
 
       const preferences: ContactChannelPreferences = {
         contactId,
-        preferredChannels: data.preferredChannels || ['agentmail'],
+        preferredChannels: data.preferredChannels || ['email'],
         quietHours: data.quietHours || { start: '20:00', end: '08:00' },
         timezone: data.timezone || 'UTC',
         unsubscribed: data.unsubscribed || [],

@@ -22,7 +22,6 @@ export const AgentControlPanel = () => {
     followup: true,
     research: true,
   });
-  const [inbox, setInbox] = useState("");
   const [quietHours, setQuietHours] = useState({
     start: "20:00",
     end: "08:00",
@@ -219,17 +218,6 @@ export const AgentControlPanel = () => {
             </label>
           ))}
         </div>
-      </div>
-
-      {/* Inbox */}
-      <div>
-        <label className="font-semibold">AgentMail Inbox</label>
-        <input
-          className="border p-2 rounded w-full"
-          value={inbox}
-          onChange={(e) => setInbox(e.target.value)}
-          placeholder="your-inbox@agentmail.to"
-        />
       </div>
 
       {/* Quiet Hours */}

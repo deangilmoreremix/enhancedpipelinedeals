@@ -24,7 +24,7 @@ export const handler: Handler = async (event) => {
       };
     }
 
-    const { data, error } = await supabase
+    await supabase
       .from('agent_persona_selection')
       .upsert({
         agent_id,
@@ -33,13 +33,6 @@ export const handler: Handler = async (event) => {
       }, {
         onConflict: 'agent_id'
       });
-
-    if (error) {
-      return {
-        statusCode: 500,
-        body: JSON.stringify({ error: error.message })
-      };
-    }
 
     return {
       statusCode: 200,
@@ -53,7 +46,7 @@ export const handler: Handler = async (event) => {
         message: 'Persona selection saved successfully'
       })
     };
-  } catch (error) {
+  } catch {
     return {
       statusCode: 500,
       body: JSON.stringify({ error: 'Internal server error' })

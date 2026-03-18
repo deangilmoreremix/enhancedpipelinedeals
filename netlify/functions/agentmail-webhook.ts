@@ -17,7 +17,7 @@ export const handler: Handler = async (event) => {
 
   try {
     const body = JSON.parse(event.body || '{}');
-    const { inbox, from, text, subject, message_id } = body;
+    const { from, text, subject, message_id } = body;
 
     console.log('📧 AgentMail webhook received:', { from, subject, message_id });
 

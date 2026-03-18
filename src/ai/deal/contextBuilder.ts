@@ -167,7 +167,7 @@ async function getRiskData(dealId: string) {
   return data?.[0] || null; // Most recent risk data
 }
 
-async function getPredictionData(dealId: string) {
+async function getPredictionData(_dealId: string) {
   // This would integrate with prediction models
   // For now, return basic structure
   return {

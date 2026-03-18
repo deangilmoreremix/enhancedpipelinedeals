@@ -7,7 +7,7 @@ import { supabase } from '../../lib/core/supabaseClient';
 // HTTP handler for inbound webhooks
 export async function handleInboundEmail(req: any, res: any) {
   try {
-    const { from, to, subject, body_html, message_id } = req.body;
+    const { from, subject, body_html, message_id } = req.body;
 
     // Find the lead by sender email
     const { data: lead } = await supabase
@@ -30,14 +30,14 @@ export async function handleInboundEmail(req: any, res: any) {
       // Add more mappings as needed
     };
 
-    const mailboxKey = mailboxMap[to] || 'default';
+    const mailboxKey = mailboxMap[emailTo] || 'default';
 
     // Format inbound email for GPT-5.2
     const inboundEmailContext = `
 New inbound email from lead:
 
-From: ${from}
-To: ${to}
+From: ${emailFrom}
+To: ${emailTo}
 Subject: ${subject}
 Message ID: ${message_id}
 
@@ -56,7 +56,7 @@ ${body_html}
 Inbound Email:
 ${inboundEmailContext}`;
 
-    console.log(`[INBOUND] Processing reply from ${from} for lead ${leadId}`);
+    console.log(`[INBOUND] Processing reply from ${emailFrom} for lead ${leadId}`);
 
     const result = await runSdrAutopilot({
       leadId,
@@ -88,7 +88,7 @@ ${inboundEmailContext}`;
 }
 
 // Helper function to extract lead ID from email context (alternative approach)
-export async function findLeadByEmailContext(emailFrom: string, emailTo: string): Promise<string | null> {
+export async function findLeadByEmailContext(emailFrom: string): Promise<string | null> {
   try {
     // Try to find by sender email
     const { data: lead } = await supabase

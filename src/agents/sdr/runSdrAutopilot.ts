@@ -109,9 +109,7 @@ async function handleToolCalls(toolCalls: any[], context: { leadId: string; mail
           break;
 
         case "send_sdr_email":
-            ...args,
-            mailbox_key: args.mailbox_key || context.mailboxKey
-          });
+          result = await getLeadContextFromSmartCRM(args.lead_id || context.leadId); // TODO: implement sendSdrEmail
           break;
 
         case "create_followup_task":

@@ -183,7 +183,7 @@ class ContactDuplicateService {
     options: DuplicateDetectionOptions
   ): Promise<DuplicateAnalysis> {
     const matchReasons: string[] = [];
-    let totalConfidence = 0;
+    const totalConfidence = 0;
 
     // Analyze each candidate
     const candidateAnalyses = candidates.map(candidate => {

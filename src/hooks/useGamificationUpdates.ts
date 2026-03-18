@@ -30,8 +30,8 @@ export const useGamificationUpdates = () => {
     }
 
     const stats = teamMember.gamificationStats;
-    let updatedStats = { ...stats };
-    let newAchievements: string[] = [];
+    const updatedStats = { ...stats };
+    const newAchievements: string[] = [];
 
     // Deal won - update positive stats
     if (newStage === 'closed-won' && previousStage !== 'closed-won') {

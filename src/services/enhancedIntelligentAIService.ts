@@ -314,7 +314,7 @@ Best regards,
   // GPT-5 Enhanced methods with web search and citations
   async analyzeContactWithResearch(contact: any, includeWebSearch: boolean = false, priority: 'speed' | 'quality' | 'cost' = 'quality'): Promise<any> {
     try {
-      let analysis = await this.analyzeContact(contact, priority);
+      const analysis = await this.analyzeContact(contact, priority);
 
       if (includeWebSearch) {
         console.log(`🔍 Enhancing contact analysis with web search for ${contact.name}`);

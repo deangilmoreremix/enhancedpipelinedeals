@@ -84,7 +84,7 @@ class PhoneService implements PhoneService {
   formatPhoneNumber(phoneNumber: string): string {
     try {
       // Remove all non-digit characters
-      let cleaned = phoneNumber.replace(/\D/g, '');
+      const cleaned = phoneNumber.replace(/\D/g, '');
 
       // Handle different formats
       if (cleaned.length === 10) {

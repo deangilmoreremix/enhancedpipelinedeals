@@ -48,15 +48,14 @@ const cspConfig: CSPDirectives = {
   'default-src': ["'self'"],
   'script-src': [
     "'self'",
-    "'unsafe-inline'", // Required for some React features, consider removing in production
-    "'unsafe-eval'", // Required for some bundlers, consider removing in production
+    "'unsafe-inline'",
+    ...(isProduction ? [] : ["'unsafe-eval'"]),
     "https://cdn.jsdelivr.net",
-    "https://unpkg.com",
-    ...(isDevelopment ? ["'unsafe-inline'", "'unsafe-eval'"] : [])
+    "https://unpkg.com"
   ],
   'style-src': [
     "'self'",
-    "'unsafe-inline'", // Required for styled-components, consider removing
+    ...(isProduction ? [] : ["'unsafe-inline'"]),
     "https://fonts.googleapis.com",
     "https://cdn.jsdelivr.net"
   ],

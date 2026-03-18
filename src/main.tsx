@@ -7,6 +7,7 @@ import './styles/global-dark-mode.css';
 
 import { getCRMBridge } from './services/crmBridge';
 import { getStorageBucketService } from './services/storageBucketService';
+
 getCRMBridge();
 
 // Initialize storage buckets
@@ -19,8 +20,6 @@ getStorageBucketService().initializeBuckets().then((result) => {
 }).catch((error) => {
   console.error('❌ Error initializing storage buckets:', error);
 });
-import { getCRMBridge } from './services/crmBridge';
-getCRMBridge();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

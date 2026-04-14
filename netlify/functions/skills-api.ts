@@ -1,12 +1,12 @@
 import type { Handler } from "@netlify/functions";
-import { skillRegistry } from "../../src/lib/skills/registry";
+import { sdrAgentRegistry } from "../../src/lib/agents/sdr/registry";
 import { getContactAndDeal } from "../../src/lib/autopilot/helpers";
 
 export const handler: Handler = async (event) => {
   try {
     if (event.httpMethod === "GET") {
       // List skills
-      const skills = Object.values(skillRegistry).map((s: any) => ({
+      const skills = Object.values(sdrAgentRegistry).map((s: any) => ({
         id: s.id,
         description: s.description || ""
       }));
@@ -33,7 +33,7 @@ export const handler: Handler = async (event) => {
         };
       }
 
-      const skill = (skillRegistry as any)[skillId];
+      const skill = (sdrAgentRegistry as any)[skillId];
       if (!skill) {
         return {
           statusCode: 404,

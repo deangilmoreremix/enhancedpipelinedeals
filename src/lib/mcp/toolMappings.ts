@@ -11,12 +11,6 @@ export const toolMap: Record<string, { server: string; method: string }> = {
   "SmartCRMTools.record_next_action": { server: "supabase", method: "record_next_action" },
   "SmartCRMTools.update_deal_summary": { server: "supabase", method: "update_deal_summary" },
 
-  // AgentMail Tools
-  "AgentMail.send_message": { server: "agentmail", method: "send_message" },
-  "AgentMail.reply_to_message": { server: "agentmail", method: "reply_to_message" },
-  "AgentMail.list_messages": { server: "agentmail", method: "list_messages" },
-  "AgentMail.generate_email": { server: "agentmail", method: "generate_email" },
-
   // Persona Engine Tools
   "PersonaEngine.set_persona": { server: "supabase", method: "set_persona" },
   "PersonaEngine.get_persona": { server: "supabase", method: "get_persona" },

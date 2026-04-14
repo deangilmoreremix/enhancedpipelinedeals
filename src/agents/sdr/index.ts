@@ -12,11 +12,10 @@ export { getOrCreateThreadForLead, saveAutopilotState, getAutopilotState } from 
 
 // Tool Implementations
 export {
-  getLeadContextFromSmartCRM,
-  sendViaAgentMail,
-  createTaskInSmartCRM,
-  updateDealStageInSmartCRM,
-  scheduleMeetingForLead,
+  getLeadContextFromSmartCRM
+  createTaskInSmartCRM
+  updateDealStageInSmartCRM
+  scheduleMeetingForLead
   saveAutopilotStateWrapper
 } from './sdrToolImplementations';
 

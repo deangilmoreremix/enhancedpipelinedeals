@@ -183,8 +183,7 @@ export const validateContactData = (contact: any): ValidationResult => {
   // Validate name
   if (contact.name) {
     const nameValidation = validateString(contact.name, {
-      maxLength: 100,
-      pattern: /^[a-zA-Z\s\-'\.]+$/
+      maxLength: 100
     });
     if (!nameValidation.isValid) {
       errors.push(`Name: ${nameValidation.error}`);

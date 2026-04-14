@@ -86,19 +86,6 @@ class MultiChannelOrchestrationService {
   }
 
   private initializeChannels() {
-    // Email channels
-    this.channels.set('agentmail', {
-      id: 'agentmail',
-      name: 'AgentMail',
-      type: 'email',
-      connected: true,
-      settings: {
-        inbox: 'your-inbox@agentmail.to',
-        signature: 'Best regards,\nAI Sales Agent'
-      },
-      rateLimits: { perMinute: 50, perHour: 1000, perDay: 5000 },
-      capabilities: ['html', 'attachments', 'tracking', 'replies']
-    });
 
     // SMS channels
     this.channels.set('twilio', {
@@ -156,7 +143,7 @@ class MultiChannelOrchestrationService {
       sequence: [
         {
           id: 'email_1',
-          channelId: 'agentmail',
+          channelId: 'email',
           delay: 0,
           template: 'cold_email_intro',
           conditions: []
@@ -204,7 +191,7 @@ class MultiChannelOrchestrationService {
       sequence: [
         {
           id: 'email_nurture_1',
-          channelId: 'agentmail',
+          channelId: 'email',
           delay: 0,
           template: 'nurture_content_1',
           conditions: []
@@ -531,7 +518,7 @@ AI Sales Agent`,
       // Return defaults if fetch fails
       return {
         contactId,
-        preferredChannels: ['agentmail'],
+        preferredChannels: [],
         quietHours: { start: '20:00', end: '08:00' },
         timezone: 'UTC',
         unsubscribed: [],
@@ -552,7 +539,7 @@ AI Sales Agent`,
 
     if (!lastResult || lastResult.status === 'failed') {
       return {
-        channelId: 'agentmail', // Fallback to email
+        channelId: 'email', // Fallback to email
         scheduledTime: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // Tomorrow
         reason: 'Previous step failed, retrying with email'
       };
@@ -563,7 +550,7 @@ AI Sales Agent`,
 
     if (hasEngagement) {
       return {
-        channelId: 'agentmail',
+        channelId: 'email',
         scheduledTime: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(), // 2 hours
         reason: 'Engagement detected, follow up quickly'
       };

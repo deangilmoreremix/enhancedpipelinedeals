@@ -3,7 +3,7 @@ import { logger } from "../core/logger";
 
 /**
  * Sends a base64-encoded audio message using MCP.
- * You can implement this tool in your AgentMail / VoiceAgent MCP server.
+ * You can implement this tool in your VoiceAgent MCP server.
  */
 export async function sendVoiceMessage(to: string, audioBase64: string) {
   logger.info("Sending voice message", { to });

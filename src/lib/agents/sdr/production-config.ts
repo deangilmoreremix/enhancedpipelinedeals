@@ -1,6 +1,6 @@
 /**
  * Production Configuration for SDR Agents
- * OpenAI Agents SDK + AgentMail Integration
+ * OpenAI Agents SDK Integration
  */
 
 export interface SDRProductionConfig {
@@ -16,14 +16,6 @@ export interface SDRProductionConfig {
     };
   };
 
-  // AgentMail Configuration
-  agentmail: {
-    apiKey: string;
-    webhookUrl: string;
-    rateLimit: {
-      emailsPerHour: number;
-      emailsPerDay: number;
-    };
   };
 
   // Database Configuration
@@ -60,7 +52,6 @@ export interface SDRProductionConfig {
 
   // Feature Flags
   features: {
-    enableAgentMailIntegration: boolean;
     enableDatabasePersistence: boolean;
     enableRealTimeMetrics: boolean;
     enableAIFallback: boolean;
@@ -81,7 +72,6 @@ export const defaultProductionConfig: SDRProductionConfig = {
   },
 
   agentmail: {
-    apiKey: process.env.AGENTMAIL_API_KEY || '',
     webhookUrl: `${process.env.PUBLIC_API_URL || 'https://api.smartcrm.vip'}/api/agentmail/webhook`,
     rateLimit: {
       emailsPerHour: 100,
@@ -154,7 +144,6 @@ export const defaultProductionConfig: SDRProductionConfig = {
   },
 
   features: {
-    enableAgentMailIntegration: true,
     enableDatabasePersistence: true,
     enableRealTimeMetrics: true,
     enableAIFallback: true,
@@ -172,8 +161,6 @@ export function loadProductionConfig(): SDRProductionConfig {
   if (process.env.OPENAI_API_KEY) {
     config.openai.apiKey = process.env.OPENAI_API_KEY;
   }
-  if (process.env.AGENTMAIL_API_KEY) {
-    config.agentmail.apiKey = process.env.AGENTMAIL_API_KEY;
   }
   if (process.env.PUBLIC_API_URL) {
     config.agentmail.webhookUrl = `${process.env.PUBLIC_API_URL}/api/agentmail/webhook`;
@@ -201,10 +188,6 @@ export function validateProductionConfig(config: SDRProductionConfig): { valid: 
     errors.push('OpenAI API key is required');
   }
 
-  // Validate AgentMail
-  if (!config.agentmail.apiKey) {
-    errors.push('AgentMail API key is required');
-  }
   if (!config.agentmail.webhookUrl) {
     errors.push('AgentMail webhook URL is required');
   }
@@ -214,7 +197,6 @@ export function validateProductionConfig(config: SDRProductionConfig): { valid: 
     errors.push('OpenAI requests per minute must be at least 1');
   }
   if (config.agentmail.rateLimit.emailsPerHour < 1) {
-    errors.push('AgentMail emails per hour must be at least 1');
   }
 
   return {

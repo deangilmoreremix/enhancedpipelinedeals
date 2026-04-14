@@ -104,8 +104,8 @@ Make the enrichment intelligent and the email compelling!`;
           .eq('id', contact.id);
       }
 
-      // Send outreach email via AgentMail
-      const agentMailResult = await this.sendEmail({
+      // Send outreach email (stub - AgentMail removed)
+      const emailResult = await this.sendEmail({
         to: contact.email,
         subject: enrichmentData.outreach_email.subject,
         body: enrichmentData.outreach_email.body,
@@ -114,23 +114,23 @@ Make the enrichment intelligent and the email compelling!`;
       // Log activity
       await this.logActivity(contact.id, 'data_enrichment_completed', deal?.id, {
         enrichmentData,
-        agentMailResult,
+        emailResult,
         updates_applied: Object.keys(updates),
       });
 
       return {
         success: true,
         action: 'data_enrichment_result',
-        message: `Contact profile enriched and outreach email sent to ${contact.name}`,
+        message: `Contact profile enriched and outreach email prepared for ${contact.name}`,
         emailData: {
           to: contact.email,
           subject: enrichmentData.outreach_email.subject,
           body: enrichmentData.outreach_email.body,
         },
-        agentMailResult,
         metadata: {
           contactId: contact.id,
           dealId: deal?.id,
+          emailResult,
           enriched_profile: enrichmentData.enriched_profile,
           updates_applied: updates,
           key_value_props: enrichmentData.outreach_email.key_value_props,

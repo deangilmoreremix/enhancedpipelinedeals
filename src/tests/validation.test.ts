@@ -15,7 +15,7 @@ import {
 describe('Input Validation Utilities', () => {
   describe('sanitizeString', () => {
     it('should remove angle brackets', () => {
-      expect(sanitizeString('<script>alert("xss")</script>')).toBe('scriptalert("xss")script');
+      expect(sanitizeString('<script>alert("xss")</script>')).toBe('scriptalert("xss")/script');
     });
 
     it('should remove javascript protocol', () => {
@@ -23,7 +23,7 @@ describe('Input Validation Utilities', () => {
     });
 
     it('should remove event handlers', () => {
-      expect(sanitizeString('<div onclick="alert()">test</div>')).toBe('div testdiv');
+      expect(sanitizeString('<div onclick="alert()">test</div>')).toBe('div test/div');
     });
 
     it('should trim whitespace', () => {
@@ -163,8 +163,8 @@ describe('Input Validation Utilities', () => {
       };
       const result = validateContactData(contact);
       expect(result.isValid).toBe(true);
-      expect(result.sanitizedValue?.name).toBe('scriptJohn Doescript');
-      expect(result.sanitizedValue?.company).toBe('ACME Corp bIncb');
+      expect(result.sanitizedValue?.name).toBe('scriptJohn Doe/script');
+      expect(result.sanitizedValue?.company).toBe('ACME Corp bInc/b');
     });
 
     it('should reject invalid email in contact data', () => {

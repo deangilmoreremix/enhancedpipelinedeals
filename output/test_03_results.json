@@ -1,0 +1,45 @@
+{
+  "test_name": "Console Logging",
+  "url": "http://localhost:5173",
+  "start_time": "2026-03-02T03:41:22.620062",
+  "logs": [
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 500 (Internal Server Error)",
+      "location": {
+        "url": "http://localhost:5176/src/main.tsx",
+        "lineNumber": 0,
+        "columnNumber": 0
+      },
+      "time": "2026-03-02T03:41:23.476714"
+    },
+    {
+      "type": "debug",
+      "text": "[vite] connecting...",
+      "location": {
+        "url": "http://localhost:5176/@vite/client",
+        "lineNumber": 494,
+        "columnNumber": 8
+      },
+      "time": "2026-03-02T03:41:23.495336"
+    },
+    {
+      "type": "debug",
+      "text": "[vite] connected.",
+      "location": {
+        "url": "http://localhost:5176/@vite/client",
+        "lineNumber": 617,
+        "columnNumber": 14
+      },
+      "time": "2026-03-02T03:41:23.509398"
+    }
+  ],
+  "summary": {
+    "total_logs": 3,
+    "total_errors": 1,
+    "total_warnings": 0,
+    "react_errors": 0,
+    "has_critical_errors": true
+  },
+  "end_time": "2026-03-02T03:41:29.780749"
+}

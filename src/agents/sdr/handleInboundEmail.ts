@@ -1,10 +1,10 @@
 // SDR Autopilot Inbound Email Handler
-// Processes replies from AgentMail and resumes SDR campaigns
+// Processes inbound replies and resumes SDR campaigns
 
 import { runSdrAutopilot } from './runSdrAutopilot';
 import { supabase } from '../../lib/core/supabaseClient';
 
-// HTTP handler for AgentMail inbound webhooks
+// HTTP handler for inbound webhooks
 export async function handleInboundEmail(req: any, res: any) {
   try {
     const { from, to, subject, body_html, message_id } = req.body;

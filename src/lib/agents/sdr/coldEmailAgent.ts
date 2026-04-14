@@ -1,4 +1,4 @@
-import { BaseSDRAgent, SDRContext, SDRAgentResult } from './base';
+import { BaseSDRAgent, SDRContext, SDRAgentResult, SDRContact, SDRDeal } from './base';
 import { supabase } from '../../core/supabaseClient';
 
 export class ColdEmailSDRAgent extends BaseSDRAgent {
@@ -11,7 +11,8 @@ export class ColdEmailSDRAgent extends BaseSDRAgent {
   }
 
   protected generatePrompt(context: SDRContext): string {
-    const { contact, deal } = context as any;
+    const contact: SDRContact | undefined = context.contact;
+    const deal: SDRDeal | undefined = context.deal;
 
     return `You are an expert SDR crafting compelling cold outreach emails.
 
@@ -67,8 +68,8 @@ Make it highly personalized and compelling!`;
         throw new Error('AI response missing required email fields');
       }
 
-      // Send email via AgentMail
-      const agentMailResult = await this.sendEmail({
+      // Send email (stub - AgentMail removed)
+      const emailResult = await this.sendEmail({
         to: contact.email,
         subject: emailData.subject,
         body: emailData.body,
@@ -77,7 +78,7 @@ Make it highly personalized and compelling!`;
       // Log activity in database
       await this.logActivity(contact.id, 'cold_email_sent', deal?.id, {
         subject: emailData.subject,
-        agentMailResult,
+        emailResult,
         key_points: emailData.key_points,
         call_to_action: emailData.call_to_action,
       });
@@ -85,14 +86,14 @@ Make it highly personalized and compelling!`;
       return {
         success: true,
         action: 'cold_email_sent',
-        message: `Cold email sent to ${contact.name} at ${contact.company}`,
+        message: `Cold email prepared for ${contact.name} at ${contact.company}`,
         emailData: {
           to: contact.email,
           subject: emailData.subject,
           body: emailData.body,
         },
-        agentMailResult,
         metadata: {
+          emailResult,
           contactId: contact.id,
           dealId: deal?.id,
           key_points: emailData.key_points,

@@ -1,4 +1,4 @@
-// Production-ready SDR agents with OpenAI Agents SDK and AgentMail integration
+// Production-ready SDR agents with OpenAI Agents SDK
 
 // ✅ PRODUCTION-READY AGENTS (5/5)
 import { dataEnrichmentSDRAgent } from "./dataEnrichmentAgent";

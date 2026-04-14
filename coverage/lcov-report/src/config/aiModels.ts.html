@@ -25,7 +25,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/18</span>
+                <span class='fraction'>0/13</span>
             </div>
         
             
@@ -46,7 +46,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/13</span>
+                <span class='fraction'>0/8</span>
             </div>
         
             
@@ -449,19 +449,11 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -470,21 +462,29 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">export interface AIModel {
@@ -503,7 +503,7 @@
   endpoint?: string;
 }
 &nbsp;
-export const <span class="cstat-no" title="statement not covered" >AI_MODELS: AIModel[] = [</span>
+export const AI_MODELS: AIModel[] = <span class="cstat-no" title="statement not covered" >[</span>
   // OpenAI Models - Updated with ChatGPT-5 models
   {
     id: 'gpt-5',
@@ -661,24 +661,24 @@ export const <span class="cstat-no" title="statement not covered" >AI_MODELS: AI
   }
 ];
 &nbsp;
-<span class="cstat-no" title="statement not covered" >export function <span class="fstat-no" title="function not covered" >g</span>etModelById(</span>id: string): AIModel | undefined {
+export function <span class="fstat-no" title="function not covered" >getModelById(</span>id: string): AIModel | undefined {
 <span class="cstat-no" title="statement not covered" >  return AI_MODELS.find(<span class="fstat-no" title="function not covered" >model </span>=&gt; <span class="cstat-no" title="statement not covered" >model.id === id)</span>;</span>
 }
 &nbsp;
-<span class="cstat-no" title="statement not covered" >export function <span class="fstat-no" title="function not covered" >g</span>etModelsByProvider(</span>provider: 'openai' | 'gemini' | 'gemma'): AIModel[] {
+export function <span class="fstat-no" title="function not covered" >getModelsByProvider(</span>provider: 'openai' | 'gemini' | 'gemma'): AIModel[] {
 <span class="cstat-no" title="statement not covered" >  return AI_MODELS.filter(<span class="fstat-no" title="function not covered" >model </span>=&gt; <span class="cstat-no" title="statement not covered" >model.provider === provider &amp;&amp; model.isActive)</span>;</span>
 }
 &nbsp;
-<span class="cstat-no" title="statement not covered" >export function <span class="fstat-no" title="function not covered" >g</span>etModelsByCapability(</span>capability: string): AIModel[] {
+export function <span class="fstat-no" title="function not covered" >getModelsByCapability(</span>capability: string): AIModel[] {
 <span class="cstat-no" title="statement not covered" >  return AI_MODELS.filter(<span class="fstat-no" title="function not covered" >model </span>=&gt; <span class="cstat-no" title="statement not covered" >model.capabilities.includes(capability) &amp;&amp; model.isActive)</span>;</span>
 }
 &nbsp;
-<span class="cstat-no" title="statement not covered" >export function <span class="fstat-no" title="function not covered" >g</span>etActiveModels(</span>): AIModel[] {
+export function <span class="fstat-no" title="function not covered" >getActiveModels(</span>): AIModel[] {
 <span class="cstat-no" title="statement not covered" >  return AI_MODELS.filter(<span class="fstat-no" title="function not covered" >model </span>=&gt; <span class="cstat-no" title="statement not covered" >model.isActive)</span>;</span>
 }
 &nbsp;
 // Task-specific model recommendations - Updated to prioritize GPT-5
-export const <span class="cstat-no" title="statement not covered" >TASK_MODEL_MAPPING = {</span>
+export const TASK_MODEL_MAPPING = <span class="cstat-no" title="statement not covered" >{</span>
   'contact-analysis': ['gpt-5', 'gemini-1.5-pro'],
   'email-generation': ['gpt-5', 'gemini-1.5-pro'],
   'company-research': ['gemma-2-27b-it', 'gpt-5'],
@@ -696,7 +696,7 @@ export const <span class="cstat-no" title="statement not covered" >TASK_MODEL_MA
   'conversation-analysis': ['gpt-5', 'gemini-1.5-pro']
 } as const;
 &nbsp;
-<span class="cstat-no" title="statement not covered" >export function <span class="fstat-no" title="function not covered" >g</span>etRecommendedModelForTask(</span>task: keyof typeof TASK_MODEL_MAPPING): AIModel[] {
+export function <span class="fstat-no" title="function not covered" >getRecommendedModelForTask(</span>task: keyof typeof TASK_MODEL_MAPPING): AIModel[] {
   const recommendedIds = <span class="cstat-no" title="statement not covered" >TASK_MODEL_MAPPING[task];</span>
 <span class="cstat-no" title="statement not covered" >  return recommendedIds.map(<span class="fstat-no" title="function not covered" >id </span>=&gt; <span class="cstat-no" title="statement not covered" >getModelById(id))</span>.filter(Boolean) as AIModel[];</span>
 }</pre></td></tr></table></pre>
@@ -706,7 +706,7 @@ export const <span class="cstat-no" title="statement not covered" >TASK_MODEL_MA
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-12-12T05:07:54.305Z
+                at 2026-03-02T05:52:55.823Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

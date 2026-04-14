@@ -1,0 +1,101 @@
+{
+  "test_name": "Static HTML Verification",
+  "file_path": "/workspaces/enhancedpipelinedeals/index.html",
+  "file_url": "file:///workspaces/enhancedpipelinedeals/index.html",
+  "checks": [
+    {
+      "name": "File Existence",
+      "status": "passed",
+      "size": 6454
+    },
+    {
+      "name": "Static Load",
+      "status": "passed"
+    },
+    {
+      "name": "SEO Meta Tags",
+      "status": "passed",
+      "details": [
+        {
+          "name": "title",
+          "status": "passed",
+          "content": "Smart CRM - AI-Powered Sales Pipeline & Contact Management"
+        },
+        {
+          "name": "description",
+          "status": "passed",
+          "content": "Boost your sales efficiency by 30% with Smart CRM. AI-powered contact scoring, deal intelligence, ps"
+        },
+        {
+          "name": "viewport",
+          "status": "passed",
+          "content": "width=device-width, initial-scale=1.0"
+        },
+        {
+          "name": "charset",
+          "status": "passed",
+          "content": null
+        }
+      ]
+    },
+    {
+      "name": "Open Graph Tags",
+      "status": "passed",
+      "details": [
+        {
+          "tag": "meta[property=\"og:title\"]",
+          "found": true,
+          "content": "Smart CRM - AI-Powered Sales Pipeline & Contact Management"
+        },
+        {
+          "tag": "meta[property=\"og:description\"]",
+          "found": true,
+          "content": "Boost your sales efficiency by 30% with Smart CRM. AI-powered contact scoring, deal intelligence, ps"
+        },
+        {
+          "tag": "meta[property=\"og:type\"]",
+          "found": true,
+          "content": "website"
+        },
+        {
+          "tag": "meta[property=\"og:url\"]",
+          "found": true,
+          "content": "https://smartcrm.app"
+        },
+        {
+          "tag": "meta[property=\"og:image\"]",
+          "found": true,
+          "content": "https://smartcrm.app/og-image.png"
+        }
+      ]
+    },
+    {
+      "name": "Icons",
+      "status": "passed",
+      "details": [
+        {
+          "selector": "link[rel=\"icon\"]",
+          "found": true,
+          "href": "/vite.svg"
+        },
+        {
+          "selector": "link[rel=\"apple-touch-icon\"]",
+          "found": true,
+          "href": "/apple-touch-icon.png"
+        },
+        {
+          "selector": "link[rel=\"shortcut icon\"]",
+          "found": false
+        }
+      ]
+    },
+    {
+      "name": "Basic Accessibility",
+      "status": "passed",
+      "lang": "en",
+      "h1_count": 0,
+      "images_total": 0,
+      "images_missing_alt": 0
+    }
+  ]
+}

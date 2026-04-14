@@ -1,0 +1,47 @@
+{
+  "test_suite": "Smart CRM Webapp Testing",
+  "timestamp": "2026-03-02T01:13:16.824742",
+  "duration_seconds": 185.567251,
+  "results": [
+    {
+      "name": "Static HTML Verification",
+      "status": "passed",
+      "returncode": 0,
+      "output": "\ud83d\udcc4 Starting Static HTML Verification Test...\n============================================================\n   Testing file: /workspaces/enhancedpipelinedeals/index.html\n\n\ud83d\udccd Test 1: File Accessibility\n   \u2713 index.html exists\n   \u2713 File size: 6,454 bytes\n\n\ud83d\udccd Test 2: Static Content Load via file://\n   \u2713 Loaded static HTML successfully\n\n\ud83d\udccd Test 3: SEO Meta Tags Verification\n   [PASSED] title: Smart CRM - AI-Powered Sales Pipeline & Contact Ma\n   [PASSED] description: Boost your sales efficiency by 30% with Smart CRM.\n   [PASSED] viewport: width=device-width, initial-scale=1.0\n   [PASSED] charset: N/A\n\n\ud83d\udccd Test 4: Open Graph (Social Media) Tags\n   \u2713 og:title: Smart CRM - AI-Powered Sales Pipeline & \n   \u2713 og:description: Boost your sales efficiency by 30% with \n   \u2713 og:type: website\n   \u2713 og:url: https://smartcrm.app\n   \u2713 og:image: https://smartcrm.app/og-image.png\n\n\ud83d\udccd Test 5: Favicon and Icons\n   \u2713 Found: link[rel=\"icon\"] -> /vite.svg\n   \u2713 Found: link[rel=\"apple-touch-icon\"] -> /apple-touch-icon.png\n   \u26a0 Missing: link[rel=\"shortcut icon\"]\n\n\ud83d\udccd Test 6: Basic Accessibility Check\n   \u2713 HTML lang attribute: en\n   \u2713 H1 tags found: 0\n   Images without alt: 0/0\n\n============================================================\n\ud83d\udcca Static HTML Verification Complete!\n============================================================\n   \u2705 Passed:   6\n   \u26a0\ufe0f  Warnings: 0\n   \u274c Failed:   0\n\n\ud83d\udcc1 Results saved to: /workspaces/enhancedpipelinedeals/output/test_04_results.json\n",
+      "errors": null
+    },
+    {
+      "name": "Element Discovery",
+      "status": "failed",
+      "returncode": 1,
+      "output": "Starting server 1/1: npm run dev\nWaiting for server on port 5173...\n\nStopping 1 server(s)...\nServer 1 stopped\nAll servers stopped\n",
+      "errors": "Traceback (most recent call last):\n  File \"/home/codespace/.kilocode/skills/webapp-testing/scripts/with_server.py\", line 106, in <module>\n    main()\n  File \"/home/codespace/.kilocode/skills/webapp-testing/scripts/with_server.py\", line 80, in main\n    raise RuntimeError(f\"Server failed to start on port {server['port']} within {args.timeout}s\")\nRuntimeError: Server failed to start on port 5173 within 60s\n"
+    },
+    {
+      "name": "UI Interaction & Navigation",
+      "status": "failed",
+      "returncode": 1,
+      "output": "Starting server 1/1: npm run dev\nWaiting for server on port 5173...\n\nStopping 1 server(s)...\nServer 1 stopped\nAll servers stopped\n",
+      "errors": "Traceback (most recent call last):\n  File \"/home/codespace/.kilocode/skills/webapp-testing/scripts/with_server.py\", line 106, in <module>\n    main()\n  File \"/home/codespace/.kilocode/skills/webapp-testing/scripts/with_server.py\", line 80, in main\n    raise RuntimeError(f\"Server failed to start on port {server['port']} within {args.timeout}s\")\nRuntimeError: Server failed to start on port 5173 within 60s\n"
+    },
+    {
+      "name": "Console Logging",
+      "status": "failed",
+      "returncode": 1,
+      "output": "Starting server 1/1: npm run dev\nWaiting for server on port 5173...\n\nStopping 1 server(s)...\nServer 1 stopped\nAll servers stopped\n",
+      "errors": "Traceback (most recent call last):\n  File \"/home/codespace/.kilocode/skills/webapp-testing/scripts/with_server.py\", line 106, in <module>\n    main()\n  File \"/home/codespace/.kilocode/skills/webapp-testing/scripts/with_server.py\", line 80, in main\n    raise RuntimeError(f\"Server failed to start on port {server['port']} within {args.timeout}s\")\nRuntimeError: Server failed to start on port 5173 within 60s\n"
+    }
+  ],
+  "summary": {
+    "total": 4,
+    "passed": 1,
+    "failed": 3,
+    "timeout": 0,
+    "error": 0
+  },
+  "output_files": {
+    "screenshots": "/workspaces/enhancedpipelinedeals/output/*.png",
+    "json_results": "/workspaces/enhancedpipelinedeals/output/*.json",
+    "console_logs": "/workspaces/enhancedpipelinedeals/output/*.log"
+  }
+}

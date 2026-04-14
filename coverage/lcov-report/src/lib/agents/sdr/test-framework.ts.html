@@ -25,7 +25,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/92</span>
+                <span class='fraction'>0/86</span>
             </div>
         
             
@@ -46,7 +46,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/91</span>
+                <span class='fraction'>0/85</span>
             </div>
         
             
@@ -414,9 +414,6 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -448,7 +445,10 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -670,7 +670,6 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -685,6 +684,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -716,7 +716,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -759,9 +759,9 @@
  */
 &nbsp;
 import { SDRContext, SDRAgentResult } from './base';
-<span class="cstat-no" title="statement not covered" >import { sdrAgentRegistry } from './registry';</span>
-<span class="cstat-no" title="statement not covered" >import { loadProductionConfig, validateProductionConfig } from './production-config';</span>
-<span class="cstat-no" title="statement not covered" >import { logger } from '../../core/logger';</span>
+import { sdrAgentRegistry } from './registry';
+import { loadProductionConfig, validateProductionConfig } from './production-config';
+import { logger } from '../../core/logger';
 &nbsp;
 export interface SDRTestCase {
   id: string;
@@ -793,7 +793,7 @@ export interface SDRTestSuite {
 /**
  * SDR Agent Test Runner
  */
-<span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >export class S</span></span>DRTestRunner {
+<span class="fstat-no" title="function not covered" >export </span>class SDRTestRunner {
   private <span class="cstat-no" title="statement not covered" >config = loadProductionConfig();</span>
 &nbsp;
 <span class="fstat-no" title="function not covered" >  async </span>runTest(test: SDRTestCase): Promise&lt;SDRTestResult&gt; {
@@ -930,7 +930,7 @@ export interface SDRTestSuite {
 /**
  * Predefined test suites for SDR agents
  */
-export const <span class="cstat-no" title="statement not covered" >sdrTestSuites: SDRTestSuite[] = [</span>
+export const sdrTestSuites: SDRTestSuite[] = <span class="cstat-no" title="statement not covered" >[</span>
   {
     name: 'Data Enrichment Agent Tests',
     description: 'Test data enrichment SDR agent functionality',
@@ -1015,7 +1015,7 @@ export const <span class="cstat-no" title="statement not covered" >sdrTestSuites
 /**
  * Run all SDR agent tests
  */
-<span class="cstat-no" title="statement not covered" >export a</span>sync function <span class="fstat-no" title="function not covered" >runAllSDRTests(</span>): Promise&lt;{
+export async function <span class="fstat-no" title="function not covered" >runAllSDRTests(</span>): Promise&lt;{
   suites: Array&lt;{
     suiteName: string;
     results: SDRTestResult[];
@@ -1061,7 +1061,7 @@ export const <span class="cstat-no" title="statement not covered" >sdrTestSuites
 /**
  * Generate test report
  */
-<span class="cstat-no" title="statement not covered" >export function <span class="fstat-no" title="function not covered" >g</span>enerateTestReport(</span>results: Awaited&lt;ReturnType&lt;typeof runAllSDRTests&gt;&gt;): string {
+export function <span class="fstat-no" title="function not covered" >generateTestReport(</span>results: Awaited&lt;ReturnType&lt;typeof runAllSDRTests&gt;&gt;): string {
   const { suites, overall } = <span class="cstat-no" title="statement not covered" >results;</span>
 &nbsp;
   let report = <span class="cstat-no" title="statement not covered" >'# SDR Agent Test Report\n\n';</span>
@@ -1105,7 +1105,7 @@ export const <span class="cstat-no" title="statement not covered" >sdrTestSuites
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-12-12T05:07:54.305Z
+                at 2026-03-02T05:52:55.823Z
             </div>
         <script src="../../../../prettify.js"></script>
         <script>

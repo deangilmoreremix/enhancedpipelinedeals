@@ -96,8 +96,8 @@ Make the competitive analysis sharp and the positioning compelling!`;
         .update(competitorUpdates)
         .eq('id', deal.id);
 
-      // Send positioning-focused email via AgentMail
-      const agentMailResult = await this.sendEmail({
+      // Send positioning-focused email (stub - AgentMail removed)
+      const emailResult = await this.sendEmail({
         to: contact.email,
         subject: analysisData.outreach_email.subject,
         body: analysisData.outreach_email.body,
@@ -106,21 +106,21 @@ Make the competitive analysis sharp and the positioning compelling!`;
       // Log activity
       await this.logActivity(contact.id, 'competitor_analysis_completed', deal.id, {
         analysisData,
-        agentMailResult,
+        emailResult,
         competitor_updates: competitorUpdates,
       });
 
       return {
         success: true,
         action: 'competitor_analysis_result',
-        message: `Competitor analysis completed and positioning email sent to ${contact.name}`,
+        message: `Competitor analysis completed and positioning email prepared for ${contact.name}`,
         emailData: {
           to: contact.email,
           subject: analysisData.outreach_email.subject,
           body: analysisData.outreach_email.body,
         },
-        agentMailResult,
         metadata: {
+          emailResult,
           contactId: contact.id,
           dealId: deal.id,
           competitor_analysis: analysisData.competitor_analysis,

@@ -1,5 +1,5 @@
 import type { Handler } from "@netlify/functions";
-import { sdrAgentRegistry } from "../../lib/agents/sdr/registry";
+import { sdrAgentRegistry } from "../../src/lib/agents/sdr/registry";
 
 export const handler: Handler = async (event) => {
   if (event.httpMethod !== "POST") {

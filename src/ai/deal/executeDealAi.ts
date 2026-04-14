@@ -7,6 +7,7 @@ import { DealAiRequest, DealAiResponse, DealAiTask } from './types';
 import { getOptimalModel, getModelCapabilities, getFallbackModels } from './modelRouter';
 import { buildDealContext, summarizeContext } from './contextBuilder';
 import { createClient } from '@supabase/supabase-js';
+import { logger } from '../../lib/core/logger';
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -17,7 +18,7 @@ export async function executeDealAi(request: DealAiRequest): Promise<DealAiRespo
   const startTime = Date.now();
 
   try {
-    console.log(`🎯 Executing Deal AI task: ${request.task} for deal ${request.dealId}`);
+    logger.info(`Executing Deal AI task: ${request.task}`, { dealId: request.dealId, workspaceId: request.workspaceId });
 
     // Build context if not provided
     const context = request.context || await buildDealContext(request.dealId, request.workspaceId);
@@ -26,7 +27,7 @@ export async function executeDealAi(request: DealAiRequest): Promise<DealAiRespo
     const model = getOptimalModel(request.task);
     const capabilities = getModelCapabilities(model);
 
-    console.log(`🤖 Using model: ${model} (${capabilities.reasoningEffort} reasoning)`);
+    logger.info(`Selected model for task`, { model, reasoningEffort: capabilities.reasoningEffort, task: request.task });
 
     // Get task handler
     const handler = getTaskHandler(request.task);
@@ -40,12 +41,13 @@ export async function executeDealAi(request: DealAiRequest): Promise<DealAiRespo
 
     for (const modelToTry of modelsToTry) {
       try {
-        console.log(`🔄 Trying model: ${modelToTry}`);
+        logger.info(`Trying fallback model`, { model: modelToTry, task: request.task });
         result = await handler(request, context, modelToTry, capabilities);
+        logger.info(`Model execution successful`, { model: modelToTry, task: request.task });
         break; // Success, exit loop
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
-        console.warn(`⚠️ Model ${modelToTry} failed:`, errorMessage);
+        logger.warn(`Model execution failed`, { model: modelToTry, error: errorMessage, task: request.task });
         if (modelToTry === modelsToTry[modelsToTry.length - 1]) {
           throw error; // All models failed
         }
@@ -71,7 +73,7 @@ export async function executeDealAi(request: DealAiRequest): Promise<DealAiRespo
     };
 
   } catch (error) {
-    console.error('❌ Deal AI execution failed:', error);
+    logger.error('Deal AI execution failed', { error: error instanceof Error ? error.message : String(error), task: request.task, dealId: request.dealId });
 
     // Log failed execution
     const errorMessage = error instanceof Error ? error.message : String(error);
@@ -192,25 +194,33 @@ async function handleEditHelper(request: DealAiRequest, context: any, model: str
 }
 
 async function handleSDRAgent(request: DealAiRequest, context: any, model: string, capabilities: any) {
-  // TODO: Route to SDR sequence engine - for now use basic handler
+  logger.info(`Executing SDR agent task`, { task: request.task, dealId: request.dealId });
+  // Route to SDR sequence engine via sdrOrchestrator when available
+  // For now, use basic handler with contextual prompt
   const prompt = `Execute SDR agent task ${request.task} with context: ${summarizeContext(context)}`;
   return await callOpenAI(prompt, model, capabilities);
 }
 
 async function handleAgentChat(request: DealAiRequest, context: any, model: string, capabilities: any) {
-  // TODO: Route to agent chat engine - for now use basic handler
+  logger.info(`Executing agent chat task`, { task: request.task, dealId: request.dealId });
+  // Route to agent chat engine when available
+  // For now, use basic handler with contextual prompt
   const prompt = `Handle agent chat for ${request.task} with context: ${summarizeContext(context)}`;
   return await callOpenAI(prompt, model, capabilities);
 }
 
 async function handleIntelligence(request: DealAiRequest, context: any, model: string, capabilities: any) {
-  // TODO: Route to intelligence engine - for now use basic handler
+  logger.info(`Executing intelligence task`, { task: request.task, dealId: request.dealId });
+  // Route to intelligence engine when available
+  // For now, use basic handler with contextual prompt
   const prompt = `Process intelligence task ${request.task} with context: ${summarizeContext(context)}`;
   return await callOpenAI(prompt, model, capabilities);
 }
 
 async function handleAutomation(request: DealAiRequest, context: any, model: string, capabilities: any) {
-  // TODO: Route to automation engine - for now use basic handler
+  logger.info(`Executing automation task`, { task: request.task, dealId: request.dealId });
+  // Route to automation engine when available
+  // For now, use basic handler with contextual prompt
   const prompt = `Process automation task ${request.task} with context: ${summarizeContext(context)}`;
   return await callOpenAI(prompt, model, capabilities);
 }
@@ -317,6 +327,6 @@ async function logUsage(request: DealAiRequest, result: any, startTime: number, 
       timestamp: new Date().toISOString()
     });
   } catch (error) {
-    console.error('Failed to log AI usage:', error);
+    logger.error('Failed to log AI usage', { error: error instanceof Error ? error.message : String(error) });
   }
 }

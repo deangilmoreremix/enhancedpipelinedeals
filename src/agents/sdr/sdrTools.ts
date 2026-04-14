@@ -19,18 +19,6 @@ export const sdrTools = [
   {
     type: "function",
     function: {
-      name: "send_sdr_email",
-      description: "Send an SDR email via AgentMail using the correct SDR mailbox/persona.",
-      parameters: {
-        type: "object",
-        properties: {
-          lead_id:     { type: "string" },
-          mailbox_key: { type: "string", description: "Which SDR inbox (e.g. 'deansales')." },
-          subject:     { type: "string" },
-          body_html:   { type: "string" }
-        },
-        required: ["lead_id", "mailbox_key", "subject", "body_html"]
-      }
     }
   },
   {

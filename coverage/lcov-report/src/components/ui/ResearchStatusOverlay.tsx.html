@@ -25,28 +25,28 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/65</span>
+                <span class='fraction'>0/52</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/76</span>
+                <span class='fraction'>0/69</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/13</span>
+                <span class='fraction'>0/12</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/63</span>
+                <span class='fraction'>0/51</span>
             </div>
         
             
@@ -380,25 +380,13 @@
 <a name='L315'></a><a href='#L315'>315</a>
 <a name='L316'></a><a href='#L316'>316</a>
 <a name='L317'></a><a href='#L317'>317</a>
-<a name='L318'></a><a href='#L318'>318</a>
-<a name='L319'></a><a href='#L319'>319</a>
-<a name='L320'></a><a href='#L320'>320</a>
-<a name='L321'></a><a href='#L321'>321</a>
-<a name='L322'></a><a href='#L322'>322</a>
-<a name='L323'></a><a href='#L323'>323</a>
-<a name='L324'></a><a href='#L324'>324</a>
-<a name='L325'></a><a href='#L325'>325</a>
-<a name='L326'></a><a href='#L326'>326</a>
-<a name='L327'></a><a href='#L327'>327</a>
-<a name='L328'></a><a href='#L328'>328</a>
-<a name='L329'></a><a href='#L329'>329</a>
-<a name='L330'></a><a href='#L330'>330</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L318'></a><a href='#L318'>318</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -476,18 +464,6 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -721,13 +697,13 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">/**
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">/**
  * Research Status Overlay Component
  * Real-time status updates and progress tracking for AI research processes
  */
 &nbsp;
-<span class="cstat-no" title="statement not covered" >import React, { useState, useEffect } from 'react';</span>
-<span class="cstat-no" title="statement not covered" >import {</span>
+import React, { useState, useEffect } from 'react';
+import {
   Clock,
   CheckCircle,
   AlertCircle,
@@ -806,18 +782,6 @@ const ResearchStatusOverlay: React.FC&lt;ResearchStatusOverlayProps&gt; = <span 
     sm: 'max-w-sm',
     md: 'max-w-md',
     lg: 'max-w-lg'
-  };
-&nbsp;
-  const getStageColor = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >(s</span>tage: string) =&gt; {</span>
-<span class="cstat-no" title="statement not covered" >    switch (stage) {</span>
-      case 'researching': <span class="cstat-no" title="statement not covered" >return 'text-blue-500 bg-blue-100 dark:bg-blue-900/30';</span>
-      case 'analyzing': <span class="cstat-no" title="statement not covered" >return 'text-purple-500 bg-purple-100 dark:bg-purple-900/30';</span>
-      case 'synthesizing': <span class="cstat-no" title="statement not covered" >return 'text-green-500 bg-green-100 dark:bg-green-900/30';</span>
-      case 'optimizing': <span class="cstat-no" title="statement not covered" >return 'text-yellow-500 bg-yellow-100 dark:bg-yellow-900/30';</span>
-      case 'complete': <span class="cstat-no" title="statement not covered" >return 'text-green-600 bg-green-100 dark:bg-green-900/30';</span>
-      case 'error': <span class="cstat-no" title="statement not covered" >return 'text-red-500 bg-red-100 dark:bg-red-900/30';</span>
-      default: <span class="cstat-no" title="statement not covered" >return 'text-gray-500 bg-gray-100 dark:bg-gray-900/30';</span>
-    }
   };
 &nbsp;
   const formatTime = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >(s</span>econds: number) =&gt; {</span>
@@ -1009,7 +973,7 @@ interface MiniStatusIndicatorProps {
   className?: string;
 }
 &nbsp;
-export const <span class="cstat-no" title="statement not covered" >MiniStatusIndicator: React.FC&lt;MiniStatusIndicatorProps&gt; = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >(</span>{</span></span>
+export const MiniStatusIndicator: React.FC&lt;MiniStatusIndicatorProps&gt; = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >({</span></span>
   status,
   className = <span class="branch-0 cbranch-no" title="branch not covered" >''</span>
 }) =&gt; {
@@ -1050,14 +1014,14 @@ export const <span class="cstat-no" title="statement not covered" >MiniStatusInd
   );
 };
 &nbsp;
-<span class="cstat-no" title="statement not covered" >export default ResearchStatusOverlay;</span></pre></td></tr></table></pre>
+export default ResearchStatusOverlay;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
             </div><!-- /wrapper -->
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-12-12T05:07:54.305Z
+                at 2026-03-02T05:52:55.823Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

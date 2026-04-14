@@ -67,24 +67,7 @@ export async function processPendingVideoJobs(limit = 5) {
         })
         .eq("id", job.id);
 
-      // Email link / info to contact
-      await executeTool("AgentMail.send_message", {
-        to: contact.email,
-        subject: "Your personalized video is ready 🎥",
-        body: `
-Hi ${contact.name || ""},
-
-Your personalized video is ready. 🎉
-
-Because this is a demo/stub pipeline, the video is stored directly in SmartCRM.
-Your team can now wire this to a real video URL or download handler.
-
-Job ID: ${job.id}
-
-Best,
-SmartCRM Video Agent
-        `.trim()
-      });
+      // Email stub - AgentMail removed
 
       processed.push({
         ...job,

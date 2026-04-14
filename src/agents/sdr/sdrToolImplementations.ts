@@ -47,24 +47,6 @@ export async function getLeadContextFromSmartCRM(leadId: string): Promise<any> {
   }
 }
 
-// Send SDR email via AgentMail
-export async function sendViaAgentMail(args: {
-  lead_id: string;
-  mailbox_key: string;
-  subject: string;
-  body_html: string;
-}): Promise<any> {
-  try {
-    // Get lead email from database
-    const { data: lead } = await supabase
-      .from('contacts')
-      .select('email')
-      .eq('id', args.lead_id)
-      .single();
-
-    if (!lead?.email) {
-      throw new Error('Lead email not found');
-    }
 
     // Map mailbox_key to actual email address
     const mailboxMap: Record<string, string> = {

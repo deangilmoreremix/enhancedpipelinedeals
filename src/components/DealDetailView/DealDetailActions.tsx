@@ -6,6 +6,8 @@ import { EmbeddedAgentInterface } from '../agents/EmbeddedAgentInterface';
 import { DealDetailActionsProps } from './types';
 import { contextDetectionService } from '../../services/contextDetectionService';
 import { sdrExecutionService } from '../../services/sdrExecutionService';
+import { useAuth } from '../auth/AuthProvider';
+import { getErrorReportingService } from '../../services/errorReportingService';
 
 export const DealDetailActions: React.FC<DealDetailActionsProps> = ({
   deal,
@@ -20,13 +22,18 @@ export const DealDetailActions: React.FC<DealDetailActionsProps> = ({
   onRunSDRAgent,
   isRunningSDR = false
 }) => {
+  const { user } = useAuth();
   // Determine relevant SDR agents using intelligent context analysis
   const getRelevantSDRAgents = () => {
     try {
       const analysis = contextDetectionService.analyzeContext(deal, linkedContact || undefined);
       return analysis.recommendedAgents;
     } catch (error) {
-      console.warn('Context detection failed, falling back to basic logic:', error);
+      getErrorReportingService().reportError(error as Error, {
+        context: 'Context detection in DealDetailActions',
+        dealId: deal.id,
+        userId: user?.id || 'anonymous'
+      });
 
       // Fallback to basic logic if context detection fails
       const agents = [];
@@ -135,7 +142,7 @@ export const DealDetailActions: React.FC<DealDetailActionsProps> = ({
           relevantAgents={relevantAgents}
           onRunSDRAgent={onRunSDRAgent}
           isRunning={isRunningSDR}
-          userId="user-1" // TODO: Get from auth context
+          userId={user?.id || ''}
         />
       )}
     </div>

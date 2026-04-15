@@ -16,7 +16,11 @@ module.exports = {
   extensionsToTreatAsEsm: ['.ts', '.tsx'],
   globals: {
     'ts-jest': {
-      useESM: true
+      useESM: true,
+      tsconfig: {
+        module: 'ESNext',
+        target: 'ES2019'
+      }
     }
   },
   collectCoverageFrom: [

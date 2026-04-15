@@ -1,3 +1,6 @@
+// Mock the service module
+jest.mock('../services/supabaseService');
+
 import { getSupabaseService, SupabaseService } from '../services/supabaseService';
 import { Contact } from '../types/contact';
 import { Deal } from '../types';

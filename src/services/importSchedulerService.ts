@@ -341,7 +341,7 @@ class ImportSchedulerService {
     const now = new Date();
     const [hours, minutes] = schedule.time.split(':').map(Number);
 
-    let nextRun = new Date(now);
+    const nextRun = new Date(now);
     nextRun.setHours(hours, minutes, 0, 0);
 
     if (nextRun <= now) {

@@ -26,7 +26,9 @@
     "@hello-pangea/dnd": "^16.5.0",
     "@originjs/vite-plugin-federation": "^1.4.1",
     "@supabase/supabase-js": "^2.39.0",
+    "@types/exceljs": "^0.5.3",
     "ai": "^5.0.106",
+    "exceljs": "^4.4.0",
     "focus-trap-react": "^11.0.4",
     "fuse.js": "^7.0.0",
     "js-yaml": "^4.1.1",
@@ -37,7 +39,6 @@
     "react-helmet-async": "^2.0.5",
     "recharts": "^2.8.0",
     "uuid": "^13.0.0",
-    "xlsx": "^0.18.5",
     "xml2js": "^0.6.2",
     "zod": "^3.25.8",
     "zustand": "^4.4.7"

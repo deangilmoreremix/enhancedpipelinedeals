@@ -8,7 +8,7 @@ import { SkillsPanel } from "./components/SkillsPanel";
 import { MemoryPanel } from "./components/MemoryPanel";
 import { MoodPanel } from "./components/MoodPanel";
 import { CalendarAIPanel } from "./components/CalendarAIPanel";
-import { SDRAgentsPanel } from "./components/SDRAgentsPanel";
+import { SDRAgentsHub } from "./components/sdr/SDRAgentsHub";
 
 const App: React.FC = () => {
   return (
@@ -39,7 +39,7 @@ const App: React.FC = () => {
 
       <HeatmapPanel />
       <PlaybooksPanel />
-      <SDRAgentsPanel />
+      <SDRAgentsHub />
       <MemoryPanel />
       <MoodPanel />
       <CalendarAIPanel />

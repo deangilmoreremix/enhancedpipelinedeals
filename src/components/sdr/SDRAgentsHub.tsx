@@ -5,6 +5,7 @@ import { SDRFilterPanel } from './SDRFilterPanel';
 import { SDRResultsViewer } from './SDRResultsViewer';
 import { SDRAnalyticsDashboard } from './SDRAnalyticsDashboard';
 import { useSDRAgents } from './useSDRAgents';
+import { SDR_AGENTS } from './sdrAgentsConfig';
 import { Play, Users, BarChart3 } from 'lucide-react';
 
 export const SDRAgentsHub: React.FC = () => {

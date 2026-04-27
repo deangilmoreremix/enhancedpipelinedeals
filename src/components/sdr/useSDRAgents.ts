@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { sdrPreferencesService } from '../../services/sdrPreferencesService';
+import { SDR_AGENTS } from './sdrAgentsConfig';
 
 // Interfaces moved to types.ts
 export type { SDRAgentMetadata, SDRAgentAnalytics } from './types';

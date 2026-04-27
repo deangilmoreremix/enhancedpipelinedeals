@@ -1,4 +1,5 @@
 // Jest setup file for environment mocking
+import fetchMock from 'jest-fetch-mock';
 import '@testing-library/jest-dom';
 
 // Mock import.meta.env for Vite compatibility
@@ -24,8 +25,11 @@ const mockImportMeta = {
   }
 };
 
-// Mock import.meta on the global object
-(global as any).import = { meta: mockImportMeta };
+// Mock import.meta globally for Vite compatibility
+Object.defineProperty(global, 'import', {
+  value: { meta: mockImportMeta },
+  writable: true
+});
 
 // Mock localStorage
 const localStorageMock = {
@@ -76,4 +80,10 @@ global.FileReader = class MockFileReader {
       this.onabort(new Event('abort'));
     }
   }
+
 } as any;
+
+// Enable fetch mocking
+
+// Enable fetch mocking
+fetchMock.enableMocks();

@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { SDR_AGENTS } from "./sdr/sdrAgentsConfig";
 import { SDRAgentConfigurator } from "./sdr/SDRAgentConfigurator";
 import { sdrPreferencesService } from "../services/sdrPreferencesService";
 import { SDRUserPreferences } from "../types/sdr-config";
@@ -18,92 +19,6 @@ interface SDRRunResponse {
   result: any;
 }
 
-const SDR_AGENTS: SDRAgentMeta[] = [
-  {
-    id: "sdr-cold-email",
-    label: "Cold Email SDR",
-    short: "Prospect net-new cold leads with targeted emails.",
-    category: "Top-of-funnel"
-  },
-  {
-    id: "sdr-follow-up",
-    label: "Follow-Up SDR",
-    short: "Automated follow-up sequences when leads go quiet.",
-    category: "Follow-Up"
-  },
-  {
-    id: "sdr-objection-handling",
-    label: "Objection-Handling SDR",
-    short: "Handles objections and moves the deal forward.",
-    category: "Objections"
-  },
-  {
-    id: "sdr-bump-message",
-    label: "Bump Message SDR",
-    short: "Short bump nudges for threads that have stalled.",
-    category: "Follow-Up"
-  },
-  {
-    id: "sdr-reactivation",
-    label: "Re-Activation SDR",
-    short: "Re-engages old or dormant leads.",
-    category: "Revival"
-  },
-  {
-    id: "sdr-winback",
-    label: "Win-Back SDR",
-    short: "Win back lost customers or churned accounts.",
-    category: "Revival"
-  },
-  {
-    id: "sdr-linkedin",
-    label: "LinkedIn SDR",
-    short: "Scripts for LinkedIn connection & follow-up.",
-    category: "Social"
-  },
-  {
-    id: "sdr-whatsapp",
-    label: "WhatsApp SDR",
-    short: "Conversational outreach optimized for WhatsApp.",
-    category: "Social"
-  },
-  {
-    id: "sdr-event-based",
-    label: "Event-Based SDR",
-    short: "Outreach triggered by events (webinar, download, etc.).",
-    category: "Event"
-  },
-  {
-    id: "sdr-referral",
-    label: "Referral SDR",
-    short: "Messages to generate and close referrals.",
-    category: "Referrals"
-  },
-  {
-    id: "sdr-newsletter-lead-in",
-    label: "Newsletter Lead-In SDR",
-    short: "Turns newsletter subscribers into sales conversations.",
-    category: "Warm"
-  },
-  {
-    id: "sdr-high-intent",
-    label: "High-Intent SDR",
-    short: "Fast follow-up for hot leads and demo requests.",
-    category: "Hot"
-  },
-  {
-    id: "sdr-data-enrichment",
-    label: "Data-Enrichment SDR",
-    short: "Enriches contact data and drafts smarter outreach.",
-    category: "Intelligence"
-  },
-  {
-    id: "sdr-competitor-aware",
-    label: "Competitor-Aware SDR",
-    short: "Handles competitor mentions and positions you to win.",
-    category: "Competitive"
-  }
-];
 
 export const SDRAgentsPanel: React.FC = () => {
   const [selectedAgentId, setSelectedAgentId] = useState<string>(

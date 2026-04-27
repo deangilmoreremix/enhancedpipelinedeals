@@ -28,7 +28,13 @@ export const initialDealDetailState = (deal: Deal, contactData?: Contact | null)
   newLinkUrl: '',
   files: [],
   activeModal: null,
-  isRunningSDR: false
+  isRunningSDR: false,
+
+  // Phase 3 enhancements
+  showBulkActions: false,
+  selectedDeals: [],
+  healthRefreshing: false,
+  probabilityRefreshing: false
 });
 
 export const dealDetailReducer = (state: DealDetailState, action: DealDetailAction): DealDetailState => {
@@ -113,6 +119,18 @@ export const dealDetailReducer = (state: DealDetailState, action: DealDetailActi
 
     case 'SET_RUNNING_SDR':
       return { ...state, isRunningSDR: action.payload };
+
+    case 'SET_SHOW_BULK_ACTIONS':
+      return { ...state, showBulkActions: action.payload };
+
+    case 'SET_SELECTED_DEALS':
+      return { ...state, selectedDeals: action.payload };
+
+    case 'SET_HEALTH_REFRESHING':
+      return { ...state, healthRefreshing: action.payload };
+
+    case 'SET_PROBABILITY_REFRESHING':
+      return { ...state, probabilityRefreshing: action.payload };
 
     case 'RESET_STATE':
       return initialDealDetailState(action.payload.deal, action.payload.contactData);
@@ -252,6 +270,26 @@ export const dealDetailActions = {
   setRunningSDR: (isRunning: boolean): DealDetailAction => ({
     type: 'SET_RUNNING_SDR',
     payload: isRunning
+  }),
+
+  setShowBulkActions: (show: boolean): DealDetailAction => ({
+    type: 'SET_SHOW_BULK_ACTIONS',
+    payload: show
+  }),
+
+  setSelectedDeals: (deals: Deal[]): DealDetailAction => ({
+    type: 'SET_SELECTED_DEALS',
+    payload: deals
+  }),
+
+  setHealthRefreshing: (refreshing: boolean): DealDetailAction => ({
+    type: 'SET_HEALTH_REFRESHING',
+    payload: refreshing
+  }),
+
+  setProbabilityRefreshing: (refreshing: boolean): DealDetailAction => ({
+    type: 'SET_PROBABILITY_REFRESHING',
+    payload: refreshing
   }),
 
   resetState: (deal: Deal, contactData?: Contact | null): DealDetailAction => ({

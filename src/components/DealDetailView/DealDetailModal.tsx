@@ -9,6 +9,9 @@ import { DealJourneyTimeline } from '../DealJourneyTimeline';
 import { DealCommunicationHub } from '../DealCommunicationHub';
 import { DealAnalyticsDashboard } from '../DealAnalyticsDashboard';
 import { DealAutomationPanel } from '../DealAutomationPanel';
+import { DealManagementPanel } from './DealManagementPanel';
+import { DealCalendarIntegration } from '../calendar/DealCalendarIntegration';
+import { EmailIntegrationPanel } from '../email/EmailIntegrationPanel';
 import { EmailComposer } from '../EmailComposer';
 import { ContactsModal } from '../ContactsModal';
 import { dealDetailReducer, dealDetailActions, initialDealDetailState } from './reducer';
@@ -672,6 +675,24 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
               </div>
             )}
 
+              {state.activeTab === 'calendar' && (
+                <div className="p-6 animate-fade-in">
+                  <DealCalendarIntegration
+                    dealId={state.editedDeal.id}
+                    userId="current-user" // This should come from auth context
+                  />
+                </div>
+              )}
+
+              {state.activeTab === 'email' && (
+                <div className="p-6 animate-fade-in">
+                  <EmailIntegrationPanel
+                    recordType="deal"
+                    recordId={state.editedDeal.id}
+                  />
+                </div>
+              )}
+
               {state.activeTab === 'analytics' && (
                 <div className="p-6 animate-fade-in">
                   <DealAnalyticsDashboard deal={state.editedDeal} />
@@ -821,6 +842,14 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
           // Could pass the email content to the composer here
         }}
       />
+
+              {state.activeTab === 'management' && (
+                <DealManagementPanel
+                  deal={state.editedDeal}
+                  onUpdate={onUpdate}
+                  linkedContactId={state.linkedContact?.id}
+                />
+              )}
 
       {/* SDR Agent Configuration Modal */}
       {configuringAgent && (

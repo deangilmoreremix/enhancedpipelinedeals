@@ -1,5 +1,5 @@
 import React, { useEffect, useCallback } from 'react';
-import { User, Brain, TrendingUp, MessageSquare, BarChart3, Zap } from 'lucide-react';
+import { User, Brain, TrendingUp, MessageSquare, BarChart3, Zap, Settings, Calendar, Mail } from 'lucide-react';
 import { DealDetailTabsProps } from './types';
 
 export const DealDetailTabs: React.FC<DealDetailTabsProps> = ({
@@ -11,8 +11,11 @@ export const DealDetailTabs: React.FC<DealDetailTabsProps> = ({
     { id: 'insights', label: 'AI Insights', icon: Brain, shortcut: '2' },
     { id: 'journey', label: 'Journey', icon: TrendingUp, shortcut: '3' },
     { id: 'communication', label: 'Communication', icon: MessageSquare, shortcut: '4' },
-    { id: 'analytics', label: 'Analytics', icon: BarChart3, shortcut: '5' },
-    { id: 'automation', label: 'Automation', icon: Zap, shortcut: '6' },
+    { id: 'calendar', label: 'Calendar', icon: Calendar, shortcut: '5' },
+    { id: 'email', label: 'Email', icon: Mail, shortcut: '6' },
+    { id: 'analytics', label: 'Analytics', icon: BarChart3, shortcut: '7' },
+    { id: 'automation', label: 'Automation', icon: Zap, shortcut: '8' },
+    { id: 'management', label: 'Management', icon: Settings, shortcut: '9' },
   ];
 
   // Keyboard navigation support
@@ -73,7 +76,7 @@ export const DealDetailTabs: React.FC<DealDetailTabsProps> = ({
         <div className="hidden lg:flex items-center space-x-2 text-xs text-gray-500 dark:text-gray-400">
           <kbd className="px-2 py-1 bg-gray-100 dark:bg-gray-800 rounded border border-gray-300 dark:border-gray-600">Alt</kbd>
           <span>+</span>
-          <kbd className="px-2 py-1 bg-gray-100 dark:bg-gray-800 rounded border border-gray-300 dark:border-gray-600">1-6</kbd>
+          <kbd className="px-2 py-1 bg-gray-100 dark:bg-gray-800 rounded border border-gray-300 dark:border-gray-600">1-9</kbd>
           <span className="ml-2">to switch tabs</span>
         </div>
       </div>

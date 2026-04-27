@@ -95,6 +95,12 @@ export interface DealDetailState {
   files: any[];
   activeModal: ModalType;
   isRunningSDR: boolean;
+
+  // Phase 3 enhancements
+  showBulkActions: boolean;
+  selectedDeals: Deal[];
+  healthRefreshing: boolean;
+  probabilityRefreshing: boolean;
 }
 
 export type DealDetailAction =
@@ -124,4 +130,8 @@ export type DealDetailAction =
   | { type: 'SET_FILES'; payload: any[] }
   | { type: 'SET_ACTIVE_MODAL'; payload: ModalType }
   | { type: 'SET_RUNNING_SDR'; payload: boolean }
+  | { type: 'SET_SHOW_BULK_ACTIONS'; payload: boolean }
+  | { type: 'SET_SELECTED_DEALS'; payload: Deal[] }
+  | { type: 'SET_HEALTH_REFRESHING'; payload: boolean }
+  | { type: 'SET_PROBABILITY_REFRESHING'; payload: boolean }
   | { type: 'RESET_STATE'; payload: { deal: Deal; contactData?: Contact | null } };

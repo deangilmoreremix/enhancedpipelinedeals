@@ -1,0 +1,60 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "dist"
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
+    }
+  ],
+  "env": {
+    "VITE_SUPABASE_URL": "https://your-production-project.supabase.co",
+    "VITE_SUPABASE_ANON_KEY": "your-production-anon-key-here",
+    "VITE_OPENAI_API_KEY": "@openai-api-key",
+    "VITE_GEMINI_API_KEY": "@gemini-api-key",
+    "VITE_GOOGLE_CALENDAR_CLIENT_ID": "@google-calendar-client-id",
+    "VITE_OUTLOOK_CLIENT_ID": "@outlook-client-id",
+    "VITE_SENDGRID_API_KEY": "@sendgrid-api-key",
+    "ENVIRONMENT": "production"
+  },
+  "functions": {
+    "netlify/functions/**/*.ts": {
+      "runtime": "@vercel/node"
+    }
+  },
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-XSS-Protection",
+          "value": "1; mode=block"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://*.supabase.co https://api.openai.com https://*.googleapis.com;"
+        }
+      ]
+    }
+  ]
+}

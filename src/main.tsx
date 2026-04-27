@@ -19,8 +19,6 @@ getStorageBucketService().initializeBuckets().then((result) => {
 }).catch((error) => {
   console.error('❌ Error initializing storage buckets:', error);
 });
-import { getCRMBridge } from './services/crmBridge';
-getCRMBridge();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

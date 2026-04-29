@@ -7,6 +7,8 @@ import './styles/global-dark-mode.css';
 
 import { getCRMBridge } from './services/crmBridge';
 import { getStorageBucketService } from './services/storageBucketService';
+import { initializeAllFeatures } from './scripts/initializeFeatures';
+
 getCRMBridge();
 
 // Initialize storage buckets
@@ -18,6 +20,13 @@ getStorageBucketService().initializeBuckets().then((result) => {
   }
 }).catch((error) => {
   console.error('❌ Error initializing storage buckets:', error);
+});
+
+// Initialize database features and feature flags
+initializeAllFeatures().then(() => {
+  console.log('✅ Database features initialized');
+}).catch((error) => {
+  console.error('❌ Feature initialization failed:', error);
 });
 
 createRoot(document.getElementById('root')!).render(

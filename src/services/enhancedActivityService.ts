@@ -1,6 +1,6 @@
-import { supabase } from '../supabaseService';
-import { Deal } from '../../types';
-import { Contact } from '../../types/contact';
+import { supabase } from './supabaseService';
+import { Deal } from '../types';
+import { Contact } from '../types/contact';
 
 export interface EnhancedActivity {
   id: string;

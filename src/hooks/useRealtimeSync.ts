@@ -1,7 +1,7 @@
 import { useEffect, useCallback, useRef } from 'react';
-import { supabase } from '../supabaseService';
-import { enhancedActivityService } from '../enhancedActivityService';
-import { Deal } from '../../types';
+import { supabase } from '../services/supabaseService';
+import { enhancedActivityService } from '../services/enhancedActivityService';
+import { Deal } from '../types';
 
 export interface RealtimeSyncOptions {
   dealId: string;

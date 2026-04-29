@@ -65,6 +65,9 @@ export interface PipelineColumn {
   title: string;
   dealIds: string[];
   color: string;
+  position?: number;
+  wipLimit?: number;
+  description?: string;
 }
 
 export interface PipelineStats {

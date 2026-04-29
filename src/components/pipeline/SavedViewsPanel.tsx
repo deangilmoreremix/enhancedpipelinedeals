@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { SavedPipelineView, getAllViews, setDefaultView, deleteView } from '../../services/savedPipelineViewService';
+import { SavedPipelineView, getAllViews, setDefaultView, deleteView, saveCurrentView as saveView } from '../../services/savedPipelineViewService';
 import { isFeatureEnabled } from '../../services/featureFlagService';
 
 /**
@@ -8,10 +8,16 @@ import { isFeatureEnabled } from '../../services/featureFlagService';
  */
 export const SavedViewsPanel: React.FC<{
   onViewSelect?: (view: SavedPipelineView) => void;
-}> = ({ onViewSelect }) => {
+  currentViewType?: string;
+  currentFilters?: any;
+  currentSorting?: any;
+  currentColumns?: string[];
+}> = ({ onViewSelect, currentViewType, currentFilters, currentSorting, currentColumns }) => {
   const [views, setViews] = useState<SavedPipelineView[]>([]);
   const [loading, setLoading] = useState(true);
   const [featureEnabled, setFeatureEnabled] = useState(false);
+  const [showSaveModal, setShowSaveModal] = useState(false);
+  const [newViewName, setNewViewName] = useState('');
 
   useEffect(() => {
     const init = async () => {
@@ -135,14 +141,57 @@ export const SavedViewsPanel: React.FC<{
       <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
         <button
           className="text-sm bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
-          onClick={() => {
-            // TODO: Implement save current view functionality
-            console.log('Save current view');
-          }}
+          onClick={() => setShowSaveModal(true)}
         >
           Save Current View
         </button>
       </div>
+
+      {/* Save View Modal */}
+      {showSaveModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg max-w-sm w-full mx-4">
+            <h3 className="text-lg font-medium mb-4 text-gray-900 dark:text-white">Save Current View</h3>
+            <input
+              type="text"
+              placeholder="Enter view name"
+              value={newViewName}
+              onChange={(e) => setNewViewName(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded mb-4 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              autoFocus
+            />
+            <div className="flex justify-end space-x-2">
+              <button
+                className="px-3 py-1 bg-gray-300 dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500 rounded text-gray-700 dark:text-gray-200"
+                onClick={() => {
+                  setShowSaveModal(false);
+                  setNewViewName('');
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded"
+                onClick={async () => {
+                  if (!newViewName.trim()) return;
+                  await saveView(
+                    newViewName,
+                    currentViewType || 'kanban',
+                    currentFilters || {},
+                    currentSorting || {},
+                    currentColumns || []
+                  );
+                  setShowSaveModal(false);
+                  setNewViewName('');
+                  await loadViews();
+                }}
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

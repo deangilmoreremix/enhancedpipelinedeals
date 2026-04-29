@@ -9,6 +9,8 @@ import { EnhancedAIStatusIndicator } from './ui/EnhancedAIStatusIndicator';
 import DealDetail from './DealDetail';
 import PipelineStats from './PipelineStats';
 import DealAnalytics from './DealAnalytics';
+import { getCustomColumns, saveCustomColumns, toPipelineColumn } from '../services/pipelineColumnService';
+import { CustomPipelineColumn } from '../types/pipeline';
 
 // Lazy load view components for code splitting
 const DealListView = React.lazy(() => import('./DealListView').then(module => ({ default: module.DealListView })));
@@ -16,7 +18,7 @@ const DealTableView = React.lazy(() => import('./DealTableView').then(module => 
 const DealCalendarView = React.lazy(() => import('./DealCalendarView').then(module => ({ default: module.DealCalendarView })));
 const DealTimelineView = React.lazy(() => import('./DealTimelineView').then(module => ({ default: module.DealTimelineView })));
 const DealDashboardView = React.lazy(() => import('./DealDashboardView').then(module => ({ default: module.DealDashboardView })));
-import { mockColumns, columnOrder } from '../data/mockDeals';
+import { mockColumns } from '../data/mockDeals';
 import { getDataSyncService } from '../services/dataSyncService';
 import { getSupabaseService } from '../services/supabaseService';
 import { getOpenAIFunctionService } from '../services/openaiFunctionCallingService';
@@ -129,8 +131,31 @@ const Pipeline: React.FC = () => {
       });
     };
 
-    checkFeatures();
-  }, []);
+     checkFeatures();
+   }, []);
+
+  // Load custom columns based on feature flag
+  useEffect(() => {
+    const loadColumns = async () => {
+      if (twentyFeaturesEnabled.customColumns) {
+          const customCols = await getCustomColumns();
+          if (customCols && customCols.length > 0) {
+            setColumns(prev => {
+              const newCols: Record<string, PipelineColumn> = {};
+              customCols.forEach(custom => {
+                const col = toPipelineColumn(custom);
+                newCols[col.id] = { ...col, dealIds: [] };
+              });
+              return newCols;
+            });
+            return;
+          }
+      }
+      // Fallback to mock columns
+      setColumns(mockColumns);
+    };
+    loadColumns();
+  }, [twentyFeaturesEnabled.customColumns]);
 
   // Real-time subscriptions
   useEffect(() => {
@@ -175,8 +200,26 @@ const Pipeline: React.FC = () => {
       console.log('🔄 Pipeline: Cleaning up real-time subscription');
       dealsSubscription.unsubscribe();
     };
-  }, [dataSource]);
+   }, [dataSource]);
 
+  // Populate column.dealIds from deals when deals are loaded and columns are empty
+  useEffect(() => {
+    const hasEmpty = Object.values(columns).some(col => !col.dealIds || col.dealIds.length === 0);
+    if (!hasEmpty) return;
+
+    setColumns(prev => {
+      const updated = { ...prev };
+      Object.keys(updated).forEach(colId => {
+        if (!updated[colId].dealIds || updated[colId].dealIds.length === 0) {
+          const ids = Object.keys(deals)
+            .filter(id => deals[id].stage === colId)
+            .map(id => id);
+          updated[colId] = { ...updated[colId], dealIds: ids };
+        }
+      });
+      return updated;
+    });
+  }, [deals, columns]);
 
   // Save view preference when changed
   const handleViewChange = (view: DealViewType) => {
@@ -202,9 +245,16 @@ const Pipeline: React.FC = () => {
     }
 
     return result;
-  }, [deals, searchTerm, filterStage]);
+   }, [deals, searchTerm, filterStage]);
 
-  // Calculate pipeline statistics
+   // Compute column order from columns metadata
+   const columnOrder = useMemo(() => {
+     return Object.values(columns)
+       .sort((a, b) => (a.position || 0) - (b.position || 0))
+       .map(col => col.id);
+   }, [columns]);
+
+   // Calculate pipeline statistics
   const pipelineStats = useMemo(() => {
     const allDeals = Object.values(deals);
     const totalValue = allDeals.reduce((sum, deal) => sum + deal.value, 0);
@@ -911,7 +961,7 @@ const Pipeline: React.FC = () => {
                     <KanbanColumnHeader
                       title={column.title}
                       aggregation={columnAggregation}
-                      wipLimit={twentyFeaturesEnabled.wipLimits ? 10 : undefined} // TODO: Make configurable
+                       wipLimit={twentyFeaturesEnabled.wipLimits ? (column.wipLimit ?? 10) : undefined} // Configurable via custom columns
                       color={getStageColor(column.id)}
                     />
                   ) : (
@@ -934,7 +984,7 @@ const Pipeline: React.FC = () => {
                     <div className="px-4 py-2 border-b border-gray-200 dark:border-gray-700">
                       <WIPLimitIndicator
                         current={columnDeals.length}
-                        limit={10} // TODO: Make configurable per column
+                         limit={column.wipLimit ?? 10} // Configurable per column
                       />
                     </div>
                   )}
@@ -1052,9 +1102,19 @@ const Pipeline: React.FC = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-hidden">
             <CustomColumnManager
-              onColumnsChange={(columns) => {
-                // TODO: Save column changes
-                console.log('Columns updated:', columns);
+              onColumnsChange={async (customColumns) => {
+                // Persist custom columns
+                await saveCustomColumns(customColumns);
+                // Convert to pipeline columns and update state, preserving existing dealIds
+                setColumns(prev => {
+                  const newCols: Record<string, PipelineColumn> = {};
+                  customColumns.forEach(custom => {
+                    const col = toPipelineColumn(custom);
+                    const existing = prev[col.id];
+                    newCols[col.id] = { ...col, dealIds: existing?.dealIds || [] };
+                  });
+                  return newCols;
+                });
               }}
               onClose={() => setShowColumnManager(false)}
             />

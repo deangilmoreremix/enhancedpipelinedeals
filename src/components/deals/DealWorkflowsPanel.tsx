@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { DealWorkflow, getAllWorkflows } from '../../services/dealWorkflowService';
+import { DealWorkflow, getAllWorkflows, assignWorkflowToDeal } from '../../services/dealWorkflowService';
 import { isFeatureEnabled } from '../../services/featureFlagService';
 import { EnhancedWorkflowPanel } from '../workflows/EnhancedWorkflowPanel';
 
@@ -8,7 +8,9 @@ import { EnhancedWorkflowPanel } from '../workflows/EnhancedWorkflowPanel';
  * Allows users to manage and assign automated deal workflows
  * Uses EnhancedWorkflowPanel for Phase 5 features when available
  */
-export const DealWorkflowsPanel: React.FC = () => {
+export const DealWorkflowsPanel: React.FC<{
+  dealId?: string;
+}> = ({ dealId }) => {
   const [workflows, setWorkflows] = useState<DealWorkflow[]>([]);
   const [loading, setLoading] = useState(true);
   const [basicFeatureEnabled, setBasicFeatureEnabled] = useState(false);
@@ -31,6 +33,24 @@ export const DealWorkflowsPanel: React.FC = () => {
 
     init();
   }, []);
+
+  const handleAssign = async (workflowId: string) => {
+    if (!dealId) {
+      alert('No deal selected. Please select a deal to assign a workflow.');
+      return;
+    }
+    try {
+      const success = await assignWorkflowToDeal(dealId, workflowId);
+      if (success) {
+        console.log('Workflow assigned successfully');
+      } else {
+        alert('Failed to assign workflow');
+      }
+    } catch (error) {
+      console.error('Error assigning workflow:', error);
+      alert('Error assigning workflow');
+    }
+  };
 
   // Use enhanced workflow panel if Phase 5 features are enabled
   if (enhancedFeatureEnabled) {
@@ -97,15 +117,12 @@ export const DealWorkflowsPanel: React.FC = () => {
                   }`}>
                     {workflow.is_active ? 'Active' : 'Inactive'}
                   </span>
-                  <button
-                    className="text-sm bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded"
-                    onClick={() => {
-                      // TODO: Implement workflow assignment
-                      console.log('Assign workflow:', workflow.id);
-                    }}
-                  >
-                    Assign
-                  </button>
+                 <button
+                   className="text-sm bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded"
+                   onClick={() => handleAssign(workflow.id)}
+                 >
+                   Assign
+                 </button>
                 </div>
               </div>
             </div>

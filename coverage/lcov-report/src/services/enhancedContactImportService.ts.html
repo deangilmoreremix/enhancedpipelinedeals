@@ -25,21 +25,21 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/295</span>
+                <span class='fraction'>0/296</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/315</span>
+                <span class='fraction'>0/321</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/35</span>
+                <span class='fraction'>0/36</span>
             </div>
         
             
@@ -877,10 +877,7 @@
 <a name='L812'></a><a href='#L812'>812</a>
 <a name='L813'></a><a href='#L813'>813</a>
 <a name='L814'></a><a href='#L814'>814</a>
-<a name='L815'></a><a href='#L815'>815</a>
-<a name='L816'></a><a href='#L816'>816</a>
-<a name='L817'></a><a href='#L817'>817</a>
-<a name='L818'></a><a href='#L818'>818</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L815'></a><a href='#L815'>815</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1465,6 +1462,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -1473,13 +1471,9 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -1706,7 +1700,7 @@ import { Contact } from '../types/contact';
 import { getEnhancedIntelligentAI } from './enhancedIntelligentAIService';
 import { getWebSearchService } from './webSearchService';
 import { getCitationService } from './citationService';
-import * as XLSX from 'xlsx';
+import * as ExcelJS from 'exceljs';
 import * as xml2js from 'xml2js';
 import * as yaml from 'js-yaml';
 &nbsp;
@@ -1824,7 +1818,7 @@ export interface ContactImportProgress {
 <span class="cstat-no" title="statement not covered" >          rawContacts = this.parseCSVContacts(typeof input === 'string' ? input : '');</span>
 <span class="cstat-no" title="statement not covered" >          break;</span>
         case 'excel':
-<span class="cstat-no" title="statement not covered" >          rawContacts = this.parseExcelContacts(input as ArrayBuffer);</span>
+<span class="cstat-no" title="statement not covered" >          rawContacts = await this.parseExcelContacts(input as ArrayBuffer);</span>
 <span class="cstat-no" title="statement not covered" >          break;</span>
         case 'xml':
 <span class="cstat-no" title="statement not covered" >          rawContacts = await this.parseXMLContacts(typeof input === 'string' ? input : '');</span>
@@ -2279,34 +2273,31 @@ export interface ContactImportProgress {
   /**
    * Parse Excel contacts (.xlsx, .xls)
    */
-  private <span class="fstat-no" title="function not covered" >parseExcelContacts(</span>buffer: ArrayBuffer): any[] {
+  private <span class="fstat-no" title="function not covered" >async </span>parseExcelContacts(buffer: ArrayBuffer): Promise&lt;any[]&gt; {
 <span class="cstat-no" title="statement not covered" >    try {</span>
-      const workbook = <span class="cstat-no" title="statement not covered" >XLSX.read(buffer, { type: 'array' });</span>
+      const workbook = <span class="cstat-no" title="statement not covered" >new ExcelJS.Workbook();</span>
+<span class="cstat-no" title="statement not covered" >      await workbook.xlsx.load(buffer);</span>
 &nbsp;
       // Use the first worksheet
-      const sheetName = <span class="cstat-no" title="statement not covered" >workbook.SheetNames[0];</span>
-<span class="cstat-no" title="statement not covered" >      if (!sheetName) {</span>
+      const worksheet = <span class="cstat-no" title="statement not covered" >workbook.worksheets[0];</span>
+<span class="cstat-no" title="statement not covered" >      if (!worksheet) {</span>
 <span class="cstat-no" title="statement not covered" >        throw new Error('Excel file contains no worksheets');</span>
       }
 &nbsp;
-      const worksheet = <span class="cstat-no" title="statement not covered" >workbook.Sheets[sheetName];</span>
-      const jsonData = <span class="cstat-no" title="statement not covered" >XLSX.utils.sheet_to_json(worksheet, {</span>
-        header: 1, // Use first row as headers
-        defval: '' // Default value for empty cells
-      });
-&nbsp;
-<span class="cstat-no" title="statement not covered" >      if (jsonData.length &lt; 2) {</span>
+      const rows = <span class="cstat-no" title="statement not covered" >worksheet.getSheetValues();</span>
+<span class="cstat-no" title="statement not covered" >      if (!rows || rows.length &lt; 2) {</span>
 <span class="cstat-no" title="statement not covered" >        throw new Error('Excel file must contain at least a header row and one data row');</span>
       }
 &nbsp;
-      const headers = <span class="cstat-no" title="statement not covered" >jsonData[0] as string[];</span>
-      const rows = <span class="cstat-no" title="statement not covered" >jsonData.slice(1) as any[][];</span>
+      // First row contains headers
+      const headers = (<span class="cstat-no" title="statement not covered" >rows[1] as any[]).map(<span class="fstat-no" title="function not covered" >header </span>=&gt; <span class="cstat-no" title="statement not covered" >String(header || '').toLowerCase().trim().replace(/[^a-zA-Z0-9]/g, '_'))</span>;</span>
+      const dataRows = <span class="cstat-no" title="statement not covered" >rows.slice(2);</span> // Skip header row (index 1, which is the second element)
 &nbsp;
-<span class="cstat-no" title="statement not covered" >      return rows.map(<span class="fstat-no" title="function not covered" >row </span>=&gt; {</span>
+<span class="cstat-no" title="statement not covered" >      return dataRows.map(<span class="fstat-no" title="function not covered" >row </span>=&gt; {</span>
         const contact: any = <span class="cstat-no" title="statement not covered" >{};</span>
+        const rowData = <span class="cstat-no" title="statement not covered" >row as any[];</span>
 <span class="cstat-no" title="statement not covered" >        headers.forEach(<span class="fstat-no" title="function not covered" >(h</span>eader, index) =&gt; {</span>
-          const cleanHeader = <span class="cstat-no" title="statement not covered" >header.toLowerCase().trim().replace(/[^a-zA-Z0-9]/g, '_');</span>
-<span class="cstat-no" title="statement not covered" >          contact[cleanHeader] = row[index] || '';</span>
+<span class="cstat-no" title="statement not covered" >          contact[header] = rowData[index] !== undefined ? String(rowData[index] || '') : '';</span>
         });
 <span class="cstat-no" title="statement not covered" >        return contact;</span>
       });
@@ -2521,7 +2512,7 @@ export const enhancedContactImportService = <span class="cstat-no" title="statem
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-03-02T05:52:55.823Z
+                at 2026-04-27T09:08:05.669Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

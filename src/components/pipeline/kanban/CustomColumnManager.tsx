@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { isFeatureEnabled } from '../../../services/featureFlagService';
+import { getCustomColumns } from '../../../services/pipelineColumnService';
+import { CustomPipelineColumn } from '../../../types/pipeline';
 
 export interface CustomPipelineColumn {
   id: string;
@@ -35,46 +37,51 @@ export const CustomColumnManager: React.FC<CustomColumnManagerProps> = ({
       setFeatureEnabled(enabled);
 
       if (enabled) {
-        // TODO: Load custom columns from service
-        // For now, show default columns
-        const defaultColumns: CustomPipelineColumn[] = [
-          {
-            id: 'new',
-            name: 'New',
-            position: 1,
-            config: { color: 'border-blue-500', wipLimit: 10 },
-            is_active: true
-          },
-          {
-            id: 'contacted',
-            name: 'Contacted',
-            position: 2,
-            config: { color: 'border-yellow-500', wipLimit: 8 },
-            is_active: true
-          },
-          {
-            id: 'qualified',
-            name: 'Qualified',
-            position: 3,
-            config: { color: 'border-purple-500', wipLimit: 6 },
-            is_active: true
-          },
-          {
-            id: 'proposal',
-            name: 'Proposal',
-            position: 4,
-            config: { color: 'border-orange-500', wipLimit: 4 },
-            is_active: true
-          },
-          {
-            id: 'closed',
-            name: 'Closed Won',
-            position: 5,
-            config: { color: 'border-green-500', wipLimit: 0 },
-            is_active: true
-          }
-        ];
-        setColumns(defaultColumns);
+        // Load custom columns from service
+        const savedColumns = await getCustomColumns();
+        if (savedColumns && savedColumns.length > 0) {
+          setColumns(savedColumns);
+        } else {
+          // Default columns fallback
+          const defaultColumns: CustomPipelineColumn[] = [
+            {
+              id: 'qualification',
+              name: 'Qualification',
+              position: 1,
+              config: { color: 'border-blue-500', wipLimit: 10 },
+              is_active: true
+            },
+            {
+              id: 'proposal',
+              name: 'Proposal',
+              position: 2,
+              config: { color: 'border-indigo-500', wipLimit: 8 },
+              is_active: true
+            },
+            {
+              id: 'negotiation',
+              name: 'Negotiation',
+              position: 3,
+              config: { color: 'border-purple-500', wipLimit: 6 },
+              is_active: true
+            },
+            {
+              id: 'closed-won',
+              name: 'Closed Won',
+              position: 4,
+              config: { color: 'border-green-500', wipLimit: 0 },
+              is_active: true
+            },
+            {
+              id: 'closed-lost',
+              name: 'Closed Lost',
+              position: 5,
+              config: { color: 'border-red-500', wipLimit: 0 },
+              is_active: true
+            }
+          ];
+          setColumns(defaultColumns);
+        }
       }
       setLoading(false);
     };

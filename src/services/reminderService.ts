@@ -1,4 +1,4 @@
-import { supabase } from '../core/supabaseClient';
+import { supabase } from '../lib/core/supabaseClient';
 import { logger } from '../core/logger';
 
 export interface Reminder {
@@ -237,7 +237,25 @@ export class ReminderService {
       throw error;
     }
 
-    // TODO: Send real-time notification via WebSocket or push notification service
+    // Send real-time notification via Supabase Realtime broadcast
+    try {
+      await supabase.channel('reminders').send({
+        type: 'broadcast',
+        event: 'new_reminder',
+        payload: {
+          reminderId: reminder.id,
+          userId: reminder.userId,
+          title: reminder.title,
+          description: reminder.description,
+          remindAt: reminder.remindAt.toISOString(),
+          relatedType: reminder.relatedType,
+          relatedId: reminder.relatedId
+        }
+      });
+    } catch (broadcastError) {
+      logger.warn('Failed to broadcast reminder notification', { error: broadcastError });
+      // Non-fatal - notification record still created
+    }
   }
 
   /**

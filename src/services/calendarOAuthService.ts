@@ -1,4 +1,4 @@
-import { supabase } from '../core/supabaseClient';
+import { supabase } from '../lib/core/supabaseClient';
 import { logger } from '../core/logger';
 
 export interface CalendarIntegration {

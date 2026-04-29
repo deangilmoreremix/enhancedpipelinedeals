@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { DealTemplate, getAllTemplates } from '../../services/dealTemplateService';
+import { DealTemplate, getAllTemplates, applyTemplate as applyTemplateService } from '../../services/dealTemplateService';
 import { isFeatureEnabled } from '../../services/featureFlagService';
 
 /**
  * Deal Templates Panel - Twenty Feature
  * Allows users to browse and apply pre-built deal templates
  */
-export const DealTemplatesPanel: React.FC = () => {
+export const DealTemplatesPanel: React.FC<{
+  contactId?: string;
+}> = ({ contactId }) => {
   const [templates, setTemplates] = useState<DealTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [featureEnabled, setFeatureEnabled] = useState(false);
@@ -25,6 +27,25 @@ export const DealTemplatesPanel: React.FC = () => {
 
     init();
   }, []);
+
+  const handleApply = async (templateId: string) => {
+    if (!contactId) {
+      alert('No contact selected. Please select a contact to apply a template.');
+      return;
+    }
+    try {
+      const result = await applyTemplateService(templateId, contactId);
+      if (result) {
+        alert('Deal created from template successfully');
+        // Could emit event or refresh deals list
+      } else {
+        alert('Failed to apply template');
+      }
+    } catch (error) {
+      console.error('Error applying template:', error);
+      alert('Error applying template');
+    }
+  };
 
   if (loading) {
     return (
@@ -79,15 +100,12 @@ export const DealTemplatesPanel: React.FC = () => {
                 }`}>
                   {template.is_public ? 'Public' : 'Private'}
                 </span>
-                <button
-                  className="text-sm bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded"
-                  onClick={() => {
-                    // TODO: Implement template application
-                    console.log('Apply template:', template.id);
-                  }}
-                >
-                  Apply
-                </button>
+                 <button
+                   className="text-sm bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded"
+                   onClick={() => handleApply(template.id)}
+                 >
+                   Apply
+                 </button>
               </div>
             </div>
           ))}

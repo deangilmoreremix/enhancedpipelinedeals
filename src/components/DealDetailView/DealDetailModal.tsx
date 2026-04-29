@@ -523,7 +523,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
               {state.activeTab === 'journey' && (
                 <div className="p-6 animate-fade-in">
                   <InlineErrorBoundary componentName="Journey Tab">
-                    <DealJourneyTimeline deal={state.editedDeal} />
+                    <DealJourneyTimeline deal={state.editedDeal} dealId={state.editedDeal.id} />
                   </InlineErrorBoundary>
                 </div>
               )}

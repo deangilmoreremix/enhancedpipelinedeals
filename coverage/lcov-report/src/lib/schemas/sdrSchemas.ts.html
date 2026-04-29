@@ -25,7 +25,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/57</span>
+                <span class='fraction'>0/55</span>
             </div>
         
             
@@ -46,7 +46,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/54</span>
+                <span class='fraction'>0/52</span>
             </div>
         
             
@@ -450,26 +450,7 @@
 <a name='L385'></a><a href='#L385'>385</a>
 <a name='L386'></a><a href='#L386'>386</a>
 <a name='L387'></a><a href='#L387'>387</a>
-<a name='L388'></a><a href='#L388'>388</a>
-<a name='L389'></a><a href='#L389'>389</a>
-<a name='L390'></a><a href='#L390'>390</a>
-<a name='L391'></a><a href='#L391'>391</a>
-<a name='L392'></a><a href='#L392'>392</a>
-<a name='L393'></a><a href='#L393'>393</a>
-<a name='L394'></a><a href='#L394'>394</a>
-<a name='L395'></a><a href='#L395'>395</a>
-<a name='L396'></a><a href='#L396'>396</a>
-<a name='L397'></a><a href='#L397'>397</a>
-<a name='L398'></a><a href='#L398'>398</a>
-<a name='L399'></a><a href='#L399'>399</a>
-<a name='L400'></a><a href='#L400'>400</a>
-<a name='L401'></a><a href='#L401'>401</a>
-<a name='L402'></a><a href='#L402'>402</a>
-<a name='L403'></a><a href='#L403'>403</a>
-<a name='L404'></a><a href='#L404'>404</a>
-<a name='L405'></a><a href='#L405'>405</a>
-<a name='L406'></a><a href='#L406'>406</a>
-<a name='L407'></a><a href='#L407'>407</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L388'></a><a href='#L388'>388</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -773,21 +754,6 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -829,7 +795,6 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -844,9 +809,6 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1171,21 +1133,6 @@ export const SupabaseUpdateInputSchema = <span class="cstat-no" title="statement
   }),
 });
 &nbsp;
-export const AgentMailSendInputSchema = <span class="cstat-no" title="statement not covered" >z.object({</span>
-  message: z.string().min(1).max(50000),
-  contact_email: EmailSchema,
-  inbox_id: z.string().max(255).optional(),
-  subject: z.string().min(1).max(1000).optional(),
-  thread_id: z.string().max(255).optional(),
-});
-&nbsp;
-export const AgentMailReplyInputSchema = <span class="cstat-no" title="statement not covered" >z.object({</span>
-  message: z.string().min(1).max(50000),
-  contact_email: EmailSchema,
-  inbox_id: z.string().max(255).optional(),
-  original_message_id: z.string().max(255).optional(),
-});
-&nbsp;
 export const BrowserSearchInputSchema = <span class="cstat-no" title="statement not covered" >z.object({</span>
   query: z.string().min(1).max(500),
   maxResults: z.number().int().min(1).max(100).optional(),
@@ -1231,7 +1178,6 @@ export const SDRAgentResultSchema = <span class="cstat-no" title="statement not 
   action: z.string().max(255),
   message: z.string().max(50000).optional(),
   emailData: EmailDataSchema.optional(),
-  agentMailResult: z.unknown().optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
   error: z.string().max(5000).optional(),
 });
@@ -1250,9 +1196,6 @@ export const SDRMetricsSchema = <span class="cstat-no" title="statement not cove
 // ============================================================================
 &nbsp;
 export const MCPToolNameSchema = <span class="cstat-no" title="statement not covered" >z.enum([</span>
-  'AgentMail.send_message',
-  'AgentMail.reply_to_message',
-  'AgentMail.list_messages',
   'SmartCRMTools.save_activity',
   'SmartCRMTools.update_contact_status',
   'SmartCRMTools.write_score',
@@ -1288,7 +1231,7 @@ export type ActivityType = z.infer&lt;typeof ActivityTypeSchema&gt;;
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-03-02T05:52:55.823Z
+                at 2026-04-27T09:08:05.669Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

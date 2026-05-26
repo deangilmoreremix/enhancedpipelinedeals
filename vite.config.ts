@@ -6,13 +6,19 @@ export default defineConfig(({ mode }) => ({
   plugins: [
     react(),
     federation({
-      name: "deals",
-      filename: "remoteEntry.js",
-      exposes: {
-        "./App": "./src/App.tsx",
-      },
-      shared: ["react", "react-dom"],
-    }),
+        name: "deals",
+        filename: "remoteEntry.js",
+        exposes: {
+          "./SmartCRMApp": "./src/SmartCRMApp.tsx",
+          "./App": "./src/App.tsx",
+        },
+        shared: {
+          react: { singleton: true, requiredVersion: '^18.2.0', eager: false },
+          'react-dom': { singleton: true, requiredVersion: '^18.2.0', eager: false },
+          'react-router-dom': { singleton: true },
+          zustand: { singleton: true }
+        }
+      }),
   ],
   optimizeDeps: {
     exclude: ['openai'],
@@ -21,7 +27,7 @@ export default defineConfig(({ mode }) => ({
   build: {
     target: "esnext",
     modulePreload: false,
-    cssCodeSplit: true,
+    cssCodeSplit: false,
     // Production optimizations
     minify: mode === 'production' ? 'esbuild' : false,
     sourcemap: mode === 'development',

@@ -6,7 +6,7 @@ import './styles/global-dark-mode.css';
 
 import { getCRMBridge } from './services/crmBridge';
 import { getStorageBucketService } from './services/storageBucketService';
-import { initializeAllFeatures } from './scripts/initializeFeatures';
+import initializeAllFeatures from './scripts/initializeFeatures';
 
 async function initStandalone() {
   try {

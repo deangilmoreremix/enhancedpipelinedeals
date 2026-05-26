@@ -1,6 +1,6 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { AlertTriangle, RefreshCw, Home, Bug } from 'lucide-react';
-import { reportError } from '../services/errorReportingService';
+import { getErrorReportingService } from '../services/errorReportingService';
 
 interface Props {
   children: ReactNode;
@@ -57,15 +57,9 @@ export class ErrorBoundary extends Component<Props, State> {
 
   private async logErrorToService(error: Error, errorInfo: ErrorInfo) {
     try {
-      await reportError(error, {
-        componentStack: errorInfo.componentStack || undefined,
-        additionalData: {
-          errorId: this.state.errorId,
-          errorBoundaryLevel: this.props.level || 'component',
-          timestamp: new Date().toISOString(),
-          url: window.location.href,
-          userAgent: navigator.userAgent
-        }
+      const svc = getErrorReportingService();
+      svc.reportError(error, {
+        component: this.props.level || 'component'
       });
     } catch (reportingError) {
       // Fallback to console if error reporting fails

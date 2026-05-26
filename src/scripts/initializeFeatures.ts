@@ -205,4 +205,4 @@ async function initializeAppSettings(supabaseService: any): Promise<void> {
 }
 
 // Export for use in main.tsx
-export { initializeAllFeatures };
+export default initializeAllFeatures;

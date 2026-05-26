@@ -14,7 +14,7 @@
     "generate:sitemap": "node scripts/generate-sitemap.js",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "preview": "vite preview",
+    "preview": "vite preview","serve:dist": "vite preview --port 8080 --strictPort",
     "preview:production": "NODE_ENV=production vite preview",
     "test": "jest",
     "test:watch": "jest --watch",

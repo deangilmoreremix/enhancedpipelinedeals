@@ -1,60 +1,41 @@
-<!-- Test host for SmartCRM Module Federation remote (deals) -->
 <!doctype html>
 <html>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Test Host - SmartCRM Remote (deals)</title>
+    <link rel="stylesheet" href="assets/style-Cuw2hLhs.css">
   </head>
   <body>
     <div id="host-root"></div>
     <script type="module">
       const mountPoint = document.getElementById('host-root');
-
       async function loadRemote(initialRoute) {
-        const remote = await import('/@fs/dist/remoteEntry.js');
-        const App = (await import('/@fs/dist/assets/remoteEntry.js')).default || remote['deals/SmartCRMApp'] || remote['./SmartCRMApp'];
-        // Try federation exposed entry
-        let SmartApp = remote['./SmartCRMApp'] || remote['./App'] || remote['deals/SmartCRMApp'] || remote['deals/App'];
-
-        if (!SmartApp) {
-          console.error('Remote not found in test preview build. Ensure build produced dist/remoteEntry.js');
-          return;
-        }
-
-        // Use the exposed factory
-        const AppFactory = SmartApp;
-        const props = {
-          sharedData: { user: { id: 'host-user', name: 'Host Tester' }, isAuthenticated: true, theme: 'light' },
-          initialRoute: initialRoute || '/'
-        };
-
-        // Render
-        const root = document.createElement('div');
-        mountPoint.innerHTML = '';
-        mountPoint.appendChild(root);
-
-        // If factory is a React component default export, render it
-        if (AppFactory && typeof AppFactory === 'function') {
-          // Mount via simple React render (load React)
+        try {
+          const { get } = await import('./assets/remoteEntry.js');
+          const factory = await get('./SmartCRMApp')();
+          const SmartCRMApp = factory.default || factory;
+          const props = {
+            sharedData: { user: { id: 'host-user', name: 'Host Tester' }, isAuthenticated: true, theme: 'light' },
+            initialRoute: initialRoute || '/'
+          };
+          const root = document.createElement('div');
+          mountPoint.innerHTML = '';
+          mountPoint.appendChild(root);
           const React = await import('react');
           const { createRoot } = await import('react-dom/client');
-          createRoot(root).render(React.createElement(AppFactory, props));
-        } else if (AppFactory && AppFactory.default && typeof AppFactory.default === 'function') {
-          const React = await import('react');
-          const { createRoot } = await import('react-dom/client');
-          createRoot(root).render(React.createElement(AppFactory.default, props));
-        } else {
-          mountPoint.innerText = 'Unable to mount remote app in test host';
+          createRoot(root).render(React.createElement(SmartCRMApp, props));
+        } catch (err) {
+          mountPoint.innerHTML = '<pre style="color:red;">Failed to load remote: ' + (err.message || err) + '</pre>';
+          console.error('Remote load error', err);
         }
       }
-
       window.loadRemote = loadRemote;
     </script>
-
+    <style>body{font-family:system-ui,sans-serif;margin:0;padding:20px;background:#f7fafc;}</style>
     <div style="position:fixed;bottom:10px;left:10px;z-index:9999;background:#fff;padding:10px;border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,0.12);">
-      <button onclick="window.loadRemote('/')">Load Default</button>
-      <button onclick="window.loadRemote('/pipeline')">Load /pipeline</button>
+      <button onclick="window.loadRemote('/')" style="margin-right:8px;">Load Default</button>
+      <button onclick="window.loadRemote('/pipeline')" style="margin-right:8px;">Load /pipeline</button>
       <button onclick="window.loadRemote('/deals/123')">Load /deals/123</button>
     </div>
   </body>

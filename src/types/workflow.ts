@@ -354,6 +354,13 @@ export interface FormField {
   defaultValue?: any;
 }
 
+export interface Variable {
+  name: string;
+  type: FormField['type'];
+  defaultValue?: string | number | boolean;
+  description?: string;
+}
+
 export interface WorkflowAnalytics {
   workflowId: string;
   totalExecutions: number;

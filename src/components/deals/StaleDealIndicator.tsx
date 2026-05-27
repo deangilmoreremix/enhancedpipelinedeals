@@ -1,7 +1,6 @@
 import React from 'react';
 import { Deal } from '../../types';
 import { Clock, AlertCircle } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
 
 interface StaleDealIndicatorProps {
   deal: Deal;

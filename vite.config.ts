@@ -8,9 +8,9 @@ function fixFederationCssForVite8() {
   return {
     name: 'fix-federation-css-for-vite8',
     enforce: 'post',
-    closeBundle: async (config) => {
+    closeBundle: async () => {
       try {
-        const outDir = config.build?.outDir || 'dist';
+        const outDir = 'dist';
         const assetsDir = path.join(outDir, 'assets');
         if (!fs.existsSync(assetsDir)) return;
 

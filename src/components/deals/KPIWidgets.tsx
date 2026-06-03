@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { Deal } from '../../types';
 import {
   DollarSign, TrendingUp, Target, Award, BarChart3, PieChart,
-  Users, Calendar, ArrowUp, ArrowDown, Activity, Clock, Zap
+  ArrowUp, ArrowDown, Activity, Clock, Zap
 } from 'lucide-react';
 
 interface KPIWidgetsProps {

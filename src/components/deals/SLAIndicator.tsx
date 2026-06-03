@@ -1,5 +1,5 @@
 import React from 'react';
-import { Clock, AlertTriangle, CheckCircle, TrendingUp, TrendingDown } from 'lucide-react';
+import { Clock, AlertTriangle, CheckCircle, TrendingUp } from 'lucide-react';
 
 interface SLAIndicatorProps {
   dealId: string;

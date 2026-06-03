@@ -1,5 +1,5 @@
-import { openai } from "../lib/core/openaiClient";
-import { logger } from "../lib/core/logger";
+import { openai } from "../core/openaiClient";
+import { logger } from "../core/logger";
 
 /**
  * Transcribes a base64 audio input.

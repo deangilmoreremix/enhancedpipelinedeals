@@ -1,5 +1,5 @@
-import { supabase } from "../lib/core/supabaseClient";
-import { logger } from "../lib/core/logger";
+import { supabase } from "../core/supabaseClient";
+import { logger } from "../core/logger";
 
 export async function getContactAndDeal(contactId: string) {
   const { data: contact, error: contactError } = await supabase

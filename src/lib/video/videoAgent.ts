@@ -1,7 +1,7 @@
 import { createVideoScript } from "./createVideoScript";
 import { queueVideoJob } from "./queueVideoJob";
 import { updateShortTerm } from "../memory/updateShortTerm";
-import { logger } from "../lib/core/logger";
+import { logger } from "../core/logger";
 
 export async function runVideoAgent(
   contactId: string,

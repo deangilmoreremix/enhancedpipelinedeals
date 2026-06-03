@@ -1,6 +1,6 @@
-import { supabase } from "../lib/core/supabaseClient";
+import { supabase } from "../core/supabaseClient";
 import { MemoryType } from "./types";
-import { logger } from "../lib/core/logger";
+import { logger } from "../core/logger";
 
 export async function saveMemory(
   contactId: string,

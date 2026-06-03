@@ -1,5 +1,5 @@
-import { executeTool } from "../lib/core/mcpExecutor";
-import { logger } from "../lib/core/logger";
+import { executeTool } from "../core/mcpExecutor";
+import { logger } from "../core/logger";
 
 /**
  * Sends a base64-encoded audio message using MCP.

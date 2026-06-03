@@ -1,6 +1,6 @@
-import { supabase } from "../lib/core/supabaseClient";
-import { callOpenAI } from "../lib/core/callOpenAI";
-import { logger } from "../lib/core/logger";
+import { supabase } from "../core/supabaseClient";
+import { callOpenAI } from "../core/callOpenAI";
+import { logger } from "../core/logger";
 
 export async function computeDealRisk(dealId: string) {
   // Load deal and contact

@@ -1,4 +1,4 @@
-import { logger } from "../lib/core/logger";
+import { logger } from "../core/logger";
 
 /**
  * Placeholder for real Remotion / rendering logic.

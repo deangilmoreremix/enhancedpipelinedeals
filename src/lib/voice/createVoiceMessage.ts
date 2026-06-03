@@ -1,5 +1,5 @@
-import { openai } from "../lib/core/openaiClient";
-import { logger } from "../lib/core/logger";
+import { openai } from "../core/openaiClient";
+import { logger } from "../core/logger";
 
 /**
  * Converts a text script into base64-encoded audio.

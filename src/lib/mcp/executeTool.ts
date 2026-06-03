@@ -4,7 +4,7 @@
  */
 
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
-import { enhancedLogger, withLogContext, createCorrelationId } from "../lib/core/enhancedLogger";
+import { enhancedLogger, withLogContext, createCorrelationId } from "../core/enhancedLogger";
 import {
   withResilience,
   withRetry,
@@ -15,7 +15,7 @@ import {
   CircuitBreaker,
   RateLimiter,
   TimeoutError,
-} from "../lib/core/resilience";
+} from "../core/resilience";
 import {
   MCPToolNameSchema,
   SaveActivityInputSchema,

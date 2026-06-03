@@ -6,12 +6,26 @@
 import { DealContext } from './types';
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+const supabase = supabaseUrl && supabaseKey
+  ? createClient(supabaseUrl, supabaseKey)
+  : null;
 
 export async function buildDealContext(dealId: string, workspaceId: string): Promise<DealContext> {
+  if (!supabase) {
+    console.warn('Supabase not configured - returning empty context');
+    return {
+      deal: null,
+      contact: null,
+      activities: [],
+      analytics: {},
+      memory: [],
+      settings: []
+    };
+  }
+
   console.log(`Building context for deal ${dealId} in workspace ${workspaceId}`);
 
   // Parallel data fetching for performance

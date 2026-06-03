@@ -9,10 +9,12 @@ import { buildDealContext, summarizeContext } from './contextBuilder';
 import { createClient } from '@supabase/supabase-js';
 import { logger } from '../../lib/core/logger';
 
-const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+const supabase = supabaseUrl && supabaseKey
+  ? createClient(supabaseUrl, supabaseKey)
+  : null;
 
 export async function executeDealAi(request: DealAiRequest): Promise<DealAiResponse> {
   const startTime = Date.now();
@@ -237,7 +239,7 @@ async function handleDefault(request: DealAiRequest, context: any, model: string
 
 // Helper Functions
 async function callOpenAI(prompt: string, model: string, capabilities: any) {
-  const openaiApiKey = process.env.OPENAI_API_KEY;
+  const openaiApiKey = import.meta.env.VITE_OPENAI_API_KEY;
   if (!openaiApiKey) {
     throw new Error('OpenAI API key not configured');
   }
@@ -308,6 +310,8 @@ function calculateCost(model: string, tokens: number): number {
 }
 
 async function logUsage(request: DealAiRequest, result: any, startTime: number, cost: number) {
+  if (!supabase) return; // Skip logging if supabase not configured
+
   try {
     await supabase.from('ai_usage_metrics').insert({
       user_id: request.userId || request.workspaceId,

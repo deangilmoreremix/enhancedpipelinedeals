@@ -52,11 +52,11 @@ export default defineConfig(({ mode }) => ({
           "./App": "./src/App.tsx",
         },
         shared: {
-          react: { singleton: true, requiredVersion: '^18.2.0', eager: true },
-          'react-dom': { singleton: true, requiredVersion: '^18.2.0', eager: true },
-          'react-router-dom': { singleton: true, eager: true },
-          zustand: { singleton: true, eager: true },
-          '@supabase/supabase-js': { singleton: true, requiredVersion: '^2.39.0', eager: true }
+          react: { singleton: true, requiredVersion: '^18.2.0', eager: false },
+          'react-dom': { singleton: true, requiredVersion: '^18.2.0', eager: false },
+          'react-router-dom': { singleton: true },
+          zustand: { singleton: true },
+          '@supabase/supabase-js': { singleton: true, requiredVersion: '^2.39.0', eager: false }
         }
       }),
     fixFederationCssForVite8()
@@ -71,16 +71,15 @@ export default defineConfig(({ mode }) => ({
     cssCodeSplit: false,
     minify: mode === 'production' ? 'esbuild' : false,
     sourcemap: mode === 'development',
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          vendor: ['react', 'react-dom'],
-          supabase: ['@supabase/supabase-js'],
-          ui: ['lucide-react', 'recharts'],
-          ai: ['openai']
-        }
-      }
-    },
+rollupOptions: {
+       output: {
+         manualChunks: {
+           vendor: ['react', 'react-dom'],
+           ui: ['lucide-react', 'recharts'],
+           ai: ['openai']
+         }
+       }
+     },
     chunkSizeWarningLimit: 1000,
     reportCompressedSize: false
   },

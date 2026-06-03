@@ -2,11 +2,11 @@
 command = "npm run build"
 publish = "dist"
 
-# Production Environment Variables for Twenty CRM
+# Production Environment Variables for Smart CRM
 [build.environment]
   NPM_CONFIG_PRODUCTION = "false"
-  VITE_SUPABASE_URL = "https://your-production-project.supabase.co"
-  VITE_SUPABASE_ANON_KEY = "your-production-anon-key-here"
+  # VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY should be set in Netlify UI
+  # Do NOT set placeholder values here - use Netlify Environment Variables instead
   VITE_OPENAI_API_KEY = "your-production-openai-api-key"
   VITE_GEMINI_API_KEY = "your-production-gemini-api-key"
   VITE_GOOGLE_CALENDAR_CLIENT_ID = "your-production-google-calendar-client-id"

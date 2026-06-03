@@ -37,7 +37,11 @@ class AuthService {
     const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
     if (!supabaseUrl || !supabaseKey) {
-      throw new Error('Supabase configuration missing');
+      console.warn('Supabase configuration missing - using demo mode');
+      this.supabase = createClient('https://placeholder.supabase.co', 'placeholder-key', {
+        auth: { autoRefreshToken: true, persistSession: true, detectSessionInUrl: true }
+      });
+      return;
     }
 
     this.supabase = createClient(supabaseUrl, supabaseKey, {

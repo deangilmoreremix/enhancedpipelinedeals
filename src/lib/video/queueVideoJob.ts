@@ -1,5 +1,5 @@
-import { supabase } from "../core/supabaseClient";
-import { logger } from "../core/logger";
+import { supabase } from "../lib/core/supabaseClient";
+import { logger } from "../lib/core/logger";
 import { VideoJobPayload } from "./types";
 
 export async function queueVideoJob(payload: VideoJobPayload) {

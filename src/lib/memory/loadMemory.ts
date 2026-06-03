@@ -1,6 +1,6 @@
-import { supabase } from "../core/supabaseClient";
+import { supabase } from "../lib/core/supabaseClient";
 import { LoadedMemory } from "./types";
-import { logger } from "../core/logger";
+import { logger } from "../lib/core/logger";
 
 export async function loadAgentMemory(contactId: string): Promise<LoadedMemory> {
   const { data, error } = await supabase

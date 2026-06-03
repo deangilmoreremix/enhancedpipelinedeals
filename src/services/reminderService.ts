@@ -1,5 +1,5 @@
 import { supabase } from '../lib/core/supabaseClient';
-import { logger } from '../core/logger';
+import { logger } from '../lib/core/logger';
 
 export interface Reminder {
   id: string;

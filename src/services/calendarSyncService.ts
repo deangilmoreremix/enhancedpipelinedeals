@@ -1,5 +1,5 @@
 import { supabase } from '../lib/core/supabaseClient';
-import { logger } from '../core/logger';
+import { logger } from '../lib/core/logger';
 import { CalendarOAuthService } from './calendarOAuthService';
 import { CalendarEventService } from './calendarEventService';
 

@@ -52,10 +52,11 @@ export default defineConfig(({ mode }) => ({
           "./App": "./src/App.tsx",
         },
         shared: {
-          react: { singleton: true, requiredVersion: '^18.2.0', eager: false },
-          'react-dom': { singleton: true, requiredVersion: '^18.2.0', eager: false },
-          'react-router-dom': { singleton: true },
-          zustand: { singleton: true }
+          react: { singleton: true, requiredVersion: '^18.2.0', eager: true },
+          'react-dom': { singleton: true, requiredVersion: '^18.2.0', eager: true },
+          'react-router-dom': { singleton: true, eager: true },
+          zustand: { singleton: true, eager: true },
+          '@supabase/supabase-js': { singleton: true, requiredVersion: '^2.39.0', eager: true }
         }
       }),
     fixFederationCssForVite8()

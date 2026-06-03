@@ -37,16 +37,17 @@ class AuthService {
     const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
     if (!supabaseUrl || !supabaseKey) {
-      throw new Error('Supabase configuration missing');
+      console.warn('Supabase configuration missing - using placeholder for AuthService');
+      this.supabase = createClient('https://placeholder.supabase.co', 'placeholder-key');
+    } else {
+      this.supabase = createClient(supabaseUrl, supabaseKey, {
+        auth: {
+          autoRefreshToken: true,
+          persistSession: true,
+          detectSessionInUrl: true
+        }
+      });
     }
-
-    this.supabase = createClient(supabaseUrl, supabaseKey, {
-      auth: {
-        autoRefreshToken: true,
-        persistSession: true,
-        detectSessionInUrl: true
-      }
-    });
 
     this.initialize();
   }

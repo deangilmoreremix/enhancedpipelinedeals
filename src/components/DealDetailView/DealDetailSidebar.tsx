@@ -98,6 +98,24 @@ export const DealDetailSidebar: React.FC<DealDetailSidebarProps> = ({
             </span>
           </div>
 
+          {/* Deal Progress Indicator */}
+          <div className="mt-4">
+            <div className="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400 mb-1">
+              <span>Deal Progress</span>
+              <span>{editedDeal.probability}%</span>
+            </div>
+            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+              <div
+                className={`h-2 rounded-full transition-all duration-300 ${
+                  editedDeal.probability >= 80 ? 'bg-green-500' :
+                  editedDeal.probability >= 60 ? 'bg-blue-500' :
+                  editedDeal.probability >= 40 ? 'bg-yellow-500' : 'bg-red-500'
+                }`}
+                style={{ width: `${editedDeal.probability}%` }}
+              />
+            </div>
+          </div>
+
           {/* AI Enhanced Badge */}
           {editedDeal.probability > 70 && (
             <div className="mt-3 p-2 bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg">
@@ -228,7 +246,7 @@ export const DealDetailSidebar: React.FC<DealDetailSidebarProps> = ({
                   <img
                     src={linkedContact.avatarSrc || `https://api.dicebear.com/7.x/avataaars/svg?seed=${linkedContact.name}`}
                     alt={linkedContact.name}
-                    className="w-12 h-12 rounded-full border border-gray-200 dark:border-gray-600"
+                    className="w-12 h-12 rounded-full border-2 border-white dark:border-gray-600 shadow-md"
                   />
 
                   {/* AI Score Badge */}
@@ -243,10 +261,26 @@ export const DealDetailSidebar: React.FC<DealDetailSidebarProps> = ({
                   )}
                 </div>
 
-                <div className="flex-1">
-                  <h5 className="font-semibold text-gray-900 dark:text-white">{linkedContact.name}</h5>
-                  <p className="text-sm text-gray-600 dark:text-gray-300">{linkedContact.title}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">{linkedContact.company}</p>
+                <div className="flex-1 min-w-0">
+                  <h5 className="font-semibold text-gray-900 dark:text-white truncate">{linkedContact.name}</h5>
+                  <p className="text-sm text-gray-600 dark:text-gray-300 truncate">{linkedContact.title}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{linkedContact.company}</p>
+                </div>
+              </div>
+
+              {/* Engagement Metrics */}
+              <div className="grid grid-cols-3 gap-2 mb-3 pt-3 border-t border-blue-200 dark:border-gray-600">
+                <div className="text-center">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Emails</p>
+                  <p className="text-sm font-bold text-gray-900 dark:text-white">12</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Calls</p>
+                  <p className="text-sm font-bold text-gray-900 dark:text-white">5</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Meetings</p>
+                  <p className="text-sm font-bold text-gray-900 dark:text-white">3</p>
                 </div>
               </div>
 

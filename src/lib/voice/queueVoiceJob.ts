@@ -1,5 +1,5 @@
-import { supabase } from "../core/supabaseClient";
-import { logger } from "../core/logger";
+import { supabase } from "../lib/core/supabaseClient";
+import { logger } from "../lib/core/logger";
 import { VoiceJobPayload } from "./types";
 
 /**

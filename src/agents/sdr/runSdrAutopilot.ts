@@ -7,6 +7,7 @@ import { sdrTools } from './sdrTools';
 import { getOrCreateThreadForLead } from './sdrStateHelpers';
 import {
   getLeadContextFromSmartCRM,
+  sendSdrEmail,
   createTaskInSmartCRM,
   updateDealStageInSmartCRM,
   scheduleMeetingForLead,
@@ -109,7 +110,10 @@ async function handleToolCalls(toolCalls: any[], context: { leadId: string; mail
           break;
 
         case "send_sdr_email":
-          result = await getLeadContextFromSmartCRM(args.lead_id || context.leadId); // TODO: implement sendSdrEmail
+result = await sendSdrEmail({
+            ...args,
+            mailbox_key: args.mailbox_key || context.mailboxKey
+          });
           break;
 
         case "create_followup_task":

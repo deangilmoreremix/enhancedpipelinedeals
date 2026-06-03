@@ -9,6 +9,8 @@ import { EnhancedAIStatusIndicator } from './ui/EnhancedAIStatusIndicator';
 import DealDetail from './DealDetail';
 import PipelineStats from './PipelineStats';
 import DealAnalytics from './DealAnalytics';
+import { getCustomColumns, saveCustomColumns, toPipelineColumn } from '../services/pipelineColumnService';
+import { CustomPipelineColumn } from '../types/pipeline';
 
 // Lazy load view components for code splitting
 const DealListView = React.lazy(() => import('./DealListView').then(module => ({ default: module.DealListView })));
@@ -16,7 +18,7 @@ const DealTableView = React.lazy(() => import('./DealTableView').then(module => 
 const DealCalendarView = React.lazy(() => import('./DealCalendarView').then(module => ({ default: module.DealCalendarView })));
 const DealTimelineView = React.lazy(() => import('./DealTimelineView').then(module => ({ default: module.DealTimelineView })));
 const DealDashboardView = React.lazy(() => import('./DealDashboardView').then(module => ({ default: module.DealDashboardView })));
-import { mockColumns, columnOrder } from '../data/mockDeals';
+import { mockColumns } from '../data/mockDeals';
 import { getDataSyncService } from '../services/dataSyncService';
 import { getSupabaseService } from '../services/supabaseService';
 import { getOpenAIFunctionService } from '../services/openaiFunctionCallingService';
@@ -29,6 +31,13 @@ import {
   Mail, Phone, CheckCircle, AlertCircle, Clock, DollarSign, Crown,
   Loader2, X, Table, BarChart, Activity
 } from 'lucide-react';
+
+// Twenty CRM enhanced kanban imports
+import { KanbanColumnHeader, ColumnAggregation } from './pipeline/kanban/KanbanColumnHeader';
+import { WIPLimitIndicator } from './pipeline/kanban/WIPLimitIndicator';
+import { CustomColumnManager } from './pipeline/kanban/CustomColumnManager';
+import { calculateColumnAggregation, getStageColor } from './pipeline/kanban/kanbanUtils';
+import { isFeatureEnabled } from '../services/featureFlagService';
 
 type DealViewType = 'kanban' | 'list' | 'table' | 'calendar' | 'dashboard' | 'timeline';
 
@@ -54,8 +63,16 @@ const Pipeline: React.FC = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisProgress, setAnalysisProgress] = useState<{current: number, total: number} | null>(null);
   const [aiResults, setAiResults] = useState<{success: number, failed: number} | null>(null);
-  const [openAIFunctionCalling, setOpenAIFunctionCalling] = useState<string[]>([]);
-  const [openAIResults, setOpenAIResults] = useState<{[key: string]: any}>({});
+   const [openAIFunctionCalling, setOpenAIFunctionCalling] = useState<string[]>([]);
+   const [openAIResults, setOpenAIResults] = useState<{[key: string]: any}>({});
+
+   // Twenty CRM enhanced features states
+   const [twentyFeaturesEnabled, setTwentyFeaturesEnabled] = useState({
+     kanbanAggregation: false,
+     wipLimits: false,
+     customColumns: false
+   });
+   const [showColumnManager, setShowColumnManager] = useState(false);
 
   // Smart AI hook
   const { smartScoreContact } = useSmartAI();
@@ -100,6 +117,46 @@ const Pipeline: React.FC = () => {
     loadData();
   }, []);
 
+  // Check Twenty CRM feature flags
+  useEffect(() => {
+    const checkFeatures = async () => {
+      const kanbanAggregation = await isFeatureEnabled('twenty_kanban_aggregation');
+      const wipLimits = await isFeatureEnabled('twenty_wip_limits');
+      const customColumns = await isFeatureEnabled('twenty_custom_columns');
+
+      setTwentyFeaturesEnabled({
+        kanbanAggregation,
+        wipLimits,
+        customColumns
+      });
+    };
+
+     checkFeatures();
+   }, []);
+
+  // Load custom columns based on feature flag
+  useEffect(() => {
+    const loadColumns = async () => {
+      if (twentyFeaturesEnabled.customColumns) {
+          const customCols = await getCustomColumns();
+          if (customCols && customCols.length > 0) {
+            setColumns(prev => {
+              const newCols: Record<string, PipelineColumn> = {};
+              customCols.forEach(custom => {
+                const col = toPipelineColumn(custom);
+                newCols[col.id] = { ...col, dealIds: [] };
+              });
+              return newCols;
+            });
+            return;
+          }
+      }
+      // Fallback to mock columns
+      setColumns(mockColumns);
+    };
+    loadColumns();
+  }, [twentyFeaturesEnabled.customColumns]);
+
   // Real-time subscriptions
   useEffect(() => {
     if (!dataSyncService.isDatabaseConnected()) {
@@ -143,8 +200,26 @@ const Pipeline: React.FC = () => {
       console.log('🔄 Pipeline: Cleaning up real-time subscription');
       dealsSubscription.unsubscribe();
     };
-  }, [dataSource]);
+   }, [dataSource]);
 
+  // Populate column.dealIds from deals when deals are loaded and columns are empty
+  useEffect(() => {
+    const hasEmpty = Object.values(columns).some(col => !col.dealIds || col.dealIds.length === 0);
+    if (!hasEmpty) return;
+
+    setColumns(prev => {
+      const updated = { ...prev };
+      Object.keys(updated).forEach(colId => {
+        if (!updated[colId].dealIds || updated[colId].dealIds.length === 0) {
+          const ids = Object.keys(deals)
+            .filter(id => deals[id].stage === colId)
+            .map(id => id);
+          updated[colId] = { ...updated[colId], dealIds: ids };
+        }
+      });
+      return updated;
+    });
+  }, [deals, columns]);
 
   // Save view preference when changed
   const handleViewChange = (view: DealViewType) => {
@@ -170,9 +245,16 @@ const Pipeline: React.FC = () => {
     }
 
     return result;
-  }, [deals, searchTerm, filterStage]);
+   }, [deals, searchTerm, filterStage]);
 
-  // Calculate pipeline statistics
+   // Compute column order from columns metadata
+   const columnOrder = useMemo(() => {
+     return Object.values(columns)
+       .sort((a, b) => (a.position || 0) - (b.position || 0))
+       .map(col => col.id);
+   }, [columns]);
+
+   // Calculate pipeline statistics
   const pipelineStats = useMemo(() => {
     const allDeals = Object.values(deals);
     const totalValue = allDeals.reduce((sum, deal) => sum + deal.value, 0);
@@ -662,6 +744,18 @@ const Pipeline: React.FC = () => {
             </Tooltip>
           </div>
 
+          {/* Pipeline Settings - Twenty Features */}
+          {twentyFeaturesEnabled.customColumns && (
+            <Tooltip content="Configure pipeline columns and settings" position="bottom">
+              <button
+                onClick={() => setShowColumnManager(true)}
+                className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+              >
+                <Settings className="w-5 h-5" />
+              </button>
+            </Tooltip>
+          )}
+
         </div>
       </div>
 
@@ -857,23 +951,43 @@ const Pipeline: React.FC = () => {
                 .map(dealId => deals[dealId])
                 .filter(Boolean)
                 .filter(deal => filteredDeals.some(fd => fd.id === deal.id));
-              
-              const columnValue = columnDeals.reduce((sum, deal) => sum + deal.value, 0);
+
+              const columnAggregation = calculateColumnAggregation(columnDeals);
 
               return (
                 <div key={column.id} className={`bg-white dark:bg-gray-800 rounded-xl border-2 ${getStageColor(column.id)} shadow-sm`}>
-                  {/* Column Header */}
-                  <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-                    <div className="flex items-center justify-between mb-2">
-                      <h3 className="font-semibold text-gray-900 dark:text-white">{column.title}</h3>
-                      <span className="bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-2 py-1 rounded-md text-xs font-medium">
-                        {columnDeals.length}
-                      </span>
+                  {/* Enhanced Column Header with Twenty features */}
+                  {twentyFeaturesEnabled.kanbanAggregation ? (
+                    <KanbanColumnHeader
+                      title={column.title}
+                      aggregation={columnAggregation}
+                       wipLimit={twentyFeaturesEnabled.wipLimits ? (column.wipLimit ?? 10) : undefined} // Configurable via custom columns
+                      color={getStageColor(column.id)}
+                    />
+                  ) : (
+                    /* Original column header for backward compatibility */
+                    <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                      <div className="flex items-center justify-between mb-2">
+                        <h3 className="font-semibold text-gray-900 dark:text-white">{column.title}</h3>
+                        <span className="bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-2 py-1 rounded-md text-xs font-medium">
+                          {columnDeals.length}
+                        </span>
+                      </div>
+                      <div className="text-sm text-gray-600 dark:text-gray-400">
+                        {formatCurrency(columnAggregation.sum)}
+                      </div>
                     </div>
-                    <div className="text-sm text-gray-600 dark:text-gray-400">
-                      {formatCurrency(columnValue)}
+                  )}
+
+                  {/* WIP Limit Indicator */}
+                  {twentyFeaturesEnabled.wipLimits && (
+                    <div className="px-4 py-2 border-b border-gray-200 dark:border-gray-700">
+                      <WIPLimitIndicator
+                        current={columnDeals.length}
+                         limit={column.wipLimit ?? 10} // Configurable per column
+                      />
                     </div>
-                  </div>
+                  )}
 
                   {/* Droppable Area */}
                   <Droppable droppableId={column.id}>
@@ -979,6 +1093,31 @@ const Pipeline: React.FC = () => {
                 Clear All Data
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Custom Column Manager Modal - Twenty Feature */}
+      {showColumnManager && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-hidden">
+            <CustomColumnManager
+              onColumnsChange={async (customColumns) => {
+                // Persist custom columns
+                await saveCustomColumns(customColumns);
+                // Convert to pipeline columns and update state, preserving existing dealIds
+                setColumns(prev => {
+                  const newCols: Record<string, PipelineColumn> = {};
+                  customColumns.forEach(custom => {
+                    const col = toPipelineColumn(custom);
+                    const existing = prev[col.id];
+                    newCols[col.id] = { ...col, dealIds: existing?.dealIds || [] };
+                  });
+                  return newCols;
+                });
+              }}
+              onClose={() => setShowColumnManager(false)}
+            />
           </div>
         </div>
       )}

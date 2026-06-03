@@ -1,6 +1,7 @@
 import React from 'react';
-import { User, Search, RefreshCw, FileText } from 'lucide-react';
+import { User, Search, RefreshCw, FileText, Edit, Mail, Phone, Calendar } from 'lucide-react';
 import { DealDetailOverviewProps } from './types';
+import { daysSince } from '../../utils/dateUtils';
 
 export const DealDetailOverview: React.FC<DealDetailOverviewProps> = ({
   deal,
@@ -31,24 +32,60 @@ export const DealDetailOverview: React.FC<DealDetailOverviewProps> = ({
     return colors[stage] || 'bg-gray-500';
   };
 
+  // Calculate days in current stage and total active days
+  const daysInStage = daysSince(editedDeal.updatedAt);
+  const daysActive = daysSince(editedDeal.createdAt);
+
   return (
     <div className="p-6 space-y-6">
+      {/* Quick Stats Row */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30 rounded-xl p-4 border border-blue-200 dark:border-blue-700">
+          <p className="text-xs font-medium text-blue-700 dark:text-blue-300 uppercase tracking-wide mb-1">Deal Value</p>
+          <p className="text-2xl font-bold text-blue-900 dark:text-blue-100">{formatCurrency(editedDeal.value)}</p>
+          <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">Expected revenue</p>
+        </div>
+
+        <div className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/30 dark:to-green-800/30 rounded-xl p-4 border border-green-200 dark:border-green-700">
+          <p className="text-xs font-medium text-green-700 dark:text-green-300 uppercase tracking-wide mb-1">Probability</p>
+          <p className="text-2xl font-bold text-green-900 dark:text-green-100">{editedDeal.probability}%</p>
+          <p className="text-xs text-green-600 dark:text-green-400 mt-1">Close confidence</p>
+        </div>
+
+        <div className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/30 dark:to-purple-800/30 rounded-xl p-4 border border-purple-200 dark:border-purple-700">
+          <p className="text-xs font-medium text-purple-700 dark:text-purple-300 uppercase tracking-wide mb-1">Days in Stage</p>
+          <p className="text-2xl font-bold text-purple-900 dark:text-purple-100">{daysInStage}</p>
+          <p className="text-xs text-purple-600 dark:text-purple-400 mt-1">Current stage time</p>
+        </div>
+
+        <div className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/30 dark:to-orange-800/30 rounded-xl p-4 border border-orange-200 dark:border-orange-700">
+          <p className="text-xs font-medium text-orange-700 dark:text-orange-300 uppercase tracking-wide mb-1">Days Active</p>
+          <p className="text-2xl font-bold text-orange-900 dark:text-orange-100">{daysActive}</p>
+          <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">Total deal age</p>
+        </div>
+      </div>
+
       {/* Deal Summary Card */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm">
-        <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">{editedDeal.title}</h4>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
+        <div className="flex items-center justify-between mb-4">
+          <h4 className="text-lg font-semibold text-gray-900 dark:text-white">{editedDeal.title}</h4>
+          <span className={`${getStageColor(editedDeal.stage)} text-white text-sm px-3 py-1 rounded-full font-medium`}>
+            {editedDeal.stage.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+          </span>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Company</p>
-            <p className="text-gray-900 dark:text-white text-lg">{editedDeal.company}</p>
+            <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Company</p>
+            <p className="text-gray-900 dark:text-white text-lg font-medium">{editedDeal.company}</p>
           </div>
           <div>
-            <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Deal Value</p>
-            <p className="text-green-700 dark:text-green-400 text-lg font-bold">{formatCurrency(editedDeal.value)}</p>
-          </div>
-          <div>
-            <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Stage</p>
-            <span className={`${getStageColor(editedDeal.stage)} text-white text-sm px-3 py-1 rounded-full font-medium`}>
-              {editedDeal.stage.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+            <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Priority</p>
+            <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${
+              editedDeal.priority === 'high' ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300' :
+              editedDeal.priority === 'medium' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300' :
+              'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
+            }`}>
+              {editedDeal.priority.charAt(0).toUpperCase() + editedDeal.priority.slice(1)} Priority
             </span>
           </div>
         </div>
@@ -56,17 +93,17 @@ export const DealDetailOverview: React.FC<DealDetailOverviewProps> = ({
 
       {/* Contact Information Card */}
       {linkedContact && (
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm">
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
           <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
             <User className="w-5 h-5 mr-2 text-blue-500 dark:text-blue-400" />
             Contact Information
           </h4>
 
-          <div className="flex items-start space-x-4">
+          <div className="flex items-start space-x-4 mb-4">
             <img
               src={linkedContact.avatarSrc || `https://api.dicebear.com/7.x/avataaars/svg?seed=${linkedContact.name}`}
               alt={linkedContact.name}
-              className="w-16 h-16 rounded-lg border border-gray-200 dark:border-gray-600"
+              className="w-16 h-16 rounded-lg border-2 border-gray-200 dark:border-gray-600 shadow-sm"
             />
 
             <div className="flex-1">
@@ -76,14 +113,14 @@ export const DealDetailOverview: React.FC<DealDetailOverviewProps> = ({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Email</p>
-                  <a href={`mailto:${linkedContact.email}`} className="text-blue-600 dark:text-blue-400 hover:underline">
+                  <a href={`mailto:${linkedContact.email}`} className="text-blue-600 dark:text-blue-400 hover:underline text-sm">
                     {linkedContact.email}
                   </a>
                 </div>
                 {linkedContact.phone && (
                   <div>
                     <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Phone</p>
-                    <a href={`tel:${linkedContact.phone}`} className="text-blue-600 dark:text-blue-400 hover:underline">
+                    <a href={`tel:${linkedContact.phone}`} className="text-blue-600 dark:text-blue-400 hover:underline text-sm">
                       {linkedContact.phone}
                     </a>
                   </div>
@@ -91,17 +128,37 @@ export const DealDetailOverview: React.FC<DealDetailOverviewProps> = ({
               </div>
             </div>
           </div>
+
+          {/* Contact Quick Actions */}
+          <div className="grid grid-cols-3 gap-2 pt-4 border-t border-gray-200 dark:border-gray-700">
+            <button className="flex items-center justify-center space-x-2 px-4 py-2 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors text-sm font-medium">
+              <Mail className="w-4 h-4" />
+              <span>Email</span>
+            </button>
+            <button className="flex items-center justify-center space-x-2 px-4 py-2 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-lg hover:bg-green-100 dark:hover:bg-green-900/50 transition-colors text-sm font-medium">
+              <Phone className="w-4 h-4" />
+              <span>Call</span>
+            </button>
+            <button className="flex items-center justify-center space-x-2 px-4 py-2 bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-900/50 transition-colors text-sm font-medium">
+              <Calendar className="w-4 h-4" />
+              <span>Meeting</span>
+            </button>
+          </div>
         </div>
       )}
 
       {/* Deal Notes */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm">
+      <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
         <div className="flex items-center justify-between mb-4">
-          <h4 className="text-lg font-semibold text-gray-900 dark:text-white">Notes</h4>
+          <h4 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
+            <FileText className="w-5 h-5 mr-2 text-gray-600 dark:text-gray-400" />
+            Deal Notes
+          </h4>
           <button
             onClick={() => onStartEditingField('notes')}
-            className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
+            className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 flex items-center"
           >
+            <Edit className="w-4 h-4 mr-1" />
             Edit
           </button>
         </div>
@@ -111,29 +168,43 @@ export const DealDetailOverview: React.FC<DealDetailOverviewProps> = ({
             <textarea
               value={editedDeal.notes || ''}
               onChange={(e) => onEditField('notes', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              rows={5}
+              placeholder="Add notes about this deal, recent conversations, key points, or next steps..."
+              className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+              rows={6}
             />
             <div className="flex space-x-2">
               <button
                 onClick={onSaveField}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium transition-colors"
               >
-                Save
+                Save Notes
               </button>
               <button
                 onClick={() => onStartEditingField('')}
-                className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+                className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-sm transition-colors"
               >
                 Cancel
               </button>
             </div>
           </div>
         ) : (
-          <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 border border-gray-200 dark:border-gray-600">
-            <p className="text-gray-700 dark:text-gray-300 whitespace-pre-line">
-              {editedDeal.notes || 'No notes for this deal.'}
-            </p>
+          <div className="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+            {editedDeal.notes ? (
+              <p className="text-gray-700 dark:text-gray-300 whitespace-pre-line text-sm leading-relaxed">
+                {editedDeal.notes}
+              </p>
+            ) : (
+              <div className="text-center py-6">
+                <FileText className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
+                <p className="text-gray-500 dark:text-gray-400 text-sm">No notes added yet</p>
+                <button
+                  onClick={() => onStartEditingField('notes')}
+                  className="mt-3 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
+                >
+                  Add your first note
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>

@@ -25,7 +25,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/174</span>
+                <span class='fraction'>0/171</span>
             </div>
         
             
@@ -46,7 +46,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/162</span>
+                <span class='fraction'>0/160</span>
             </div>
         
             
@@ -720,20 +720,7 @@
 <a name='L655'></a><a href='#L655'>655</a>
 <a name='L656'></a><a href='#L656'>656</a>
 <a name='L657'></a><a href='#L657'>657</a>
-<a name='L658'></a><a href='#L658'>658</a>
-<a name='L659'></a><a href='#L659'>659</a>
-<a name='L660'></a><a href='#L660'>660</a>
-<a name='L661'></a><a href='#L661'>661</a>
-<a name='L662'></a><a href='#L662'>662</a>
-<a name='L663'></a><a href='#L663'>663</a>
-<a name='L664'></a><a href='#L664'>664</a>
-<a name='L665'></a><a href='#L665'>665</a>
-<a name='L666'></a><a href='#L666'>666</a>
-<a name='L667'></a><a href='#L667'>667</a>
-<a name='L668'></a><a href='#L668'>668</a>
-<a name='L669'></a><a href='#L669'>669</a>
-<a name='L670'></a><a href='#L670'>670</a>
-<a name='L671'></a><a href='#L671'>671</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L658'></a><a href='#L658'>658</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -822,20 +809,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1394,7 +1368,7 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1491,19 +1465,6 @@ class MultiChannelOrchestrationService {
   }
 &nbsp;
   private <span class="fstat-no" title="function not covered" >initializeChannels(</span>) {
-    // Email channels
-<span class="cstat-no" title="statement not covered" >    this.channels.set('agentmail', {</span>
-      id: 'agentmail',
-      name: 'AgentMail',
-      type: 'email',
-      connected: true,
-      settings: {
-        inbox: 'your-inbox@agentmail.to',
-        signature: 'Best regards,\nAI Sales Agent'
-      },
-      rateLimits: { perMinute: 50, perHour: 1000, perDay: 5000 },
-      capabilities: ['html', 'attachments', 'tracking', 'replies']
-    });
 &nbsp;
     // SMS channels
 <span class="cstat-no" title="statement not covered" >    this.channels.set('twilio', {</span>
@@ -1561,7 +1522,7 @@ class MultiChannelOrchestrationService {
       sequence: [
         {
           id: 'email_1',
-          channelId: 'agentmail',
+          channelId: 'email',
           delay: 0,
           template: 'cold_email_intro',
           conditions: []
@@ -1609,7 +1570,7 @@ class MultiChannelOrchestrationService {
       sequence: [
         {
           id: 'email_nurture_1',
-          channelId: 'agentmail',
+          channelId: 'email',
           delay: 0,
           template: 'nurture_content_1',
           conditions: []
@@ -1936,7 +1897,7 @@ AI Sales Agent`,
       // Return defaults if fetch fails
 <span class="cstat-no" title="statement not covered" >      return {</span>
         contactId,
-        preferredChannels: ['agentmail'],
+        preferredChannels: [],
         quietHours: { start: '20:00', end: '08:00' },
         timezone: 'UTC',
         unsubscribed: [],
@@ -1957,7 +1918,7 @@ AI Sales Agent`,
 &nbsp;
 <span class="cstat-no" title="statement not covered" >    if (!lastResult || lastResult.status === 'failed') {</span>
 <span class="cstat-no" title="statement not covered" >      return {</span>
-        channelId: 'agentmail', // Fallback to email
+        channelId: 'email', // Fallback to email
         scheduledTime: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // Tomorrow
         reason: 'Previous step failed, retrying with email'
       };
@@ -1968,7 +1929,7 @@ AI Sales Agent`,
 &nbsp;
 <span class="cstat-no" title="statement not covered" >    if (hasEngagement) {</span>
 <span class="cstat-no" title="statement not covered" >      return {</span>
-        channelId: 'agentmail',
+        channelId: 'email',
         scheduledTime: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(), // 2 hours
         reason: 'Engagement detected, follow up quickly'
       };
@@ -2057,14 +2018,14 @@ AI Sales Agent`,
 // Singleton instance
 let multiChannelOrchestrationService: MultiChannelOrchestrationService | null = <span class="cstat-no" title="statement not covered" >null;</span>
 &nbsp;
-export const <span class="cstat-no" title="statement not covered" >getMultiChannelOrchestrationService = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >(</span>): MultiChannelOrchestrationService =</span>&gt; {</span>
+export const getMultiChannelOrchestrationService = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >(): MultiChannelOrchestrationService =</span>&gt; {</span>
 <span class="cstat-no" title="statement not covered" >  if (!multiChannelOrchestrationService) {</span>
 <span class="cstat-no" title="statement not covered" >    multiChannelOrchestrationService = new MultiChannelOrchestrationService();</span>
   }
 <span class="cstat-no" title="statement not covered" >  return multiChannelOrchestrationService;</span>
 };
 &nbsp;
-export { <span class="cstat-no" title="statement not covered" >MultiChannelOrchestrationService </span>};
+export { MultiChannelOrchestrationService };
 export type {
   Channel,
   OrchestrationStrategy,
@@ -2080,7 +2041,7 @@ export type {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-12-12T05:07:54.305Z
+                at 2026-04-27T09:08:05.669Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

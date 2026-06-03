@@ -28,20 +28,49 @@ class CRMBridge {
   private eventListeners: Map<string, Function[]> = new Map();
 
   constructor() {
+    this.initializeParentOrigin();
     this.setupMessageListener();
     this.notifyReady();
     console.log('🔗 CRM Bridge initialized in remote app');
   }
 
+  private initializeParentOrigin() {
+    // Try to detect parent origin from various sources
+    const possibleOrigins = [
+      // Environment variable (for development)
+      import.meta.env?.VITE_PARENT_ORIGIN,
+      // Query parameters
+      new URLSearchParams(window.location.search).get('parentOrigin'),
+      // Referrer
+      document.referrer ? new URL(document.referrer).origin : null,
+      // Default for development
+      window.location.origin
+    ].filter(Boolean);
+
+    for (const origin of possibleOrigins) {
+      if (origin && this.isValidOrigin(origin)) {
+        this.parentOrigin = origin;
+        console.log('🏠 Parent CRM origin detected:', this.parentOrigin);
+        break;
+      }
+    }
+
+    // Fallback for development
+    if (!this.parentOrigin) {
+      this.parentOrigin = window.location.origin;
+      console.warn('⚠️ Using fallback parent origin for development:', this.parentOrigin);
+    }
+  }
+
   private setupMessageListener() {
     window.addEventListener('message', (event) => {
-      // Set parent origin on first message from CRM
+      // Set parent origin on first message from CRM (overrides initial detection if needed)
       if (!this.parentOrigin && event.origin && event.data?.source === 'CRM') {
         this.parentOrigin = event.origin;
-        console.log('🏠 Parent CRM origin set:', this.parentOrigin);
+        console.log('🏠 Parent CRM origin updated:', this.parentOrigin);
       }
 
-      // Verify parent origin for security
+      // Allow messages from valid origins
       if (!this.isValidOrigin(event.origin)) {
         return;
       }
@@ -90,8 +119,12 @@ class CRMBridge {
   // Send message to CRM parent
   private sendToCRM(type: string, data: any = null) {
     if (!this.parentOrigin) {
-      console.warn('⚠️ Cannot send to CRM - no parent origin set');
-      return;
+      // Try to initialize parent origin if not set
+      this.initializeParentOrigin();
+      if (!this.parentOrigin) {
+        console.warn('⚠️ Cannot send to CRM - no parent origin available');
+        return;
+      }
     }
 
     const message = {
@@ -102,7 +135,14 @@ class CRMBridge {
     };
 
     try {
-      window.parent.postMessage(message, this.parentOrigin);
+      // Try sending to parent first, fallback to self for development
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage(message, this.parentOrigin);
+      } else {
+        // Development fallback - post to self
+        console.log('🔄 Development mode: posting message to self', message);
+        window.postMessage(message, this.parentOrigin);
+      }
       console.log('📤 Sent to CRM:', type, data);
     } catch (error) {
       console.error('❌ Failed to send message to CRM:', error);

@@ -95,6 +95,34 @@ export interface DealDetailState {
   files: any[];
   activeModal: ModalType;
   isRunningSDR: boolean;
+
+  // Phase 3 enhancements
+  showBulkActions: boolean;
+  selectedDeals: Deal[];
+  healthRefreshing: boolean;
+  probabilityRefreshing: boolean;
+
+  // Phase 1: Enhanced Activities Foundation
+  activities: any[];
+  activitiesLoading: boolean;
+  activitiesError: string | null;
+  activityFilter: {
+    activityTypes?: string[];
+    dateFrom?: string;
+    dateTo?: string;
+    priorities?: string[];
+    statuses?: string[];
+    tags?: string[];
+    limit?: number;
+    offset?: number;
+  };
+  activityComments: Record<string, any[]>; // activityId -> comments
+  realtimeSyncVersion: number;
+  activitySubscriptions: any[];
+  showActivityFilters: boolean;
+  selectedActivities: string[];
+  isCreatingActivity: boolean;
+  activityTemplates: any[];
 }
 
 export type DealDetailAction =
@@ -124,4 +152,26 @@ export type DealDetailAction =
   | { type: 'SET_FILES'; payload: any[] }
   | { type: 'SET_ACTIVE_MODAL'; payload: ModalType }
   | { type: 'SET_RUNNING_SDR'; payload: boolean }
+  | { type: 'SET_SHOW_BULK_ACTIONS'; payload: boolean }
+  | { type: 'SET_SELECTED_DEALS'; payload: Deal[] }
+  | { type: 'SET_HEALTH_REFRESHING'; payload: boolean }
+  | { type: 'SET_PROBABILITY_REFRESHING'; payload: boolean }
+
+  // Phase 1: Enhanced Activities Actions
+  | { type: 'SET_ACTIVITIES'; payload: any[] }
+  | { type: 'ADD_ACTIVITY'; payload: any }
+  | { type: 'UPDATE_ACTIVITY'; payload: { id: string; updates: any } }
+  | { type: 'DELETE_ACTIVITY'; payload: string }
+  | { type: 'SET_ACTIVITIES_LOADING'; payload: boolean }
+  | { type: 'SET_ACTIVITIES_ERROR'; payload: string | null }
+  | { type: 'SET_ACTIVITY_FILTER'; payload: any }
+  | { type: 'SET_ACTIVITY_COMMENTS'; payload: { activityId: string; comments: any[] } }
+  | { type: 'ADD_ACTIVITY_COMMENT'; payload: { activityId: string; comment: any } }
+  | { type: 'SET_REALTIME_SYNC_VERSION'; payload: number }
+  | { type: 'SET_ACTIVITY_SUBSCRIPTIONS'; payload: any[] }
+  | { type: 'SET_SHOW_ACTIVITY_FILTERS'; payload: boolean }
+  | { type: 'SET_SELECTED_ACTIVITIES'; payload: string[] }
+  | { type: 'SET_CREATING_ACTIVITY'; payload: boolean }
+  | { type: 'SET_ACTIVITY_TEMPLATES'; payload: any[] }
+
   | { type: 'RESET_STATE'; payload: { deal: Deal; contactData?: Contact | null } };

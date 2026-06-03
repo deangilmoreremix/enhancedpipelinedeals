@@ -1,20 +1,34 @@
 // Jest setup file for environment mocking
+import fetchMock from 'jest-fetch-mock';
 import '@testing-library/jest-dom';
-import { jest } from '@jest/globals';
 
-// Mock import.meta.env
-Object.defineProperty(global, 'import', {
-  value: {
-    meta: {
-      env: {
-        VITE_SUPABASE_URL: 'test-supabase-url',
-        VITE_SUPABASE_ANON_KEY: 'test-supabase-anon-key',
-        VITE_OPENAI_API_KEY: 'test-openai-key',
-        VITE_GEMINI_API_KEY: 'test-gemini-key',
-        // Add other environment variables as needed
-      }
-    }
+// Mock import.meta.env for Vite compatibility
+const mockImportMeta = {
+  env: {
+    VITE_SUPABASE_URL: 'test-supabase-url',
+    VITE_SUPABASE_ANON_KEY: 'test-supabase-anon-key',
+    VITE_OPENAI_API_KEY: 'test-openai-key',
+    VITE_GEMINI_API_KEY: 'test-gemini-key',
+    VITE_SENDGRID_API_KEY: 'test-sendgrid-key',
+    VITE_FROM_EMAIL: 'test@example.com',
+    VITE_CRM_API_URL: 'test-crm-url',
+    VITE_CRM_API_KEY: 'test-crm-key',
+    VITE_WEB_SEARCH_API_KEY: 'test-search-key',
+    VITE_WEB_SEARCH_PROVIDER: 'serpapi',
+    ENVIRONMENT: 'test',
+    AGENTMAIL_API_KEY: 'test-agentmail-key',
+    PUBLIC_API_URL: 'https://test-api.example.com',
+    VITE_GEMINI_MODEL: 'gemma-2-27b-it',
+    VITE_GPT5_MODEL: 'gpt-5',
+    VITE_GPT5_REASONING_EFFORT: 'medium',
+    VITE_OPENAI_MODEL: 'gpt-5'
   }
+};
+
+// Mock import.meta globally for Vite compatibility
+Object.defineProperty(global, 'import', {
+  value: { meta: mockImportMeta },
+  writable: true
 });
 
 // Mock localStorage
@@ -66,4 +80,10 @@ global.FileReader = class MockFileReader {
       this.onabort(new Event('abort'));
     }
   }
+
 } as any;
+
+// Enable fetch mocking
+
+// Enable fetch mocking
+fetchMock.enableMocks();

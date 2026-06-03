@@ -1,15 +1,25 @@
 import type { Handler } from "@netlify/functions";
-import { skillRegistry } from "../../src/lib/skills/registry";
+import { sdrAgentRegistry } from "../../src/lib/agents/sdr/registry";
+import { superpowersSkillRegistry } from "../../skills/registry";
 import { getContactAndDeal } from "../../src/lib/autopilot/helpers";
 
 export const handler: Handler = async (event) => {
   try {
     if (event.httpMethod === "GET") {
-      // List skills
-      const skills = Object.values(skillRegistry).map((s: any) => ({
+      // List skills - combine SDR agents and superpowers skills
+      const sdrSkills = Object.values(sdrAgentRegistry).map((s: any) => ({
         id: s.id,
-        description: s.description || ""
+        description: s.description || "",
+        category: "sdr"
       }));
+
+      const superpowerSkills = Object.values(superpowersSkillRegistry).map((s: any) => ({
+        id: s.id,
+        description: s.description,
+        category: s.category
+      }));
+
+      const skills = [...sdrSkills, ...superpowerSkills];
 
       return {
         statusCode: 200,
@@ -33,21 +43,44 @@ export const handler: Handler = async (event) => {
         };
       }
 
-      const skill = (skillRegistry as any)[skillId];
-      if (!skill) {
+      // Check SDR agents first
+      let skill = (sdrAgentRegistry as any)[skillId];
+
+      if (skill) {
+        // SDR agent - requires contact/deal data
+        const { contact, deal } = await getContactAndDeal(contactId);
+
+        const result = await skill.run({
+          contact,
+          deal,
+          context: {}
+        });
+
         return {
-          statusCode: 404,
-          body: JSON.stringify({ error: "Skill not found" })
+          statusCode: 200,
+          body: JSON.stringify({ skillId, contactId, result })
         };
       }
 
-      const { contact, deal } = await getContactAndDeal(contactId);
+      // Check superpowers skills
+      skill = superpowersSkillRegistry[skillId];
+      if (skill) {
+        // Superpowers skill - workflow guidance
+        const result = await skill.run({
+          contactId,
+          context: body.context || {}
+        });
 
-      const result = await skill.run({
-        contact,
-        deal,
-        context: {}
-      });
+        return {
+          statusCode: 200,
+          body: JSON.stringify({ skillId, contactId, result })
+        };
+      }
+
+      return {
+        statusCode: 404,
+        body: JSON.stringify({ error: "Skill not found" })
+      };
 
       return {
         statusCode: 200,

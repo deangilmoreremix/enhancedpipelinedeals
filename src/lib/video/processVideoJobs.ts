@@ -1,8 +1,8 @@
-import { supabase } from "../core/supabaseClient";
-import { logger } from "../core/logger";
+import { supabase } from "../lib/core/supabaseClient";
+import { logger } from "../lib/core/logger";
 import { renderVideo } from "./renderVideo";
 import { VideoJobRecord } from "./types";
-import { executeTool } from "../core/mcpExecutor";
+import { executeTool } from "../lib/core/mcpExecutor";
 
 export async function processPendingVideoJobs(limit = 5) {
   const { data: jobs, error } = await supabase

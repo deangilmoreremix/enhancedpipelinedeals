@@ -7,7 +7,7 @@ import { Contact } from '../types/contact';
 import { getEnhancedIntelligentAI } from './enhancedIntelligentAIService';
 import { getWebSearchService } from './webSearchService';
 import { getCitationService } from './citationService';
-import * as XLSX from 'xlsx';
+import * as ExcelJS from 'exceljs';
 import * as xml2js from 'xml2js';
 import * as yaml from 'js-yaml';
 
@@ -125,7 +125,7 @@ class EnhancedContactImportService {
           rawContacts = this.parseCSVContacts(typeof input === 'string' ? input : '');
           break;
         case 'excel':
-          rawContacts = this.parseExcelContacts(input as ArrayBuffer);
+          rawContacts = await this.parseExcelContacts(input as ArrayBuffer);
           break;
         case 'xml':
           rawContacts = await this.parseXMLContacts(typeof input === 'string' ? input : '');
@@ -580,34 +580,31 @@ class EnhancedContactImportService {
   /**
    * Parse Excel contacts (.xlsx, .xls)
    */
-  private parseExcelContacts(buffer: ArrayBuffer): any[] {
+  private async parseExcelContacts(buffer: ArrayBuffer): Promise<any[]> {
     try {
-      const workbook = XLSX.read(buffer, { type: 'array' });
+      const workbook = new ExcelJS.Workbook();
+      await workbook.xlsx.load(buffer);
 
       // Use the first worksheet
-      const sheetName = workbook.SheetNames[0];
-      if (!sheetName) {
+      const worksheet = workbook.worksheets[0];
+      if (!worksheet) {
         throw new Error('Excel file contains no worksheets');
       }
 
-      const worksheet = workbook.Sheets[sheetName];
-      const jsonData = XLSX.utils.sheet_to_json(worksheet, {
-        header: 1, // Use first row as headers
-        defval: '' // Default value for empty cells
-      });
-
-      if (jsonData.length < 2) {
+      const rows = worksheet.getSheetValues();
+      if (!rows || rows.length < 2) {
         throw new Error('Excel file must contain at least a header row and one data row');
       }
 
-      const headers = jsonData[0] as string[];
-      const rows = jsonData.slice(1) as any[][];
+      // First row contains headers
+      const headers = (rows[1] as any[]).map(header => String(header || '').toLowerCase().trim().replace(/[^a-zA-Z0-9]/g, '_'));
+      const dataRows = rows.slice(2); // Skip header row (index 1, which is the second element)
 
-      return rows.map(row => {
+      return dataRows.map(row => {
         const contact: any = {};
+        const rowData = row as any[];
         headers.forEach((header, index) => {
-          const cleanHeader = header.toLowerCase().trim().replace(/[^a-zA-Z0-9]/g, '_');
-          contact[cleanHeader] = row[index] || '';
+          contact[header] = rowData[index] !== undefined ? String(rowData[index] || '') : '';
         });
         return contact;
       });

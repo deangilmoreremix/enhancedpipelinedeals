@@ -4,14 +4,14 @@
  */
 
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
-import { enhancedLogger, withLogContext, createCorrelationId } from "../core/enhancedLogger";
+import { enhancedLogger, withLogContext, createCorrelationId } from "../lib/core/enhancedLogger";
 import {
   withResilience,
   circuitBreakers,
   timeouts,
   retryPolicies,
   RateLimiter,
-} from "../core/resilience";
+} from "../lib/core/resilience";
 import { executeMCPToolBatch } from "../mcp/executeTool";
 import {
   RunSDRInputSchema,

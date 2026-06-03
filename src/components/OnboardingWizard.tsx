@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { SDR_AGENTS } from "./sdr/sdrAgentsConfig";
 import { ModernButton } from './ui/ModernButton';
 import { PersonaSelector } from './ui/PersonaSelector';
 import { ChevronLeft, ChevronRight, Check, Bot, MessageSquare, Target, Zap } from 'lucide-react';
@@ -18,33 +19,6 @@ interface OnboardingConfig {
   followupIntensity: string;
   goals: string[];
 }
-
-const SDR_AGENTS = [
-  {
-    id: 'sdr_ai_core',
-    name: 'AI SDR (Core)',
-    description: 'Primary outbound agent for personalized cold outreach',
-    icon: <Bot className="w-5 h-5" />
-  },
-  {
-    id: 'sdr_email_primary',
-    name: 'Email SDR',
-    description: 'Handles email conversations and nurturing',
-    icon: <MessageSquare className="w-5 h-5" />
-  },
-  {
-    id: 'sdr_objection_crusher',
-    name: 'Objection Crusher',
-    description: 'Advanced objection handling and conversion',
-    icon: <Target className="w-5 h-5" />
-  },
-  {
-    id: 'sdr_journeys',
-    name: 'Automated Journeys',
-    description: 'Multi-step automated sequences',
-    icon: <Zap className="w-5 h-5" />
-  }
-];
 
 const INDUSTRIES = [
   'SaaS', 'E-commerce', 'Healthcare', 'Finance', 'Manufacturing',

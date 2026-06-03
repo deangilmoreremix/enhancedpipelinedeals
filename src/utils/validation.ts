@@ -271,3 +271,145 @@ export const validateDealData = (deal: any): ValidationResult => {
     }
   };
 };
+
+/**
+ * Alias for sanitizeString to match import expectations
+ */
+export const sanitizeInput = sanitizeString;
+
+/**
+ * Normalize email address (lowercase and trim)
+ */
+export const normalizeEmail = (email: string): string => {
+  if (!email || typeof email !== 'string') return '';
+  return email.toLowerCase().trim();
+};
+
+/**
+ * Normalize phone number (remove non-digit characters except +)
+ */
+export const normalizePhoneNumber = (phone: string): string => {
+  if (!phone || typeof phone !== 'string') return '';
+  return phone.replace(/[^\d+]/g, '');
+};
+
+/**
+ * Generic schema validation function
+ */
+export const validateSchema = (data: any, schema: any): ValidationResult => {
+  if (!schema) {
+    return { isValid: false, error: 'Schema is required' };
+  }
+
+  if (!data || typeof data !== 'object') {
+    return { isValid: false, error: 'Data is required' };
+  }
+
+  const errors: string[] = [];
+
+  // Simple schema validation - check required fields and types
+  for (const [field, rules] of Object.entries(schema) as [string, any][]) {
+    const value = data[field];
+
+    if (rules.required && (value === undefined || value === null || value === '')) {
+      errors.push(`${field} is required`);
+      continue;
+    }
+
+    if (value !== undefined && value !== null && value !== '') {
+      // Type validation
+      if (rules.type) {
+        switch (rules.type) {
+          case 'string':
+            if (typeof value !== 'string') {
+              errors.push(`${field} must be a string`);
+            } else if (rules.maxLength && value.length > rules.maxLength) {
+              errors.push(`${field} must be ${rules.maxLength} characters or less`);
+            }
+            break;
+          case 'number':
+            const num = Number(value);
+            if (isNaN(num)) {
+              errors.push(`${field} must be a number`);
+            } else {
+              if (rules.min !== undefined && num < rules.min) {
+                errors.push(`${field} must be at least ${rules.min}`);
+              }
+              if (rules.max !== undefined && num > rules.max) {
+                errors.push(`${field} must be no more than ${rules.max}`);
+              }
+            }
+            break;
+          case 'email':
+            const emailValidation = validateEmail(value);
+            if (!emailValidation.isValid) {
+              errors.push(`${field}: ${emailValidation.error}`);
+            }
+            break;
+          case 'url':
+            const urlValidation = validateUrl(value);
+            if (!urlValidation.isValid) {
+              errors.push(`${field}: ${urlValidation.error}`);
+            }
+            break;
+        }
+      }
+
+      // Custom validation
+      if (rules.customValidator && typeof rules.customValidator === 'function') {
+        if (!rules.customValidator(value)) {
+          errors.push(`${field} failed custom validation`);
+        }
+      }
+    }
+  }
+
+  if (errors.length > 0) {
+    return { isValid: false, error: errors.join('; ') };
+  }
+
+  // Return sanitized data
+  const sanitized: any = {};
+  for (const [field, rules] of Object.entries(schema) as [string, any][]) {
+    const value = data[field];
+    if (value !== undefined && value !== null) {
+      if (rules.type === 'string') {
+        sanitized[field] = sanitizeString(value);
+      } else if (rules.type === 'email') {
+        sanitized[field] = normalizeEmail(value);
+      } else if (rules.type === 'number') {
+        sanitized[field] = Number(value);
+      } else {
+        sanitized[field] = value;
+      }
+    }
+  }
+
+  return { isValid: true, sanitizedValue: sanitized };
+};
+
+/**
+ * Deal validation schema
+ */
+export const dealValidationSchema = {
+  name: { type: 'string', required: true, maxLength: 200 },
+  value: { type: 'number', required: false, min: 0 },
+  probability: { type: 'number', required: false, min: 0, max: 100 },
+  stage: { type: 'string', required: false, maxLength: 50 },
+  company: { type: 'string', required: false, maxLength: 100 },
+  contact: { type: 'string', required: false, maxLength: 100 },
+  description: { type: 'string', required: false, maxLength: 1000 }
+};
+
+/**
+ * Contact validation schema
+ */
+export const contactValidationSchema = {
+  name: { type: 'string', required: true, maxLength: 100 },
+  email: { type: 'email', required: true },
+  phone: { type: 'string', required: false, maxLength: 20 },
+  company: { type: 'string', required: false, maxLength: 100 },
+  title: { type: 'string', required: false, maxLength: 100 },
+  linkedin: { type: 'url', required: false },
+  notes: { type: 'string', required: false, maxLength: 1000 }
+};

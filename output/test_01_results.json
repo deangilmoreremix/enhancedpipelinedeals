@@ -1,0 +1,17 @@
+{
+  "test_name": "Element Discovery",
+  "url": "http://localhost:5173",
+  "elements": {
+    "buttons": [],
+    "links": [],
+    "inputs": [],
+    "headings": []
+  },
+  "page_title": "Smart CRM - AI-Powered Sales Pipeline & Contact Management",
+  "metrics": {
+    "url": "http://localhost:5176/",
+    "width": 1920,
+    "height": 1080,
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/145.0.7632.6 Safari/537.36"
+  }
+}

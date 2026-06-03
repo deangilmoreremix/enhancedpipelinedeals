@@ -1,4 +1,4 @@
-import { callOpenAI } from "../core/callOpenAI";
+import { callOpenAI } from "../lib/core/callOpenAI";
 import { buildMemoryPrompt } from "../memory/memoryPrompt";
 import { determineMood } from "../mood/determineMood";
 import { applyMood } from "../mood/applyMood";

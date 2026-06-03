@@ -25,7 +25,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/154</span>
+                <span class='fraction'>0/144</span>
             </div>
         
             
@@ -39,14 +39,14 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/33</span>
+                <span class='fraction'>0/29</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/145</span>
+                <span class='fraction'>0/136</span>
             </div>
         
             
@@ -759,16 +759,16 @@
 <a name='L694'></a><a href='#L694'>694</a>
 <a name='L695'></a><a href='#L695'>695</a>
 <a name='L696'></a><a href='#L696'>696</a>
-<a name='L697'></a><a href='#L697'>697</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
+<a name='L697'></a><a href='#L697'>697</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1455,16 +1455,16 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js"><span class="cstat-no" title="statement not covered" >import React, { useState, useRef, useMemo } from 'react';</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import React, { useState, useRef, useMemo } from 'react';
 import { Deal } from '../types';
-<span class="cstat-no" title="statement not covered" >import { DealCardHeader } from './ui/DealCardHeader';</span>
-<span class="cstat-no" title="statement not covered" >import { DealCardActions } from './ui/DealCardActions';</span>
-<span class="cstat-no" title="statement not covered" >import { DealCardInsights } from './ui/DealCardInsights';</span>
-<span class="cstat-no" title="statement not covered" >import { DealCardMetadata } from './ui/DealCardMetadata';</span>
-<span class="cstat-no" title="statement not covered" >import { CustomizableAIToolbar } from './ui/CustomizableAIToolbar';</span>
-<span class="cstat-no" title="statement not covered" >import { Tooltip } from './ui/Tooltip';</span>
-<span class="cstat-no" title="statement not covered" >import { ErrorBoundary } from './ErrorBoundary';</span>
-<span class="cstat-no" title="statement not covered" >import {</span>
+import { DealCardHeader } from './ui/DealCardHeader';
+import { DealCardActions } from './ui/DealCardActions';
+import { DealCardInsights } from './ui/DealCardInsights';
+import { DealCardMetadata } from './ui/DealCardMetadata';
+import { CustomizableAIToolbar } from './ui/CustomizableAIToolbar';
+import { Tooltip } from './ui/Tooltip';
+import { ErrorBoundary } from './ErrorBoundary';
+import {
   Calendar,
   User,
   Building2,
@@ -1511,7 +1511,7 @@ interface AIEnhancedDealCardProps {
   openAIResult?: any;
 }
 &nbsp;
-export const <span class="cstat-no" title="statement not covered" >AIEnhancedDealCard: React.FC&lt;AIEnhancedDealCardProps&gt; = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >(</span>{</span></span>
+export const AIEnhancedDealCard: React.FC&lt;AIEnhancedDealCardProps&gt; = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >({</span></span>
   deal,
   isSelected = <span class="branch-0 cbranch-no" title="branch not covered" >false,</span>
   onSelect,
@@ -1607,7 +1607,7 @@ export const <span class="cstat-no" title="statement not covered" >AIEnhancedDea
     // Trigger AI analysis when card is clicked (if probability is low or not analyzed)
 <span class="cstat-no" title="statement not covered" >    if (deal.probability &lt; 70) {</span>
 <span class="cstat-no" title="statement not covered" >      try {</span>
-        const { getAIFunctionOrchestrator } = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >await import('</span>../services/aiFunctionOrchestrator');</span>
+        const { getAIFunctionOrchestrator } = <span class="cstat-no" title="statement not covered" >await import('../services/aiFunctionOrchestrator');</span>
         const orchestrator = <span class="cstat-no" title="statement not covered" >getAIFunctionOrchestrator();</span>
 &nbsp;
         // Run comprehensive deal analysis in background
@@ -1642,7 +1642,7 @@ export const <span class="cstat-no" title="statement not covered" >AIEnhancedDea
 <span class="cstat-no" title="statement not covered" >      await onAnalyze(deal);</span>
 &nbsp;
       // Additionally trigger AI function orchestrator
-      const { getAIFunctionOrchestrator } = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >await import('</span>../services/aiFunctionOrchestrator');</span>
+      const { getAIFunctionOrchestrator } = <span class="cstat-no" title="statement not covered" >await import('../services/aiFunctionOrchestrator');</span>
       const orchestrator = <span class="cstat-no" title="statement not covered" >getAIFunctionOrchestrator();</span>
 &nbsp;
 <span class="cstat-no" title="statement not covered" >      await orchestrator.executeFunction('comprehensive_deal_analysis', {</span>
@@ -1679,7 +1679,7 @@ export const <span class="cstat-no" title="statement not covered" >AIEnhancedDea
 <span class="cstat-no" title="statement not covered" >      await onAIEnrich(deal);</span>
 &nbsp;
       // Additionally trigger AI function orchestrator for enrichment
-      const { getAIFunctionOrchestrator } = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >await import('</span>../services/aiFunctionOrchestrator');</span>
+      const { getAIFunctionOrchestrator } = <span class="cstat-no" title="statement not covered" >await import('../services/aiFunctionOrchestrator');</span>
       const orchestrator = <span class="cstat-no" title="statement not covered" >getAIFunctionOrchestrator();</span>
 &nbsp;
 <span class="cstat-no" title="statement not covered" >      await orchestrator.executeFunction('enrich_contact_data', {</span>
@@ -1736,7 +1736,7 @@ export const <span class="cstat-no" title="statement not covered" >AIEnhancedDea
 &nbsp;
     // Trigger AI email generation before opening composer
 <span class="cstat-no" title="statement not covered" >    try {</span>
-      const { getAIFunctionOrchestrator } = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >await import('</span>../services/aiFunctionOrchestrator');</span>
+      const { getAIFunctionOrchestrator } = <span class="cstat-no" title="statement not covered" >await import('../services/aiFunctionOrchestrator');</span>
       const orchestrator = <span class="cstat-no" title="statement not covered" >getAIFunctionOrchestrator();</span>
 &nbsp;
 <span class="cstat-no" title="statement not covered" >      await orchestrator.executeFunction('generate_personalized_email', {</span>
@@ -2158,7 +2158,7 @@ export const <span class="cstat-no" title="statement not covered" >AIEnhancedDea
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-12-12T05:07:54.305Z
+                at 2026-04-27T09:08:05.669Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

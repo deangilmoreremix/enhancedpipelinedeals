@@ -1,0 +1,32 @@
+{
+  "test_name": "UI Interaction and Navigation",
+  "url": "http://localhost:5173",
+  "tests": [
+    {
+      "name": "Initial Page Load",
+      "status": "passed",
+      "title": "Smart CRM - AI-Powered Sales Pipeline & Contact Management"
+    },
+    {
+      "name": "Navigation Elements",
+      "status": "warning"
+    },
+    {
+      "name": "Button Click",
+      "status": "skipped",
+      "reason": "No visible buttons"
+    },
+    {
+      "name": "Pipeline Elements",
+      "status": "warning"
+    },
+    {
+      "name": "Page Scroll",
+      "status": "passed"
+    },
+    {
+      "name": "Responsive Mobile",
+      "status": "passed"
+    }
+  ]
+}

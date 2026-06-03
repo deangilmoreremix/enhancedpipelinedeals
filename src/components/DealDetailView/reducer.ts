@@ -28,7 +28,29 @@ export const initialDealDetailState = (deal: Deal, contactData?: Contact | null)
   newLinkUrl: '',
   files: [],
   activeModal: null,
-  isRunningSDR: false
+  isRunningSDR: false,
+
+  // Phase 3 enhancements
+  showBulkActions: false,
+  selectedDeals: [],
+  healthRefreshing: false,
+  probabilityRefreshing: false,
+
+  // Phase 1: Enhanced Activities Foundation
+  activities: [],
+  activitiesLoading: false,
+  activitiesError: null,
+  activityFilter: {
+    limit: 50,
+    offset: 0
+  },
+  activityComments: {},
+  realtimeSyncVersion: 0,
+  activitySubscriptions: [],
+  showActivityFilters: false,
+  selectedActivities: [],
+  isCreatingActivity: false,
+  activityTemplates: []
 });
 
 export const dealDetailReducer = (state: DealDetailState, action: DealDetailAction): DealDetailState => {
@@ -113,6 +135,87 @@ export const dealDetailReducer = (state: DealDetailState, action: DealDetailActi
 
     case 'SET_RUNNING_SDR':
       return { ...state, isRunningSDR: action.payload };
+
+    case 'SET_SHOW_BULK_ACTIONS':
+      return { ...state, showBulkActions: action.payload };
+
+    case 'SET_SELECTED_DEALS':
+      return { ...state, selectedDeals: action.payload };
+
+    case 'SET_HEALTH_REFRESHING':
+      return { ...state, healthRefreshing: action.payload };
+
+    case 'SET_PROBABILITY_REFRESHING':
+      return { ...state, probabilityRefreshing: action.payload };
+
+    // Phase 1: Enhanced Activities Actions
+    case 'SET_ACTIVITIES':
+      return { ...state, activities: action.payload };
+
+    case 'ADD_ACTIVITY':
+      return { ...state, activities: [action.payload, ...state.activities] };
+
+    case 'UPDATE_ACTIVITY':
+      return {
+        ...state,
+        activities: state.activities.map(activity =>
+          activity.id === action.payload.id
+            ? { ...activity, ...action.payload.updates }
+            : activity
+        )
+      };
+
+    case 'DELETE_ACTIVITY':
+      return {
+        ...state,
+        activities: state.activities.filter(activity => activity.id !== action.payload)
+      };
+
+    case 'SET_ACTIVITIES_LOADING':
+      return { ...state, activitiesLoading: action.payload };
+
+    case 'SET_ACTIVITIES_ERROR':
+      return { ...state, activitiesError: action.payload };
+
+    case 'SET_ACTIVITY_FILTER':
+      return { ...state, activityFilter: { ...state.activityFilter, ...action.payload } };
+
+    case 'SET_ACTIVITY_COMMENTS':
+      return {
+        ...state,
+        activityComments: {
+          ...state.activityComments,
+          [action.payload.activityId]: action.payload.comments
+        }
+      };
+
+    case 'ADD_ACTIVITY_COMMENT':
+      const existingComments = state.activityComments[action.payload.activityId] || [];
+      return {
+        ...state,
+        activityComments: {
+          ...state.activityComments,
+          [action.payload.activityId]: [...existingComments, action.payload.comment]
+        }
+      };
+
+    case 'SET_REALTIME_SYNC_VERSION':
+      return { ...state, realtimeSyncVersion: action.payload };
+
+    case 'SET_ACTIVITY_SUBSCRIPTIONS':
+      return { ...state, activitySubscriptions: action.payload };
+
+    case 'SET_SHOW_ACTIVITY_FILTERS':
+      return { ...state, showActivityFilters: action.payload };
+
+    case 'SET_SELECTED_ACTIVITIES':
+      return { ...state, selectedActivities: action.payload };
+
+    case 'SET_CREATING_ACTIVITY':
+      return { ...state, isCreatingActivity: action.payload };
+
+    case 'SET_ACTIVITY_TEMPLATES':
+      return { ...state, activityTemplates: action.payload };
 
     case 'RESET_STATE':
       return initialDealDetailState(action.payload.deal, action.payload.contactData);
@@ -252,6 +355,102 @@ export const dealDetailActions = {
   setRunningSDR: (isRunning: boolean): DealDetailAction => ({
     type: 'SET_RUNNING_SDR',
     payload: isRunning
+  }),
+
+  setShowBulkActions: (show: boolean): DealDetailAction => ({
+    type: 'SET_SHOW_BULK_ACTIONS',
+    payload: show
+  }),
+
+  setSelectedDeals: (deals: Deal[]): DealDetailAction => ({
+    type: 'SET_SELECTED_DEALS',
+    payload: deals
+  }),
+
+  setHealthRefreshing: (refreshing: boolean): DealDetailAction => ({
+    type: 'SET_HEALTH_REFRESHING',
+    payload: refreshing
+  }),
+
+  setProbabilityRefreshing: (refreshing: boolean): DealDetailAction => ({
+    type: 'SET_PROBABILITY_REFRESHING',
+    payload: refreshing
+  }),
+
+  // Phase 1: Enhanced Activities Actions
+  setActivities: (activities: any[]): DealDetailAction => ({
+    type: 'SET_ACTIVITIES',
+    payload: activities
+  }),
+
+  addActivity: (activity: any): DealDetailAction => ({
+    type: 'ADD_ACTIVITY',
+    payload: activity
+  }),
+
+  updateActivity: (id: string, updates: any): DealDetailAction => ({
+    type: 'UPDATE_ACTIVITY',
+    payload: { id, updates }
+  }),
+
+  deleteActivity: (id: string): DealDetailAction => ({
+    type: 'DELETE_ACTIVITY',
+    payload: id
+  }),
+
+  setActivitiesLoading: (loading: boolean): DealDetailAction => ({
+    type: 'SET_ACTIVITIES_LOADING',
+    payload: loading
+  }),
+
+  setActivitiesError: (error: string | null): DealDetailAction => ({
+    type: 'SET_ACTIVITIES_ERROR',
+    payload: error
+  }),
+
+  setActivityFilter: (filter: any): DealDetailAction => ({
+    type: 'SET_ACTIVITY_FILTER',
+    payload: filter
+  }),
+
+  setActivityComments: (activityId: string, comments: any[]): DealDetailAction => ({
+    type: 'SET_ACTIVITY_COMMENTS',
+    payload: { activityId, comments }
+  }),
+
+  addActivityComment: (activityId: string, comment: any): DealDetailAction => ({
+    type: 'ADD_ACTIVITY_COMMENT',
+    payload: { activityId, comment }
+  }),
+
+  setRealtimeSyncVersion: (version: number): DealDetailAction => ({
+    type: 'SET_REALTIME_SYNC_VERSION',
+    payload: version
+  }),
+
+  setActivitySubscriptions: (subscriptions: any[]): DealDetailAction => ({
+    type: 'SET_ACTIVITY_SUBSCRIPTIONS',
+    payload: subscriptions
+  }),
+
+  setShowActivityFilters: (show: boolean): DealDetailAction => ({
+    type: 'SET_SHOW_ACTIVITY_FILTERS',
+    payload: show
+  }),
+
+  setSelectedActivities: (activityIds: string[]): DealDetailAction => ({
+    type: 'SET_SELECTED_ACTIVITIES',
+    payload: activityIds
+  }),
+
+  setCreatingActivity: (creating: boolean): DealDetailAction => ({
+    type: 'SET_CREATING_ACTIVITY',
+    payload: creating
+  }),
+
+  setActivityTemplates: (templates: any[]): DealDetailAction => ({
+    type: 'SET_ACTIVITY_TEMPLATES',
+    payload: templates
   }),
 
   resetState: (deal: Deal, contactData?: Contact | null): DealDetailAction => ({

@@ -25,7 +25,17 @@ export type AiTask =
   | "communication_optimize"
   | "discovery_questions"
   | "insights_generation"
-  | "risk_assessment";
+  | "risk_assessment"
+  // Phase 7 AI Enhancements
+  | "deal_scoring"
+  | "competitor_analysis"
+  | "deal_insights"
+  | "automated_note_taking"
+  | "natural_language_query"
+  | "data_enrichment"
+  | "record_classification"
+  | "summary_generation"
+  | "custom_prompt_execution";
 
 // Model routing based on task complexity
 export function pickModel(task: AiTask): string {
@@ -35,6 +45,9 @@ export function pickModel(task: AiTask): string {
     case "prediction":
     case "risk_assessment":
     case "insights_generation":
+    case "competitor_analysis":
+    case "deal_insights":
+    case "summary_generation":
       return "gpt-5.2-pro"; // Heavy analytics & cross-panel intelligence
 
     case "sales_playbook":
@@ -45,8 +58,18 @@ export function pickModel(task: AiTask): string {
     case "communication_optimize":
     case "web_research":
     case "enrichment":
+    case "deal_scoring":
+    case "record_classification":
+    case "data_enrichment":
+    case "custom_prompt_execution":
       return "gpt-5.2-thinking"; // Multi-step reasoning tasks
 
+    case "automated_note_taking":
+    case "natural_language_query":
+    case "email_compose":
+    case "meeting_invite":
+    case "proposal_email":
+    case "discovery_questions":
     default:
       return "gpt-5.2-instant"; // Quick features, emails, short insights
   }
@@ -355,6 +378,156 @@ Evaluate:
 
 Return as JSON with health assessment and recommendations`;
   }
+
+  // Phase 7 AI Enhancement Prompts
+  static getDealScoringPrompt(deal: any, contact: any, interactions: any[]): string {
+    return `Score this deal for sales qualification using comprehensive criteria.
+
+Deal Details: ${JSON.stringify(deal, null, 2)}
+Contact Info: ${JSON.stringify(contact, null, 2)}
+Recent Interactions: ${JSON.stringify(interactions.slice(-20), null, 2)}
+
+Analyze and score based on:
+1. Contact qualification (title, company size, budget signals, timeline)
+2. Deal progression (stage, velocity, stakeholder engagement)
+3. Competition (identified competitors, positioning, threats)
+4. Company fit (industry, use case, technical requirements)
+5. Buying signals (questions asked, objections raised, decision criteria)
+
+Return JSON with:
+- overallScore (0-100)
+- qualificationLevel ("cold"|"warm"|"hot"|"qualified"|"sales_ready")
+- scoringFactors array with detailed analysis
+- confidence (0-100)`;
+  }
+
+  static getCompetitorAnalysisPrompt(deal: any, company: any, marketData: any): string {
+    return `Analyze competitive landscape for this deal.
+
+Deal: ${JSON.stringify(deal, null, 2)}
+Target Company: ${JSON.stringify(company, null, 2)}
+Market Context: ${JSON.stringify(marketData, null, 2)}
+
+Identify:
+1. Primary competitors and their relative strength
+2. Competitive positioning (leading/competitive/challenged/losing)
+3. Specific threats and opportunities
+4. Strategic recommendations to win
+
+Return comprehensive competitor analysis as JSON with competitors array, positioning, threats, opportunities, and recommendations.`;
+  }
+
+  static getDealInsightsPrompt(deal: any, contact: any, timeline: any[], analytics: any): string {
+    return `Generate comprehensive deal insights and recommendations.
+
+Deal: ${JSON.stringify(deal, null, 2)}
+Contact: ${JSON.stringify(contact, null, 2)}
+Timeline: ${JSON.stringify(timeline.slice(-15), null, 2)}
+Analytics: ${JSON.stringify(analytics, null, 2)}
+
+Provide:
+1. Progression insights (positive/neutral/concerning patterns)
+2. Risk assessments with severity and mitigation
+3. Action recommendations with priorities and timeframes
+4. Predictive metrics for next 30-90 days
+5. Communication suggestions for stakeholders
+
+Return structured JSON with all insight categories and confidence scores.`;
+  }
+
+  static getAutomatedNoteTakingPrompt(communication: any, deal: any, contact: any): string {
+    return `Generate automated notes and insights from communication.
+
+Communication: ${JSON.stringify(communication, null, 2)}
+Deal Context: ${JSON.stringify(deal, null, 2)}
+Contact: ${JSON.stringify(contact, null, 2)}
+
+Create:
+1. Concise summary of the communication
+2. Key points and takeaways
+3. Sentiment analysis (positive/neutral/negative/mixed)
+4. Action items with priorities and assignees
+5. Follow-up recommendations with timing
+6. Relevant tags for categorization
+
+Return JSON with summary, keyPoints, sentiment, actionItems, followUps, and tags.`;
+  }
+
+  static getNaturalLanguageQueryPrompt(query: string, context: any, availableData: any): string {
+    return `Parse and execute natural language query against CRM data.
+
+User Query: "${query}"
+
+Context: ${JSON.stringify(context, null, 2)}
+Available Data Types: ${JSON.stringify(availableData, null, 2)}
+
+1. Parse intent (find/count/analyze/compare/predict/summarize/create/update/delete)
+2. Identify target entity type (deal/contact/company)
+3. Extract filters, aggregations, and sorting requirements
+4. Execute appropriate data operations
+5. Format results with insights and suggested actions
+
+Return JSON with parsedIntent, executed queries, results, and recommendations.`;
+  }
+
+  static getDataEnrichmentPrompt(entity: any, entityType: string, enrichmentType: string): string {
+    return `Enrich ${entityType} data from public sources.
+
+Entity: ${JSON.stringify(entity, null, 2)}
+Entity Type: ${entityType}
+Enrichment Type: ${enrichmentType}
+
+Based on available data, enrich with:
+- Social profiles and professional networks
+- Firmographic data (size, revenue, industry details)
+- Technographic data (technology stack, tools used)
+- Intent signals (recent activities, content consumption)
+- News and company updates
+
+Return enriched data with confidence scores and source attribution.`;
+  }
+
+  static getRecordClassificationPrompt(entity: any, entityType: string, classificationSchema: any): string {
+    return `Classify ${entityType} record into categories.
+
+Entity: ${JSON.stringify(entity, null, 2)}
+Entity Type: ${entityType}
+Classification Schema: ${JSON.stringify(classificationSchema, null, 2)}
+
+Analyze and classify based on:
+- Industry and business type
+- Company size and growth stage
+- Technology adoption level
+- Buying behavior patterns
+- Risk and opportunity factors
+
+Return primary category, secondary categories, detailed classifications with confidence scores, and reasoning.`;
+  }
+
+  static getSummaryGenerationPrompt(entity: any, entityType: string, summaryType: string): string {
+    return `Generate ${summaryType} summary for ${entityType}.
+
+Entity: ${JSON.stringify(entity, null, 2)}
+Summary Type: ${summaryType}
+
+Create appropriate summary format:
+- executive: High-level overview for leadership
+- detailed: Comprehensive analysis with all key information
+- bullet_points: Key facts and takeaways
+- timeline: Chronological summary of events
+- risk_analysis: Focus on risks, opportunities, and recommendations
+
+Include key insights, recommendations, and confidence score.`;
+  }
+
+  static getCustomPromptExecutionPrompt(template: any, variables: Record<string, any>): string {
+    return `Execute custom AI prompt template.
+
+Template: ${JSON.stringify(template, null, 2)}
+Variables: ${JSON.stringify(variables, null, 2)}
+
+Execute the prompt template with provided variables and return the AI-generated response according to the template specifications.`;
+  }
 }
 
 // Main SmartAIOrchestrator class
@@ -413,9 +586,26 @@ export class SmartAIOrchestrator {
 
       case "sales_playbook":
       case "deal_health":
+      case "deal_scoring":
+      case "deal_insights":
         const dealData = await CRMContextBuilder.buildDealSnapshot(params.dealId);
         const contactData = await CRMContextBuilder.buildContactSnapshot(params.contactId);
         return { deal: dealData, contact: contactData };
+
+      case "competitor_analysis":
+        const compDealData = await CRMContextBuilder.buildDealSnapshot(params.dealId);
+        const compContactData = await CRMContextBuilder.buildContactSnapshot(params.contactId);
+        // Would need market data here
+        return { deal: compDealData, contact: compContactData, marketData: {} };
+
+      case "automated_note_taking":
+        const noteDealData = await CRMContextBuilder.buildDealSnapshot(params.dealId);
+        const noteContactData = await CRMContextBuilder.buildContactSnapshot(params.contactId);
+        return {
+          deal: noteDealData,
+          contact: noteContactData,
+          communication: params.communication
+        };
 
       case "email_compose":
       case "meeting_invite":
@@ -426,6 +616,28 @@ export class SmartAIOrchestrator {
       case "prediction":
       case "insights_generation":
         return await CRMContextBuilder.buildGlobalAnalyticsSnapshot(params.workspaceId);
+
+      case "natural_language_query":
+        return {
+          query: params.query,
+          context: params.context || {},
+          availableData: params.availableData || {}
+        };
+
+      case "data_enrichment":
+      case "record_classification":
+      case "summary_generation":
+        return {
+          entity: params.entity,
+          entityType: params.entityType,
+          [task.replace('_', '') + 'Type']: params[task.replace('_', '') + 'Type']
+        };
+
+      case "custom_prompt_execution":
+        return {
+          template: params.template,
+          variables: params.variables
+        };
 
       case "web_research":
         const researchContact = await CRMContextBuilder.buildContactSnapshot(params.contactId);
@@ -460,6 +672,34 @@ export class SmartAIOrchestrator {
 
       case "deal_health":
         return PromptTemplates.getDealHealthPrompt(context.deal, context.interactions || []);
+
+      // Phase 7 AI Enhancements
+      case "deal_scoring":
+        return PromptTemplates.getDealScoringPrompt(context.deal, context.contact, context.interactions || []);
+
+      case "competitor_analysis":
+        return PromptTemplates.getCompetitorAnalysisPrompt(context.deal, context.contact, context.marketData);
+
+      case "deal_insights":
+        return PromptTemplates.getDealInsightsPrompt(context.deal, context.contact, context.timeline || [], context.analytics || {});
+
+      case "automated_note_taking":
+        return PromptTemplates.getAutomatedNoteTakingPrompt(context.communication, context.deal, context.contact);
+
+      case "natural_language_query":
+        return PromptTemplates.getNaturalLanguageQueryPrompt(context.query, context.context, context.availableData);
+
+      case "data_enrichment":
+        return PromptTemplates.getDataEnrichmentPrompt(context.entity, context.entityType, context.enrichmentType);
+
+      case "record_classification":
+        return PromptTemplates.getRecordClassificationPrompt(context.entity, context.entityType, context.classificationSchema);
+
+      case "summary_generation":
+        return PromptTemplates.getSummaryGenerationPrompt(context.entity, context.entityType, context.summaryType);
+
+      case "custom_prompt_execution":
+        return PromptTemplates.getCustomPromptExecutionPrompt(context.template, context.variables);
 
       default:
         return `Execute ${task} with context: ${JSON.stringify(context)} and params: ${JSON.stringify(params)}`;
@@ -591,7 +831,17 @@ export class SmartAIOrchestrator {
       "prediction",
       "risk_assessment",
       "insights_generation",
-      "intelligence_engine"
+      "intelligence_engine",
+      // Phase 7 AI Enhancements
+      "deal_scoring",
+      "competitor_analysis",
+      "deal_insights",
+      "automated_note_taking",
+      "natural_language_query",
+      "data_enrichment",
+      "record_classification",
+      "summary_generation",
+      "custom_prompt_execution"
     ];
 
     return jsonTasks.includes(task);
@@ -662,6 +912,294 @@ export class SmartAIOrchestrator {
             { url: "https://linkedin.com/company/techcorp", title: "Company Updates" }
           ],
           recommendations: ["Focus on AI integration capabilities", "Highlight scalability for growing teams"]
+        }
+      },
+      // Phase 7 AI Enhancements
+      deal_scoring: {
+        success: true,
+        data: {
+          overallScore: 82,
+          qualificationLevel: "qualified",
+          scoringFactors: [
+            {
+              id: "contact_qual",
+              name: "Contact Qualification",
+              category: "contact",
+              score: 88,
+              weight: 0.3,
+              evidence: ["CTO title", "Enterprise company", "Recent funding round"],
+              reasoning: "High-level decision maker at well-funded company",
+              confidence: 90
+            },
+            {
+              id: "deal_progress",
+              name: "Deal Progression",
+              category: "engagement",
+              score: 75,
+              weight: 0.25,
+              evidence: ["Multiple stakeholder meetings", "Technical demo completed"],
+              reasoning: "Good engagement but timeline concerns",
+              confidence: 85
+            }
+          ],
+          confidence: 87
+        }
+      },
+      competitor_analysis: {
+        success: true,
+        data: {
+          primaryCompetitors: [
+            {
+              id: "comp1",
+              name: "CompetitorX",
+              strength: 75,
+              keyAdvantages: ["Lower pricing", "Faster implementation"],
+              keyDisadvantages: ["Limited customization", "Smaller support team"],
+              recentActivity: ["New partnership announced", "Price reduction"],
+              pricingStrategy: "Volume-based discounts"
+            }
+          ],
+          competitivePosition: "competitive",
+          threats: [
+            {
+              id: "threat1",
+              type: "pricing",
+              severity: "medium",
+              description: "Competitor offering 20% discount for similar solution",
+              mitigationStrategies: ["Emphasize total cost of ownership", "Highlight superior support"],
+              probability: 60
+            }
+          ],
+          opportunities: [
+            {
+              id: "opp1",
+              type: "gap",
+              potential: "high",
+              description: "Competitor lacks advanced AI features we offer",
+              exploitationStrategy: ["Demo AI capabilities", "Share customer success stories"],
+              expectedValue: 25000
+            }
+          ],
+          recommendations: ["Accelerate timeline", "Increase competitive intelligence monitoring", "Strengthen value proposition"]
+        }
+      },
+      deal_insights: {
+        success: true,
+        data: {
+          progressionInsights: [
+            {
+              id: "insight1",
+              insight: "Deal velocity has slowed by 40% in last 2 weeks",
+              type: "concerning",
+              category: "timeline",
+              confidence: 85,
+              supportingEvidence: ["Last contact 12 days ago", "No response to last proposal"],
+              actionable: true
+            }
+          ],
+          riskAssessments: [
+            {
+              id: "risk1",
+              risk: "Competitor evaluation may be causing delay",
+              severity: "medium",
+              probability: 70,
+              impact: "high",
+              mitigationStrategies: ["Schedule competitive positioning call", "Provide detailed comparison"],
+              monitoringRequired: true
+            }
+          ],
+          actionRecommendations: [
+            {
+              id: "action1",
+              action: "Schedule urgent check-in call with decision maker",
+              priority: "high",
+              timeframe: "immediate",
+              expectedOutcome: "Re-engage stalled deal and identify blocking issues",
+              requiredResources: ["SDR time", "Product demo access"],
+              successMetrics: ["Meeting scheduled", "Objections identified"]
+            }
+          ],
+          predictiveMetrics: [
+            {
+              id: "metric1",
+              metric: "Close Probability",
+              currentValue: 65,
+              predictedValue: 45,
+              confidence: 75,
+              timeframe: "30 days",
+              trend: "decreasing",
+              factors: ["Slowing velocity", "Competitor involvement", "Budget approval delay"]
+            }
+          ],
+          communicationSuggestions: [
+            {
+              id: "comm1",
+              type: "call",
+              recipient: "CTO",
+              timing: "Tomorrow morning",
+              subject: "Following up on TechCorp's automation requirements",
+              keyPoints: ["Address any concerns", "Reiterate value proposition", "Schedule next steps"],
+              tone: "professional",
+              expectedResponse: "Meeting confirmation or updated timeline"
+            }
+          ]
+        }
+      },
+      automated_note_taking: {
+        success: true,
+        data: {
+          summary: "CTO expressed strong interest in automation platform but concerned about integration timeline. Requested detailed ROI analysis and competitor comparison.",
+          keyPoints: [
+            "Current system causing 20 hours/week manual work",
+            "Budget approved for Q2 implementation",
+            "Key decision criteria: ROI, ease of use, support quality",
+            "Competitor evaluation in progress"
+          ],
+          sentiment: "positive",
+          actionItems: [
+            {
+              id: "action1",
+              description: "Prepare detailed ROI analysis showing 300%+ return",
+              priority: "high",
+              assignee: "Sales Engineer",
+              dueDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000), // 2 days
+              status: "pending"
+            },
+            {
+              id: "action2",
+              description: "Create competitor feature comparison document",
+              priority: "medium",
+              assignee: "SDR",
+              dueDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000), // 3 days
+              status: "pending"
+            }
+          ],
+          followUps: [
+            {
+              id: "followup1",
+              type: "email",
+              description: "Send ROI analysis and competitor comparison",
+              timing: "End of week",
+              priority: "high"
+            },
+            {
+              id: "followup2",
+              type: "call",
+              description: "Schedule technical demo with engineering team",
+              timing: "Next week",
+              priority: "medium"
+            }
+          ],
+          tags: ["budget_approved", "roi_focus", "competitor_comparison", "timeline_concern"]
+        }
+      },
+      natural_language_query: {
+        success: true,
+        data: {
+          parsedIntent: {
+            action: "find",
+            entityType: "deal",
+            filters: { stage: "negotiation", value: { min: 50000 } },
+            aggregations: ["total_value", "count"],
+            sorting: { value: "desc" }
+          },
+          results: [
+            {
+              type: "data",
+              data: {
+                deals: [
+                  { id: "deal1", company: "TechCorp", value: 75000, stage: "negotiation" },
+                  { id: "deal2", company: "DataSys", value: 60000, stage: "negotiation" }
+                ],
+                summary: { totalValue: 135000, count: 2 }
+              },
+              confidence: 95
+            },
+            {
+              type: "insight",
+              insight: "Two high-value deals in negotiation stage, representing $135K in potential revenue",
+              confidence: 90
+            }
+          ]
+        }
+      },
+      data_enrichment: {
+        success: true,
+        data: {
+          enrichedData: {
+            socialProfiles: {
+              linkedin: "https://linkedin.com/in/john-doe",
+              twitter: "https://twitter.com/johndoetech"
+            },
+            firmographic: {
+              employeeCount: 150,
+              revenue: 15000000,
+              industry: "Software Development",
+              founded: 2018
+            },
+            technographic: {
+              crm: "Salesforce",
+              marketing: "HubSpot",
+              analytics: "Mixpanel"
+            }
+          },
+          confidence: 85,
+          sources: ["LinkedIn", "Crunchbase", "BuiltWith"]
+        }
+      },
+      record_classification: {
+        success: true,
+        data: {
+          classifications: [
+            {
+              category: "Technology",
+              subcategory: "SaaS",
+              confidence: 95,
+              reasoning: "Company provides cloud-based software solutions",
+              tags: ["saas", "cloud", "technology"],
+              metadata: { growthStage: "Series A" }
+            },
+            {
+              category: "Enterprise",
+              subcategory: "Mid-Market",
+              confidence: 88,
+              reasoning: "Company size and revenue indicate mid-market enterprise",
+              tags: ["enterprise", "mid-market"],
+              metadata: { employeeRange: "100-500" }
+            }
+          ],
+          primaryCategory: "Technology",
+          secondaryCategories: ["Enterprise", "SaaS"],
+          confidence: 92
+        }
+      },
+      summary_generation: {
+        success: true,
+        data: {
+          content: "TechCorp is a Series A SaaS company with 150 employees, founded in 2018. They provide cloud-based automation solutions and have recently raised $15M in funding. Current deal value is $75K in the negotiation stage.",
+          keyInsights: [
+            "Strong growth trajectory with recent funding",
+            "Mid-market enterprise with established product",
+            "Active in automation space with technical requirements"
+          ],
+          recommendations: [
+            "Focus on ROI and technical integration benefits",
+            "Address timeline concerns with implementation plan",
+            "Highlight competitive advantages in AI capabilities"
+          ],
+          wordCount: 87,
+          confidence: 90
+        }
+      },
+      custom_prompt_execution: {
+        success: true,
+        data: {
+          response: "Custom prompt executed successfully with provided variables.",
+          executionDetails: {
+            model: "gpt-5.2-thinking",
+            tokens: 150,
+            processingTime: 1200
+          }
         }
       },
       // Default response for other tasks

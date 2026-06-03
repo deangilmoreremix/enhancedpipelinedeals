@@ -4,10 +4,14 @@ import { DealDetailTabs } from './DealDetailTabs';
 import { DealDetailOverview } from './DealDetailOverview';
 import { DealDetailActions } from './DealDetailActions';
 import { SDRResultsModal } from './SDRResultsModal';
+import { DealInsightsPanel } from './DealInsightsPanel';
 import { DealJourneyTimeline } from '../DealJourneyTimeline';
 import { DealCommunicationHub } from '../DealCommunicationHub';
 import { DealAnalyticsDashboard } from '../DealAnalyticsDashboard';
 import { DealAutomationPanel } from '../DealAutomationPanel';
+import { DealManagementPanel } from './DealManagementPanel';
+import { DealCalendarIntegration } from '../calendar/DealCalendarIntegration';
+import { EmailIntegrationPanel } from '../email/EmailIntegrationPanel';
 import { EmailComposer } from '../EmailComposer';
 import { ContactsModal } from '../ContactsModal';
 import { dealDetailReducer, dealDetailActions, initialDealDetailState } from './reducer';
@@ -21,6 +25,7 @@ import { SDRContext } from '../../lib/agents/sdr/base';
 import { SDRAgentConfigurator } from '../sdr/SDRAgentConfigurator';
 import { sdrPreferencesService } from '../../services/sdrPreferencesService';
 import { SDRUserPreferences } from '../../types/sdr-config';
+import { InlineErrorBoundary } from '../ui/ErrorBoundary';
 
 export const DealDetailModal: React.FC<DealDetailModalProps> = ({
   deal,
@@ -38,6 +43,17 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
   const [showSdrModal, setShowSdrModal] = useState(false);
   const [isRunningSdr, setIsRunningSdr] = useState(false);
   const [configuringAgent, setConfiguringAgent] = useState<{ id: string; name: string; config?: SDRUserPreferences } | null>(null);
+  
+  // Error handling state
+  const [error, setError] = useState<string | null>(null);
+
+  // Auto-dismiss error after 5 seconds
+  useEffect(() => {
+    if (error) {
+      const timer = setTimeout(() => setError(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [error]);
 
   // Initialize state with useReducer
   const [state, dispatch] = useReducer(
@@ -74,6 +90,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
   // Business logic functions
   const handleSave = useCallback(async () => {
     dispatch(dealDetailActions.setSaving(true));
+    setError(null); // Clear any previous errors
     try {
       const updated = await onUpdate(deal.id, state.editedDeal);
       dispatch(dealDetailActions.updateEditedDeal(updated));
@@ -81,6 +98,8 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
       dispatch(dealDetailActions.setEditingField(null));
     } catch (error) {
       console.error('Failed to update deal:', error);
+      setError('Failed to save changes. Please try again.');
+      // Note: Keep current edits so user can retry without losing changes
     } finally {
       dispatch(dealDetailActions.setSaving(false));
     }
@@ -124,6 +143,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
   const handleSaveField = useCallback(async () => {
     if (!state.editingField) return;
 
+    setError(null);
     try {
       let updates: Partial<any> = {};
 
@@ -142,6 +162,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
       dispatch(dealDetailActions.setEditingField(null));
     } catch (error) {
       console.error('Failed to update field:', error);
+      setError('Failed to save field. Please try again.');
     }
   }, [state.editingField, state.editedDeal, deal.id, onUpdate]);
 
@@ -403,7 +424,32 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
         }
       }}
     >
-      <div className="bg-white dark:bg-gray-900 rounded-xl w-full max-w-[95vw] h-[95vh] overflow-hidden flex animate-scale-in shadow-2xl">
+      <div className="bg-white dark:bg-gray-900 rounded-xl w-full max-w-[95vw] h-[95vh] overflow-hidden flex animate-scale-in shadow-2xl relative">
+        
+        {/* Loading Overlay */}
+        {(state.isSaving || state.isAnalyzing || state.isEnriching || state.isRunningSDR) && (
+          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm z-[70] flex items-center justify-center">
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-2xl border border-gray-200 dark:border-gray-700">
+              <div className="flex flex-col items-center space-y-4">
+                <div className="relative">
+                  <div className="w-16 h-16 border-4 border-blue-200 dark:border-blue-900 rounded-full"></div>
+                  <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin absolute top-0 left-0"></div>
+                </div>
+                <div className="text-center">
+                  <p className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
+                    {state.isSaving ? 'Saving changes...' :
+                     state.isAnalyzing ? 'Analyzing data...' :
+                     state.isEnriching ? 'Enriching contact...' :
+                     state.isRunningSDR ? 'Running SDR Agent...' : 'Processing...'}
+                  </p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Please wait while we complete this operation
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Sidebar */}
         <DealDetailSidebar
@@ -444,50 +490,48 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
           />
 
           {/* Tab Content */}
-          <div className="flex-1 overflow-y-auto bg-gray-50 min-h-0">
-            {state.activeTab === 'overview' && (
-              <DealDetailOverview
-                deal={deal}
-                editedDeal={state.editedDeal}
-                linkedContact={state.linkedContact}
-                onEditField={handleEditField}
-                onStartEditingField={handleStartEditingField}
-                onSaveField={handleSaveField}
-                editingField={state.editingField}
-              />
-            )}
+          <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 min-h-0">
+            <div className="transition-all duration-300 ease-in-out">
+              {state.activeTab === 'overview' && (
+                <div className="animate-fade-in">
+                  <InlineErrorBoundary componentName="Overview Tab">
+                    <DealDetailOverview
+                      deal={deal}
+                      editedDeal={state.editedDeal}
+                      linkedContact={state.linkedContact}
+                      onEditField={handleEditField}
+                      onStartEditingField={handleStartEditingField}
+                      onSaveField={handleSaveField}
+                      editingField={state.editingField}
+                    />
+                  </InlineErrorBoundary>
+                </div>
+              )}
 
-            {state.activeTab === 'insights' && (
-              <div className="p-6">
-                {state.linkedContact ? (
-                  <div>AI Insights Panel would go here</div>
-                ) : (
-                  <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-                    <div className="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto mb-3">🤖</div>
-                    <h4 className="text-lg font-medium text-gray-700 dark:text-gray-300 mb-2">No Contact Linked</h4>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                      Link a contact to this deal to view AI insights and recommendations.
-                    </p>
-                    <button
-                      onClick={() => dispatch(dealDetailActions.setShowContactSelector(true))}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-                    >
-                      Link Contact
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
+              {state.activeTab === 'insights' && (
+                <div className="animate-fade-in">
+                  <InlineErrorBoundary componentName="AI Insights Tab">
+                    <DealInsightsPanel
+                      deal={state.editedDeal}
+                      contact={state.linkedContact}
+                      onAction={(action) => handleAction(action as any)}
+                    />
+                  </InlineErrorBoundary>
+                </div>
+              )}
 
-            {state.activeTab === 'journey' && (
-              <div className="p-6">
-                <DealJourneyTimeline deal={state.editedDeal} />
-              </div>
-            )}
+              {state.activeTab === 'journey' && (
+                <div className="p-6 animate-fade-in">
+                  <InlineErrorBoundary componentName="Journey Tab">
+                    <DealJourneyTimeline deal={state.editedDeal} dealId={state.editedDeal.id} />
+                  </InlineErrorBoundary>
+                </div>
+              )}
 
-            {state.activeTab === 'communication' && (
-              <div className="p-6 space-y-6">
-                <DealCommunicationHub deal={state.editedDeal} contact={state.linkedContact} />
+              {state.activeTab === 'communication' && (
+                <div className="p-6 space-y-6 animate-fade-in">
+                  <InlineErrorBoundary componentName="Communication Tab">
+                    <DealCommunicationHub deal={state.editedDeal} contact={state.linkedContact} />
 
                 {/* AI SDR Outreach Section */}
                 <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
@@ -629,17 +673,36 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                   </div>
                 </div>
               </div>
+                  </InlineErrorBoundary>
             )}
 
-            {state.activeTab === 'analytics' && (
-              <div className="p-6">
-                <DealAnalyticsDashboard deal={state.editedDeal} />
-              </div>
-            )}
+              {state.activeTab === 'calendar' && (
+                <div className="p-6 animate-fade-in">
+                  <DealCalendarIntegration
+                    dealId={state.editedDeal.id}
+                    userId="current-user" // This should come from auth context
+                  />
+                </div>
+              )}
 
-            {state.activeTab === 'automation' && (
-              <div className="p-6 space-y-6">
-                <DealAutomationPanel deal={state.editedDeal} />
+              {state.activeTab === 'email' && (
+                <div className="p-6 animate-fade-in">
+                  <EmailIntegrationPanel
+                    recordType="deal"
+                    recordId={state.editedDeal.id}
+                  />
+                </div>
+              )}
+
+              {state.activeTab === 'analytics' && (
+                <div className="p-6 animate-fade-in">
+                  <DealAnalyticsDashboard deal={state.editedDeal} />
+                </div>
+              )}
+
+              {state.activeTab === 'automation' && (
+                <div className="p-6 space-y-6 animate-fade-in">
+                  <DealAutomationPanel deal={state.editedDeal} />
 
                 {/* SDR Agent Automation Section */}
                 <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
@@ -730,9 +793,10 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                       </div>
                     </div>
                   </div>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -780,6 +844,14 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
         }}
       />
 
+              {state.activeTab === 'management' && (
+                <DealManagementPanel
+                  deal={state.editedDeal}
+                  onUpdate={onUpdate}
+                  linkedContactId={state.linkedContact?.id}
+                />
+              )}
+
       {/* SDR Agent Configuration Modal */}
       {configuringAgent && (
         <SDRAgentConfigurator
@@ -790,6 +862,30 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
           onClose={() => setConfiguringAgent(null)}
           isOpen={true}
         />
+      )}
+
+      {/* Error Notification Toast */}
+      {error && (
+        <div className="fixed bottom-4 right-4 z-[80] animate-slide-up">
+          <div className="bg-red-500 text-white px-6 py-4 rounded-lg shadow-2xl flex items-center space-x-3 border border-red-600">
+            <div className="flex-shrink-0">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div className="flex-1">
+              <p className="font-medium">{error}</p>
+            </div>
+            <button
+              onClick={() => setError(null)}
+              className="flex-shrink-0 text-white hover:text-red-100 transition-colors"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

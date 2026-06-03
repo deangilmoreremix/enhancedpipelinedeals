@@ -774,3 +774,4 @@ export const getSupabaseService = (): SupabaseService => {
 };
 
 export { SupabaseService };
+export { supabase } from '../lib/core/supabaseClient';

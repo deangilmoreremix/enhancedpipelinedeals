@@ -216,31 +216,36 @@ export const mockColumns: Record<string, PipelineColumn> = {
     id: 'qualification',
     title: 'Qualification',
     dealIds: ['deal-1', 'deal-4'],
-    color: 'blue'
+    color: 'blue',
+    position: 1
   },
   'proposal': {
     id: 'proposal',
     title: 'Proposal',
     dealIds: ['deal-2', 'deal-6'],
-    color: 'indigo'
+    color: 'indigo',
+    position: 2
   },
   'negotiation': {
     id: 'negotiation',
     title: 'Negotiation',
     dealIds: ['deal-3'],
-    color: 'purple'
+    color: 'purple',
+    position: 3
   },
   'closed-won': {
     id: 'closed-won',
     title: 'Closed Won',
     dealIds: ['deal-5'],
-    color: 'green'
+    color: 'green',
+    position: 4
   },
   'closed-lost': {
     id: 'closed-lost',
     title: 'Closed Lost',
     dealIds: [],
-    color: 'red'
+    color: 'red',
+    position: 5
   }
 };
 

@@ -70,7 +70,7 @@ export const preloadOptionalComponents = () => {
   // Preload optional heavy components
   import('../VoiceAgentPanel');
   import('../VideoAgentPanel');
-  import('../SDRAgentsPanel');
+  import('../sdr/SDRAgentsHub');
 };
 
 // Intersection Observer for lazy loading based on visibility

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { ModernButton } from './ui/ModernButton';
-import { Bot, MessageSquare, Target, Zap, Users, Search, TrendingUp, CheckCircle } from 'lucide-react';
+import { SDR_AGENTS } from '../components/sdr/sdrAgentsConfig';
 
 interface SDRAgent {
   id: string;
@@ -9,65 +9,6 @@ interface SDRAgent {
   icon: React.ReactNode;
   category: string;
 }
-
-const SDR_AGENTS: SDRAgent[] = [
-  {
-    id: 'sdr_ai_core',
-    name: 'AI SDR (Core)',
-    description: 'Primary outbound agent for personalized cold outreach with browser research',
-    icon: <Bot className="w-5 h-5" />,
-    category: 'Outbound'
-  },
-  {
-    id: 'sdr_email_primary',
-    name: 'Email SDR',
-    description: 'Handles email conversations and nurturing sequences',
-    icon: <MessageSquare className="w-5 h-5" />,
-    category: 'Conversational'
-  },
-  {
-    id: 'sdr_objection_crusher',
-    name: 'Objection Crusher',
-    description: 'Advanced objection handling with NEPQ logic and empathy',
-    icon: <Target className="w-5 h-5" />,
-    category: 'Objection Handling'
-  },
-  {
-    id: 'sdr_cold_outreach',
-    name: 'Cold Outreach',
-    description: 'First-touch personalized messaging with humor and pattern disruption',
-    icon: <Zap className="w-5 h-5" />,
-    category: 'Outbound'
-  },
-  {
-    id: 'sdr_followup',
-    name: 'Follow-Up SDR',
-    description: 'Converts silence into conversations with persistence patterns',
-    icon: <TrendingUp className="w-5 h-5" />,
-    category: 'Nurture'
-  },
-  {
-    id: 'sdr_journeys',
-    name: 'Automated Journeys',
-    description: 'Multi-step automated sequences with AI content generation',
-    icon: <CheckCircle className="w-5 h-5" />,
-    category: 'Automation'
-  },
-  {
-    id: 'sdr_handoff_hybrid',
-    name: 'Handoff Hybrid',
-    description: 'Qualifies prospects and prepares AE handoff packages',
-    icon: <Users className="w-5 h-5" />,
-    category: 'Qualification'
-  },
-  {
-    id: 'sdr_enrichment',
-    name: 'Lead Enrichment',
-    description: 'Research and data completion with browser intelligence',
-    icon: <Search className="w-5 h-5" />,
-    category: 'Research'
-  }
-];
 
 interface SDRAgentSelectorProps {
   contactId?: string;

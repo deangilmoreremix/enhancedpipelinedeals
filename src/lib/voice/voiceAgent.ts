@@ -1,5 +1,5 @@
-import { callOpenAI } from "../core/callOpenAI";
-import { logger } from "../core/logger";
+import { callOpenAI } from "../lib/core/callOpenAI";
+import { logger } from "../lib/core/logger";
 import { queueVoiceJob } from "./queueVoiceJob";
 import { updateShortTerm } from "../memory/updateShortTerm";
 import { getContactAndDeal } from "../autopilot/helpers";

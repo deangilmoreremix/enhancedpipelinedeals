@@ -7,9 +7,12 @@ import { DealContext } from './types';
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
+  import.meta.env.SUPABASE_URL!,
+  import.meta.env.SUPABASE_SERVICE_ROLE_KEY!
 );
+
+console.log('Context Builder - Supabase URL from env:', import.meta.env.SUPABASE_URL);
+console.log('Context Builder - Supabase Service Role Key from env:', import.meta.env.SUPABASE_SERVICE_ROLE_KEY ? 'present' : 'missing');
 
 export async function buildDealContext(dealId: string, workspaceId: string): Promise<DealContext> {
   console.log(`Building context for deal ${dealId} in workspace ${workspaceId}`);

@@ -10,9 +10,12 @@ import { createClient } from '@supabase/supabase-js';
 import { logger } from '../../lib/core/logger';
 
 const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
+  import.meta.env.SUPABASE_URL!,
+  import.meta.env.SUPABASE_SERVICE_ROLE_KEY!
 );
+
+console.log('Execute Deal AI - Supabase URL from env:', import.meta.env.SUPABASE_URL);
+console.log('Execute Deal AI - Supabase Service Role Key from env:', import.meta.env.SUPABASE_SERVICE_ROLE_KEY ? 'present' : 'missing');
 
 export async function executeDealAi(request: DealAiRequest): Promise<DealAiResponse> {
   const startTime = Date.now();

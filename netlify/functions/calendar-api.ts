@@ -1,8 +1,8 @@
 import type { Handler } from "@netlify/functions";
-import { CalendarOAuthService } from "../../../src/services/calendarOAuthService";
-import { CalendarEventService } from "../../../src/services/calendarEventService";
-import { DealDeadlineService } from "../../../src/services/dealDeadlineService";
-import { CalendarSyncService } from "../../../src/services/calendarSyncService";
+import { CalendarOAuthService } from "../../src/services/calendarOAuthService";
+import { CalendarEventService } from "../../src/services/calendarEventService";
+import { DealDeadlineService } from "../../src/services/dealDeadlineService";
+import { CalendarSyncService } from "../../src/services/calendarSyncService";
 
 export const handler: Handler = async (event) => {
   const path = event.path.replace('/.netlify/functions/calendar-api/', '');

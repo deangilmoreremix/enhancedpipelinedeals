@@ -1,5 +1,5 @@
 import type { Handler } from "@netlify/functions";
-import { CalendarOAuthService } from "../../../src/services/calendarOAuthService";
+import { CalendarOAuthService } from "../../src/services/calendarOAuthService";
 
 export const handler: Handler = async (event) => {
   if (event.httpMethod !== "GET") {

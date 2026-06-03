@@ -1,5 +1,5 @@
 import type { Handler } from "@netlify/functions";
-import { EmailThreadingService } from "../../../src/services/emailThreadingService";
+import { EmailThreadingService } from "../../src/services/emailThreadingService";
 
 export const handler: Handler = async (event) => {
   const path = event.path.replace('/.netlify/functions/email-api/', '');

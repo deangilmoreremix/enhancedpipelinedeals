@@ -132,4 +132,17 @@ function formatLastUsed(date: Date | undefined) {
   return `${Math.floor(diffDays / 30)} months ago`;
 }
 
+function getCategoryColor(category: string): string {
+  const colors: Record<string, string> = {
+    'Outbound': '#3b82f6',
+    'Conversational': '#10b981',
+    'Objection Handling': '#f59e0b',
+    'Nurture': '#8b5cf6',
+    'Discovery': '#ec4899',
+    'Relationship': '#ef4444',
+    'Advocacy': '#f97316'
+  };
+  return colors[category] || '#6b7280';
+}
+
 export default SDRAgentCard;

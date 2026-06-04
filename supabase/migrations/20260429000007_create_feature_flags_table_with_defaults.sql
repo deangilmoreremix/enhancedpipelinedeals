@@ -1,4 +1,4 @@
--- Create feature_flags table
+-- Create feature_flags table (if not exists from migration 00000)
 create table if not exists public.feature_flags (
   id uuid primary key default gen_random_uuid(),
   feature_key text not null unique,
@@ -12,19 +12,24 @@ create table if not exists public.feature_flags (
 -- Enable RLS
 alter table public.feature_flags enable row level security;
 
--- Allow authenticated users to read feature flags
+-- Create index
+create index if not exists idx_feature_flags_feature_key on public.feature_flags(feature_key);
+
+-- Allow authenticated users to read feature flags (recreate if needed)
+drop policy if exists "Allow authenticated users to read feature flags" on public.feature_flags;
 create policy "Allow authenticated users to read feature flags"
   on public.feature_flags for select
   to authenticated
   using (true);
 
--- Allow service role to manage feature flags
+-- Allow service role to manage feature flags (recreate if needed)
+drop policy if exists "Allow service role full access" on public.feature_flags;
 create policy "Allow service role full access"
   on public.feature_flags for all
   to service_role
   using (true);
 
--- Insert default Twenty CRM Phase 1-6 feature flags
+-- Insert default Twenty CRM Phase 1-6 feature flags (idempotent with ON CONFLICT)
 insert into public.feature_flags (feature_key, enabled, rollout_percentage, description)
 values
   -- Phase 1: Advanced Kanban Features
@@ -89,21 +94,19 @@ values
   -- Phase 7 & 8: Additional features
   ('twenty_views_reporting', true, 100, 'Saved views and reporting features'),
   ('twenty_deal_templates', true, 100, 'Deal templates panel in deals section'),
-  ('twenty_workflow_phase5_features', false, 0, 'Enhanced workflow panel with visual builder');
-
--- Create indexes
-create index idx_feature_flags_feature_key on public.feature_flags(feature_key);
-create index idx_feature_flags_enabled on public.feature_flags(enabled);
+  ('twenty_workflow_phase5_features', false, 0, 'Enhanced workflow panel with visual builder')
+on conflict (feature_key) do update set
+  enabled = excluded.enabled,
+  rollout_percentage = excluded.rollout_percentage,
+  description = excluded.description,
+  updated_at = now();
 
 -- Function to initialize all feature flags (useful for fresh deployments)
 create or replace function public.initialize_all_feature_flags()
 returns void as $$
 begin
-  -- The INSERT ... ON CONFLICT will update existing flags and insert new ones
-  -- This is safe to run multiple times
   insert into public.feature_flags (feature_key, enabled, rollout_percentage, description)
   values
-    -- Twenty CRM Phase 1-6 (same as above)
     ('twenty_kanban_aggregation', true, 100, 'Show aggregation metrics in kanban column headers'),
     ('twenty_wip_limits', true, 100, 'Enable Work-in-Progress limits on kanban columns'),
     ('twenty_custom_columns', true, 100, 'Allow users to create and customize pipeline columns'),

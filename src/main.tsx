@@ -1,2 +1,2 @@
-import("./bootstrap");
-
+// Main entry point - just imports the bootstrap
+import "./bootstrap";

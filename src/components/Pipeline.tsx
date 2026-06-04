@@ -12,12 +12,67 @@ import DealAnalytics from './DealAnalytics';
 import { getCustomColumns, saveCustomColumns, toPipelineColumn } from '../services/pipelineColumnService';
 import { CustomPipelineColumn } from '../types/pipeline';
 
-// Lazy load view components for code splitting
-const DealListView = React.lazy(() => import('./DealListView').then(module => ({ default: module.DealListView })));
-const DealTableView = React.lazy(() => import('./DealTableView').then(module => ({ default: module.DealTableView })));
-const DealCalendarView = React.lazy(() => import('./DealCalendarView').then(module => ({ default: module.DealCalendarView })));
-const DealTimelineView = React.lazy(() => import('./DealTimelineView').then(module => ({ default: module.DealTimelineView })));
-const DealDashboardView = React.lazy(() => import('./DealDashboardView').then(module => ({ default: module.DealDashboardView })));
+// Lazy load view components for code splitting with error handling
+const DealListView = React.lazy(() => 
+  import('./DealListView')
+    .then(module => {
+      console.log('DealListView chunk loaded successfully');
+      return { default: module.DealListView };
+    })
+    .catch(error => {
+      console.error('DealListView chunk FAILED:', error);
+      return { default: () => React.createElement('div', { style: { padding: 20, color: '#ef4444' } }, 
+        'Failed to load List View: ' + (error.message || error)) };
+    })
+);
+const DealTableView = React.lazy(() => 
+  import('./DealTableView')
+    .then(module => {
+      console.log('DealTableView chunk loaded successfully');
+      return { default: module.DealTableView };
+    })
+    .catch(error => {
+      console.error('DealTableView chunk FAILED:', error);
+      return { default: () => React.createElement('div', { style: { padding: 20, color: '#ef4444' } }, 
+        'Failed to load Table View: ' + (error.message || error)) };
+    })
+);
+const DealCalendarView = React.lazy(() => 
+  import('./DealCalendarView')
+    .then(module => {
+      console.log('DealCalendarView chunk loaded successfully');
+      return { default: module.DealCalendarView };
+    })
+    .catch(error => {
+      console.error('DealCalendarView chunk FAILED:', error);
+      return { default: () => React.createElement('div', { style: { padding: 20, color: '#ef4444' } }, 
+        'Failed to load Calendar View: ' + (error.message || error)) };
+    })
+);
+const DealTimelineView = React.lazy(() => 
+  import('./DealTimelineView')
+    .then(module => {
+      console.log('DealTimelineView chunk loaded successfully');
+      return { default: module.DealTimelineView };
+    })
+    .catch(error => {
+      console.error('DealTimelineView chunk FAILED:', error);
+      return { default: () => React.createElement('div', { style: { padding: 20, color: '#ef4444' } }, 
+        'Failed to load Timeline View: ' + (error.message || error)) };
+    })
+);
+const DealDashboardView = React.lazy(() => 
+  import('./DealDashboardView')
+    .then(module => {
+      console.log('DealDashboardView chunk loaded successfully');
+      return { default: module.DealDashboardView };
+    })
+    .catch(error => {
+      console.error('DealDashboardView chunk FAILED:', error);
+      return { default: () => React.createElement('div', { style: { padding: 20, color: '#ef4444' } }, 
+        'Failed to load Dashboard View: ' + (error.message || error)) };
+    })
+);
 import { mockColumns } from '../data/mockDeals';
 import { getDataSyncService } from '../services/dataSyncService';
 import { getSupabaseService } from '../services/supabaseService';

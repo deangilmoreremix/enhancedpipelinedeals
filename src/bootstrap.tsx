@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import { createRoot } from 'react-dom/client';
 import SmartCRMApp from './SmartCRMApp';
 import './index.css';
@@ -7,10 +7,10 @@ import './styles/global-dark-mode.css';
 import { getCRMBridge } from './services/crmBridge';
 import { getStorageBucketService } from './services/storageBucketService';
 import initializeAllFeatures from './scripts/initializeFeatures';
+import { LoadingTimeout } from './components/LoadingTimeout';
 
 async function initStandalone() {
   try {
-    // Initialize optional services used in standalone mode
     getCRMBridge();
     await getStorageBucketService().initializeBuckets();
     await initializeAllFeatures();
@@ -20,7 +20,6 @@ async function initStandalone() {
   }
 }
 
-// Read mock props from URL for standalone testing
 function readMockProps() {
   const params = new URLSearchParams(window.location.search);
   const theme = params.get('theme') as 'light' | 'dark' | null;
@@ -40,8 +39,18 @@ initStandalone();
 
 const props = readMockProps();
 
-createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
-    <SmartCRMApp {...props} />
-  </React.StrictMode>
-);
+const rootElement = document.getElementById('root');
+if (rootElement) {
+  createRoot(rootElement).render(
+    <React.StrictMode>
+      <Suspense fallback={<LoadingTimeout />}>
+        <SmartCRMApp {...props} />
+      </Suspense>
+    </React.StrictMode>
+  );
+} else {
+  console.error('[Bootstrap] Root element not found');
+}
+} else {
+  console.error('[Bootstrap] Root element not found');
+}

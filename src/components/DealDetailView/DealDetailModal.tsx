@@ -532,149 +532,149 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                 <div className="p-6 space-y-6 animate-fade-in">
                   <InlineErrorBoundary componentName="Communication Tab">
                     <DealCommunicationHub deal={state.editedDeal} contact={state.linkedContact} />
+                  </InlineErrorBoundary>
 
-                {/* AI SDR Outreach Section */}
-                <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center mb-4">
-                    🤖 AI SDR Outreach
-                  </h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                    Generate personalized SDR emails and responses based on deal context and contact data.
-                  </p>
+                  {/* AI SDR Outreach Section */}
+                  <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center mb-4">
+                      🤖 AI SDR Outreach
+                    </h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                      Generate personalized SDR emails and responses based on deal context and contact data.
+                    </p>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* Data-Enrichment SDR */}
-                    <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20">
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center space-x-2">
-                          <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center">
-                            <span className="text-blue-600 dark:text-blue-400 text-sm">📊</span>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Data-Enrichment SDR */}
+                      <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center space-x-2">
+                            <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center">
+                              <span className="text-blue-600 dark:text-blue-400 text-sm">📊</span>
+                            </div>
+                            <div>
+                              <h4 className="font-medium text-gray-900 dark:text-white">Data-Enrichment SDR</h4>
+                              <p className="text-xs text-gray-600 dark:text-gray-400">Enrich contact data & draft email</p>
+                            </div>
                           </div>
-                          <div>
-                            <h4 className="font-medium text-gray-900 dark:text-white">Data-Enrichment SDR</h4>
-                            <p className="text-xs text-gray-600 dark:text-gray-400">Enrich contact data & draft email</p>
-                          </div>
+                          <button
+                            onClick={() => handleConfigureAgent('sdr-data-enrichment', 'Data-Enrichment SDR')}
+                            className="p-1 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 rounded"
+                            title="Configure Data-Enrichment SDR"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                          </button>
                         </div>
                         <button
-                          onClick={() => handleConfigureAgent('sdr-data-enrichment', 'Data-Enrichment SDR')}
-                          className="p-1 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 rounded"
-                          title="Configure Data-Enrichment SDR"
+                          onClick={() => handleRunSDRAgent('sdr-data-enrichment')}
+                          disabled={isRunningSdr}
+                          className="w-full px-3 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white text-sm font-medium rounded-md transition-colors"
                         >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                          </svg>
+                          {isRunningSdr ? 'Running...' : 'Run SDR Agent'}
                         </button>
                       </div>
-                      <button
-                        onClick={() => handleRunSDRAgent('sdr-data-enrichment')}
-                        disabled={isRunningSdr}
-                        className="w-full px-3 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white text-sm font-medium rounded-md transition-colors"
-                      >
-                        {isRunningSdr ? 'Running...' : 'Run SDR Agent'}
-                      </button>
-                    </div>
 
-                    {/* Competitor-Aware SDR */}
-                    <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20">
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center space-x-2">
-                          <div className="w-8 h-8 bg-purple-100 dark:bg-purple-900/50 rounded-full flex items-center justify-center">
-                            <span className="text-purple-600 dark:text-purple-400 text-sm">🎯</span>
+                      {/* Competitor-Aware SDR */}
+                      <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center space-x-2">
+                            <div className="w-8 h-8 bg-purple-100 dark:bg-purple-900/50 rounded-full flex items-center justify-center">
+                              <span className="text-purple-600 dark:text-purple-400 text-sm">🎯</span>
+                            </div>
+                            <div>
+                              <h4 className="font-medium text-gray-900 dark:text-white">Competitor-Aware SDR</h4>
+                              <p className="text-xs text-gray-600 dark:text-gray-400">Position against competitors</p>
+                            </div>
                           </div>
-                          <div>
-                            <h4 className="font-medium text-gray-900 dark:text-white">Competitor-Aware SDR</h4>
-                            <p className="text-xs text-gray-600 dark:text-gray-400">Position against competitors</p>
-                          </div>
+                          <button
+                            onClick={() => handleConfigureAgent('sdr-competitor-aware', 'Competitor-Aware SDR')}
+                            className="p-1 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 rounded"
+                            title="Configure Competitor-Aware SDR"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                          </button>
                         </div>
                         <button
-                          onClick={() => handleConfigureAgent('sdr-competitor-aware', 'Competitor-Aware SDR')}
-                          className="p-1 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 rounded"
-                          title="Configure Competitor-Aware SDR"
+                          onClick={() => handleRunSDRAgent('sdr-competitor-aware')}
+                          disabled={isRunningSdr}
+                          className="w-full px-3 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white text-sm font-medium rounded-md transition-colors"
                         >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                          </svg>
+                          {isRunningSdr ? 'Running...' : 'Run SDR Agent'}
                         </button>
                       </div>
-                      <button
-                        onClick={() => handleRunSDRAgent('sdr-competitor-aware')}
-                        disabled={isRunningSdr}
-                        className="w-full px-3 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white text-sm font-medium rounded-md transition-colors"
-                      >
-                        {isRunningSdr ? 'Running...' : 'Run SDR Agent'}
-                      </button>
-                    </div>
 
-                    {/* Objection-Handling SDR */}
-                    <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-900/20 dark:to-orange-900/20">
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center space-x-2">
-                          <div className="w-8 h-8 bg-red-100 dark:bg-red-900/50 rounded-full flex items-center justify-center">
-                            <span className="text-red-600 dark:text-red-400 text-sm">🚫</span>
+                      {/* Objection-Handling SDR */}
+                      <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-900/20 dark:to-orange-900/20">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center space-x-2">
+                            <div className="w-8 h-8 bg-red-100 dark:bg-red-900/50 rounded-full flex items-center justify-center">
+                              <span className="text-red-600 dark:text-red-400 text-sm">🚫</span>
+                            </div>
+                            <div>
+                              <h4 className="font-medium text-gray-900 dark:text-white">Objection-Handling SDR</h4>
+                              <p className="text-xs text-gray-600 dark:text-gray-400">Handle negotiation objections</p>
+                            </div>
                           </div>
-                          <div>
-                            <h4 className="font-medium text-gray-900 dark:text-white">Objection-Handling SDR</h4>
-                            <p className="text-xs text-gray-600 dark:text-gray-400">Handle negotiation objections</p>
-                          </div>
+                          <button
+                            onClick={() => handleConfigureAgent('sdr-objection-handling', 'Objection-Handling SDR')}
+                            className="p-1 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 rounded"
+                            title="Configure Objection-Handling SDR"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                          </button>
                         </div>
                         <button
-                          onClick={() => handleConfigureAgent('sdr-objection-handling', 'Objection-Handling SDR')}
-                          className="p-1 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 rounded"
-                          title="Configure Objection-Handling SDR"
+                          onClick={() => handleRunSDRAgent('sdr-objection-handling')}
+                          disabled={isRunningSdr}
+                          className="w-full px-3 py-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white text-sm font-medium rounded-md transition-colors"
                         >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                          </svg>
+                          {isRunningSdr ? 'Running...' : 'Run SDR Agent'}
                         </button>
                       </div>
-                      <button
-                        onClick={() => handleRunSDRAgent('sdr-objection-handling')}
-                        disabled={isRunningSdr}
-                        className="w-full px-3 py-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white text-sm font-medium rounded-md transition-colors"
-                      >
-                        {isRunningSdr ? 'Running...' : 'Run SDR Agent'}
-                      </button>
-                    </div>
 
-                    {/* Follow-Up SDR */}
-                    <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gradient-to-r from-green-50 to-teal-50 dark:from-green-900/20 dark:to-teal-900/20">
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center space-x-2">
-                          <div className="w-8 h-8 bg-green-100 dark:bg-green-900/50 rounded-full flex items-center justify-center">
-                            <span className="text-green-600 dark:text-green-400 text-sm">📧</span>
+                      {/* Follow-Up SDR */}
+                      <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gradient-to-r from-green-50 to-teal-50 dark:from-green-900/20 dark:to-teal-900/20">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center space-x-2">
+                            <div className="w-8 h-8 bg-green-100 dark:bg-green-900/50 rounded-full flex items-center justify-center">
+                              <span className="text-green-600 dark:text-green-400 text-sm">📧</span>
+                            </div>
+                            <div>
+                              <h4 className="font-medium text-gray-900 dark:text-white">Follow-Up SDR</h4>
+                              <p className="text-xs text-gray-600 dark:text-gray-400">Create follow-up sequences</p>
+                            </div>
                           </div>
-                          <div>
-                            <h4 className="font-medium text-gray-900 dark:text-white">Follow-Up SDR</h4>
-                            <p className="text-xs text-gray-600 dark:text-gray-400">Create follow-up sequences</p>
-                          </div>
+                          <button
+                            onClick={() => handleConfigureAgent('sdr-follow-up', 'Follow-Up SDR')}
+                            className="p-1 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 rounded"
+                            title="Configure Follow-Up SDR"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                          </button>
                         </div>
                         <button
-                          onClick={() => handleConfigureAgent('sdr-follow-up', 'Follow-Up SDR')}
-                          className="p-1 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 rounded"
-                          title="Configure Follow-Up SDR"
+                          onClick={() => handleRunSDRAgent('sdr-follow-up')}
+                          disabled={isRunningSdr}
+                          className="w-full px-3 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white text-sm font-medium rounded-md transition-colors"
                         >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                          </svg>
+                          {isRunningSdr ? 'Running...' : 'Run SDR Agent'}
                         </button>
                       </div>
-                      <button
-                        onClick={() => handleRunSDRAgent('sdr-follow-up')}
-                        disabled={isRunningSdr}
-                        className="w-full px-3 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white text-sm font-medium rounded-md transition-colors"
-                      >
-                        {isRunningSdr ? 'Running...' : 'Run SDR Agent'}
-                      </button>
                     </div>
                   </div>
                 </div>
-              </div>
-                  </InlineErrorBoundary>
-            )}
+              )}
 
               {state.activeTab === 'calendar' && (
                 <div className="p-6 animate-fade-in">

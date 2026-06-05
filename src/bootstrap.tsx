@@ -36,7 +36,8 @@ function readMockProps() {
   };
 }
 
-initStandalone();
+// Standalone init runs AFTER mount; errors are trapped and never break bootstrap
+initStandalone().catch((err) => console.error('[Standalone] Initialization error', err));
 
 const props = readMockProps();
 

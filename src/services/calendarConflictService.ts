@@ -1,5 +1,5 @@
-import { supabase } from '../lib/core/supabaseClient';
-import { logger } from '../lib/core/logger';
+import { supabase } from '../core/supabaseClient';
+import { logger } from '../core/logger';
 import { CalendarEventService, CalendarEvent } from './calendarEventService';
 
 export interface CalendarConflict {
@@ -182,5 +182,4 @@ export class CalendarConflictService {
       averageResolutionTime: 0
     };
   }
-}</content>
-<parameter name="filePath">/workspaces/enhancedpipelinedeals/src/services/calendarConflictService.ts
+}

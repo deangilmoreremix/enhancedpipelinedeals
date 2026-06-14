@@ -390,7 +390,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
 
             {state.activeTab === 'journey' && (
               <div className="p-6">
-                <DealJourneyTimeline deal={state.editedDeal} />
+                <DealJourneyTimeline deal={state.editedDeal} dealId={state.editedDeal.id} />
               </div>
             )}
 

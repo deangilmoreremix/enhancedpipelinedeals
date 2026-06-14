@@ -91,41 +91,94 @@ class EnhancedActivityService {
     const limit = filter?.limit || 50;
     const offset = filter?.offset || 0;
 
-    // Use the database function for optimized querying
-    const { data, error } = await supabase
-      .rpc('get_deal_activities', {
-        p_deal_id: dealId,
-        p_limit: limit,
-        p_offset: offset,
-        p_activity_types: filter?.activityTypes || null,
-        p_date_from: filter?.dateFrom || null,
-        p_date_to: filter?.dateTo || null
-      });
-
-    if (error) throw error;
-
-    // Apply additional client-side filtering if needed
-    let activities = data || [];
-
-    if (filter?.priorities && filter.priorities.length > 0) {
-      activities = activities.filter(a => filter.priorities!.includes(a.priority));
+    // Check if supabase is available
+    if (!supabase) {
+      return { activities: [], totalCount: 0, hasMore: false };
     }
 
-    if (filter?.statuses && filter.statuses.length > 0) {
-      activities = activities.filter(a => filter.statuses!.includes(a.status));
-    }
+    // Try using the database function for optimized querying
+    try {
+      const { data, error } = await supabase
+        .rpc('get_deal_activities', {
+          p_deal_id: dealId,
+          p_limit: limit,
+          p_offset: offset,
+          p_activity_types: filter?.activityTypes || null,
+          p_date_from: filter?.dateFrom || null,
+          p_date_to: filter?.dateTo || null
+        });
 
-    if (filter?.tags && filter.tags.length > 0) {
-      activities = activities.filter(a =>
-        a.tags && a.tags.some(tag => filter.tags!.includes(tag))
-      );
-    }
+      if (error) {
+        // If the function doesn't exist, fall back to direct query
+        if (error.code === '42883' || error.message.includes('function')) {
+          console.warn('get_deal_activities function not found, using direct query');
+          return this.getActivitiesForDealDirect(dealId, filter);
+        }
+        throw error;
+      }
 
-    return {
-      activities: activities.map(this.transformActivityFromFunction),
-      totalCount: activities.length, // This is approximate since we're using a function
-      hasMore: activities.length === limit
-    };
+      // Apply additional client-side filtering if needed
+      let activities = data || [];
+
+      if (filter?.priorities && filter.priorities.length > 0) {
+        activities = activities.filter(a => filter.priorities!.includes(a.priority));
+      }
+
+      if (filter?.statuses && filter.statuses.length > 0) {
+        activities = activities.filter(a => filter.statuses!.includes(a.status));
+      }
+
+      if (filter?.tags && filter.tags.length > 0) {
+        activities = activities.filter(a =>
+          a.tags && a.tags.some(tag => filter.tags!.includes(tag))
+        );
+      }
+
+      return {
+        activities: activities.map(this.transformActivityFromFunction),
+        totalCount: activities.length,
+        hasMore: activities.length === limit
+      };
+    } catch (error) {
+      // Fall back to direct query on any error
+      console.warn('Error calling get_deal_activities, falling back to direct query:', error);
+      return this.getActivitiesForDealDirect(dealId, filter);
+    }
+  }
+
+  private async getActivitiesForDealDirect(dealId: string, filter?: ActivityFilter): Promise<{
+    activities: EnhancedActivity[];
+    totalCount: number;
+    hasMore: boolean;
+  }> {
+    const limit = filter?.limit || 50;
+    const offset = filter?.offset || 0;
+
+    try {
+      let query = supabase
+        .from('enhanced_activities')
+        .select('*', { count: 'exact' })
+        .eq('deal_id', dealId)
+        .order('created_at', { ascending: false })
+        .range(offset, offset + limit - 1);
+
+      if (filter?.activityTypes && filter.activityTypes.length > 0) {
+        query = query.in('activity_type', filter.activityTypes);
+      }
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+
+      return {
+        activities: (data || []).map(this.transformActivity),
+        totalCount: data?.length || 0,
+        hasMore: (data?.length || 0) === limit
+      };
+    } catch (error) {
+      console.warn('Direct query also failed, returning empty activities:', error);
+      return { activities: [], totalCount: 0, hasMore: false };
+    }
   }
 
   async updateActivity(id: string, updates: Partial<EnhancedActivity>): Promise<EnhancedActivity> {

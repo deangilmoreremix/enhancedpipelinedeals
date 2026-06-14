@@ -63,7 +63,7 @@ export const useRealtimeSync = ({
 
   // Setup real-time subscription
   const setupRealtimeSubscription = useCallback(() => {
-    if (!enabled) return;
+    if (!enabled || !supabase) return;
 
     // Subscribe to enhanced_activities table changes
     subscriptionRef.current = supabase

@@ -51,7 +51,11 @@ export const EmbeddedAgentInterface: React.FC<EmbeddedAgentInterfaceProps> = ({
   const agentFramework = getAgentFramework();
 
   useEffect(() => {
-    loadRecommendedAgents();
+    // Wrap in try-catch to prevent component crashes
+    loadRecommendedAgents().catch((error) => {
+      console.warn('Failed to load recommended agents:', error);
+      setRecommendedAgents([]);
+    });
   }, [contextType, contextData]);
 
   const loadRecommendedAgents = async () => {

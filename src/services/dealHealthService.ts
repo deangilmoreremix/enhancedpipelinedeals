@@ -235,6 +235,10 @@ export class DealHealthService {
    * Update deal health score in database
    */
   static async updateDealHealth(dealId: string): Promise<boolean> {
+    if (!supabase) {
+      console.warn('DealHealthService: Supabase not configured');
+      return false;
+    }
     try {
       // Get deal and activities
       const { data: deal } = await supabase
@@ -269,13 +273,15 @@ export class DealHealthService {
       if (error) throw error;
 
       // Log health update activity
-      await supabase.from('deal_activities').insert({
-        deal_id: dealId,
-        type: 'health_updated',
-        title: 'Health Score Updated',
-        description: `Health score updated to ${healthScore}/100`,
-        metadata: { healthScore, factorsCount: healthFactors.length }
-      });
+      if (supabase) {
+        await supabase.from('deal_activities').insert({
+          deal_id: dealId,
+          type: 'health_updated',
+          title: 'Health Score Updated',
+          description: `Health score updated to ${healthScore}/100`,
+          metadata: { healthScore, factorsCount: healthFactors.length }
+        });
+      }
 
       return true;
     } catch (error) {

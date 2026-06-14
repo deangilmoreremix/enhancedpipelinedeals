@@ -184,6 +184,11 @@ class SupabaseService {
     }
   }
 
+  // Public getter for supabase client (for compatibility with services expecting .client)
+  get client(): any {
+    return this.supabase;
+  }
+
   private async testConnection(): Promise<boolean> {
     if (!this.isConnected || !this.supabase) return false;
     

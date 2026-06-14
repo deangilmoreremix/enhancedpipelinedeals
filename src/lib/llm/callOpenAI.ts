@@ -1,12 +1,12 @@
 import OpenAI from "openai";
+import { env } from "../core/processShim";
 
-const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+const client = env.OPENAI_API_KEY ? new OpenAI({ apiKey: env.OPENAI_API_KEY }) : null;
 
 // MAIN LLM CALL FOR SDR RESPONSES
 export async function callOpenAI(prompt: string): Promise<string> {
   try {
+    if (!client) throw new Error("OpenAI API key not configured");
     const response = await client.chat.completions.create({
       model: "gpt-4",
       messages: [
@@ -38,6 +38,7 @@ export async function callOpenAIStreaming(
   onChunk: (chunk: string) => void
 ): Promise<string> {
   try {
+    if (!client) throw new Error("OpenAI API key not configured");
     const stream = await client.chat.completions.create({
       model: "gpt-4",
       messages: [
@@ -79,6 +80,7 @@ export async function analyzeWithAI(
   data: any
 ): Promise<any> {
   try {
+    if (!client) throw new Error("OpenAI API key not configured");
     const response = await client.chat.completions.create({
       model: "gpt-4",
       messages: [

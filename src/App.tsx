@@ -1,16 +1,20 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import { PersonalizationProvider } from './contexts/PersonalizationContext';
 import { GamificationProvider } from './contexts/GamificationContext';
+import { AuthProvider } from './components/auth/AuthProvider';
 import Pipeline from './components/Pipeline';
 import { DarkModeToggle } from './components/ui/DarkModeToggle';
 import { EnhancedAIStatusIndicator } from './components/ui/EnhancedAIStatusIndicator';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { SettingsModal } from './components/ui/SettingsModal';
 import { useKeyboardShortcuts, globalShortcuts } from './hooks/useKeyboardShortcuts';
+import { Settings } from 'lucide-react';
 
 function AppContent() {
   useKeyboardShortcuts(globalShortcuts);
   const { isInitialized } = useTheme();
+  const [showSettings, setShowSettings] = useState(false);
 
   return (
     <div className={`min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300 text-gray-900 dark:text-white ${
@@ -22,6 +26,13 @@ function AppContent() {
           <div className="flex justify-between items-center py-4 transition-colors duration-300">
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Smart CRM</h1>
             <div className="flex items-center space-x-4">
+              <button
+                onClick={() => setShowSettings(true)}
+                className="p-2 text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                title="Settings"
+              >
+                <Settings className="w-5 h-5" />
+              </button>
               <DarkModeToggle />
             </div>
           </div>
@@ -30,11 +41,14 @@ function AppContent() {
 
       {/* Main content */}
       <Pipeline />
-      
+
       {/* Enhanced AI Status Indicator */}
       <ErrorBoundary level="component">
         <EnhancedAIStatusIndicator />
       </ErrorBoundary>
+
+      {/* Settings Modal */}
+      <SettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} />
     </div>
   );
 }
@@ -45,9 +59,11 @@ function App() {
       <ThemeProvider>
         <PersonalizationProvider>
           <GamificationProvider>
-            <ErrorBoundary level="page">
-              <AppContent />
-            </ErrorBoundary>
+            <AuthProvider>
+              <ErrorBoundary level="page">
+                <AppContent />
+              </ErrorBoundary>
+            </AuthProvider>
           </GamificationProvider>
         </PersonalizationProvider>
       </ThemeProvider>

@@ -16,6 +16,11 @@ export class FeatureFlagService {
    * Check if a feature is enabled for the current user/context
    */
   static async isFeatureEnabled(featureKey: string): Promise<boolean> {
+    // If supabase client is not initialized, return false
+    if (!supabase) {
+      return false;
+    }
+
     try {
       const { data, error } = await supabase
         .from('feature_flags')
@@ -24,14 +29,14 @@ export class FeatureFlagService {
         .single();
 
       if (error || !data) {
-        console.warn(`Feature flag '${featureKey}' not found, defaulting to disabled`);
+        // Silently return false for missing flags (not an error)
         return false;
       }
 
       // For now, simple enabled check - can extend with user-based rollout logic
       return data.enabled;
     } catch (error) {
-      console.error('Error checking feature flag:', error);
+      // Silently return false on any error
       return false;
     }
   }

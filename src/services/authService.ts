@@ -288,6 +288,33 @@ class AuthService {
     return this.authState.isLoading;
   }
 
+  // Supabase-compatible methods for AuthProvider
+  async getCurrentSession(): Promise<{ data: { session: Session | null }; error: Error | null }> {
+    try {
+      const { data: { session }, error } = await this.supabase.auth.getSession();
+      return { data: { session }, error };
+    } catch (error) {
+      return { data: { session: null }, error: error as Error };
+    }
+  }
+
+  onAuthStateChange(callback: (event: string, session: Session | null) => void): { data: { subscription: { unsubscribe: () => void } } } {
+    const { data: { subscription } } = this.supabase.auth.onAuthStateChange((event, session) => {
+      callback(event, session);
+    });
+    return {
+      data: {
+        subscription: {
+          unsubscribe: () => {
+            if (subscription && typeof subscription.unsubscribe === 'function') {
+              subscription.unsubscribe();
+            }
+          }
+        }
+      }
+    };
+  }
+
   // Supabase client access for other services
   getSupabaseClient(): SupabaseClient {
     return this.supabase;

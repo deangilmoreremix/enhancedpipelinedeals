@@ -1,5 +1,13 @@
 import OpenAI from "openai";
+import { env } from "./processShim";
 
-export const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY!
-});
+let openai: OpenAI | null = null;
+
+try {
+  const apiKey = env.OPENAI_API_KEY;
+  if (apiKey) {
+    openai = new OpenAI({ apiKey });
+  }
+} catch {}
+
+export { openai };

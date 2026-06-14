@@ -1,17 +1,13 @@
-import React, { useReducer, useEffect, useCallback, useState } from 'react';
+import React, { useReducer, useEffect, useCallback } from 'react';
 import { DealDetailSidebar } from './DealDetailSidebar';
 import { DealDetailTabs } from './DealDetailTabs';
 import { DealDetailOverview } from './DealDetailOverview';
 import { DealDetailActions } from './DealDetailActions';
-import { SDRResultsModal } from './SDRResultsModal';
-import { DealInsightsPanel } from './DealInsightsPanel';
 import { DealJourneyTimeline } from '../DealJourneyTimeline';
 import { DealCommunicationHub } from '../DealCommunicationHub';
 import { DealAnalyticsDashboard } from '../DealAnalyticsDashboard';
 import { DealAutomationPanel } from '../DealAutomationPanel';
-import { DealManagementPanel } from './DealManagementPanel';
-import { DealCalendarIntegration } from '../calendar/DealCalendarIntegration';
-import { EmailIntegrationPanel } from '../email/EmailIntegrationPanel';
+import DealManagementPanel from './DealManagementPanel';
 import { EmailComposer } from '../EmailComposer';
 import { ContactsModal } from '../ContactsModal';
 import { dealDetailReducer, dealDetailActions, initialDealDetailState } from './reducer';
@@ -20,12 +16,6 @@ import { useContactStore } from '../../store/contactStore';
 import { aiEnrichmentService } from '../../services/aiEnrichmentService';
 import { useSmartAI } from '../../hooks/useSmartAI';
 import { DealDetailModalProps } from './types';
-import { sdrExecutionService } from '../../services/sdrExecutionService';
-import { SDRContext } from '../../lib/agents/sdr/base';
-import { SDRAgentConfigurator } from '../sdr/SDRAgentConfigurator';
-import { sdrPreferencesService } from '../../services/sdrPreferencesService';
-import { SDRUserPreferences } from '../../types/sdr-config';
-import { InlineErrorBoundary } from '../ui/ErrorBoundary';
 
 export const DealDetailModal: React.FC<DealDetailModalProps> = ({
   deal,
@@ -37,23 +27,6 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
 }) => {
   const { contacts, updateContact } = useContactStore();
   const { smartScoreContact } = useSmartAI();
-
-  // SDR-related state
-  const [sdrResult, setSdrResult] = useState<any>(null);
-  const [showSdrModal, setShowSdrModal] = useState(false);
-  const [isRunningSdr, setIsRunningSdr] = useState(false);
-  const [configuringAgent, setConfiguringAgent] = useState<{ id: string; name: string; config?: SDRUserPreferences } | null>(null);
-  
-  // Error handling state
-  const [error, setError] = useState<string | null>(null);
-
-  // Auto-dismiss error after 5 seconds
-  useEffect(() => {
-    if (error) {
-      const timer = setTimeout(() => setError(null), 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [error]);
 
   // Initialize state with useReducer
   const [state, dispatch] = useReducer(
@@ -90,7 +63,6 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
   // Business logic functions
   const handleSave = useCallback(async () => {
     dispatch(dealDetailActions.setSaving(true));
-    setError(null); // Clear any previous errors
     try {
       const updated = await onUpdate(deal.id, state.editedDeal);
       dispatch(dealDetailActions.updateEditedDeal(updated));
@@ -98,8 +70,6 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
       dispatch(dealDetailActions.setEditingField(null));
     } catch (error) {
       console.error('Failed to update deal:', error);
-      setError('Failed to save changes. Please try again.');
-      // Note: Keep current edits so user can retry without losing changes
     } finally {
       dispatch(dealDetailActions.setSaving(false));
     }
@@ -143,7 +113,6 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
   const handleSaveField = useCallback(async () => {
     if (!state.editingField) return;
 
-    setError(null);
     try {
       let updates: Partial<any> = {};
 
@@ -162,7 +131,6 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
       dispatch(dealDetailActions.setEditingField(null));
     } catch (error) {
       console.error('Failed to update field:', error);
-      setError('Failed to save field. Please try again.');
     }
   }, [state.editingField, state.editedDeal, deal.id, onUpdate]);
 
@@ -326,84 +294,6 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
     }
   }, [state.editedDeal]);
 
-
-
-  const handleRunSDRAgent = useCallback(async (agentId: string) => {
-    const startTime = Date.now();
-
-    try {
-      dispatch(dealDetailActions.setRunningSDR(true));
-
-      const context: SDRContext = {
-        contactId: state.linkedContact?.id,
-        dealId: deal.id,
-        metadata: {
-          dealStage: deal.stage,
-          dealValue: deal.value,
-          contactName: state.linkedContact?.name,
-          contactTitle: state.linkedContact?.title,
-          contactCompany: state.linkedContact?.company,
-          lastActivity: deal.updatedAt || deal.createdAt,
-          dealNotes: deal.notes,
-          contactNotes: state.linkedContact?.notes,
-        }
-      };
-
-      console.log(`🤖 Executing SDR Agent: ${agentId}`, {
-        dealId: deal.id,
-        contactId: state.linkedContact?.id,
-        context
-      });
-
-      const executionResult = await sdrExecutionService.executeAgent(agentId, context, 'user-1');
-
-      console.log(`✅ SDR Agent ${agentId} completed:`, executionResult);
-
-      // Set result for modal display
-      setSdrResult({
-        success: executionResult.success,
-        agentId,
-        agentName: agentId.replace(/sdr-|-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
-        message: executionResult.message || 'Agent executed successfully',
-        emailData: executionResult.emailData,
-        metadata: executionResult.metadata,
-        executionTime: Date.now() - startTime
-      });
-      setShowSdrModal(true);
-
-      // Show success message
-      if (executionResult.success) {
-        console.log(`🎉 ${executionResult.message || 'Agent executed successfully'}`);
-      } else {
-        console.error(`❌ SDR Agent failed:`, executionResult.error);
-      }
-
-    } catch (error: any) {
-      console.error('Failed to execute SDR agent:', error);
-      // Could show error toast here
-    } finally {
-      dispatch(dealDetailActions.setRunningSDR(false));
-    }
-  }, [deal, state.linkedContact]);
-
-  const handleConfigureAgent = async (agentId: string, agentName: string) => {
-    // Load existing user preferences
-    const userPrefs = await sdrPreferencesService.getUserPreferences('user-1', agentId);
-
-    setConfiguringAgent({
-      id: agentId,
-      name: agentName,
-      config: userPrefs || undefined
-    });
-  };
-
-  const handleSaveConfiguration = async (preferences: any) => {
-    if (!configuringAgent) return;
-
-    await sdrPreferencesService.saveUserPreferences('user-1', configuringAgent.id, preferences);
-    setConfiguringAgent(null);
-  };
-
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -424,31 +314,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
         }
       }}
     >
-      <div className="bg-white dark:bg-gray-900 rounded-xl w-full max-w-[95vw] h-[95vh] overflow-hidden flex animate-scale-in shadow-2xl relative">
-        
-        {/* Loading Overlay */}
-        {(state.isSaving || state.isAnalyzing || state.isEnriching || state.isRunningSDR) && (
-          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm z-[70] flex items-center justify-center">
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-2xl border border-gray-200 dark:border-gray-700">
-              <div className="flex flex-col items-center space-y-4">
-                <div className="relative">
-                  <div className="w-16 h-16 border-4 border-blue-200 dark:border-blue-900 rounded-full"></div>
-                  <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin absolute top-0 left-0"></div>
-                </div>
-                <div className="text-center">
-                  <p className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
-                    {state.isSaving ? 'Saving changes...' :
-                     state.isAnalyzing ? 'Analyzing data...' :
-                     state.isEnriching ? 'Enriching contact...' :
-                     state.isRunningSDR ? 'Running SDR Agent...' : 'Processing...'}
-                  </p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Please wait while we complete this operation
-                  </p>
-</div>
-        </div>
-      </div>
-        )}
+      <div className="bg-white dark:bg-gray-900 rounded-xl w-full max-w-[95vw] h-[95vh] overflow-hidden flex animate-scale-in shadow-2xl">
 
         {/* Sidebar */}
         <DealDetailSidebar
@@ -461,7 +327,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
           onContactEnrichment={handleContactEnrichment}
           onFindNewImage={handleFindNewImage}
           onToggleFavorite={handleToggleFavorite}
-          onAction={(action) => handleAction(action as any)}
+          onAction={handleAction}
           onClose={onClose}
         />
 
@@ -483,326 +349,123 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
             onCancel={handleCancel}
             onToggleFavorite={handleToggleFavorite}
             onShare={handleShareDeal}
-            onAction={(action) => handleAction(action as any)}
-            onRunSDRAgent={handleRunSDRAgent}
-            isRunningSDR={state.isRunningSDR}
+            onAction={handleAction}
           />
 
           {/* Tab Content */}
-          <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 min-h-0">
-            <div className="transition-all duration-300 ease-in-out">
-              {state.activeTab === 'overview' && (
-                <div className="animate-fade-in">
-                  <InlineErrorBoundary componentName="Overview Tab">
-                    <DealDetailOverview
-                      deal={deal}
-                      editedDeal={state.editedDeal}
-                      linkedContact={state.linkedContact}
-                      onEditField={handleEditField}
-                      onStartEditingField={handleStartEditingField}
-                      onSaveField={handleSaveField}
-                      editingField={state.editingField}
-                    />
-                  </InlineErrorBoundary>
-                </div>
-              )}
+          <div className="flex-1 overflow-y-auto bg-gray-50 min-h-0">
+            {state.activeTab === 'overview' && (
+              <DealDetailOverview
+                deal={deal}
+                editedDeal={state.editedDeal}
+                linkedContact={state.linkedContact}
+                onEditField={handleEditField}
+                onStartEditingField={handleStartEditingField}
+                onSaveField={handleSaveField}
+                editingField={state.editingField}
+              />
+            )}
 
-              {state.activeTab === 'insights' && (
-                <div className="animate-fade-in">
-                  <InlineErrorBoundary componentName="AI Insights Tab">
-                    <DealInsightsPanel
-                      deal={state.editedDeal}
-                      contact={state.linkedContact}
-                      onAction={(action) => handleAction(action as any)}
-                    />
-                  </InlineErrorBoundary>
-                </div>
-              )}
-
-              {state.activeTab === 'journey' && (
-                <div className="p-6 animate-fade-in">
-                  <InlineErrorBoundary componentName="Journey Tab">
-                    <DealJourneyTimeline deal={state.editedDeal} dealId={state.editedDeal.id} />
-                  </InlineErrorBoundary>
-                </div>
-              )}
-
-              {state.activeTab === 'communication' && (
-                <div className="p-6 space-y-6 animate-fade-in">
-                  <InlineErrorBoundary componentName="Communication Tab">
-                    <DealCommunicationHub deal={state.editedDeal} contact={state.linkedContact} />
-
-                    <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center mb-4">
-                        🤖 AI SDR Outreach
-                      </h3>
-                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                        Generate personalized SDR emails and responses based on deal context and contact data.
-                      </p>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {/* Data-Enrichment SDR */}
-                        <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20">
-                          <div className="flex items-center justify-between mb-3">
-                            <div className="flex items-center space-x-2">
-                              <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center">
-                                <span className="text-blue-600 dark:text-blue-400 text-sm">📊</span>
-                              </div>
-                              <div>
-                                <h4 className="font-medium text-gray-900 dark:text-white">Data-Enrichment SDR</h4>
-                                <p className="text-xs text-gray-600 dark:text-gray-400">Enrich contact data & draft email</p>
-                              </div>
-                            </div>
-                            <button
-                              onClick={() => handleConfigureAgent('sdr-data-enrichment', 'Data-Enrichment SDR')}
-                              className="p-1 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 rounded"
-                              title="Configure Data-Enrichment SDR"
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                              </svg>
-                            </button>
-                          </div>
-                          <button
-                            onClick={() => handleRunSDRAgent('sdr-data-enrichment')}
-                            disabled={isRunningSdr}
-                            className="w-full px-3 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white text-sm font-medium rounded-md transition-colors"
-                          >
-                            {isRunningSdr ? 'Running...' : 'Run SDR Agent'}
-                          </button>
-                        </div>
-
-                        {/* Competitor-Aware SDR */}
-                        <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20">
-                          <div className="flex items-center justify-between mb-3">
-                            <div className="flex items-center space-x-2">
-                              <div className="w-8 h-8 bg-purple-100 dark:bg-purple-900/50 rounded-full flex items-center justify-center">
-                                <span className="text-purple-600 dark:text-purple-400 text-sm">🎯</span>
-                              </div>
-                              <div>
-                                <h4 className="font-medium text-gray-900 dark:text-white">Competitor-Aware SDR</h4>
-                                <p className="text-xs text-gray-600 dark:text-gray-400">Position against competitors</p>
-                              </div>
-                            </div>
-                            <button
-                              onClick={() => handleConfigureAgent('sdr-competitor-aware', 'Competitor-Aware SDR')}
-                              className="p-1 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 rounded"
-                              title="Configure Competitor-Aware SDR"
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                              </svg>
-                            </button>
-                          </div>
-                          <button
-                            onClick={() => handleRunSDRAgent('sdr-competitor-aware')}
-                            disabled={isRunningSdr}
-                            className="w-full px-3 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white text-sm font-medium rounded-md transition-colors"
-                          >
-                            {isRunningSdr ? 'Running...' : 'Run SDR Agent'}
-                          </button>
-                        </div>
-
-                        {/* Objection-Handling SDR */}
-                        <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-900/20 dark:to-orange-900/20">
-                          <div className="flex items-center justify-between mb-3">
-                            <div className="flex items-center space-x-2">
-                              <div className="w-8 h-8 bg-red-100 dark:bg-red-900/50 rounded-full flex items-center justify-center">
-                                <span className="text-red-600 dark:text-red-400 text-sm">🚫</span>
-                              </div>
-                              <div>
-                                <h4 className="font-medium text-gray-900 dark:text-white">Objection-Handling SDR</h4>
-                                <p className="text-xs text-gray-600 dark:text-gray-400">Handle negotiation objections</p>
-                              </div>
-                            </div>
-                            <button
-                              onClick={() => handleConfigureAgent('sdr-objection-handling', 'Objection-Handling SDR')}
-                              className="p-1 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 rounded"
-                              title="Configure Objection-Handling SDR"
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                              </svg>
-                            </button>
-                          </div>
-                          <button
-                            onClick={() => handleRunSDRAgent('sdr-objection-handling')}
-                            disabled={isRunningSdr}
-                            className="w-full px-3 py-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white text-sm font-medium rounded-md transition-colors"
-                          >
-                            {isRunningSdr ? 'Running...' : 'Run SDR Agent'}
-                          </button>
-                        </div>
-
-                        {/* Follow-Up SDR */}
-                        <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gradient-to-r from-green-50 to-teal-50 dark:from-green-900/20 dark:to-teal-900/20">
-                          <div className="flex items-center justify-between mb-3">
-                            <div className="flex items-center space-x-2">
-                              <div className="w-8 h-8 bg-green-100 dark:bg-green-900/50 rounded-full flex items-center justify-center">
-                                <span className="text-green-600 dark:text-green-400 text-sm">📧</span>
-                              </div>
-                              <div>
-                                <h4 className="font-medium text-gray-900 dark:text-white">Follow-Up SDR</h4>
-                                <p className="text-xs text-gray-600 dark:text-gray-400">Create follow-up sequences</p>
-                              </div>
-                            </div>
-                            <button
-                              onClick={() => handleConfigureAgent('sdr-follow-up', 'Follow-Up SDR')}
-                              className="p-1 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 rounded"
-                              title="Configure Follow-Up SDR"
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                              </svg>
-                            </button>
-                          </div>
-                          <button
-                            onClick={() => handleRunSDRAgent('sdr-follow-up')}
-                            disabled={isRunningSdr}
-                            className="w-full px-3 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white text-sm font-medium rounded-md transition-colors"
-                          >
-                            {isRunningSdr ? 'Running...' : 'Run SDR Agent'}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </InlineErrorBoundary>
-                </div>
-              )}
-
-              {state.activeTab === 'calendar' && (
-                <div className="p-6 animate-fade-in">
-                  <DealCalendarIntegration
-                    dealId={state.editedDeal.id}
-                    userId="current-user" // This should come from auth context
-                  />
-                </div>
-              )}
-
-              {state.activeTab === 'email' && (
-                <div className="p-6 animate-fade-in">
-                  <EmailIntegrationPanel
-                    recordType="deal"
-                    recordId={state.editedDeal.id}
-                  />
-                </div>
-              )}
-
-              {state.activeTab === 'analytics' && (
-                <div className="p-6 animate-fade-in">
-                  <DealAnalyticsDashboard deal={state.editedDeal} />
-                </div>
-              )}
-
-              {state.activeTab === 'automation' && (
-                <div className="p-6 space-y-6 animate-fade-in">
-                  <DealAutomationPanel deal={state.editedDeal} />
-
-                {/* SDR Agent Automation Section */}
-                <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center mb-4">
-                    ⚡ SDR Agent Automation
-                  </h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                    Set up automated SDR sequences triggered by deal events and time-based schedules.
-                  </p>
-
-                  <div className="space-y-4">
-                    {/* Sequence Builder */}
-                    <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20">
-                      <h4 className="font-medium text-gray-900 dark:text-white mb-3 flex items-center">
-                        <span className="text-indigo-600 dark:text-indigo-400 mr-2">🔄</span>
-                        Automated SDR Sequence
-                      </h4>
-                      <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400 mb-4">
-                        <div className="flex items-center space-x-2">
-                          <span className="w-6 h-6 bg-indigo-100 dark:bg-indigo-900/50 rounded-full flex items-center justify-center text-xs font-medium">1</span>
-                          <span>Day 3: Follow-Up SDR</span>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <span className="w-6 h-6 bg-indigo-100 dark:bg-indigo-900/50 rounded-full flex items-center justify-center text-xs font-medium">2</span>
-                          <span>Day 7: Re-Activation SDR</span>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <span className="w-6 h-6 bg-indigo-100 dark:bg-indigo-900/50 rounded-full flex items-center justify-center text-xs font-medium">3</span>
-                          <span>Day 14: Win-Back SDR</span>
-                        </div>
-                      </div>
-                      <button className="w-full px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-md transition-colors">
-                        Schedule SDR Sequence
-                      </button>
-                    </div>
-
-                    {/* Trigger-Based SDR */}
-                    <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20">
-                      <h4 className="font-medium text-gray-900 dark:text-white mb-3 flex items-center">
-                        <span className="text-orange-600 dark:text-orange-400 mr-2">🎯</span>
-                        Event-Triggered SDR
-                      </h4>
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <div className="font-medium text-gray-900 dark:text-white">High-Intent SDR</div>
-                            <div className="text-sm text-gray-600 dark:text-gray-400">Trigger: Demo request received</div>
-                          </div>
-                          <button className="px-3 py-1 bg-orange-600 hover:bg-orange-700 text-white text-sm font-medium rounded-md transition-colors">
-                            Configure
-                          </button>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <div className="font-medium text-gray-900 dark:text-white">Event-Based SDR</div>
-                            <div className="text-sm text-gray-600 dark:text-gray-400">Trigger: Webinar registration</div>
-                          </div>
-                          <button className="px-3 py-1 bg-orange-600 hover:bg-orange-700 text-white text-sm font-medium rounded-md transition-colors">
-                            Configure
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Manual SDR Triggers */}
-                    <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-900/20 dark:to-blue-900/20">
-                      <h4 className="font-medium text-gray-900 dark:text-white mb-3 flex items-center">
-                        <span className="text-green-600 dark:text-green-400 mr-2">🚀</span>
-                        Manual SDR Triggers
-                      </h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <button
-                          onClick={() => handleRunSDRAgent('sdr-follow-up')}
-                          disabled={isRunningSdr}
-                          className="flex items-center justify-center space-x-2 px-4 py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white text-sm font-medium rounded-md transition-colors"
-                        >
-                          <span>📧</span>
-                          <span>Run Follow-Up SDR</span>
-                        </button>
-                        <button
-                          onClick={() => handleRunSDRAgent('sdr-reactivation')}
-                          disabled={isRunningSdr}
-                          className="flex items-center justify-center space-x-2 px-4 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white text-sm font-medium rounded-md transition-colors"
-                        >
-                          <span>🔄</span>
-                          <span>Run Re-Activation SDR</span>
-                        </button>
-                      </div>
-                    </div>
-                   </div>
-                 </div>
-)}
+            {state.activeTab === 'insights' && (
+              <div className="p-6">
+                {state.linkedContact ? (
+                  <div>AI Insights Panel would go here</div>
+                ) : (
+                  <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                    <div className="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto mb-3">🤖</div>
+                    <h4 className="text-lg font-medium text-gray-700 dark:text-gray-300 mb-2">No Contact Linked</h4>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                      Link a contact to this deal to view AI insights and recommendations.
+                    </p>
+                    <button
+                      onClick={() => dispatch(dealDetailActions.setShowContactSelector(true))}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                    >
+                      Link Contact
+                    </button>
+                  </div>
+                )}
               </div>
+            )}
 
-              {state.activeTab === 'management' && (
+            {state.activeTab === 'journey' && (
+              <div className="p-6">
+                <DealJourneyTimeline deal={state.editedDeal} />
+              </div>
+            )}
+
+            {state.activeTab === 'communication' && (
+              <div className="p-6">
+                <DealCommunicationHub deal={state.editedDeal} contact={state.linkedContact} />
+              </div>
+            )}
+
+            {state.activeTab === 'analytics' && (
+              <div className="p-6">
+                <DealAnalyticsDashboard deal={state.editedDeal} />
+              </div>
+            )}
+
+            {state.activeTab === 'automation' && (
+              <div className="p-6">
+                <DealAutomationPanel deal={state.editedDeal} />
+              </div>
+            )}
+
+            {state.activeTab === 'management' && (
+              <div className="p-6">
                 <DealManagementPanel
                   deal={state.editedDeal}
                   onUpdate={onUpdate}
                   linkedContactId={state.linkedContact?.id}
                 />
-              )}
-            </div>
+              </div>
+            )}
+
+            {state.activeTab === 'calendar' && (
+              <div className="p-6">
+                <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                  <div className="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto mb-3">📅</div>
+                  <h4 className="text-lg font-medium text-gray-700 dark:text-gray-300 mb-2">Calendar View</h4>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                    View deal-related dates and scheduled activities.
+                  </p>
+                  <p className="text-xs text-gray-400">Coming soon</p>
+                </div>
+              </div>
+            )}
+
+            {state.activeTab === 'email' && state.linkedContact && (
+              <div className="p-6">
+                <EmailComposer
+                  contact={state.linkedContact}
+                  deal={state.editedDeal}
+                  isOpen={true}
+                  onClose={() => {}}
+                  onSend={(emailData) => {
+                    console.log('📧 Email sent from email tab:', emailData);
+                  }}
+                />
+              </div>
+            )}
+
+            {state.activeTab === 'email' && !state.linkedContact && (
+              <div className="p-6">
+                <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                  <div className="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto mb-3">📧</div>
+                  <h4 className="text-lg font-medium text-gray-700 dark:text-gray-300 mb-2">No Contact Linked</h4>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                    Link a contact to send emails directly from this deal.
+                  </p>
+                  <button
+                    onClick={() => dispatch(dealDetailActions.setShowContactSelector(true))}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                  >
+                    Link Contact
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -827,63 +490,6 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
           onSelectContact={handleSelectContact}
           selectedContactId={state.linkedContact?.id}
         />
-      )}
-
-      {/* SDR Results Modal */}
-      <SDRResultsModal
-        isOpen={showSdrModal}
-        onClose={() => setShowSdrModal(false)}
-        result={sdrResult}
-        onCopyEmail={(subject, body) => {
-          const fullText = `Subject: ${subject}\n\n${body}`;
-          navigator.clipboard.writeText(fullText);
-        }}
-        onSendEmail={(subject, body) => {
-          // Open email composer with pre-filled content
-          dispatch(dealDetailActions.setActiveModal('emailComposer'));
-          // Could pass the email content to the composer here
-        }}
-        onEditEmail={(subject, body) => {
-          // Open email composer with pre-filled content for editing
-          dispatch(dealDetailActions.setActiveModal('emailComposer'));
-          // Could pass the email content to the composer here
-        }}
-      />
-
-      {/* SDR Agent Configuration Modal */}
-      {configuringAgent && (
-        <SDRAgentConfigurator
-          agentId={configuringAgent.id}
-          agentName={configuringAgent.name}
-          currentConfig={configuringAgent.config}
-          onSave={handleSaveConfiguration}
-          onClose={() => setConfiguringAgent(null)}
-          isOpen={true}
-        />
-      )}
-
-      {/* Error Notification Toast */}
-      {error && (
-        <div className="fixed bottom-4 right-4 z-[80] animate-slide-up">
-          <div className="bg-red-500 text-white px-6 py-4 rounded-lg shadow-2xl flex items-center space-x-3 border border-red-600">
-            <div className="flex-shrink-0">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <div className="flex-1">
-              <p className="font-medium">{error}</p>
-            </div>
-            <button
-              onClick={() => setError(null)}
-              className="flex-shrink-0 text-white hover:text-red-100 transition-colors"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-        </div>
       )}
     </div>
   );

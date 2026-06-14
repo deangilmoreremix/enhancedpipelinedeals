@@ -44,9 +44,12 @@ class OpenAIFunctionCallingService {
 
   private async initializeService(): Promise<void> {
     try {
-      const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
-      if (!apiKey) {
-        console.warn('⚠️ OpenAI API key not found, function calling will be disabled');
+      // Get API key from user settings first, then fallback to env
+      const { getOpenAIApiKey } = await import('./apiKeyProvider');
+      const apiKey = getOpenAIApiKey();
+
+      if (!apiKey || apiKey === 'placeholder-openai-key' || apiKey.startsWith('placeholder')) {
+        console.warn('⚠️ OpenAI API key not configured, function calling will be disabled');
         return;
       }
 

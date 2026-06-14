@@ -36,16 +36,34 @@ interface DbUserAchievement {
 }
 
 export class GamificationService {
+  // Track if Supabase is available to avoid repeated failures
+  private static supabaseAvailable: boolean | null = null;
+
   async getAllAchievements(): Promise<Achievement[]> {
+    // If Supabase was marked unavailable, return empty array immediately
+    if (GamificationService.supabaseAvailable === false) {
+      return [];
+    }
+
     try {
       const supabase = getSupabaseService();
+      if (!supabase.client) {
+        GamificationService.supabaseAvailable = false;
+        return [];
+      }
+
       const { data, error } = await supabase.client
         .from('achievements')
         .select('*')
         .order('points', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        GamificationService.supabaseAvailable = false;
+        console.warn('GamificationService: Achievements not available:', error.message);
+        return [];
+      }
 
+      GamificationService.supabaseAvailable = true;
       return (data || []).map((dbAch: DbAchievement) => ({
         id: dbAch.id,
         title: dbAch.title,
@@ -56,14 +74,22 @@ export class GamificationService {
         category: dbAch.category,
       }));
     } catch (error) {
-      console.error('Failed to fetch achievements:', error);
+      GamificationService.supabaseAvailable = false;
       return [];
     }
   }
 
   async getUserAchievements(contactId: string): Promise<Achievement[]> {
+    if (GamificationService.supabaseAvailable === false) {
+      return [];
+    }
+
     try {
       const supabase = getSupabaseService();
+      if (!supabase.client) {
+        return [];
+      }
+
       const { data, error } = await supabase.client
         .from('user_achievements')
         .select(`
@@ -73,7 +99,10 @@ export class GamificationService {
         `)
         .eq('user_id', contactId);
 
-      if (error) throw error;
+      if (error) {
+        console.warn('GamificationService: User achievements not available');
+        return [];
+      }
 
       return (data || []).map((ua: any) => ({
         id: ua.achievement.id,
@@ -86,14 +115,21 @@ export class GamificationService {
         unlockedAt: new Date(ua.unlocked_at),
       }));
     } catch (error) {
-      console.error('Failed to fetch user achievements:', error);
+      console.warn('GamificationService: User achievements error');
       return [];
     }
   }
 
   async unlockAchievement(contactId: string, achievementId: string): Promise<void> {
+    if (GamificationService.supabaseAvailable === false) {
+      return;
+    }
+
     try {
       const supabase = getSupabaseService();
+      if (!supabase.client) {
+        return;
+      }
 
       const { error } = await supabase.client
         .from('user_achievements')
@@ -104,25 +140,38 @@ export class GamificationService {
         });
 
       if (error && error.code !== '23505') {
-        throw error;
+        console.warn('GamificationService: Failed to unlock achievement');
       }
     } catch (error) {
-      console.error('Failed to unlock achievement:', error);
-      throw error;
+      console.warn('GamificationService: Unlock achievement error');
     }
   }
 
   async getActiveChallenges(): Promise<Challenge[]> {
+    if (GamificationService.supabaseAvailable === false) {
+      return [];
+    }
+
     try {
       const supabase = getSupabaseService();
+      if (!supabase.client) {
+        GamificationService.supabaseAvailable = false;
+        return [];
+      }
+
       const { data, error } = await supabase.client
         .from('challenges')
         .select('*')
         .gte('end_date', new Date().toISOString())
         .order('end_date', { ascending: true });
 
-      if (error) throw error;
+      if (error) {
+        GamificationService.supabaseAvailable = false;
+        console.warn('GamificationService: Challenges not available:', error.message);
+        return [];
+      }
 
+      GamificationService.supabaseAvailable = true;
       return (data || []).map((dbCh: DbChallenge) => ({
         id: dbCh.id,
         title: dbCh.title,
@@ -135,24 +184,32 @@ export class GamificationService {
         participants: dbCh.participants || [],
       }));
     } catch (error) {
-      console.error('Failed to fetch challenges:', error);
+      GamificationService.supabaseAvailable = false;
       return [];
     }
   }
 
   async updateChallengeProgress(challengeId: string, progress: number): Promise<void> {
+    if (GamificationService.supabaseAvailable === false) {
+      return;
+    }
+
     try {
       const supabase = getSupabaseService();
+      if (!supabase.client) {
+        return;
+      }
 
       const { error } = await supabase.client
         .from('challenges')
         .update({ current_progress: progress })
         .eq('id', challengeId);
 
-      if (error) throw error;
+      if (error) {
+        console.warn('GamificationService: Failed to update challenge');
+      }
     } catch (error) {
-      console.error('Failed to update challenge progress:', error);
-      throw error;
+      console.warn('GamificationService: Update challenge error');
     }
   }
 
@@ -163,8 +220,16 @@ export class GamificationService {
     achievementIcon: string;
     unlockedAt: Date;
   }>> {
+    if (GamificationService.supabaseAvailable === false) {
+      return [];
+    }
+
     try {
       const supabase = getSupabaseService();
+      if (!supabase.client) {
+        return [];
+      }
+
       const { data, error } = await supabase.client
         .from('user_achievements')
         .select(`
@@ -177,7 +242,10 @@ export class GamificationService {
         .order('unlocked_at', { ascending: false })
         .limit(limit);
 
-      if (error) throw error;
+      if (error) {
+        console.warn('GamificationService: Recent achievements not available');
+        return [];
+      }
 
       return (data || []).map((item: any) => ({
         contactId: item.user_id,
@@ -187,7 +255,7 @@ export class GamificationService {
         unlockedAt: new Date(item.unlocked_at),
       }));
     } catch (error) {
-      console.error('Failed to fetch recent team achievements:', error);
+      console.warn('GamificationService: Recent achievements error');
       return [];
     }
   }

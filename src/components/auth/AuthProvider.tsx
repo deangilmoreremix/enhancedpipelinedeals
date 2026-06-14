@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { getAuthService } from '../../services/authService';
-import { getErrorReportingService } from '../../services/errorReportingService';
 
 interface AuthContextType {
   user: User | null;
@@ -27,7 +26,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   const authService = getAuthService();
-  const errorReportingService = getErrorReportingService();
 
   useEffect(() => {
     // Get initial session
@@ -37,10 +35,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setSession(session);
         setUser(session?.user ?? null);
       } catch (error) {
-        errorReportingService.reportError(error as Error, {
-          context: 'AuthProvider initialization',
-          userId: 'unknown'
-        });
+        console.error('Auth initialization error:', error);
       } finally {
         setLoading(false);
       }
@@ -51,18 +46,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // Listen for auth changes
     const { data: { subscription } } = authService.onAuthStateChange(
       async (event, session) => {
-        errorReportingService.logInfo('Auth state changed', {
-          event,
-          userEmail: session?.user?.email,
-          userId: session?.user?.id
-        });
+        console.log('Auth state changed:', event, session?.user?.email);
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
       }
     );
 
-    return () => subscription.unsubscribe();
+    return () => {
+      if (subscription && typeof subscription.unsubscribe === 'function') {
+        subscription.unsubscribe();
+      }
+    };
   }, []);
 
   const signIn = async (email: string, password: string) => {

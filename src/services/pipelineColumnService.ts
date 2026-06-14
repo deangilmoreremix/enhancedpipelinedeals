@@ -1,7 +1,6 @@
 import { supabase } from './supabaseService';
 import { CustomPipelineColumn } from '../types/pipeline';
 import { PipelineColumn } from '../types';
-import { PipelineColumn } from '../types';
 
 const DEFAULT_COLUMNS: CustomPipelineColumn[] = [
   {
@@ -51,6 +50,11 @@ export class PipelineColumnService {
    * Get custom columns for a user (or global if userId not provided)
    */
   static async getCustomColumns(userId?: string): Promise<CustomPipelineColumn[]> {
+    // If supabase client is not initialized, return default columns
+    if (!supabase) {
+      return DEFAULT_COLUMNS;
+    }
+
     try {
       const { data, error } = await supabase
         .from('app_settings')

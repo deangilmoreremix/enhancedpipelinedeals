@@ -10,8 +10,8 @@ import { createClient } from '@supabase/supabase-js';
 import { logger } from '../../lib/core/logger';
 
 const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
+  import.meta.env?.SUPABASE_URL || '',
+  import.meta.env?.SUPABASE_SERVICE_ROLE_KEY || ''
 );
 
 export async function executeDealAi(request: DealAiRequest): Promise<DealAiResponse> {
@@ -237,7 +237,7 @@ async function handleDefault(request: DealAiRequest, context: any, model: string
 
 // Helper Functions
 async function callOpenAI(prompt: string, model: string, capabilities: any) {
-  const openaiApiKey = process.env.OPENAI_API_KEY;
+  const openaiApiKey = import.meta.env?.OPENAI_API_KEY;
   if (!openaiApiKey) {
     throw new Error('OpenAI API key not configured');
   }

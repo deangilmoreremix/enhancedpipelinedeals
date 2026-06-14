@@ -5,10 +5,11 @@
 
 import { DealContext } from './types';
 import { createClient } from '@supabase/supabase-js';
+import { env } from '../../lib/core/processShim';
 
 const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
+  env.SUPABASE_URL || '',
+  env.SUPABASE_SERVICE_ROLE_KEY || ''
 );
 
 export async function buildDealContext(dealId: string, workspaceId: string): Promise<DealContext> {

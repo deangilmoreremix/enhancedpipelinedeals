@@ -100,7 +100,7 @@ export abstract class BaseSDRAgent {
     this.name = name;
     this.description = description;
     
-    const apiKey = process.env.VITE_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
+    const apiKey = import.meta.env?.VITE_OPENAI_API_KEY || import.meta.env?.OPENAI_API_KEY;
     if (!apiKey) {
       throw new Error('OpenAI API key is required');
     }

@@ -581,12 +581,91 @@ textarea:focus-visible {
 }
 
 /* Dark mode text color overrides to ensure readability */
+.dark .text-gray-300,
+.dark .text-gray-400,
 .dark .text-gray-500,
 .dark .text-gray-600,
 .dark .text-gray-700,
 .dark .text-gray-800,
-.dark .text-gray-900 {
+.dark .text-gray-900,
+.dark .text-slate-300,
+.dark .text-slate-400,
+.dark .text-slate-500,
+.dark .text-slate-600,
+.dark .text-slate-700,
+.dark .text-slate-800,
+.dark .text-slate-900,
+.dark .text-stone-300,
+.dark .text-stone-400,
+.dark .text-stone-500,
+.dark .text-stone-600,
+.dark .text-stone-700,
+.dark .text-stone-800,
+.dark .text-stone-900 {
   color: hsl(var(--foreground)) !important;
+}
+
+.dark .text-blue-500,
+.dark .text-blue-600,
+.dark .text-blue-700,
+.dark .text-blue-800 {
+  color: rgb(147 197 253) !important;
+}
+
+.dark .text-indigo-500,
+.dark .text-indigo-600,
+.dark .text-indigo-700,
+.dark .text-indigo-800 {
+  color: rgb(199 210 254) !important;
+}
+
+.dark .text-purple-500,
+.dark .text-purple-600,
+.dark .text-purple-700,
+.dark .text-purple-800 {
+  color: rgb(216 180 254) !important;
+}
+
+.dark .text-red-500,
+.dark .text-red-600,
+.dark .text-red-700,
+.dark .text-red-800 {
+  color: rgb(252 165 165) !important;
+}
+
+.dark .text-green-500,
+.dark .text-green-600,
+.dark .text-green-700,
+.dark .text-green-800 {
+  color: rgb(134 239 172) !important;
+}
+
+.dark .text-yellow-500,
+.dark .text-yellow-600,
+.dark .text-yellow-700,
+.dark .text-yellow-800 {
+  color: rgb(253 230 138) !important;
+}
+
+.dark .text-orange-500,
+.dark .text-orange-600,
+.dark .text-orange-700,
+.dark .text-orange-800 {
+  color: rgb(253 186 116) !important;
+}
+
+.dark .text-amber-500,
+.dark .text-amber-600,
+.dark .text-amber-700,
+.dark .text-amber-800 {
+  color: rgb(252 211 77) !important;
+}
+
+.dark .text-cyan-500,
+.dark .text-cyan-600,
+.dark .text-cyan-700,
+.dark .text-cyan-800 {
+  color: rgb(103 232 249) !important;
 }
 
 /* Ensure proper text contrast in dark mode */
@@ -682,6 +761,13 @@ textarea:focus-visible {
   color: rgb(243 244 246) !important; /* gray-100 */
 }
 
+.dark .bg-white,
+.dark .bg-slate-50,
+.dark .bg-zinc-50,
+.dark .bg-stone-50 {
+  background-color: hsl(var(--card)) !important;
+}
+
 .dark .bg-gray-300,
 .dark .bg-gray-400 {
   background-color: rgb(75 85 99) !important; /* gray-600 */
@@ -719,19 +805,7 @@ textarea:focus-visible {
   border-color: hsl(var(--border)) !important;
 }
 
-/* Enhanced modal and dialog styling for dark mode */
-.dark .fixed.inset-0 {
-  background-color: rgba(0, 0, 0, 0.9) !important;
-}
 
-.dark .rounded-xl,
-.dark .rounded-lg,
-.dark .rounded-md {
-  background-color: rgb(31 41 55) !important; /* gray-800 */
-  color: rgb(243 244 246) !important; /* gray-100 */
-}
-
-/* Form elements enhanced dark mode */
 .dark input,
 .dark textarea,
 .dark select {

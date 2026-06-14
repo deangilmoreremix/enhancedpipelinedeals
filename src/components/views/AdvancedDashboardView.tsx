@@ -100,6 +100,19 @@ export const AdvancedDashboardView: React.FC<AdvancedDashboardViewProps> = ({
     };
   }, [deals]);
 
+  const chartTextColor = 'hsl(var(--muted-foreground))';
+  const chartGridColor = 'hsl(var(--border))';
+  const chartTooltipStyle = {
+    backgroundColor: 'hsl(var(--popover))',
+    border: '1px solid hsl(var(--border))',
+    borderRadius: '0.75rem',
+    color: 'hsl(var(--popover-foreground))',
+    boxShadow: '0 10px 25px rgba(0, 0, 0, 0.25)'
+  };
+  const chartLegendStyle = {
+    color: chartTextColor
+  };
+
   // Render widget content based on type
   const renderWidgetContent = (widget: DashboardWidget) => {
     const { config } = widget;
@@ -112,15 +125,15 @@ export const AdvancedDashboardView: React.FC<AdvancedDashboardViewProps> = ({
 
         return (
           <div className="flex flex-col items-center justify-center h-full">
-            <div className="text-3xl font-bold text-gray-900 mb-2">
+            <div className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
               {formatValue(value, format)}
             </div>
-            <div className="text-sm text-gray-600 text-center">
+            <div className="text-sm text-gray-600 dark:text-gray-300 text-center">
               {config.label || metricKey}
             </div>
             {config.showChange && config.previousValue && (
               <div className={`text-xs mt-1 ${
-                value > config.previousValue ? 'text-green-600' : 'text-red-600'
+                value > config.previousValue ? 'text-green-600 dark:text-green-300' : 'text-red-600 dark:text-red-300'
               }`}>
                 {value > config.previousValue ? '+' : ''}
                 {((value - config.previousValue) / config.previousValue * 100).toFixed(1)}%
@@ -137,10 +150,11 @@ export const AdvancedDashboardView: React.FC<AdvancedDashboardViewProps> = ({
           return (
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis />
-                <RechartsTooltip />
+                <CartesianGrid stroke={chartGridColor} />
+                <XAxis dataKey="name" tick={{ fill: chartTextColor }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: chartTextColor }} axisLine={false} tickLine={false} />
+                <RechartsTooltip contentStyle={chartTooltipStyle} labelStyle={{ color: chartTextColor }} itemStyle={{ color: chartTextColor }} />
+                <Legend wrapperStyle={chartLegendStyle} />
                 <Bar dataKey="value" fill={config.color || '#3b82f6'} />
               </BarChart>
             </ResponsiveContainer>
@@ -158,13 +172,14 @@ export const AdvancedDashboardView: React.FC<AdvancedDashboardViewProps> = ({
                   cx="50%"
                   cy="50%"
                   outerRadius={80}
-                  label
+                  label={{ fill: chartTextColor }}
                 >
                   {chartData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color || '#3b82f6'} />
                   ))}
                 </Pie>
-                <RechartsTooltip />
+                <RechartsTooltip contentStyle={chartTooltipStyle} labelStyle={{ color: chartTextColor }} itemStyle={{ color: chartTextColor }} />
+                <Legend wrapperStyle={chartLegendStyle} />
               </RePieChart>
             </ResponsiveContainer>
           );
@@ -174,33 +189,34 @@ export const AdvancedDashboardView: React.FC<AdvancedDashboardViewProps> = ({
           return (
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis />
-                <RechartsTooltip />
+                <CartesianGrid stroke={chartGridColor} />
+                <XAxis dataKey="month" tick={{ fill: chartTextColor }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: chartTextColor }} axisLine={false} tickLine={false} />
+                <RechartsTooltip contentStyle={chartTooltipStyle} labelStyle={{ color: chartTextColor }} itemStyle={{ color: chartTextColor }} />
+                <Legend wrapperStyle={chartLegendStyle} />
                 <Line type="monotone" dataKey="deals" stroke={config.color || '#3b82f6'} strokeWidth={2} />
               </LineChart>
             </ResponsiveContainer>
           );
         }
 
-        return <div className="flex items-center justify-center h-full text-gray-500">Chart not configured</div>;
+        return <div className="flex items-center justify-center h-full text-gray-500 dark:text-gray-400">Chart not configured</div>;
 
       case 'table':
         const tableData = config.dataKey ? dashboardData[config.dataKey as keyof typeof dashboardData] : [];
         const columns = config.columns || ['name', 'value'];
 
         if (!Array.isArray(tableData)) {
-          return <div className="flex items-center justify-center h-full text-gray-500">No data available</div>;
+          return <div className="flex items-center justify-center h-full text-gray-500 dark:text-gray-400">No data available</div>;
         }
 
         return (
-          <div className="overflow-auto h-full">
-            <table className="w-full text-sm">
+          <div className="overflow-auto h-full text-gray-900 dark:text-gray-100">
+            <table className="w-full text-sm divide-y divide-gray-100 dark:divide-gray-700">
               <thead>
-                <tr className="border-b">
+                <tr className="border-b border-gray-100 dark:border-gray-700">
                   {columns.map(col => (
-                    <th key={col} className="text-left p-2 font-medium text-gray-700">
+                    <th key={col} className="text-left p-2 font-medium text-gray-700 dark:text-gray-300">
                       {col.charAt(0).toUpperCase() + col.slice(1)}
                     </th>
                   ))}
@@ -208,9 +224,9 @@ export const AdvancedDashboardView: React.FC<AdvancedDashboardViewProps> = ({
               </thead>
               <tbody>
                 {tableData.slice(0, 10).map((row, index) => (
-                  <tr key={index} className="border-b border-gray-100">
+                  <tr key={index} className="border-b border-gray-100 dark:border-gray-700">
                     {columns.map(col => (
-                      <td key={col} className="p-2">
+                      <td key={col} className="p-2 text-gray-900 dark:text-gray-100">
                         {formatValue(row[col], config.format || 'number')}
                       </td>
                     ))}
@@ -222,7 +238,7 @@ export const AdvancedDashboardView: React.FC<AdvancedDashboardViewProps> = ({
         );
 
       default:
-        return <div className="flex items-center justify-center h-full text-gray-500">Widget type not supported</div>;
+        return <div className="flex items-center justify-center h-full text-gray-500 dark:text-gray-400">Widget type not supported</div>;
     }
   };
 
@@ -273,13 +289,13 @@ export const AdvancedDashboardView: React.FC<AdvancedDashboardViewProps> = ({
   };
 
   return (
-    <div className="h-full p-6 bg-gray-50">
+    <div className="h-full p-6 bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-white">
       {/* Dashboard Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">{dashboard.name}</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{dashboard.name}</h1>
           {dashboard.description && (
-            <p className="text-gray-600 mt-1">{dashboard.description}</p>
+            <p className="text-gray-600 dark:text-gray-300 mt-1">{dashboard.description}</p>
           )}
         </div>
 
@@ -294,7 +310,7 @@ export const AdvancedDashboardView: React.FC<AdvancedDashboardViewProps> = ({
                 dataSource: { type: 'deals' },
                 isVisible: true
               })}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-500"
             >
               <Plus className="w-4 h-4" />
               Add Widget
@@ -311,7 +327,7 @@ export const AdvancedDashboardView: React.FC<AdvancedDashboardViewProps> = ({
           .map((widget) => (
             <div
               key={widget.id}
-              className={`bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden ${
+              className={`bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden ${
                 draggedWidget === widget.id ? 'opacity-50' : ''
               }`}
               style={{
@@ -325,21 +341,21 @@ export const AdvancedDashboardView: React.FC<AdvancedDashboardViewProps> = ({
               onDrop={(e) => handleDrop(e, widget.id)}
             >
               {/* Widget Header */}
-              <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
                 <div className="flex items-center gap-2">
-                  {isEditable && <GripVertical className="w-4 h-4 text-gray-400 cursor-move" />}
+                  {isEditable && <GripVertical className="w-4 h-4 text-gray-400 dark:text-gray-500 cursor-move" />}
                   {getWidgetIcon(widget.type)}
-                  <h3 className="font-medium text-gray-900">{widget.title}</h3>
+                  <h3 className="font-medium text-gray-900 dark:text-white">{widget.title}</h3>
                 </div>
 
                 {isEditable && (
                   <div className="flex items-center gap-1">
-                    <button className="p-1 hover:bg-gray-100 rounded">
+                    <button className="p-1 text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 rounded">
                       <Settings className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => onWidgetDelete?.(widget.id)}
-                      className="p-1 hover:bg-gray-100 rounded text-red-600"
+                      className="p-1 hover:bg-red-50 dark:hover:bg-red-900/20 rounded text-red-600 dark:text-red-400"
                     >
                       <X className="w-4 h-4" />
                     </button>
@@ -358,9 +374,9 @@ export const AdvancedDashboardView: React.FC<AdvancedDashboardViewProps> = ({
       {/* Empty state */}
       {dashboard.widgets.filter(w => w.isVisible).length === 0 && (
         <div className="text-center py-12">
-          <BarChart3 className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No widgets yet</h3>
-          <p className="text-gray-600 mb-4">Add widgets to visualize your deal data</p>
+          <BarChart3 className="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No widgets yet</h3>
+          <p className="text-gray-600 dark:text-gray-300 mb-4">Add widgets to visualize your deal data</p>
           {isEditable && (
             <button
               onClick={() => onWidgetAdd?.({
@@ -371,7 +387,7 @@ export const AdvancedDashboardView: React.FC<AdvancedDashboardViewProps> = ({
                 dataSource: { type: 'deals' },
                 isVisible: true
               })}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-500"
             >
               Add First Widget
             </button>

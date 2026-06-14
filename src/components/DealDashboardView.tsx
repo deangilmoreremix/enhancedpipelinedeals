@@ -100,6 +100,19 @@ export const DealDashboardView: React.FC<DealDashboardViewProps> = ({ deals }) =
     }).format(value);
   };
 
+  const chartTextColor = 'hsl(var(--muted-foreground))';
+  const chartGridColor = 'hsl(var(--border))';
+  const chartTooltipStyle = {
+    backgroundColor: 'hsl(var(--popover))',
+    border: '1px solid hsl(var(--border))',
+    borderRadius: '0.75rem',
+    color: 'hsl(var(--popover-foreground))',
+    boxShadow: '0 10px 25px rgba(0, 0, 0, 0.25)'
+  };
+  const chartLegendStyle = {
+    color: chartTextColor
+  };
+
   const StatCard: React.FC<{
     title: string;
     value: string;
@@ -176,26 +189,26 @@ export const DealDashboardView: React.FC<DealDashboardViewProps> = ({ deals }) =
           </div>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={analytics.valueByStage}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.2} />
+              <CartesianGrid stroke={chartGridColor} opacity={0.35} />
               <XAxis
                 dataKey="stage"
-                stroke="#6b7280"
+                stroke={chartTextColor}
+                tick={{ fill: chartTextColor }}
                 style={{ fontSize: '12px' }}
               />
               <YAxis
-                stroke="#6b7280"
+                stroke={chartTextColor}
+                tick={{ fill: chartTextColor }}
                 style={{ fontSize: '12px' }}
                 tickFormatter={(value) => `$${value}K`}
               />
               <RechartsTooltip
-                contentStyle={{
-                  backgroundColor: '#1f2937',
-                  border: '1px solid #374151',
-                  borderRadius: '8px',
-                  color: '#f3f4f6'
-                }}
+                contentStyle={chartTooltipStyle}
+                labelStyle={{ color: chartTextColor }}
+                itemStyle={{ color: chartTextColor }}
                 formatter={(value: number) => [`$${value.toFixed(0)}K`, 'Value']}
               />
+              <Legend wrapperStyle={chartLegendStyle} />
               <Bar dataKey="value" fill="#3b82f6" radius={[8, 8, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
@@ -213,7 +226,11 @@ export const DealDashboardView: React.FC<DealDashboardViewProps> = ({ deals }) =
                 cx="50%"
                 cy="50%"
                 labelLine={false}
-                label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                label={({ name, percent, x, y }: { name?: string; percent?: number; x?: number; y?: number }) => (
+                  <text x={x} y={y} textAnchor="middle" dominantBaseline="middle" fill="hsl(var(--foreground))" fontSize={12}>
+                    {name} {(percent * 100).toFixed(0)}%
+                  </text>
+                )}
                 outerRadius={100}
                 fill="#8884d8"
                 dataKey="value"
@@ -223,13 +240,11 @@ export const DealDashboardView: React.FC<DealDashboardViewProps> = ({ deals }) =
                 ))}
               </Pie>
               <RechartsTooltip
-                contentStyle={{
-                  backgroundColor: '#1f2937',
-                  border: '1px solid #374151',
-                  borderRadius: '8px',
-                  color: '#f3f4f6'
-                }}
+                contentStyle={chartTooltipStyle}
+                labelStyle={{ color: chartTextColor }}
+                itemStyle={{ color: chartTextColor }}
               />
+              <Legend wrapperStyle={chartLegendStyle} />
             </RePieChart>
           </ResponsiveContainer>
         </div>
@@ -242,60 +257,60 @@ export const DealDashboardView: React.FC<DealDashboardViewProps> = ({ deals }) =
         </div>
         <ResponsiveContainer width="100%" height={300}>
           <LineChart data={analytics.monthlyTrend}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.2} />
+            <CartesianGrid stroke={chartGridColor} opacity={0.35} />
             <XAxis
               dataKey="month"
-              stroke="#6b7280"
+              stroke={chartTextColor}
+              tick={{ fill: chartTextColor }}
               style={{ fontSize: '12px' }}
             />
             <YAxis
               yAxisId="left"
-              stroke="#6b7280"
+              stroke={chartTextColor}
+              tick={{ fill: chartTextColor }}
               style={{ fontSize: '12px' }}
             />
             <YAxis
               yAxisId="right"
               orientation="right"
-              stroke="#6b7280"
+              stroke={chartTextColor}
+              tick={{ fill: chartTextColor }}
               style={{ fontSize: '12px' }}
               tickFormatter={(value) => `$${value}K`}
             />
             <RechartsTooltip
-              contentStyle={{
-                backgroundColor: '#1f2937',
-                border: '1px solid #374151',
-                borderRadius: '8px',
-                color: '#f3f4f6'
-              }}
+              contentStyle={chartTooltipStyle}
+              labelStyle={{ color: chartTextColor }}
+              itemStyle={{ color: chartTextColor }}
             />
-            <Legend />
-            <Line
-              yAxisId="left"
-              type="monotone"
-              dataKey="deals"
-              stroke="#3b82f6"
-              strokeWidth={2}
-              name="Total Deals"
-              dot={{ fill: '#3b82f6', r: 4 }}
-            />
-            <Line
-              yAxisId="left"
-              type="monotone"
-              dataKey="won"
-              stroke="#10b981"
-              strokeWidth={2}
-              name="Won Deals"
-              dot={{ fill: '#10b981', r: 4 }}
-            />
-            <Line
-              yAxisId="right"
-              type="monotone"
-              dataKey="value"
-              stroke="#f59e0b"
-              strokeWidth={2}
-              name="Value ($K)"
-              dot={{ fill: '#f59e0b', r: 4 }}
-            />
+            <Legend wrapperStyle={chartLegendStyle} />
+              <Line
+                yAxisId="left"
+                type="monotone"
+                dataKey="deals"
+                stroke="#3b82f6"
+                strokeWidth={2}
+                name="Total Deals"
+                dot={{ fill: '#3b82f6', r: 4 }}
+              />
+              <Line
+                yAxisId="left"
+                type="monotone"
+                dataKey="won"
+                stroke="#10b981"
+                strokeWidth={2}
+                name="Won Deals"
+                dot={{ fill: '#10b981', r: 4 }}
+              />
+              <Line
+                yAxisId="right"
+                type="monotone"
+                dataKey="value"
+                stroke="#f59e0b"
+                strokeWidth={2}
+                name="Value ($K)"
+                dot={{ fill: '#f59e0b', r: 4 }}
+              />
           </LineChart>
         </ResponsiveContainer>
       </div>

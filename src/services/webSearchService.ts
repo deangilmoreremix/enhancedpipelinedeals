@@ -93,7 +93,7 @@ class WebSearchService {
   };
 
   constructor() {
-    const config = getAPIConfig();
+    const config = getAPIConfigHelper();
     this.provider = config.webSearch?.provider || 'serpapi';
     this.apiKey = config.webSearch?.apiKey || '';
     this.baseUrl = this.getProviderBaseUrl();
@@ -407,11 +407,11 @@ ${userPrompt}
   }
 }
 
+import { getAPIConfig } from '../config/apiConfig';
+
 // Helper function to get API config
-function getAPIConfig() {
-  // Import the config function
-  const { getAPIConfig: configGetter } = require('../config/apiConfig');
-  return configGetter();
+function getAPIConfigHelper() {
+  return getAPIConfig();
 }
 
 // Singleton instance

@@ -29,11 +29,15 @@ export const DealDetailActions: React.FC<DealDetailActionsProps> = ({
       const analysis = contextDetectionService.analyzeContext(deal, linkedContact || undefined);
       return analysis.recommendedAgents;
     } catch (error) {
-      getErrorReportingService().reportError(error as Error, {
-        context: 'Context detection in DealDetailActions',
-        dealId: deal.id,
-        userId: user?.id || 'anonymous'
-      });
+      try {
+        getErrorReportingService().reportError(error as Error, {
+          context: 'Context detection in DealDetailActions',
+          dealId: deal.id,
+          userId: user?.id || 'anonymous'
+        });
+      } catch (reportError) {
+        console.error('Failed to report context detection error:', reportError);
+      }
 
       // Fallback to basic logic if context detection fails
       const agents = [];

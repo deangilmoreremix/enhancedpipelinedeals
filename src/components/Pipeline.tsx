@@ -202,8 +202,8 @@ const Pipeline: React.FC = () => {
     };
    }, [dataSource]);
 
-  // Populate column.dealIds from deals when deals are loaded and columns are empty
-  useEffect(() => {
+   // Populate column.dealIds from deals when deals are loaded and columns are empty
+   useEffect(() => {
     const hasEmpty = Object.values(columns).some(col => !col.dealIds || col.dealIds.length === 0);
     if (!hasEmpty) return;
 
@@ -219,7 +219,7 @@ const Pipeline: React.FC = () => {
       });
       return updated;
     });
-  }, [deals, columns]);
+  }, [deals]);
 
   // Save view preference when changed
   const handleViewChange = (view: DealViewType) => {

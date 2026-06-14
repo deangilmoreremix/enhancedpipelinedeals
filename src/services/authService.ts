@@ -4,6 +4,7 @@
  */
 
 import { createClient, SupabaseClient, User, Session } from '@supabase/supabase-js';
+import { supabase as sharedSupabase } from '../lib/core/supabaseClient';
 
 interface AuthUser {
   id: string;
@@ -37,18 +38,42 @@ class AuthService {
     const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
     if (!supabaseUrl || !supabaseKey) {
-      throw new Error('Supabase configuration missing');
+      console.warn('⚠️ Supabase configuration missing. Auth service running in demo mode.');
+      this.supabase = null as any;
+      this.updateAuthState({
+        user: null,
+        session: null,
+        isLoading: false,
+        isAuthenticated: false
+      });
+      return;
     }
 
-    this.supabase = createClient(supabaseUrl, supabaseKey, {
-      auth: {
-        autoRefreshToken: true,
-        persistSession: true,
-        detectSessionInUrl: true
+    try {
+      // Reuse the shared singleton to avoid duplicate GoTrueClient instances
+      if (sharedSupabase) {
+        this.supabase = sharedSupabase;
+      } else {
+        this.supabase = createClient(supabaseUrl, supabaseKey, {
+          auth: {
+            autoRefreshToken: true,
+            persistSession: true,
+            detectSessionInUrl: true
+          }
+        });
       }
-    });
 
-    this.initialize();
+      this.initialize();
+    } catch (error) {
+      console.warn('⚠️ Failed to initialize auth service:', error);
+      this.supabase = null as any;
+      this.updateAuthState({
+        user: null,
+        session: null,
+        isLoading: false,
+        isAuthenticated: false
+      });
+    }
   }
 
   private async initialize(): Promise<void> {

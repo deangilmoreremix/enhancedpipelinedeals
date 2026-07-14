@@ -45,9 +45,12 @@ export default defineConfig(({ mode }) => ({
   plugins: [
     react(),
     federation({
-        name: "deals",
+        name: "PipelineApp",
         filename: "remoteEntry.js",
         exposes: {
+          "./PipelineApp": "./src/remote/PipelineApp.tsx",
+          "./Pipeline": "./src/remote/Pipeline.tsx",
+          "./DealDetailView": "./src/remote/DealDetailView.tsx",
           "./SmartCRMApp": "./src/SmartCRMApp.tsx",
           "./App": "./src/App.tsx",
         },
@@ -73,7 +76,6 @@ export default defineConfig(({ mode }) => ({
     rollupOptions: {
       output: {
         manualChunks: {
-          vendor: ['react', 'react-dom'],
           supabase: ['@supabase/supabase-js'],
           ui: ['lucide-react', 'recharts'],
           ai: ['openai']

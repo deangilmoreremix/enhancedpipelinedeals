@@ -18,20 +18,20 @@ class IntelligentAIService {
     'contact-analysis': {
       primary: 'openai',
       model: 'gpt-4o', // GPT-5 for deep analysis and scoring
-      fallback: 'gemini',
-      fallbackModel: 'gemini-1.5-pro',
+      fallback: 'openai',
+      fallbackModel: 'gpt-4o',
       reason: 'GPT-5 excels at nuanced data analysis and scoring'
     },
     'email-generation': {
       primary: 'openai',
       model: 'gpt-4o', // GPT-5 for creative writing and personalization
-      fallback: 'gemini',
-      fallbackModel: 'gemini-1.5-pro',
+      fallback: 'openai',
+      fallbackModel: 'gpt-4o',
       reason: 'GPT-5 superior for creative writing and personalization'
     },
     'company-research': {
-      primary: 'gemini',
-      model: 'gemini-1.5-pro', // Gemini strong for factual research
+      primary: 'openai',
+      model: 'gpt-4o', // Gemini strong for factual research
       fallback: 'openai',
       fallbackModel: 'gpt-4o', // Fallback to GPT-5
       reason: 'Gemini better for factual research and comprehensive analysis'
@@ -39,27 +39,27 @@ class IntelligentAIService {
     'deal-summary': {
       primary: 'openai',
       model: 'gpt-4o', // GPT-5 for comprehensive and actionable summaries
-      fallback: 'gemini',
-      fallbackModel: 'gemini-1.5-pro',
+      fallback: 'openai',
+      fallbackModel: 'gpt-4o',
       reason: 'GPT-5 provides comprehensive and actionable business summaries'
     },
     'next-actions': {
       primary: 'openai',
       model: 'gpt-4o-mini', // GPT-5 Mini for efficient, adaptive recommendations
-      fallback: 'gemini',
-      fallbackModel: 'gemini-1.5-flash',
+      fallback: 'openai',
+      fallbackModel: 'gpt-4o-mini',
       reason: 'GPT-5 Mini optimized for specific, actionable recommendations'
     },
     'insights': {
       primary: 'openai',
       model: 'gpt-4o', // GPT-5 for creative insights and pattern recognition
-      fallback: 'gemini',
-      fallbackModel: 'gemini-1.5-pro',
+      fallback: 'openai',
+      fallbackModel: 'gpt-4o',
       reason: 'GPT-5 better for creative insights and pattern recognition'
     },
     'contact-research': {
-      primary: 'gemini',
-      model: 'gemini-1.5-flash',
+      primary: 'openai',
+      model: 'gpt-4o-mini',
       fallback: 'openai',
       fallbackModel: 'gpt-4o-mini', // GPT-5 Nano for cost-efficient contact research
       reason: 'Gemini faster for contact information and strategy research'
@@ -76,8 +76,8 @@ class IntelligentAIService {
     if (!basePreference) {
       // Default fallback
       return {
-        primary: 'gemini',
-        model: 'gemini-2.0-flash-exp',
+        primary: 'openai',
+        model: 'gpt-4o',
         fallback: 'openai',
         fallbackModel: 'gpt-4o-mini',
         reason: 'Default routing for unknown task'
@@ -95,7 +95,7 @@ class IntelligentAIService {
       } else {
         return {
           ...basePreference,
-          model: 'gemini-1.5-flash', // Faster Gemini model
+          model: 'gpt-4o-mini', // Faster Gemini model
         };
       }
     } else if (priority === 'cost') {
@@ -108,7 +108,7 @@ class IntelligentAIService {
       } else {
         return {
           ...basePreference,
-          model: 'gemini-2.0-flash', // Lower cost Gemma model
+          model: 'gpt-4o-mini', // Lower cost OpenAI model
         };
       }
     }
@@ -158,7 +158,7 @@ class IntelligentAIService {
   private async executeGeminiTask(taskType: string, data: any, model: string): Promise<any> {
     const prompt = this.generatePrompt(taskType, data);
 
-    return await this.callAIGateway('gemini', model, taskType, {
+    return await this.callAIGateway('openai', model, taskType, {
       contents: [{
         parts: [{ text: prompt }]
       }],

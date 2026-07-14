@@ -104,7 +104,7 @@ class AIGatewayService {
    */
   createGeminiRequest(
     prompt: string, 
-    model: string = 'gemini-2.0-flash-exp',
+    model: string = 'gpt-4o',
     taskType: string = 'general',
     systemInstruction?: string,
     options: any = {}

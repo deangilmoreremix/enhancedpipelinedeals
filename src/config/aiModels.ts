@@ -154,23 +154,23 @@ export function getActiveModels(): AIModel[] {
   return AI_MODELS.filter(model => model.isActive);
 }
 
-// Task-specific model recommendations - Updated to prioritize GPT-5
+// Task-specific model recommendations - OpenAI only
 export const TASK_MODEL_MAPPING = {
-  'contact-analysis': ['gpt-4o', 'gemini-1.5-pro'],
-  'email-generation': ['gpt-4o', 'gemini-1.5-pro'],
-  'company-research': ['gemini-2.0-flash', 'gpt-4o'],
-  'deal-summary': ['gpt-4o', 'gemini-1.5-pro'],
-  'next-actions': ['gpt-4o-mini', 'gemini-2.0-flash'],
-  'insights': ['gpt-4o', 'gemini-1.5-pro'],
-  'contact-research': ['gemini-2.0-flash', 'gpt-4o-mini'],
-  'social-media-discovery': ['gemini-2.0-flash', 'gemini-2.0-flash'],
-  'app-enrichment': ['gemini-2.0-flash', 'gemini-1.5-pro'],
-  'channel-identification': ['gemini-2.0-flash', 'gemini-2.0-flash'],
-  'sales-coaching': ['gpt-4o', 'gemini-1.5-pro'],
+  'contact-analysis': ['gpt-4o', 'gpt-4o-mini'],
+  'email-generation': ['gpt-4o', 'gpt-4o-mini'],
+  'company-research': ['gpt-4o', 'gpt-4o-mini'],
+  'deal-summary': ['gpt-4o', 'gpt-4o-mini'],
+  'next-actions': ['gpt-4o-mini', 'gpt-4o'],
+  'insights': ['gpt-4o', 'gpt-4o-mini'],
+  'contact-research': ['gpt-4o-mini', 'gpt-4o'],
+  'social-media-discovery': ['gpt-4o-mini', 'gpt-4o'],
+  'app-enrichment': ['gpt-4o', 'gpt-4o-mini'],
+  'channel-identification': ['gpt-4o-mini', 'gpt-4o'],
+  'sales-coaching': ['gpt-4o', 'gpt-4o-mini'],
   'objection-handling': ['gpt-4o', 'gpt-4o-mini'],
-  'dynamic-recommendations': ['gpt-4o-mini', 'gemini-2.0-flash'],
-  'real-time-coaching': ['gpt-4o', 'gemini-2.0-flash'],
-  'conversation-analysis': ['gpt-4o', 'gemini-1.5-pro']
+  'dynamic-recommendations': ['gpt-4o-mini', 'gpt-4o'],
+  'real-time-coaching': ['gpt-4o', 'gpt-4o-mini'],
+  'conversation-analysis': ['gpt-4o', 'gpt-4o-mini']
 } as const;
 
 export function getRecommendedModelForTask(task: keyof typeof TASK_MODEL_MAPPING): AIModel[] {

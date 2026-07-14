@@ -37,35 +37,35 @@ class EnhancedIntelligentAIService {
       primary: 'openai',
       primaryModel: 'gpt-4o', // GPT-5 for creative and personalized writing
       fallback: 'gemma',
-      fallbackModel: 'gemini-2.0-flash',
+      fallbackModel: 'gpt-4o-mini',
       reason: 'GPT-5 superior for creative writing and personalization'
     },
     'company-research': {
       primary: 'openai',
       primaryModel: 'gpt-4o', // GPT-5 for comprehensive research
       fallback: 'gemma',
-      fallbackModel: 'gemini-2.0-flash',
+      fallbackModel: 'gpt-4o-mini',
       reason: 'GPT-5 provides comprehensive research with advanced reasoning'
     },
     'deal-summary': {
       primary: 'openai',
       primaryModel: 'gpt-4o', // GPT-5 for comprehensive business analysis
       fallback: 'gemma',
-      fallbackModel: 'gemini-2.0-flash',
+      fallbackModel: 'gpt-4o-mini',
       reason: 'GPT-5 provides comprehensive and actionable business summaries'
     },
     'next-actions': {
       primary: 'openai',
       primaryModel: 'gpt-4o-mini', // GPT-5 Mini for efficient recommendations
       fallback: 'openai',
-      fallbackModel: 'gemini-2.0-flash',
+      fallbackModel: 'gpt-4o-mini',
       reason: 'GPT-5 Mini optimized for specific, actionable recommendations'
     },
     'insights': {
       primary: 'openai',
       primaryModel: 'gpt-4o', // GPT-5 for creative insights
       fallback: 'openai',
-      fallbackModel: 'gemini-2.0-flash',
+      fallbackModel: 'gpt-4o-mini',
       reason: 'GPT-5 better for creative insights and pattern recognition'
     },
     'contact-research': {
@@ -122,7 +122,7 @@ class EnhancedIntelligentAIService {
       if (baseRoute.primary === 'openai') {
         return { ...baseRoute, primaryModel: 'gpt-4o-mini' };
       } else {
-        return { ...baseRoute, primaryModel: 'gemini-2.0-flash' };
+        return { ...baseRoute, primaryModel: 'gpt-4o' };
       }
     }
 

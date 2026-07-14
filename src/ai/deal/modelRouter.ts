@@ -7,7 +7,7 @@ import { DealAiTask } from './types';
 
 export const MODEL_ROUTING = {
   // GPT-5.2 Instant - Fast responses for simple tasks
-  'gpt-5.2-instant': [
+  'gpt-4o-mini': [
     // Primary actions - quick insights
     'deal_favorite_insights', 'deal_share_summary',
 
@@ -23,7 +23,7 @@ export const MODEL_ROUTING = {
   ],
 
   // GPT-5.2 Thinking - Balanced reasoning for complex workflows
-  'gpt-5.2-thinking': [
+  'gpt-4o': [
     // Deal analysis
     'deal_analyze', 'deal_edit_helper', 'sidebar_deal_analyze',
 
@@ -48,7 +48,7 @@ export const MODEL_ROUTING = {
   ],
 
   // GPT-5.2 Pro - Advanced reasoning for predictions and intelligence
-  'gpt-5.2-pro': [
+  'gpt-4o': [
     // Intelligence layer
     'intel_next_best_actions', 'intel_risk_assessment', 'intel_value_prediction',
     'intel_timeline_estimation', 'intel_deal_scoring', 'intel_stakeholder_analysis',
@@ -75,7 +75,7 @@ export function getOptimalModel(task: DealAiTask): string {
       return model;
     }
   }
-  return 'gpt-5.2-thinking'; // Default fallback
+  return 'gpt-4o'; // Default fallback
 }
 
 export function getModelCapabilities(model: string): {
@@ -90,19 +90,19 @@ export function getModelCapabilities(model: string): {
     supportsTools: boolean;
     costPerToken: number;
   }> = {
-    'gpt-5.2-instant': {
+    'gpt-4o-mini': {
       maxTokens: 4096,
       reasoningEffort: 'low',
       supportsTools: false,
       costPerToken: 0.00015
     },
-    'gpt-5.2-thinking': {
+    'gpt-4o': {
       maxTokens: 8192,
       reasoningEffort: 'medium',
       supportsTools: true,
       costPerToken: 0.0003
     },
-    'gpt-5.2-pro': {
+    'gpt-4o': {
       maxTokens: 16384,
       reasoningEffort: 'high',
       supportsTools: true,
@@ -110,15 +110,15 @@ export function getModelCapabilities(model: string): {
     }
   };
 
-  return capabilities[model] || capabilities['gpt-5.2-thinking'];
+  return capabilities[model] || capabilities['gpt-4o'];
 }
 
 export function getFallbackModels(primaryModel: string): string[] {
   const fallbacks: Record<string, string[]> = {
-    'gpt-5.2-pro': ['gpt-5.2-thinking', 'gpt-5.2-instant'],
-    'gpt-5.2-thinking': ['gpt-5.2-pro', 'gpt-5.2-instant'],
-    'gpt-5.2-instant': ['gpt-5.2-thinking', 'gpt-5.2-pro']
+    'gpt-4o': ['gpt-4o', 'gpt-4o-mini'],
+    'gpt-4o': ['gpt-4o', 'gpt-4o-mini'],
+    'gpt-4o-mini': ['gpt-4o', 'gpt-4o']
   };
 
-  return fallbacks[primaryModel] || ['gpt-5.2-thinking', 'gpt-5.2-instant'];
+  return fallbacks[primaryModel] || ['gpt-4o', 'gpt-4o-mini'];
 }

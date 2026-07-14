@@ -292,7 +292,7 @@ export class SummaryGenerationService {
       recommendations: data.recommendations || [],
       generatedAt: new Date(),
       aiProvider: 'openai',
-      modelVersion: 'gpt-5.2-thinking',
+      modelVersion: 'gpt-4o',
       confidence: Math.max(0, Math.min(100, data.confidence || 50)),
       wordCount: data.content ? data.content.split(' ').length : 0
     };

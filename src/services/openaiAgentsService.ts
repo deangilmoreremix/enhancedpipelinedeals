@@ -49,7 +49,7 @@ class OpenAIAgentsService {
       - Personalize based on company research
       - Keep under 100 words`,
       tools: ['web_search', 'company_research'],
-      model: 'gpt-5-turbo',
+      model: 'gpt-4o',
       temperature: 0.7
     });
 
@@ -64,7 +64,7 @@ class OpenAIAgentsService {
       - Suggest next steps in the buying process
       - Personalize based on interaction history`,
       tools: ['crm_lookup', 'sequence_analysis'],
-      model: 'gpt-5-turbo',
+      model: 'gpt-4o',
       temperature: 0.6
     });
 
@@ -80,7 +80,7 @@ class OpenAIAgentsService {
       - Managing contract and closing processes
       - Providing strategic consultation`,
       tools: ['contract_analysis', 'stakeholder_mapping', 'pricing_optimizer'],
-      model: 'gpt-5-turbo',
+      model: 'gpt-4o',
       temperature: 0.5
     });
   }
@@ -141,7 +141,7 @@ class OpenAIAgentsService {
       }
 
       const completion = await this.openai.chat.completions.create({
-        model: agent.model || 'gpt-5-turbo',
+        model: agent.model || 'gpt-4o',
         messages,
         temperature: agent.temperature || 0.7,
         max_tokens: 1000,
@@ -169,7 +169,7 @@ class OpenAIAgentsService {
 
         // Get final response after tool execution
         const finalCompletion = await this.openai.chat.completions.create({
-          model: agent.model || 'gpt-5-turbo',
+          model: agent.model || 'gpt-4o',
           messages: thread.messages.map(msg => ({
             role: msg.role,
             content: msg.content

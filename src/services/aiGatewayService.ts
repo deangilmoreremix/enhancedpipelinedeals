@@ -80,7 +80,7 @@ class AIGatewayService {
    */
   createOpenAIRequest(
     messages: Array<{ role: string; content: string }>, 
-    model: string = 'gpt-5',
+    model: string = 'gpt-4o',
     taskType: string = 'general',
     options: any = {}
   ): AIGatewayRequest {

@@ -17,7 +17,7 @@ export interface AIModel {
 export const AI_MODELS: AIModel[] = [
   // OpenAI Models - Updated with ChatGPT-5 models
   {
-    id: 'gpt-5',
+    id: 'gpt-4o',
     name: 'GPT-5',
     provider: 'openai',
     family: 'GPT-5',
@@ -31,7 +31,7 @@ export const AI_MODELS: AIModel[] = [
     isActive: true
   },
   {
-    id: 'gpt-5-mini',
+    id: 'gpt-4o-mini',
     name: 'GPT-5 Mini',
     provider: 'openai',
     family: 'GPT-5',
@@ -45,7 +45,7 @@ export const AI_MODELS: AIModel[] = [
     isActive: true
   },
   {
-    id: 'gpt-5-nano',
+    id: 'gpt-4o-mini',
     name: 'GPT-5 Nano',
     provider: 'openai',
     family: 'GPT-5',
@@ -136,40 +136,6 @@ export const AI_MODELS: AIModel[] = [
     endpoint: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent'
   },
 
-  // Gemma Models (via Gemini API)
-  {
-    id: 'gemma-2-2b-it',
-    name: 'Gemma 2 2B Instruct',
-    provider: 'gemma',
-    family: 'Gemma 2',
-    contextWindow: 8192,
-    maxTokens: 8192,
-    capabilities: ['text-generation', 'analysis', 'instruction-following'],
-    isActive: true,
-    endpoint: 'https://generativelanguage.googleapis.com/v1beta/models/gemma-2-2b-it:generateContent'
-  },
-  {
-    id: 'gemma-2-9b-it',
-    name: 'Gemma 2 9B Instruct',
-    provider: 'gemma',
-    family: 'Gemma 2',
-    contextWindow: 8192,
-    maxTokens: 8192,
-    capabilities: ['text-generation', 'analysis', 'reasoning', 'instruction-following'],
-    isActive: true,
-    endpoint: 'https://generativelanguage.googleapis.com/v1beta/models/gemma-2-9b-it:generateContent'
-  },
-  {
-    id: 'gemma-2-27b-it',
-    name: 'Gemma 2 27B Instruct',
-    provider: 'gemma',
-    family: 'Gemma 2',
-    contextWindow: 8192,
-    maxTokens: 8192,
-    capabilities: ['text-generation', 'analysis', 'complex-reasoning', 'instruction-following'],
-    isActive: true,
-    endpoint: 'https://generativelanguage.googleapis.com/v1beta/models/gemma-2-27b-it:generateContent'
-  }
 ];
 
 export function getModelById(id: string): AIModel | undefined {
@@ -190,21 +156,21 @@ export function getActiveModels(): AIModel[] {
 
 // Task-specific model recommendations - Updated to prioritize GPT-5
 export const TASK_MODEL_MAPPING = {
-  'contact-analysis': ['gpt-5', 'gemini-1.5-pro'],
-  'email-generation': ['gpt-5', 'gemini-1.5-pro'],
-  'company-research': ['gemma-2-27b-it', 'gpt-5'],
-  'deal-summary': ['gpt-5', 'gemini-1.5-pro'],
-  'next-actions': ['gpt-5-mini', 'gemma-2-27b-it'],
-  'insights': ['gpt-5', 'gemini-1.5-pro'],
-  'contact-research': ['gemma-2-9b-it', 'gpt-5-nano'],
-  'social-media-discovery': ['gemma-2-27b-it', 'gemma-2-9b-it'],
-  'app-enrichment': ['gemma-2-27b-it', 'gemini-1.5-pro'],
-  'channel-identification': ['gemma-2-9b-it', 'gemma-2-2b-it'],
-  'sales-coaching': ['gpt-5', 'gemini-1.5-pro'],
-  'objection-handling': ['gpt-5', 'gpt-5-mini'],
-  'dynamic-recommendations': ['gpt-5-mini', 'gemma-2-9b-it'],
-  'real-time-coaching': ['gpt-5', 'gemma-2-27b-it'],
-  'conversation-analysis': ['gpt-5', 'gemini-1.5-pro']
+  'contact-analysis': ['gpt-4o', 'gemini-1.5-pro'],
+  'email-generation': ['gpt-4o', 'gemini-1.5-pro'],
+  'company-research': ['gemini-2.0-flash', 'gpt-4o'],
+  'deal-summary': ['gpt-4o', 'gemini-1.5-pro'],
+  'next-actions': ['gpt-4o-mini', 'gemini-2.0-flash'],
+  'insights': ['gpt-4o', 'gemini-1.5-pro'],
+  'contact-research': ['gemini-2.0-flash', 'gpt-4o-mini'],
+  'social-media-discovery': ['gemini-2.0-flash', 'gemini-2.0-flash'],
+  'app-enrichment': ['gemini-2.0-flash', 'gemini-1.5-pro'],
+  'channel-identification': ['gemini-2.0-flash', 'gemini-2.0-flash'],
+  'sales-coaching': ['gpt-4o', 'gemini-1.5-pro'],
+  'objection-handling': ['gpt-4o', 'gpt-4o-mini'],
+  'dynamic-recommendations': ['gpt-4o-mini', 'gemini-2.0-flash'],
+  'real-time-coaching': ['gpt-4o', 'gemini-2.0-flash'],
+  'conversation-analysis': ['gpt-4o', 'gemini-1.5-pro']
 } as const;
 
 export function getRecommendedModelForTask(task: keyof typeof TASK_MODEL_MAPPING): AIModel[] {

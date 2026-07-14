@@ -135,7 +135,7 @@ export class DealScoringService {
       confidence: Math.max(0, Math.min(100, data.confidence || 50)),
       lastUpdated: new Date(),
       aiProvider: 'openai',
-      modelVersion: 'gpt-5.2-thinking'
+      modelVersion: 'gpt-4o'
     };
   }
 

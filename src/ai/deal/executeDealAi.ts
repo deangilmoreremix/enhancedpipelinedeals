@@ -299,12 +299,12 @@ ${options?.customInstructions || 'Generate an appropriate email for this situati
 
 function calculateCost(model: string, tokens: number): number {
   const rates: Record<string, number> = {
-    'gpt-5.2-instant': 0.00015,
-    'gpt-5.2-thinking': 0.0003,
-    'gpt-5.2-pro': 0.0006
+    'gpt-4o-mini': 0.00015,
+    'gpt-4o': 0.0003,
+    'gpt-4o': 0.0006
   };
 
-  return (rates[model] || rates['gpt-5.2-thinking']) * tokens;
+  return (rates[model] || rates['gpt-4o']) * tokens;
 }
 
 async function logUsage(request: DealAiRequest, result: any, startTime: number, cost: number) {

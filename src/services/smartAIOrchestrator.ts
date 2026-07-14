@@ -48,7 +48,7 @@ export function pickModel(task: AiTask): string {
     case "competitor_analysis":
     case "deal_insights":
     case "summary_generation":
-      return "gpt-5.2-pro"; // Heavy analytics & cross-panel intelligence
+      return "gpt-4o"; // Heavy analytics & cross-panel intelligence
 
     case "sales_playbook":
     case "deal_health":
@@ -62,7 +62,7 @@ export function pickModel(task: AiTask): string {
     case "record_classification":
     case "data_enrichment":
     case "custom_prompt_execution":
-      return "gpt-5.2-thinking"; // Multi-step reasoning tasks
+      return "gpt-4o"; // Multi-step reasoning tasks
 
     case "automated_note_taking":
     case "natural_language_query":
@@ -71,7 +71,7 @@ export function pickModel(task: AiTask): string {
     case "proposal_email":
     case "discovery_questions":
     default:
-      return "gpt-5.2-instant"; // Quick features, emails, short insights
+      return "gpt-4o-mini"; // Quick features, emails, short insights
   }
 }
 
@@ -1196,7 +1196,7 @@ export class SmartAIOrchestrator {
         data: {
           response: "Custom prompt executed successfully with provided variables.",
           executionDetails: {
-            model: "gpt-5.2-thinking",
+            model: "gpt-4o",
             tokens: 150,
             processingTime: 1200
           }

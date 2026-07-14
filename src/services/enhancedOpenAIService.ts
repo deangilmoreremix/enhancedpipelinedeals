@@ -22,7 +22,7 @@ interface OpenAIService {
 
 class EnhancedOpenAIService implements OpenAIService {
   private gateway = getAIGatewayService();
-  private defaultModel = 'gpt-5'; // Prioritize GPT-5 for enhanced reasoning
+  private defaultModel = 'gpt-4o'; // Prioritize GPT-5 for enhanced reasoning
 
   private getModelId(modelId?: string): string {
     return modelId || import.meta.env.VITE_OPENAI_MODEL || this.defaultModel;

@@ -28,70 +28,70 @@ class EnhancedIntelligentAIService {
   private taskRouting: Record<string, TaskRoute> = {
     'contact-analysis': {
       primary: 'openai',
-      primaryModel: 'gpt-5', // GPT-5 for advanced reasoning
+      primaryModel: 'gpt-4o', // GPT-5 for advanced reasoning
       fallback: 'openai',
-      fallbackModel: 'gpt-5-mini',
+      fallbackModel: 'gpt-4o-mini',
       reason: 'GPT-5 excels at nuanced psychological analysis and pattern recognition'
     },
     'email-generation': {
       primary: 'openai',
-      primaryModel: 'gpt-5', // GPT-5 for creative and personalized writing
+      primaryModel: 'gpt-4o', // GPT-5 for creative and personalized writing
       fallback: 'gemma',
-      fallbackModel: 'gemma-2-9b-it',
+      fallbackModel: 'gemini-2.0-flash',
       reason: 'GPT-5 superior for creative writing and personalization'
     },
     'company-research': {
       primary: 'openai',
-      primaryModel: 'gpt-5', // GPT-5 for comprehensive research
+      primaryModel: 'gpt-4o', // GPT-5 for comprehensive research
       fallback: 'gemma',
-      fallbackModel: 'gemma-2-27b-it',
+      fallbackModel: 'gemini-2.0-flash',
       reason: 'GPT-5 provides comprehensive research with advanced reasoning'
     },
     'deal-summary': {
       primary: 'openai',
-      primaryModel: 'gpt-5', // GPT-5 for comprehensive business analysis
+      primaryModel: 'gpt-4o', // GPT-5 for comprehensive business analysis
       fallback: 'gemma',
-      fallbackModel: 'gemma-2-27b-it',
+      fallbackModel: 'gemini-2.0-flash',
       reason: 'GPT-5 provides comprehensive and actionable business summaries'
     },
     'next-actions': {
       primary: 'openai',
-      primaryModel: 'gpt-5-mini', // GPT-5 Mini for efficient recommendations
+      primaryModel: 'gpt-4o-mini', // GPT-5 Mini for efficient recommendations
       fallback: 'openai',
-      fallbackModel: 'gemma-2-9b-it',
+      fallbackModel: 'gemini-2.0-flash',
       reason: 'GPT-5 Mini optimized for specific, actionable recommendations'
     },
     'insights': {
       primary: 'openai',
-      primaryModel: 'gpt-5', // GPT-5 for creative insights
+      primaryModel: 'gpt-4o', // GPT-5 for creative insights
       fallback: 'openai',
-      fallbackModel: 'gemma-2-27b-it',
+      fallbackModel: 'gemini-2.0-flash',
       reason: 'GPT-5 better for creative insights and pattern recognition'
     },
     'contact-research': {
       primary: 'openai',
-      primaryModel: 'gpt-5-mini', // GPT-5 Mini for contact research
+      primaryModel: 'gpt-4o-mini', // GPT-5 Mini for contact research
       fallback: 'openai',
       fallbackModel: 'gpt-4o-mini',
       reason: 'GPT-5 Mini provides intelligent contact research with reasoning'
     },
     'social-media-discovery': {
       primary: 'openai',
-      primaryModel: 'gpt-5-mini', // GPT-5 Mini for social discovery
+      primaryModel: 'gpt-4o-mini', // GPT-5 Mini for social discovery
       fallback: 'openai',
       fallbackModel: 'gpt-4o-mini',
       reason: 'GPT-5 Mini with OpenAI fallback for social media channel identification'
     },
     'app-enrichment': {
       primary: 'openai',
-      primaryModel: 'gpt-5', // GPT-5 for comprehensive app analysis
+      primaryModel: 'gpt-4o', // GPT-5 for comprehensive app analysis
       fallback: 'openai',
-      fallbackModel: 'gpt-5-mini',
+      fallbackModel: 'gpt-4o-mini',
       reason: 'GPT-5 with OpenAI fallback for app metadata and feature analysis'
     },
     'channel-identification': {
       primary: 'openai',
-      primaryModel: 'gpt-5-nano', // GPT-5 Nano for efficient channel identification
+      primaryModel: 'gpt-4o-mini', // GPT-5 Nano for efficient channel identification
       fallback: 'openai',
       fallbackModel: 'gpt-4o-mini',
       reason: 'GPT-5 Nano with OpenAI fallback for social platform identification'
@@ -104,9 +104,9 @@ class EnhancedIntelligentAIService {
     if (!baseRoute) {
       return {
         primary: 'openai',
-        primaryModel: 'gpt-5',
+        primaryModel: 'gpt-4o',
         fallback: 'openai',
-        fallbackModel: 'gpt-5-mini',
+        fallbackModel: 'gpt-4o-mini',
         reason: 'Default routing for unknown task'
       };
     }
@@ -114,15 +114,15 @@ class EnhancedIntelligentAIService {
     // Adjust routing based on priority
     if (priority === 'speed') {
       if (baseRoute.primary === 'openai') {
-        return { ...baseRoute, primaryModel: 'gpt-5-mini' };
+        return { ...baseRoute, primaryModel: 'gpt-4o-mini' };
       } else {
         return { ...baseRoute, primaryModel: 'gemini-1.5-flash' };
       }
     } else if (priority === 'cost') {
       if (baseRoute.primary === 'openai') {
-        return { ...baseRoute, primaryModel: 'gpt-5-nano' };
+        return { ...baseRoute, primaryModel: 'gpt-4o-mini' };
       } else {
-        return { ...baseRoute, primaryModel: 'gemma-2-2b-it' };
+        return { ...baseRoute, primaryModel: 'gemini-2.0-flash' };
       }
     }
 

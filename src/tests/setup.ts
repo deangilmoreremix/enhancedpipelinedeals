@@ -18,10 +18,10 @@ const mockImportMeta = {
     ENVIRONMENT: 'test',
     AGENTMAIL_API_KEY: 'test-agentmail-key',
     PUBLIC_API_URL: 'https://test-api.example.com',
-    VITE_GEMINI_MODEL: 'gemma-2-27b-it',
-    VITE_GPT5_MODEL: 'gpt-5',
+    VITE_GEMINI_MODEL: 'gemini-2.0-flash',
+    VITE_GPT5_MODEL: 'gpt-4o',
     VITE_GPT5_REASONING_EFFORT: 'medium',
-    VITE_OPENAI_MODEL: 'gpt-5'
+    VITE_OPENAI_MODEL: 'gpt-4o'
   }
 };
 

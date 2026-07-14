@@ -363,7 +363,7 @@ async function createPhase7Tables(): Promise<void> {
         category TEXT NOT NULL CHECK (category IN ('scoring', 'analysis', 'communication', 'classification', 'enrichment', 'general')),
         prompt_template TEXT NOT NULL,
         variables JSONB,
-        model TEXT NOT NULL DEFAULT 'gpt-5.2-thinking',
+        model TEXT NOT NULL DEFAULT 'gpt-4o',
         temperature DECIMAL(3,2) NOT NULL DEFAULT 0.7 CHECK (temperature >= 0 AND temperature <= 2),
         max_tokens INTEGER NOT NULL DEFAULT 2000,
         system_message TEXT,

@@ -317,7 +317,7 @@ ${userPrompt}
             { role: 'system', content: systemPrompt },
             { role: 'user', content: enhancedPrompt }
           ],
-          'gpt-5',
+          'gpt-4o',
           'web-search-analysis'
         )
       );

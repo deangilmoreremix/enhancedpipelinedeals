@@ -44,17 +44,17 @@ export const getAPIConfig = (): APIConfiguration => {
   return {
     openai: {
       apiKey: import.meta.env.VITE_OPENAI_API_KEY || '',
-      model: import.meta.env.VITE_OPENAI_MODEL || 'gpt-5',
+      model: import.meta.env.VITE_OPENAI_MODEL || 'gpt-4o',
       baseUrl: 'https://api.openai.com/v1',
       gpt5: {
-        model: import.meta.env.VITE_GPT5_MODEL || 'gpt-5',
+        model: import.meta.env.VITE_GPT5_MODEL || 'gpt-4o',
         reasoningEffort: (import.meta.env.VITE_GPT5_REASONING_EFFORT as 'low' | 'medium' | 'high') || 'medium',
-        fallbackModels: ['gpt-5-mini', 'gpt-4o-mini'],
+        fallbackModels: ['gpt-4o-mini', 'gpt-4o'],
       },
     },
     gemini: {
       apiKey: import.meta.env.VITE_GEMINI_API_KEY || '',
-      model: import.meta.env.VITE_GEMINI_MODEL || 'gemma-2-27b-it',
+      model: import.meta.env.VITE_GEMINI_MODEL || 'gemini-2.0-flash',
       baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
     },
     supabase: {
@@ -105,10 +105,11 @@ export const validateAPIConfig = (): { configured: string[]; missing: string[] }
   return { configured, missing };
 };
 
-// Helper to check if production APIs should be used
+// Helper to check if production APIs should be used.
+// AI features require their own provider key; Supabase connectivity is handled separately.
 export const shouldUseRealAPIs = (): boolean => {
   const config = getAPIConfig();
-  return !!(config.openai.apiKey || config.gemini.apiKey || config.supabase.url);
+  return !!(config.openai.apiKey || config.gemini.apiKey);
 };
 
 export default getAPIConfig;

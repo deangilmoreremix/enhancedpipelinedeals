@@ -1,5 +1,6 @@
 import { Deal } from '../types';
 import { Contact } from '../types/contact';
+import { getAPIConfig } from '../config/apiConfig';
 
 export interface EmailTemplate {
   subject: string;
@@ -126,23 +127,73 @@ Best regards,
   }
 
   async sendEmail(emailData: EmailData): Promise<boolean> {
+    const { sendgrid } = getAPIConfig();
+
+    // If SendGrid is configured, send a real transactional email via the v3 API.
+    if (sendgrid.apiKey) {
+      try {
+        const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${sendgrid.apiKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            personalizations: [{ to: [{ email: emailData.to }] }],
+            from: { email: sendgrid.fromEmail },
+            subject: emailData.subject,
+            content: [
+              {
+                type: 'text/html',
+                value: emailData.body.replace(/\n/g, '<br/>')
+              }
+            ]
+          })
+        });
+
+        if (!response.ok) {
+          const errorBody = await response.text();
+          console.error('SendGrid send failed:', response.status, errorBody);
+          // Fall back to opening a mailto draft so the user can send manually.
+          this.openMailto(emailData);
+          return false;
+        }
+
+        console.log('📧 Email sent via SendGrid:', {
+          to: emailData.to,
+          subject: emailData.subject,
+          dealId: emailData.deal?.id,
+          contactId: emailData.contact?.id,
+          timestamp: new Date().toISOString()
+        });
+        return true;
+      } catch (error) {
+        console.error('Failed to send email via SendGrid:', error);
+        this.openMailto(emailData);
+        return false;
+      }
+    }
+
+    // No SendGrid key configured: fall back to a mailto: draft.
+    this.openMailto(emailData);
+    return true;
+  }
+
+  private openMailto(emailData: EmailData): void {
     try {
       const mailtoLink = this.generateMailtoLink(emailData);
-      window.open(mailtoLink, '_blank');
-
-      // Log the email attempt
-      console.log('📧 Email opened:', {
+      if (typeof window !== 'undefined') {
+        window.open(mailtoLink, '_blank');
+      }
+      console.log('📧 Email draft opened (mailto):', {
         to: emailData.to,
         subject: emailData.subject,
         dealId: emailData.deal?.id,
         contactId: emailData.contact?.id,
         timestamp: new Date().toISOString()
       });
-
-      return true;
     } catch (error) {
-      console.error('Failed to send email:', error);
-      return false;
+      console.error('Failed to open email draft:', error);
     }
   }
 

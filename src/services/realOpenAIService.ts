@@ -24,7 +24,7 @@ class RealOpenAIService implements OpenAIService {
 
   constructor() {
     this.apiKey = import.meta.env.VITE_OPENAI_API_KEY;
-    this.defaultModel = import.meta.env.VITE_OPENAI_MODEL || 'gpt-5';
+    this.defaultModel = import.meta.env.VITE_OPENAI_MODEL || 'gpt-4o';
     
     if (!this.apiKey) {
       console.warn('OpenAI API key not found. Using mock responses.');

@@ -41,7 +41,7 @@ class RealGeminiService implements GeminiService {
 
   private getModelId(modelId?: string): string {
     if (modelId) return modelId;
-    return import.meta.env.VITE_GEMINI_MODEL || 'gemini-2.0-flash-exp';
+    return import.meta.env.VITE_GEMINI_MODEL || 'gemini-2.0-flash';
   }
 
   private async makeRequest(prompt: string, systemInstruction?: string, modelId?: string): Promise<string> {

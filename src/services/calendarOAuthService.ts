@@ -38,11 +38,19 @@ export interface CalendarProviderConfig {
   tokenUrl: string;
 }
 
+// Vite only exposes variables prefixed with VITE_ to the client bundle.
+const getFrontendUrl = (): string => {
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    return window.location.origin;
+  }
+  return import.meta.env.VITE_FRONTEND_URL || 'http://localhost:3000';
+};
+
 const PROVIDER_CONFIGS: Record<string, CalendarProviderConfig> = {
   google: {
-    clientId: import.meta.env?.GOOGLE_CALENDAR_CLIENT_ID || '',
-    clientSecret: import.meta.env?.GOOGLE_CALENDAR_CLIENT_SECRET || '',
-    redirectUri: `${import.meta.env?.FRONTEND_URL || 'http://localhost:3000'}/auth/google-calendar/callback`,
+    clientId: import.meta.env.VITE_GOOGLE_CALENDAR_CLIENT_ID || '',
+    clientSecret: import.meta.env.VITE_GOOGLE_CALENDAR_CLIENT_SECRET || '',
+    redirectUri: `${getFrontendUrl()}/auth/google-calendar/callback`,
     scopes: [
       'https://www.googleapis.com/auth/calendar.readonly',
       'https://www.googleapis.com/auth/calendar.events'
@@ -51,9 +59,9 @@ const PROVIDER_CONFIGS: Record<string, CalendarProviderConfig> = {
     tokenUrl: 'https://oauth2.googleapis.com/token'
   },
   outlook: {
-    clientId: import.meta.env?.OUTLOOK_CALENDAR_CLIENT_ID || '',
-    clientSecret: import.meta.env?.OUTLOOK_CALENDAR_CLIENT_SECRET || '',
-    redirectUri: `${import.meta.env?.FRONTEND_URL || 'http://localhost:3000'}/auth/outlook-calendar/callback`,
+    clientId: import.meta.env.VITE_OUTLOOK_CLIENT_ID || '',
+    clientSecret: import.meta.env.VITE_OUTLOOK_CLIENT_SECRET || '',
+    redirectUri: `${getFrontendUrl()}/auth/outlook-calendar/callback`,
     scopes: [
       'https://graph.microsoft.com/Calendars.ReadWrite',
       'https://graph.microsoft.com/Mail.ReadWrite'

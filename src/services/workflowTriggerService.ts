@@ -5,6 +5,7 @@ import {
   Workflow
 } from '../types/workflow';
 import { enhancedWorkflowService } from './enhancedWorkflowService';
+import { subscribeDealEvents, type DealEvent } from './dealEvents';
 
 /**
  * Workflow Trigger Service
@@ -14,6 +15,8 @@ export class WorkflowTriggerService {
   private static instance: WorkflowTriggerService;
   private scheduledJobs: Map<string, NodeJS.Timeout> = new Map();
   private webhookListeners: Map<string, any> = new Map();
+  private unsubscribeBridge: (() => void) | null = null;
+  private realtimeChannel: { unsubscribe?: () => unknown } | null = null;
 
   static getInstance(): WorkflowTriggerService {
     if (!WorkflowTriggerService.instance) {
@@ -36,6 +39,72 @@ export class WorkflowTriggerService {
 
     // Set up database triggers for record events
     await this.setupDatabaseTriggers();
+
+    // Local event bus + realtime workflow_events (instant client-side runs)
+    this.startDealEventBridge();
+    this.startRealtimeEvents();
+  }
+
+  /**
+   * Subscribe to the in-browser deal event bus (src/services/dealEvents.ts). Idempotent.
+   * `stage_changed` is skipped when it comes with the matching `updated` event to avoid double runs.
+   */
+  startDealEventBridge(): void {
+    if (this.unsubscribeBridge) return;
+    this.unsubscribeBridge = subscribeDealEvents(async (event: DealEvent) => {
+      switch (event.type) {
+        case 'created':
+          await this.handleRecordCreated('deal', event.deal.id, event.deal);
+          break;
+        case 'stage_changed':
+          await this.handleStageChanged('deal', event.id, event.from, event.to, event.deal);
+          break;
+        case 'updated': {
+          // stage changes are announced separately via `stage_changed`
+          const { stage: _b, ...before } = event.before as Record<string, unknown>;
+          const { stage: _a, ...after } = event.after as Record<string, unknown>;
+          if (Object.keys(this.getChanges(before, after)).length > 0) {
+            await this.handleRecordUpdated('deal', event.id, { ...before, stage: undefined }, { ...after, stage: undefined });
+          }
+          break;
+        }
+        case 'deleted':
+          await this.handleRecordDeleted('deal', event.id, event.deal ?? {});
+          break;
+      }
+    });
+  }
+
+  /**
+   * Realtime fallback for emit points the store lacks: listens to `workflow_events` inserts written by the
+   * database trigger (deal.created / deal.updated) and runs matching browser workflows immediately.
+   * deal.stage_changed is excluded: dealStore.moveDeal already calls handleStageChanged directly.
+   */
+  startRealtimeEvents(): void {
+    if (this.realtimeChannel) return;
+    try {
+      const channel = supabase
+        .channel('workflow-events-client')
+        .on(
+          'postgres_changes',
+          { event: 'INSERT', schema: 'public', table: 'workflow_events' },
+          (payload: { new: { event_type?: string; entity_type?: string; entity_id?: string; payload?: Record<string, unknown> } }) => {
+            const e = payload.new;
+            if (e.entity_type !== 'deal' || !e.entity_id) return;
+            if (e.event_type === 'deal.created') {
+              void this.handleRecordCreated('deal', e.entity_id, e.payload ?? {});
+            } else if (e.event_type === 'deal.updated') {
+              void enhancedWorkflowService.executeWorkflowByTrigger('record_updated', {
+                recordId: e.entity_id, recordType: 'deal', inputData: e.payload ?? {}
+              });
+            }
+          }
+        )
+        .subscribe();
+      this.realtimeChannel = channel as unknown as { unsubscribe?: () => unknown };
+    } catch (error) {
+      console.warn('Realtime workflow events unavailable:', error);
+    }
   }
 
   /**
@@ -391,6 +460,10 @@ export class WorkflowTriggerService {
    * Cleanup scheduled jobs
    */
   cleanup(): void {
+    this.unsubscribeBridge?.();
+    this.unsubscribeBridge = null;
+    this.realtimeChannel?.unsubscribe?.();
+    this.realtimeChannel = null;
     for (const timeout of this.scheduledJobs.values()) {
       clearTimeout(timeout);
     }

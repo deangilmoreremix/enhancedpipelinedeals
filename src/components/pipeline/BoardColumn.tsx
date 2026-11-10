@@ -36,11 +36,19 @@ interface BoardColumnProps {
   onQuickCreateOpenChange: (open: boolean) => void;
   onQuickCreate: (title: string, value: number) => Promise<void>;
   renderCard: (deal: Deal) => React.ReactNode;
+  /** Grouped (non stage) boards: cards can be dragged out but not dropped here. */
+  dropDisabled?: boolean;
+  /** Hide the "Add Deal" affordances (grouped boards). */
+  hideAddDeal?: boolean;
+  /** Overrides the stage colour (grouped boards). */
+  color?: string;
+  emptyText?: string;
 }
 
 export const BoardColumn: React.FC<BoardColumnProps> = ({
   columnKey, title, stage, deals, totalInStage, renderLimit, onShowMore, isLoading,
-  dragHandleProps, menu, quickCreateOpen, onQuickCreateOpenChange, onQuickCreate, renderCard
+  dragHandleProps, menu, quickCreateOpen, onQuickCreateOpenChange, onQuickCreate, renderCard,
+  dropDisabled = false, hideAddDeal = false, color, emptyText
 }) => {
   const [operation, setOperation] = useState<AggregateOperation>('sum');
   const [field, setField] = useState<AggregateField>('value');
@@ -66,8 +74,8 @@ export const BoardColumn: React.FC<BoardColumnProps> = ({
     return () => io.disconnect();
   }, [hasMore, shown.length, onShowMore]);
 
-  const border = getStageBorderClass(stage?.color);
-  const headerTint = getStageHeaderClass(stage?.color);
+  const border = getStageBorderClass(color ?? stage?.color);
+  const headerTint = getStageHeaderClass(color ?? stage?.color);
 
   return (
     <div
@@ -95,7 +103,7 @@ export const BoardColumn: React.FC<BoardColumnProps> = ({
         )}
       </div>
 
-      <Droppable droppableId={columnKey} isDropDisabled={isUncategorized}>
+      <Droppable droppableId={columnKey} isDropDisabled={isUncategorized || dropDisabled}>
         {(provided, snapshot) => (
           <div
             ref={provided.innerRef}
@@ -104,7 +112,7 @@ export const BoardColumn: React.FC<BoardColumnProps> = ({
               snapshot.isDraggingOver ? 'bg-blue-50 dark:bg-blue-900/20' : ''
             }`}
           >
-            {quickCreateOpen && !isUncategorized && (
+            {quickCreateOpen && !isUncategorized && !hideAddDeal && (
               <QuickCreateDeal
                 stageName={title}
                 onCreate={onQuickCreate}
@@ -134,7 +142,7 @@ export const BoardColumn: React.FC<BoardColumnProps> = ({
 
             {!isLoading && deals.length === 0 && !snapshot.isDraggingOver && !quickCreateOpen && (
               <div className="py-8 text-center text-sm text-gray-400 dark:text-gray-500">
-                {isUncategorized ? 'No uncategorized deals' : 'No deals in this stage'}
+                {emptyText ?? (isUncategorized ? 'No uncategorized deals' : 'No deals in this stage')}
               </div>
             )}
 
@@ -150,7 +158,7 @@ export const BoardColumn: React.FC<BoardColumnProps> = ({
               </div>
             )}
 
-            {!isUncategorized && !quickCreateOpen && (
+            {!isUncategorized && !quickCreateOpen && !hideAddDeal && (
               <button
                 type="button"
                 onClick={() => onQuickCreateOpenChange(true)}

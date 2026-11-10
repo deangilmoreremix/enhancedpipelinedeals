@@ -7,13 +7,19 @@ interface FilterChipProps {
   onRemove: (filter: FilterCondition) => void;
   onEdit?: (filter: FilterCondition) => void;
   editable?: boolean;
+  /** Display overrides (used by the board filter bar, whose fields/operators differ from the defaults). */
+  labels?: { field?: string; operator?: string; value?: string };
+  /** When set, clicking the chip body (not the remove button) calls this, e.g. to open an editor. */
+  onActivate?: () => void;
 }
 
 export const FilterChip: React.FC<FilterChipProps> = ({
   filter,
   onRemove,
   onEdit,
-  editable = false
+  editable = false,
+  labels,
+  onActivate
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedValue, setEditedValue] = useState<string | number>(filter.value);
@@ -69,10 +75,23 @@ export const FilterChip: React.FC<FilterChipProps> = ({
 
   return (
     <div className="inline-flex items-center px-3 py-1 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded-full text-sm group hover:shadow-sm transition-shadow">
+      {onActivate ? (
+        <button
+          type="button"
+          onClick={onActivate}
+          className="inline-flex items-center focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
+          aria-label={`Edit filter: ${labels?.field ?? getFieldLabel(filter.field)} ${labels?.operator ?? getOperatorLabel(filter.operator)} ${labels?.value ?? String(filter.value)}`}
+        >
+          <span className="text-blue-700 dark:text-blue-300 font-medium">{labels?.field ?? getFieldLabel(filter.field)}</span>
+          <span className="text-blue-600 dark:text-blue-400 mx-1">{labels?.operator ?? getOperatorLabel(filter.operator)}</span>
+          <span className="text-blue-900 dark:text-blue-200 max-w-[12rem] truncate">{labels?.value ?? String(filter.value)}</span>
+        </button>
+      ) : (
+      <>
       <span className="text-blue-700 dark:text-blue-300 font-medium">
-        {getFieldLabel(filter.field)}
+        {labels?.field ?? getFieldLabel(filter.field)}
       </span>
-      <span className="text-blue-600 dark:text-blue-400 mx-1">{getOperatorLabel(filter.operator)}</span>
+      <span className="text-blue-600 dark:text-blue-400 mx-1">{labels?.operator ?? getOperatorLabel(filter.operator)}</span>
       {isEditing ? (
         <input
           type={filter.field === 'value' || filter.field === 'probability' ? 'number' : 'text'}
@@ -88,7 +107,9 @@ export const FilterChip: React.FC<FilterChipProps> = ({
           autoFocus
         />
       ) : (
-        <span className="text-blue-900 dark:text-blue-200">{String(filter.value)}</span>
+        <span className="text-blue-900 dark:text-blue-200">{labels?.value ?? String(filter.value)}</span>
+      )}
+      </>
       )}
 
       <div className="flex items-center space-x-1 ml-1">
@@ -103,8 +124,9 @@ export const FilterChip: React.FC<FilterChipProps> = ({
         )}
         <button
           onClick={() => onRemove(filter)}
-          className="text-blue-500 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+          className="text-blue-500 hover:text-red-600 opacity-60 group-hover:opacity-100 focus:opacity-100 transition-opacity"
           title="Remove filter"
+          aria-label="Remove filter"
         >
           <X className="w-3 h-3" />
         </button>

@@ -12,6 +12,7 @@ import {
   AIAgentConfiguration
 } from '../types/workflow';
 import { workflowExecutionEngine } from './workflowExecutionEngine';
+import { findMatchingTrigger } from './workflowTriggerMatch';
 
 /**
  * Enhanced Workflow Service
@@ -262,19 +263,31 @@ export class EnhancedWorkflowService {
     const executions: WorkflowExecution[] = [];
 
     try {
-      // Find workflows that have matching triggers
-      const workflows = Array.from(this.activeWorkflows.values()).filter(workflow =>
-        workflow.settings.isActive &&
-        workflow.triggers.some(trigger =>
-          trigger.type === triggerType && trigger.isActive
-        )
-      );
+      // Workflows are cached lazily; make sure the cache is populated before matching
+      if (this.activeWorkflows.size === 0) await this.getAllWorkflows();
+
+      // Find workflows whose trigger matches the event (type, record type, stages, conditions)
+      const input = context.inputData ?? {};
+      const event = {
+        triggerType,
+        entityType: context.recordType ?? 'deal',
+        payload: {
+          ...input,
+          ...(triggerType === 'stage_changed' ? { from: input.fromStage, to: input.toStage } : {})
+        } as Record<string, unknown>,
+        record: (input.recordData ?? input.newData ?? undefined) as Record<string, unknown> | undefined
+      };
+      const matched: Array<{ workflow: Workflow; trigger: WorkflowTrigger }> = [];
+      for (const workflow of this.activeWorkflows.values()) {
+        const t = findMatchingTrigger(
+          { id: workflow.id, is_active: workflow.settings.isActive, triggers: workflow.triggers },
+          event
+        );
+        if (t) matched.push({ workflow, trigger: workflow.triggers.find(x => x.id === t.id && x.type === t.type) ?? (t as WorkflowTrigger) });
+      }
 
       // Execute each matching workflow
-      for (const workflow of workflows) {
-        const trigger = workflow.triggers.find(t => t.type === triggerType && t.isActive);
-        if (!trigger) continue;
-
+      for (const { workflow, trigger } of matched) {
         try {
           const execution = await workflowExecutionEngine.executeWorkflow(workflow, trigger, context);
           executions.push(execution);

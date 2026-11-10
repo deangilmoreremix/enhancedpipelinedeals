@@ -10,6 +10,11 @@ interface ViewFilterValueInputProps {
   options?: Array<{ id: string; label: string; value: string | number }>;
   placeholder?: string;
   disabled?: boolean;
+  /** Hide the operator label to the left of the input. */
+  hideOperator?: boolean;
+  ariaLabel?: string;
+  /** Focus the input when it mounts / the field changes (default true). */
+  autoFocus?: boolean;
 }
 
 const FIELD_TYPES: Record<string, 'text' | 'number' | 'select' | 'date' | 'multi-select'> = {
@@ -49,19 +54,22 @@ export const ViewFilterValueInput: React.FC<ViewFilterValueInputProps> = ({
   fieldType,
   options,
   placeholder,
-  disabled = false
+  disabled = false,
+  hideOperator = false,
+  ariaLabel,
+  autoFocus = true
 }) => {
   const [inputValue, setInputValue] = useState<string>(
     value instanceof Date
-      ? value.toISOString().split('T')[0]
-      : String(value || '')
+      ? (isNaN(value.getTime()) ? '' : value.toISOString().split('T')[0])
+      : String(value ?? '')
   );
 
   const inputRef = useRef<HTMLInputElement>(null);
   const selectRef = useRef<HTMLSelectElement>(null);
 
   useEffect(() => {
-    if (!disabled && inputRef.current) {
+    if (autoFocus && !disabled && inputRef.current) {
       inputRef.current.focus();
     }
   }, [field, operator, disabled]);
@@ -71,13 +79,17 @@ export const ViewFilterValueInput: React.FC<ViewFilterValueInputProps> = ({
   const handleInputChange = (newValue: string | number | Date) => {
     setInputValue(
       newValue instanceof Date
-        ? newValue.toISOString().split('T')[0]
+        ? (isNaN(newValue.getTime()) ? '' : newValue.toISOString().split('T')[0])
         : String(newValue)
     );
     onChange(newValue);
   };
 
-  const renderIcon = () => {
+  const renderIcon = () => (
+    <span className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">{renderIconInner()}</span>
+  );
+
+  const renderIconInner = () => {
     switch (actualType) {
       case 'number':
         return <Hash className="w-4 h-4 text-gray-400" />;
@@ -103,6 +115,7 @@ export const ViewFilterValueInput: React.FC<ViewFilterValueInputProps> = ({
               value={inputValue}
               onChange={(e) => handleInputChange(Number(e.target.value))}
               disabled={disabled}
+              aria-label={ariaLabel}
               placeholder={placeholder || 'Enter number'}
               className="w-full pl-10 pr-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50"
             />
@@ -119,6 +132,7 @@ export const ViewFilterValueInput: React.FC<ViewFilterValueInputProps> = ({
               value={inputValue}
               onChange={(e) => handleInputChange(new Date(e.target.value))}
               disabled={disabled}
+              aria-label={ariaLabel}
               className="w-full pl-10 pr-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50"
             />
           </div>
@@ -133,13 +147,14 @@ export const ViewFilterValueInput: React.FC<ViewFilterValueInputProps> = ({
               value={inputValue}
               onChange={(e) => handleInputChange(e.target.value)}
               disabled={disabled}
+              aria-label={ariaLabel}
               className="w-full pl-10 pr-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 appearance-none"
             >
               <option value="">{placeholder || 'Select value'}</option>
               {options?.map(opt => (
                 <option key={opt.id} value={opt.value}>{opt.label}</option>
               ))}
-              {actualType === 'select' && field === 'stage' && (
+              {actualType === 'select' && field === 'stage' && !options?.length && (
                 <>
                   <option value="qualification">Qualification</option>
                   <option value="proposal">Proposal</option>
@@ -148,7 +163,7 @@ export const ViewFilterValueInput: React.FC<ViewFilterValueInputProps> = ({
                   <option value="closed-lost">Closed Lost</option>
                 </>
               )}
-              {actualType === 'select' && field === 'priority' && (
+              {actualType === 'select' && field === 'priority' && !options?.length && (
                 <>
                   <option value="high">High</option>
                   <option value="medium">Medium</option>
@@ -169,6 +184,7 @@ export const ViewFilterValueInput: React.FC<ViewFilterValueInputProps> = ({
               value={inputValue}
               onChange={(e) => handleInputChange(e.target.value)}
               disabled={disabled}
+              aria-label={ariaLabel}
               placeholder={placeholder || 'Type and press Enter to add tags'}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && inputValue.trim()) {
@@ -190,6 +206,7 @@ export const ViewFilterValueInput: React.FC<ViewFilterValueInputProps> = ({
               value={inputValue}
               onChange={(e) => handleInputChange(e.target.value)}
               disabled={disabled}
+              aria-label={ariaLabel}
               placeholder={placeholder || 'Enter value'}
               className="w-full pl-10 pr-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50"
             />
@@ -201,9 +218,11 @@ export const ViewFilterValueInput: React.FC<ViewFilterValueInputProps> = ({
   return (
     <div className="flex flex-col space-y-2">
       <div className="flex items-center space-x-2 text-sm">
-        <span className="text-gray-600 dark:text-gray-400 font-medium">
-          {OPERATOR_LABELS[operator] || operator}
-        </span>
+        {!hideOperator && (
+          <span className="text-gray-600 dark:text-gray-400 font-medium">
+            {OPERATOR_LABELS[operator] || operator}
+          </span>
+        )}
         <div className="flex-1">
           {renderInput()}
         </div>

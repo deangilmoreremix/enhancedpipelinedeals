@@ -1,5 +1,13 @@
 import { supabase } from './supabaseService';
 import {
+  SavedPipelineView,
+  SavedPipelineViewService,
+  SavedViewFilters,
+  SavedViewType,
+  normalizeSavedFilters,
+  normalizeSavedSorting
+} from './savedPipelineViewService';
+import {
   SavedView,
   ViewFilter,
   ViewSort,
@@ -12,115 +20,101 @@ import {
   ReportConfig
 } from '../types';
 
+
+// ---- saved view <-> saved_pipeline_views row mapping ------------------------
+const toRowViewType = (t: SavedView['viewType'] | undefined): SavedViewType => (t === 'kanban' || !t ? 'board' : t);
+const fromRowViewType = (t: SavedViewType): SavedView['viewType'] =>
+  t === 'board' ? 'kanban' : t === 'list' ? 'table' : (t as SavedView['viewType']);
+
+const packFilters = (conditions: ViewFilter[], base?: SavedViewFilters): SavedViewFilters => ({
+  conditions,
+  groups: base?.groups ?? [],
+  search: base?.search ?? '',
+  favoritesOnly: base?.favoritesOnly ?? false
+});
+
+function rowToSavedView(row: SavedPipelineView): SavedView {
+  return {
+    id: row.id,
+    name: row.name,
+    description: row.description ?? undefined,
+    viewType: fromRowViewType(row.view_type),
+    filters: normalizeSavedFilters(row.filters).conditions,
+    sorting: normalizeSavedSorting(row.sorting),
+    columns: Array.isArray(row.columns) ? (row.columns as ViewColumn[]) : [],
+    groupBy: row.group_by ? row.group_by.split(',').filter(Boolean) : undefined,
+    isDefault: row.is_default,
+    isPublic: row.is_public,
+    createdBy: row.user_id ?? '',
+    createdAt: new Date(row.created_at),
+    updatedAt: new Date(row.updated_at),
+    usageCount: row.usage_count,
+    tags: row.tags
+  };
+}
+
+/** camelCase SavedView fields -> row columns (only the ones present). */
+function savedViewToPatch(v: Partial<SavedView>): Partial<SavedPipelineView> {
+  const patch: Partial<SavedPipelineView> = {};
+  if (v.name !== undefined) patch.name = v.name;
+  if (v.description !== undefined) patch.description = v.description;
+  if (v.viewType !== undefined) patch.view_type = toRowViewType(v.viewType);
+  if (v.sorting !== undefined) patch.sorting = v.sorting;
+  if (v.columns !== undefined) patch.columns = v.columns;
+  if (v.groupBy !== undefined) patch.group_by = v.groupBy.join(',') || null;
+  if (v.isDefault !== undefined) patch.is_default = v.isDefault;
+  if (v.isPublic !== undefined) patch.is_public = v.isPublic;
+  if (v.usageCount !== undefined) patch.usage_count = v.usageCount;
+  if (v.tags !== undefined) patch.tags = v.tags;
+  return patch;
+}
+
 /**
  * Views and Reporting Service
  * Handles saved views, custom metrics, dashboards, and reporting functionality
  */
 export class ViewsReportingService {
   // Saved Views Management
+  // Backed by the single canonical table `saved_pipeline_views` through SavedPipelineViewService.
   static async getSavedViews(userId?: string): Promise<SavedView[]> {
-    try {
-      let query = supabase
-        .from('saved_views')
-        .select('*')
-        .order('updated_at', { ascending: false });
-
-      if (userId) {
-        query = query.or(`created_by.eq.${userId},is_public.eq.true`);
-      }
-
-      const { data, error } = await query;
-
-      if (error) throw error;
-      return data || [];
-    } catch (error) {
-      console.error('Error fetching saved views:', error);
-      return [];
-    }
+    const rows = await SavedPipelineViewService.getAllViews();
+    const visible = userId ? rows.filter(r => r.user_id === userId || r.is_public || r.user_id === null) : rows;
+    return visible
+      .map(rowToSavedView)
+      .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
   }
 
   static async createSavedView(view: Omit<SavedView, 'id' | 'createdAt' | 'updatedAt'>): Promise<SavedView | null> {
-    try {
-      const { data, error } = await supabase
-        .from('saved_views')
-        .insert({
-          ...view,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
-    } catch (error) {
-      console.error('Error creating saved view:', error);
-      return null;
-    }
+    const row = await SavedPipelineViewService.createView({
+      ...savedViewToPatch(view),
+      name: view.name,
+      view_type: toRowViewType(view.viewType),
+      filters: packFilters(view.filters ?? []),
+      sorting: view.sorting ?? [],
+      columns: view.columns ?? []
+    });
+    return row ? rowToSavedView(row) : null;
   }
 
   static async updateSavedView(id: string, updates: Partial<SavedView>): Promise<boolean> {
-    try {
-      const { error } = await supabase
-        .from('saved_views')
-        .update({
-          ...updates,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', id);
-
-      if (error) throw error;
-      return true;
-    } catch (error) {
-      console.error('Error updating saved view:', error);
-      return false;
+    const patch = savedViewToPatch(updates);
+    if (updates.filters) {
+      const existing = await SavedPipelineViewService.getViewById(id);
+      patch.filters = packFilters(updates.filters, normalizeSavedFilters(existing?.filters));
     }
+    return SavedPipelineViewService.updateView(id, patch);
   }
 
   static async deleteSavedView(id: string): Promise<boolean> {
-    try {
-      const { error } = await supabase
-        .from('saved_views')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
-      return true;
-    } catch (error) {
-      console.error('Error deleting saved view:', error);
-      return false;
-    }
+    return SavedPipelineViewService.deleteView(id);
   }
 
-  static async setDefaultView(id: string, userId: string): Promise<boolean> {
-    try {
-      // Unset existing default for user
-      await supabase
-        .from('saved_views')
-        .update({ is_default: false })
-        .eq('created_by', userId)
-        .eq('is_default', true);
-
-      // Set new default
-      const { error } = await supabase
-        .from('saved_views')
-        .update({ is_default: true, updated_at: new Date().toISOString() })
-        .eq('id', id);
-
-      if (error) throw error;
-      return true;
-    } catch (error) {
-      console.error('Error setting default view:', error);
-      return false;
-    }
+  static async setDefaultView(id: string, _userId?: string): Promise<boolean> {
+    return SavedPipelineViewService.setDefaultView(id);
   }
 
   static async incrementViewUsage(id: string): Promise<void> {
-    try {
-      await supabase.rpc('increment_view_usage', { view_id: id });
-    } catch (error) {
-      console.error('Error incrementing view usage:', error);
-    }
+    await SavedPipelineViewService.incrementUsage(id);
   }
 
   // Custom Metrics Management
@@ -408,19 +402,8 @@ export class ViewsReportingService {
   }
 
   private static async getSavedViewById(id: string): Promise<SavedView | null> {
-    try {
-      const { data, error } = await supabase
-        .from('saved_views')
-        .select('*')
-        .eq('id', id)
-        .single();
-
-      if (error) throw error;
-      return data;
-    } catch (error) {
-      console.error('Error fetching saved view:', error);
-      return null;
-    }
+    const row = await SavedPipelineViewService.getViewById(id);
+    return row ? rowToSavedView(row) : null;
   }
 }
 

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { SavedPipelineView as BaseSavedPipelineView } from '../../services/savedPipelineViewService';
-import { ChevronDown, Check, Star, Filter, BarChart3 } from 'lucide-react';
+import { SavedPipelineView as BaseSavedPipelineView, normalizeSavedFilters } from '../../services/savedPipelineViewService';
+import { ChevronDown, Check, Star, Filter, BarChart3, Globe, Pencil, X } from 'lucide-react';
 
 // Views may carry an optional description that the service type does not declare yet.
 type SavedPipelineView = BaseSavedPipelineView & { description?: string };
@@ -12,6 +12,15 @@ interface ViewPickerDropdownProps {
   onViewCreate?: () => void;
   onViewEdit?: (view: SavedPipelineView) => void;
   onViewDelete?: (viewId: string) => void;
+  onViewRename?: (view: SavedPipelineView) => void;
+  /** Toggle "default view" (a default view is applied when the board opens). */
+  onSetDefault?: (view: SavedPipelineView) => void;
+  /** Toggle whether the view is shared with everybody (is_public). */
+  onTogglePublic?: (view: SavedPipelineView) => void;
+  /** The live configuration differs from the selected view. */
+  dirty?: boolean;
+  /** Footer link opening the full management panel. */
+  onManage?: () => void;
 }
 
 export const ViewPickerDropdown: React.FC<ViewPickerDropdownProps> = ({
@@ -20,7 +29,12 @@ export const ViewPickerDropdown: React.FC<ViewPickerDropdownProps> = ({
   onViewSelect,
   onViewCreate,
   onViewEdit,
-  onViewDelete
+  onViewDelete,
+  onViewRename,
+  onSetDefault,
+  onTogglePublic,
+  dirty = false,
+  onManage
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -32,18 +46,21 @@ export const ViewPickerDropdown: React.FC<ViewPickerDropdownProps> = ({
 
   const groupedViews = {
     default: filteredViews.filter(v => v.is_default),
-    recent: filteredViews.filter(v => !v.is_default).slice(0, 5),
+    recent: filteredViews.filter(v => !v.is_default),
     all: filteredViews
   };
 
   return (
     <div className="relative">
       <button
+        type="button"
         onClick={() => setIsOpen(!isOpen)}
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
         className="flex items-center space-x-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors min-w-[200px]"
       >
         <span className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">
-          {currentView?.name || 'Select View'}
+          {currentView?.name || 'Select View'}{dirty ? ' (modified)' : ''}
         </span>
         <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </button>
@@ -72,6 +89,9 @@ export const ViewPickerDropdown: React.FC<ViewPickerDropdownProps> = ({
                     onSelect={onViewSelect}
                     onEdit={onViewEdit}
                     onDelete={onViewDelete}
+                    onRename={onViewRename}
+                    onSetDefault={onSetDefault}
+                    onTogglePublic={onTogglePublic}
                     isDefault
                   />
                 ))}
@@ -80,7 +100,7 @@ export const ViewPickerDropdown: React.FC<ViewPickerDropdownProps> = ({
 
             {searchQuery === '' && groupedViews.recent.length > 0 && (
               <div className="p-2 border-t border-gray-200 dark:border-gray-700">
-                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase px-2 py-1">Recent Views</p>
+                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase px-2 py-1">Saved Views</p>
                 {groupedViews.recent.map(view => (
                   <ViewItem
                     key={view.id}
@@ -89,6 +109,9 @@ export const ViewPickerDropdown: React.FC<ViewPickerDropdownProps> = ({
                     onSelect={onViewSelect}
                     onEdit={onViewEdit}
                     onDelete={onViewDelete}
+                    onRename={onViewRename}
+                    onSetDefault={onSetDefault}
+                    onTogglePublic={onTogglePublic}
                   />
                 ))}
               </div>
@@ -111,6 +134,9 @@ export const ViewPickerDropdown: React.FC<ViewPickerDropdownProps> = ({
                     onSelect={onViewSelect}
                     onEdit={onViewEdit}
                     onDelete={onViewDelete}
+                    onRename={onViewRename}
+                    onSetDefault={onSetDefault}
+                    onTogglePublic={onTogglePublic}
                   />
                 ))}
               </div>
@@ -118,7 +144,7 @@ export const ViewPickerDropdown: React.FC<ViewPickerDropdownProps> = ({
           </div>
 
           {onViewCreate && (
-            <div className="p-3 border-t border-gray-200 dark:border-gray-700">
+            <div className="p-3 border-t border-gray-200 dark:border-gray-700 space-y-1">
               <button
                 onClick={() => {
                   onViewCreate();
@@ -129,6 +155,14 @@ export const ViewPickerDropdown: React.FC<ViewPickerDropdownProps> = ({
                 <Filter className="w-4 h-4" />
                 <span>Create New View</span>
               </button>
+              {onManage && (
+                <button
+                  onClick={() => { onManage(); setIsOpen(false); }}
+                  className="w-full px-3 py-1.5 text-xs text-gray-600 dark:text-gray-300 hover:underline"
+                >
+                  Manage views...
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -143,10 +177,13 @@ interface ViewItemProps {
   onSelect: (view: SavedPipelineView) => void;
   onEdit?: (view: SavedPipelineView) => void;
   onDelete?: (viewId: string) => void;
+  onRename?: (view: SavedPipelineView) => void;
+  onSetDefault?: (view: SavedPipelineView) => void;
+  onTogglePublic?: (view: SavedPipelineView) => void;
   isDefault?: boolean;
 }
 
-const ViewItem: React.FC<ViewItemProps> = ({ view, isActive, onSelect, onEdit, onDelete, isDefault }) => {
+const ViewItem: React.FC<ViewItemProps> = ({ view, isActive, onSelect, onEdit, onDelete, onRename, onSetDefault, onTogglePublic, isDefault }) => {
   return (
     <div
       className={`flex items-center justify-between p-2 rounded-lg cursor-pointer group transition-colors ${
@@ -163,9 +200,10 @@ const ViewItem: React.FC<ViewItemProps> = ({ view, isActive, onSelect, onEdit, o
           <p className={`font-medium text-sm truncate ${isActive ? 'text-blue-600 dark:text-blue-400' : 'text-gray-900 dark:text-white'}`}>
             {view.name}
           </p>
-          {isDefault && (
-            <Star className="w-3 h-3 text-yellow-500 fill-yellow-500" />
+          {(isDefault || view.is_default) && (
+            <Star className="w-3 h-3 text-yellow-500 fill-yellow-500" aria-label="Default view" />
           )}
+          {view.is_public && <Globe className="w-3 h-3 text-green-600" aria-label="Shared" />}
           {isActive && <Check className="w-4 h-4 text-blue-600" />}
         </div>
         {view.description && (
@@ -175,13 +213,48 @@ const ViewItem: React.FC<ViewItemProps> = ({ view, isActive, onSelect, onEdit, o
         )}
         <div className="flex items-center space-x-3 mt-1 text-xs text-gray-500 dark:text-gray-400">
           <span className="capitalize">{view.view_type}</span>
-          {view.filters && Object.keys(view.filters).length > 0 && (
-            <span>{Object.keys(view.filters).length} filters</span>
-          )}
+          {(() => {
+            const f = normalizeSavedFilters(view.filters);
+            const n = f.conditions.length + f.groups.length;
+            return n > 0 ? <span>{n} filter{n === 1 ? '' : 's'}</span> : null;
+          })()}
         </div>
       </div>
 
-      <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+      <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+        {onSetDefault && (
+          <button
+            type="button"
+            onClick={() => onSetDefault(view)}
+            className="p-1 text-gray-400 hover:text-yellow-500"
+            title={view.is_default ? 'Unset default' : 'Set as default'}
+            aria-label={view.is_default ? 'Unset default view' : 'Set as default view'}
+          >
+            <Star className="w-3 h-3" />
+          </button>
+        )}
+        {onTogglePublic && (
+          <button
+            type="button"
+            onClick={() => onTogglePublic(view)}
+            className={`p-1 hover:text-green-600 ${view.is_public ? 'text-green-600' : 'text-gray-400'}`}
+            title={view.is_public ? 'Stop sharing' : 'Share with everyone'}
+            aria-label={view.is_public ? 'Stop sharing view' : 'Share view'}
+          >
+            <Globe className="w-3 h-3" />
+          </button>
+        )}
+        {onRename && (
+          <button
+            type="button"
+            onClick={() => onRename(view)}
+            className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+            title="Rename view"
+            aria-label="Rename view"
+          >
+            <Pencil className="w-3 h-3" />
+          </button>
+        )}
         {onEdit && (
           <button
             onClick={() => onEdit(view)}
@@ -196,8 +269,9 @@ const ViewItem: React.FC<ViewItemProps> = ({ view, isActive, onSelect, onEdit, o
             onClick={() => onDelete(view.id)}
             className="p-1 text-gray-400 hover:text-red-600"
             title="Delete view"
+            aria-label="Delete view"
           >
-            <span className="text-xs">×</span>
+            <X className="w-3 h-3" />
           </button>
         )}
       </div>

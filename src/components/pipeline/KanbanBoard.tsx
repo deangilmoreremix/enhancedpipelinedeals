@@ -18,6 +18,8 @@ import { BoardColumn, PAGE_SIZE, UNCATEGORIZED_ID } from './BoardColumn';
 import { StageMenu } from './StageMenu';
 import { BulkActionBar } from './BulkActionBar';
 import { DealCardIndicators } from '../AIEnhancedDealCard';
+import type { BoardGroupBy } from '../../store/boardViewStore';
+import { GroupedBoard } from './GroupedBoard';
 
 export interface BoardCardContext {
   isSelected: boolean;
@@ -27,7 +29,14 @@ export interface BoardCardContext {
   indicators: DealCardIndicators;
 }
 
-interface KanbanBoardProps {
+/** Optional grouping/sorting override from the saved-view toolbar (additive; omit for the stage board). */
+export interface BoardGrouping {
+  groupBy: BoardGroupBy;
+  /** Multi-key sort applied inside each column; when set, manual (positional) reordering is disabled. */
+  sortFn?: (deals: Deal[]) => Deal[];
+}
+
+export interface KanbanBoardProps {
   /** Deals passing the active search/filters. */
   deals: Deal[];
   stages: PipelineStage[];
@@ -36,6 +45,7 @@ interface KanbanBoardProps {
   indicators: DealCardIndicators;
   onOpenDeal: (dealId: string) => void;
   renderCard: (deal: Deal, ctx: BoardCardContext) => React.ReactNode;
+  grouping?: BoardGrouping;
 }
 
 type ToastType = 'info' | 'success' | 'warning' | 'error';
@@ -51,9 +61,20 @@ const TOAST_STYLES: Record<ToastType, string> = {
 const columnDragId = (key: string) => `col:${key}`;
 const sensors = [useMouseSensor, useTouchSensor];
 
-export const KanbanBoard: React.FC<KanbanBoardProps> = ({
-  deals, stages, sortBy, isLoading, indicators, onOpenDeal, renderCard
+/** Stage board by default; owner / priority / company columns when `grouping.groupBy` is not 'stage'. */
+export const KanbanBoard: React.FC<KanbanBoardProps> = (props) => {
+  if (props.grouping && props.grouping.groupBy !== 'stage') return <GroupedBoard {...props} />;
+  return <StageBoard {...props} />;
+};
+
+const StageBoard: React.FC<KanbanBoardProps> = ({
+  deals, stages, sortBy, isLoading, indicators, onOpenDeal, renderCard, grouping
 }) => {
+  const applySort = useCallback(
+    (list: Deal[]) => (grouping?.sortFn ? grouping.sortFn(list) : sortDeals(list, sortBy)),
+    [grouping, sortBy]
+  );
+  const manualOrder = sortBy === 'manual' && !grouping?.sortFn;
   const allDealsMap = useDealStore(s => s.deals);
   const moveDeal = useDealStore(s => s.moveDeal);
   const createDeal = useDealStore(s => s.createDeal);
@@ -105,10 +126,10 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
       else orphans.push(d);
     });
     return {
-      columns: visibleStages.map(stage => ({ stage, deals: sortDeals(byStage[stage.key] ?? [], sortBy) })),
-      uncategorized: sortDeals(orphans, sortBy)
+      columns: visibleStages.map(stage => ({ stage, deals: applySort(byStage[stage.key] ?? []) })),
+      uncategorized: applySort(orphans)
     };
-  }, [deals, visibleStages, sortBy]);
+  }, [deals, visibleStages, applySort]);
 
   const limitFor = (key: string) => limits[key] ?? PAGE_SIZE;
   const showMore = useCallback((key: string) => {
@@ -194,7 +215,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
 
     const destAll = sortDeals(Object.values(allDealsMap).filter(d => d.stage === destStage.key && d.id !== deal.id), 'manual');
 
-    if (sortBy !== 'manual') {
+    if (!manualOrder) {
       if (sameColumn) {
         notify('Switch sorting to "Manual order" to reorder cards within a column.', 'info');
         return;

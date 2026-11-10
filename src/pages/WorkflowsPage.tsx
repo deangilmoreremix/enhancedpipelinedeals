@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { DealWorkflowsPanel } from '../components/deals/DealWorkflowsPanel';
+import { WorkflowRunHistory } from '../components/workflows/WorkflowRunHistory';
 import { PageContainer, PageHeader } from './PageHeader';
 import { useDeals } from './hooks';
 
@@ -27,6 +28,7 @@ const WorkflowsPage: React.FC = () => {
         }
       />
       <DealWorkflowsPanel dealId={dealId || undefined} />
+      <WorkflowRunHistory />
     </PageContainer>
   );
 };

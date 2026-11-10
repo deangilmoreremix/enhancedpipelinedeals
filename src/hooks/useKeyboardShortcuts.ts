@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { openCommandPalette } from '../components/commandPaletteEvents';
 
 export interface KeyboardShortcut {
   key: string;
@@ -29,12 +30,21 @@ export const focusSearchInput = (): boolean => {
 
 export const globalShortcuts: KeyboardShortcut[] = [
   {
+    // Opens the command palette (src/components/CommandPalette.tsx listens for this event)
     key: 'k',
     ctrl: true,
     action: () => {
-      focusSearchInput();
+      openCommandPalette();
     },
-    description: 'Quick search'
+    description: 'Command palette'
+  },
+  {
+    key: 'k',
+    meta: true,
+    action: () => {
+      openCommandPalette();
+    },
+    description: 'Command palette'
   },
   {
     key: 'n',

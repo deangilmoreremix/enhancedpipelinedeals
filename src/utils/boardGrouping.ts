@@ -21,31 +21,26 @@ export const companyOf = (d: Deal): string => (d.company ?? '').trim();
 /** Whether dropping a card in a column of this grouping changes the deal (company grouping is read-only). */
 export const isGroupingDroppable = (groupBy: BoardGroupBy): boolean => groupBy === 'priority' || groupBy === 'owner';
 
-/** Column key a deal belongs to for a non-stage grouping. */
-export const groupKeyOf = (d: Deal, groupBy: Exclude<BoardGroupBy, 'stage'>): string => {
-  switch (groupBy) {
-    case 'priority': return d.priority ?? 'medium';
-    case 'owner': return ownerOf(d) || NONE_KEY;
-    case 'company': return companyOf(d) || NONE_KEY;
-  }
-};
-
-/** Columns (with their deals, in input order) for owner / priority / company grouping. */
+/** Columns (with their deals, in input order) for owner / priority / company grouping. Names merge case-insensitively. */
 export function buildGroupColumns(deals: Deal[], groupBy: Exclude<BoardGroupBy, 'stage'>): BoardGroupColumn[] {
   if (groupBy === 'priority') {
     return PRIORITY_COLUMNS.map(c => ({ key: c.key, title: c.title, deals: deals.filter(d => (d.priority ?? 'medium') === c.key) }));
   }
-  const map = new Map<string, Deal[]>();
+  const text = (d: Deal) => (groupBy === 'owner' ? ownerOf(d) : companyOf(d));
+  const groups = new Map<string, BoardGroupColumn>(); // lower-cased name -> column (title = first spelling seen)
+  const empty: Deal[] = [];
   deals.forEach(d => {
-    const k = groupKeyOf(d, groupBy);
-    const list = map.get(k);
-    if (list) list.push(d); else map.set(k, [d]);
+    const name = text(d);
+    if (!name) { empty.push(d); return; }
+    const k = name.toLowerCase();
+    const col = groups.get(k);
+    if (col) col.deals.push(d); else groups.set(k, { key: name, title: name, deals: [d] });
   });
-  const emptyTitle = groupBy === 'owner' ? 'Unassigned' : 'No company';
-  const named = [...map.keys()].filter(k => k !== NONE_KEY).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
-  const cols: BoardGroupColumn[] = named.map(k => ({ key: k, title: k, deals: map.get(k) ?? [] }));
+  const cols = [...groups.values()].sort((a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: 'base' }));
   // Owner grouping always offers an "Unassigned" drop target
-  if (map.has(NONE_KEY) || groupBy === 'owner') cols.push({ key: NONE_KEY, title: emptyTitle, deals: map.get(NONE_KEY) ?? [] });
+  if (empty.length > 0 || groupBy === 'owner') {
+    cols.push({ key: NONE_KEY, title: groupBy === 'owner' ? 'Unassigned' : 'No company', deals: empty });
+  }
   return cols;
 }
 
@@ -63,7 +58,7 @@ export function updatesForGroupDrop(
       // null clears the column (dealMapper writes explicit nulls)
       return { assignedTo: null as unknown as undefined, assignedToId: null as unknown as undefined };
     }
-    const sample = allDeals.find(d => ownerOf(d) === targetKey && d.assignedToId);
+    const sample = allDeals.find(d => ownerOf(d).toLowerCase() === targetKey.toLowerCase() && d.assignedToId);
     return { assignedTo: targetKey, assignedToId: sample?.assignedToId ?? (null as unknown as undefined) };
   }
   return null;

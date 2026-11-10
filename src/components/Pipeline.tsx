@@ -26,14 +26,23 @@ import {
   Search, Upload, Download, Brain, Sparkles, Plus, Filter, BarChart3,
   Settings, Grid, List, Target, Zap, TrendingUp, Users, Calendar,
   Mail, Phone, CheckCircle, AlertCircle, Clock, DollarSign, Crown,
-  Loader2, X, Table, BarChart, Activity, Heart, ChevronDown
+  Loader2, X, Table, BarChart, Activity, Heart
 } from 'lucide-react';
 
 // Twenty CRM enhanced kanban imports
 import { CustomColumnManager } from './pipeline/kanban/CustomColumnManager';
 import { BOARD_SORT_OPTIONS, BoardSortKey } from './pipeline/kanban/kanbanUtils';
 import { KanbanBoard } from './pipeline/KanbanBoard';
-import { BoardExportFormat, downloadDeals } from './pipeline/exportDeals';
+import { BoardToolbar } from './pipeline/BoardToolbar';
+import { BoardToolbarExport } from './pipeline/BoardToolbarExport';
+import { FilterBar } from './pipeline/FilterBar';
+import { NewDealDialog } from './pipeline/NewDealDialog';
+import { DealImportWizard } from './import/DealImportWizard';
+import DealTrashPanel from './deals/DealTrashPanel';
+import MergeDealsModal from './deals/MergeDealsModal';
+import { findDuplicateGroups } from '../services/dealMergeService';
+import { useBoardFilters } from '../hooks/useBoardFilters';
+import { presetForSorting, useBoardViewStore } from '../store/boardViewStore';
 import { isFeatureEnabled } from '../services/featureFlagService';
 import { initialsAvatar } from '../utils/avatar';
 
@@ -58,15 +67,29 @@ const Pipeline: React.FC = () => {
   const subscribeRealtime = useDealStore(s => s.subscribeRealtime);
   const dataSource: 'database' | 'mock' = isConnected && !isDemoMode() ? 'database' : 'mock';
   const [selectedDealId, setSelectedDealId] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
   const [currentView, setCurrentView] = useState<DealViewType>('kanban');
   const [showStats, setShowStats] = useState(true);
-  const [filterStage, setFilterStage] = useState<string>('all');
-  const [sortBy, setSortBy] = useState<BoardSortKey>('manual');
-  const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [booting, setBooting] = useState(true);
-  const [showExportMenu, setShowExportMenu] = useState(false);
   const [exportMessage, setExportMessage] = useState<string | null>(null);
+  const [exportSignal, setExportSignal] = useState(0);
+  const [showImport, setShowImport] = useState(false);
+  const [showNewDeal, setShowNewDeal] = useState(false);
+  const [showTrash, setShowTrash] = useState(false);
+  const [mergeIds, setMergeIds] = useState<string[] | null>(null);
+
+  // Search / favorites / filters / sort / group-by live in the board view store (persisted, saved views apply to it)
+  const searchTerm = useBoardViewStore(s => s.search);
+  const setSearchTerm = useBoardViewStore(s => s.setSearch);
+  const favoritesOnly = useBoardViewStore(s => s.favoritesOnly);
+  const setFavoritesOnly = useBoardViewStore(s => s.setFavoritesOnly);
+  const filters = useBoardViewStore(s => s.filters);
+  const addFilter = useBoardViewStore(s => s.addFilter);
+  const setFilters = useBoardViewStore(s => s.setFilters);
+  const sorting = useBoardViewStore(s => s.sorting);
+  const setSortPreset = useBoardViewStore(s => s.setSortPreset);
+  const pendingAction = useBoardViewStore(s => s.pendingAction);
+  const consumeAction = useBoardViewStore(s => s.consumeAction);
+  const board = useBoardFilters(deals);
 
   // AI states
   const [aiResearching, setAiResearching] = useState<string[]>([]);
@@ -124,30 +147,42 @@ const Pipeline: React.FC = () => {
     setCurrentView(view);
   };
 
-  // Filter and search deals
-  const filteredDeals = useMemo(() => {
-    let result = Object.values(deals);
+  // Deals after search + favorites + filters (chips and advanced groups)
+  const filteredDeals = board.deals;
+  const filteredDealsMap = useMemo(
+    () => Object.fromEntries(filteredDeals.map(d => [d.id, d])) as Record<string, Deal>,
+    [filteredDeals]
+  );
+  const sortPreset = presetForSorting(sorting);
 
-    // Apply search
-    if (searchTerm.trim()) {
-      result = result.filter(deal =>
-        (deal.title ?? "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-        deal.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        deal.contact.toLowerCase().includes(searchTerm.toLowerCase())
-      );
+  // Quick stage filter = a `stage equals` chip in the filter bar
+  const stageFilterValue = (() => {
+    const f = filters.find(x => x.field === 'stage' && x.operator === 'equals');
+    return typeof f?.value === 'string' ? f.value : 'all';
+  })();
+  const handleStageFilter = (value: string) => {
+    setFilters(filters.filter(f => !(f.field === 'stage' && f.operator === 'equals')));
+    if (value !== 'all') addFilter({ field: 'stage', operator: 'equals', value });
+  };
+
+  // One-shot requests from the command palette
+  useEffect(() => {
+    if (!pendingAction) return;
+    const action = consumeAction();
+    switch (action) {
+      case 'new-deal': setShowNewDeal(true); break;
+      case 'import': setShowImport(true); break;
+      case 'export': setExportSignal(n => n + 1); break;
+      case 'show-deleted': setShowTrash(true); break;
+      case 'find-duplicates': {
+        const group = findDuplicateGroups(Object.values(deals))[0];
+        if (group) setMergeIds(group.dealIds);
+        else setExportMessage('No duplicate deals found');
+        break;
+      }
+      default: break;
     }
-
-    // Apply stage filter
-    if (filterStage !== 'all') {
-      result = result.filter(deal => deal.stage === filterStage);
-    }
-
-    if (favoritesOnly) {
-      result = result.filter(deal => deal.isFavorite);
-    }
-
-    return result;
-   }, [deals, searchTerm, filterStage, favoritesOnly]);
+  }, [pendingAction, consumeAction, deals]);
 
    // Calculate pipeline statistics
   const pipelineStats = useMemo(() => {
@@ -286,15 +321,8 @@ const Pipeline: React.FC = () => {
     }
   };
 
-  const handleExportDeals = async (format: BoardExportFormat) => {
-    setShowExportMenu(false);
-    try {
-      const file = await downloadDeals(filteredDeals, format);
-      setExportMessage(`Exported ${filteredDeals.length} deal${filteredDeals.length === 1 ? '' : 's'} to ${file}`);
-    } catch (error) {
-      console.error('Export failed:', error);
-      setExportMessage('Export failed');
-    }
+  const showExportMessage = (text: string) => {
+    setExportMessage(text);
     window.setTimeout(() => setExportMessage(null), 4000);
   };
 
@@ -551,8 +579,9 @@ const Pipeline: React.FC = () => {
           {/* Stage Filter */}
           <Tooltip content="Filter by pipeline stage - narrow down deals by their current position in the sales process" position="bottom">
             <select
-              value={filterStage}
-              onChange={(e) => setFilterStage(e.target.value)}
+              value={stageFilterValue}
+              aria-label="Filter by stage"
+              onChange={(e) => handleStageFilter(e.target.value)}
               className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
             >
               <option value="all">All Stages</option>
@@ -565,19 +594,20 @@ const Pipeline: React.FC = () => {
           {/* Sort */}
           <Tooltip content="Sort cards within each column" position="bottom">
             <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as BoardSortKey)}
+              value={sortPreset}
+              onChange={(e) => { if (e.target.value !== 'custom') setSortPreset(e.target.value as BoardSortKey); }}
               aria-label="Sort cards"
               className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
             >
               {BOARD_SORT_OPTIONS.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
+              {sortPreset === 'custom' && <option value="custom">Custom ({sorting.length} rules)</option>}
             </select>
           </Tooltip>
 
           {/* Favorites filter chip */}
           <button
             type="button"
-            onClick={() => setFavoritesOnly(f => !f)}
+            onClick={() => setFavoritesOnly(!favoritesOnly)}
             aria-pressed={favoritesOnly}
             className={`flex items-center space-x-1 px-3 py-2 rounded-full border text-sm font-medium transition-colors ${
               favoritesOnly
@@ -589,34 +619,29 @@ const Pipeline: React.FC = () => {
             <span>Favorites only</span>
           </button>
 
-          {/* Export (the filtered deals) */}
-          <div className="relative">
-            <Tooltip content="Export the deals currently shown as CSV, Excel, or JSON" position="bottom">
-              <button
-                onClick={() => setShowExportMenu(o => !o)}
-                aria-haspopup="true"
-                aria-expanded={showExportMenu}
-                className="flex items-center space-x-2 px-4 py-2 bg-indigo-50 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-700 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-800/60 transition-colors font-medium"
-              >
-                <Download className="w-4 h-4" />
-                <span>Export</span>
-                <ChevronDown className="w-3 h-3" />
-              </button>
-            </Tooltip>
-            {showExportMenu && (
-              <div className="absolute left-0 top-full mt-1 z-30 w-36 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1">
-                {(['csv', 'xlsx', 'json'] as BoardExportFormat[]).map(f => (
-                  <button
-                    key={f}
-                    onClick={() => void handleExportDeals(f)}
-                    className="w-full px-3 py-1.5 text-sm text-left text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
-                  >
-                    {f.toUpperCase()} ({filteredDeals.length})
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+          {/* Import */}
+          <Tooltip content="Import deals from CSV, TSV, JSON or Excel" position="bottom">
+            <button
+              type="button"
+              onClick={() => setShowImport(true)}
+              className="flex items-center space-x-2 px-4 py-2 bg-emerald-50 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-700 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-800/60 transition-colors font-medium"
+            >
+              <Upload className="w-4 h-4" />
+              <span>Import</span>
+            </button>
+          </Tooltip>
+
+          {/* Export (current view or all deals) */}
+          <Tooltip content="Export the current view or all deals as CSV, Excel, or JSON" position="bottom">
+            <div>
+              <BoardToolbarExport
+                viewDeals={filteredDeals}
+                allDeals={Object.values(deals)}
+                onMessage={showExportMessage}
+                openSignal={exportSignal}
+              />
+            </div>
+          </Tooltip>
           {exportMessage && (
             <span className="text-sm text-gray-600 dark:text-gray-300" role="status">{exportMessage}</span>
           )}
@@ -660,6 +685,14 @@ const Pipeline: React.FC = () => {
           </Tooltip>
         </div>
       </div>
+      )}
+
+      {/* Saved views, group-by, sort rules and filter chips */}
+      {currentView !== 'dashboard' && (
+        <>
+          <BoardToolbar showGroupBy={currentView === 'kanban'} />
+          <FilterBar stages={stages} matchCount={filteredDeals.length} totalCount={board.totalCount} />
+        </>
       )}
 
       {/* AI Analysis Progress */}
@@ -714,11 +747,11 @@ const Pipeline: React.FC = () => {
       }>
         {(() => {
           const commonProps = {
-            deals,
+            deals: filteredDealsMap, // already search/filter applied
             onDealClick: handleDealClick,
             onDealUpdate: handleDealUpdate,
-            searchTerm,
-            filterStage
+            searchTerm: '',
+            filterStage: 'all'
           };
 
           switch (currentView) {
@@ -735,7 +768,7 @@ const Pipeline: React.FC = () => {
               return <DealTimelineView {...commonProps} />;
 
             case 'dashboard':
-              return <DealDashboardView deals={deals} contacts={[]} />;
+              return <DealDashboardView deals={filteredDealsMap} contacts={[]} />;
 
             case 'kanban':
             default:
@@ -743,7 +776,8 @@ const Pipeline: React.FC = () => {
         <KanbanBoard
           deals={filteredDeals}
           stages={stages}
-          sortBy={sortBy}
+          sortBy={board.sortBy}
+          grouping={board.grouping}
           isLoading={booting}
           indicators={{
             health: twentyFeaturesEnabled.health,
@@ -785,6 +819,22 @@ const Pipeline: React.FC = () => {
           }
         })()}
       </Suspense>
+
+      {/* Import wizard, new deal, deleted deals, duplicates */}
+      <DealImportWizard
+        isOpen={showImport}
+        onClose={() => setShowImport(false)}
+        onImported={(n) => showExportMessage(`Imported ${n} deal${n === 1 ? '' : 's'}`)}
+      />
+      <NewDealDialog isOpen={showNewDeal} onClose={() => setShowNewDeal(false)} stages={stages} onCreate={handleAddDeal} />
+      <DealTrashPanel isOpen={showTrash} onClose={() => setShowTrash(false)} onRestored={() => setShowTrash(false)} />
+      <MergeDealsModal
+        isOpen={mergeIds !== null}
+        onClose={() => setMergeIds(null)}
+        deals={Object.values(deals)}
+        initialIds={mergeIds ?? []}
+        onMerged={() => setMergeIds(null)}
+      />
 
       {/* Deal Detail Modal */}
       {selectedDealId && (

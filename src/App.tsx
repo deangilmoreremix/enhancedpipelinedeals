@@ -1,4 +1,4 @@
-import React, { Suspense, useState } from 'react';
+import React, { Suspense, useEffect, useState } from 'react';
 import { Route, Routes } from 'react-router-dom';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import { PersonalizationProvider } from './contexts/PersonalizationContext';
@@ -11,6 +11,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { SettingsModal } from './components/ui/SettingsModal';
 import { useKeyboardShortcuts, globalShortcuts } from './hooks/useKeyboardShortcuts';
 import { Settings } from 'lucide-react';
+import { OPEN_COMMAND_PALETTE_EVENT } from './components/commandPaletteEvents';
 
 const PipelinePage = React.lazy(() => import('./pages/PipelinePage'));
 const ContactsPage = React.lazy(() => import('./pages/ContactsPage'));
@@ -22,6 +23,24 @@ const WorkflowsPage = React.lazy(() => import('./pages/WorkflowsPage'));
 const AnalyticsPage = React.lazy(() => import('./pages/AnalyticsPage'));
 const AppsPage = React.lazy(() => import('./pages/AppsPage'));
 const DealRecordPage = React.lazy(() => import('./pages/DealRecordPage'));
+
+const CommandPalette = React.lazy(() => import('./components/CommandPalette'));
+
+/** Loads the command palette on the first Ctrl/Cmd+K, then it manages its own open state. */
+const CommandPaletteHost = () => {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    if (mounted) return;
+    const onOpen = () => setMounted(true);
+    window.addEventListener(OPEN_COMMAND_PALETTE_EVENT, onOpen);
+    return () => window.removeEventListener(OPEN_COMMAND_PALETTE_EVENT, onOpen);
+  }, [mounted]);
+  return mounted ? (
+    <Suspense fallback={null}>
+      <CommandPalette defaultOpen />
+    </Suspense>
+  ) : null;
+};
 
 const routeElement = (node: React.ReactNode) => (
   <ErrorBoundary level="page">{node}</ErrorBoundary>
@@ -90,6 +109,11 @@ function AppContent() {
       {/* Enhanced AI Status Indicator */}
       <ErrorBoundary level="component">
         <EnhancedAIStatusIndicator />
+      </ErrorBoundary>
+
+      {/* Global command palette (Ctrl/Cmd+K) */}
+      <ErrorBoundary level="component">
+        <CommandPaletteHost />
       </ErrorBoundary>
 
       {/* Settings Modal */}

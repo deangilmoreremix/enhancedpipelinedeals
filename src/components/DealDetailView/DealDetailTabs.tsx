@@ -1,5 +1,5 @@
 import React, { useEffect, useCallback } from 'react';
-import { User, Brain, TrendingUp, MessageSquare, BarChart3, Zap, Settings, Calendar, Mail } from 'lucide-react';
+import { User, Brain, TrendingUp, MessageSquare, BarChart3, Zap, Settings, Calendar, Mail, FileText, ListChecks, Paperclip, Clock } from 'lucide-react';
 import { DealDetailTabsProps } from './types';
 
 export const DealDetailTabs: React.FC<DealDetailTabsProps> = ({
@@ -8,28 +8,33 @@ export const DealDetailTabs: React.FC<DealDetailTabsProps> = ({
 }) => {
   const tabs = [
     { id: 'overview', label: 'Overview', icon: User, shortcut: '1' },
-    { id: 'insights', label: 'AI Insights', icon: Brain, shortcut: '2' },
-    { id: 'journey', label: 'Journey', icon: TrendingUp, shortcut: '3' },
-    { id: 'communication', label: 'Communication', icon: MessageSquare, shortcut: '4' },
-    { id: 'calendar', label: 'Calendar', icon: Calendar, shortcut: '5' },
-    { id: 'email', label: 'Email', icon: Mail, shortcut: '6' },
-    { id: 'analytics', label: 'Analytics', icon: BarChart3, shortcut: '7' },
-    { id: 'automation', label: 'Automation', icon: Zap, shortcut: '8' },
-    { id: 'management', label: 'Management', icon: Settings, shortcut: '9' },
+    { id: 'notes', label: 'Notes', icon: FileText, shortcut: '2' },
+    { id: 'tasks', label: 'Tasks', icon: ListChecks, shortcut: '3' },
+    { id: 'files', label: 'Files', icon: Paperclip, shortcut: '4' },
+    { id: 'timeline', label: 'Timeline', icon: Clock, shortcut: '5' },
+    { id: 'insights', label: 'AI Insights', icon: Brain, shortcut: '6' },
+    { id: 'journey', label: 'Journey', icon: TrendingUp, shortcut: '7' },
+    { id: 'communication', label: 'Communication', icon: MessageSquare, shortcut: '8' },
+    { id: 'calendar', label: 'Calendar', icon: Calendar, shortcut: '9' },
+    { id: 'email', label: 'Email', icon: Mail, shortcut: '' },
+    { id: 'analytics', label: 'Analytics', icon: BarChart3, shortcut: '' },
+    { id: 'automation', label: 'Automation', icon: Zap, shortcut: '' },
+    { id: 'management', label: 'Management', icon: Settings, shortcut: '' },
   ];
+
 
   // Keyboard navigation support
   const handleKeyPress = useCallback((e: KeyboardEvent) => {
     // Only handle keyboard shortcuts if the modal is focused
     // Check if we're in an input field
     const target = e.target as HTMLElement;
-    if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+    if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
       return;
     }
     
     // Alt + number to switch tabs
     if (e.altKey && !e.ctrlKey && !e.shiftKey) {
-      const tab = tabs.find(t => t.shortcut === e.key);
+      const tab = tabs.find(t => t.shortcut && t.shortcut === e.key);
       if (tab) {
         e.preventDefault();
         onTabChange(tab.id);
@@ -52,7 +57,7 @@ export const DealDetailTabs: React.FC<DealDetailTabsProps> = ({
               <button
                 key={tab.id}
                 onClick={() => onTabChange(tab.id)}
-                title={`${tab.label} (Alt+${tab.shortcut})`}
+                title={tab.shortcut ? `${tab.label} (Alt+${tab.shortcut})` : tab.label}
                 className={`
                   relative px-4 py-2 rounded-lg font-medium text-sm transition-all duration-200 flex items-center space-x-2
                   ${activeTab === tab.id
@@ -66,9 +71,11 @@ export const DealDetailTabs: React.FC<DealDetailTabsProps> = ({
                 {activeTab === tab.id && (
                   <span className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-3/4 h-0.5 bg-blue-500 rounded-t-full"></span>
                 )}
-                <span className="hidden xl:inline-block text-xs opacity-60 ml-1">
-                  {tab.shortcut}
-                </span>
+                {tab.shortcut && (
+                  <span className="hidden xl:inline-block text-xs opacity-60 ml-1">
+                    {tab.shortcut}
+                  </span>
+                )}
               </button>
             );
           })}

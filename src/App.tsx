@@ -21,6 +21,7 @@ const ViewsPage = React.lazy(() => import('./pages/ViewsPage'));
 const WorkflowsPage = React.lazy(() => import('./pages/WorkflowsPage'));
 const AnalyticsPage = React.lazy(() => import('./pages/AnalyticsPage'));
 const AppsPage = React.lazy(() => import('./pages/AppsPage'));
+const DealRecordPage = React.lazy(() => import('./pages/DealRecordPage'));
 
 const routeElement = (node: React.ReactNode) => (
   <ErrorBoundary level="page">{node}</ErrorBoundary>
@@ -80,6 +81,7 @@ function AppContent() {
             <Route path="/workflows" element={routeElement(<WorkflowsPage />)} />
             <Route path="/analytics" element={routeElement(<AnalyticsPage />)} />
             <Route path="/apps" element={routeElement(<AppsPage />)} />
+            <Route path="/deals/:id" element={routeElement(<DealRecordPage />)} />
             <Route path="*" element={routeElement(<NotFound />)} />
           </Routes>
         </Suspense>

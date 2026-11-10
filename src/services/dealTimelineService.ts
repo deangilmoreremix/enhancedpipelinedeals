@@ -1,5 +1,9 @@
 import { supabase } from './supabaseService';
 import { DealActivity } from '../types';
+import { canUseRemote } from './dealRecordShared';
+import { listNotes } from './dealNotesService';
+import { listTasks } from './dealTasksService';
+import { listFiles } from './dealFilesService';
 
 /**
  * Service for managing deal timeline and activity tracking
@@ -291,3 +295,167 @@ export const logEmailSent = DealTimelineService.logEmailSent;
 export const logMeetingScheduled = DealTimelineService.logMeetingScheduled;
 export const logAttachmentAdded = DealTimelineService.logAttachmentAdded;
 export const logBulkAction = DealTimelineService.logBulkAction;
+
+// ---------------------------------------------------------------------------
+// Merged record timeline: deal_activities + deal_history + notes + tasks + files
+// ---------------------------------------------------------------------------
+
+export type TimelineEventKind = 'activity' | 'note' | 'task' | 'file';
+
+export interface TimelineDiff {
+  field: string;
+  label: string;
+  from: string;
+  to: string;
+}
+
+export interface TimelineEvent {
+  id: string;
+  kind: TimelineEventKind;
+  /** deal_activities.type for activities; 'note' | 'task' | 'task_done' | 'file' otherwise. */
+  type: string;
+  title: string;
+  description?: string;
+  at: Date;
+  diffs?: TimelineDiff[];
+}
+
+export interface RawActivityRow { id: string; type: string; title?: string | null; description?: string | null; metadata?: Record<string, any> | null; created_at: string }
+export interface RawHistoryRow { id: string; field: string | null; old_value: string | null; new_value: string | null; changed_at: string }
+
+const FIELD_LABELS: Record<string, string> = {
+  stage: 'Stage', value: 'Value', title: 'Title', company: 'Company', priority: 'Priority',
+  probability: 'Probability', close_date: 'Close date', owner_id: 'Owner', deleted_at: 'Deleted',
+};
+
+export type TimelineValueFormatter = (field: string, value: string | null) => string;
+
+/** Default rendering of a raw history value (dates, empties). */
+export const defaultHistoryValue: TimelineValueFormatter = (field, value) => {
+  if (value === null || value === undefined || value === '') return 'empty';
+  if (field === 'close_date' || field === 'deleted_at') {
+    const d = new Date(value);
+    return isNaN(d.getTime()) ? value : d.toLocaleDateString();
+  }
+  if (field === 'value') {
+    const n = Number(value);
+    return Number.isFinite(n) ? n.toLocaleString('en-US') : value;
+  }
+  if (field === 'probability') return `${value}%`;
+  return value;
+};
+
+export const historyToDiff = (h: RawHistoryRow, fmt: TimelineValueFormatter = defaultHistoryValue): TimelineDiff => {
+  const field = h.field ?? 'field';
+  return {
+    field,
+    label: FIELD_LABELS[field] ?? field.replace(/_/g, ' ').replace(/^\w/, c => c.toUpperCase()),
+    from: fmt(field, h.old_value),
+    to: fmt(field, h.new_value),
+  };
+};
+
+/** "Stage: Proposal → Negotiation" */
+export const formatDiff = (d: TimelineDiff): string => `${d.label}: ${d.from} \u2192 ${d.to}`;
+
+const ACTIVITY_TITLES: Record<string, string> = {
+  created: 'Deal created', stage_changed: 'Stage changed', updated: 'Deal updated',
+  deleted: 'Deal deleted', restored: 'Deal restored',
+};
+
+/**
+ * Pure merge used by the Timeline tab. History rows written by the audit trigger in the same
+ * statement as an activity row (within `windowMs`) are attached to that activity as diffs;
+ * remaining history rows become their own events. Sorted newest first.
+ */
+export function buildTimelineEvents(input: {
+  activities?: RawActivityRow[];
+  history?: RawHistoryRow[];
+  notes?: Array<{ id: string; title: string | null; bodyText: string; createdAt: string }>;
+  tasks?: Array<{ id: string; title: string; status: string; createdAt: string; updatedAt: string }>;
+  files?: Array<{ id: string; name: string; createdAt: string }>;
+  formatValue?: TimelineValueFormatter;
+  windowMs?: number;
+}): TimelineEvent[] {
+  const fmt = input.formatValue ?? defaultHistoryValue;
+  const windowMs = input.windowMs ?? 2000;
+  const events: TimelineEvent[] = [];
+  const usedHistory = new Set<string>();
+
+  for (const a of input.activities ?? []) {
+    const at = new Date(a.created_at);
+    let diffs: TimelineDiff[] | undefined;
+    if (a.type === 'stage_changed' || a.type === 'updated') {
+      const matched = (input.history ?? []).filter(h => Math.abs(new Date(h.changed_at).getTime() - at.getTime()) <= windowMs);
+      matched.forEach(h => usedHistory.add(h.id));
+      diffs = matched.map(h => historyToDiff(h, fmt));
+    }
+    events.push({
+      id: `a-${a.id}`, kind: 'activity', type: a.type,
+      title: a.title || ACTIVITY_TITLES[a.type] || a.type.replace(/_/g, ' '),
+      description: a.description || undefined, at, diffs: diffs && diffs.length ? diffs : undefined,
+    });
+  }
+
+  for (const h of input.history ?? []) {
+    if (usedHistory.has(h.id)) continue;
+    const diff = historyToDiff(h, fmt);
+    events.push({ id: `h-${h.id}`, kind: 'activity', type: 'updated', title: 'Deal updated', at: new Date(h.changed_at), diffs: [diff] });
+  }
+
+  for (const n of input.notes ?? []) {
+    events.push({
+      id: `n-${n.id}`, kind: 'note', type: 'note', title: n.title ? `Note added: ${n.title}` : 'Note added',
+      description: n.bodyText.length > 160 ? `${n.bodyText.slice(0, 160)}...` : n.bodyText, at: new Date(n.createdAt),
+    });
+  }
+
+  for (const t of input.tasks ?? []) {
+    events.push({ id: `t-${t.id}`, kind: 'task', type: 'task', title: `Task added: ${t.title}`, at: new Date(t.createdAt) });
+    if (t.status === 'done') {
+      events.push({ id: `td-${t.id}`, kind: 'task', type: 'task_done', title: `Task completed: ${t.title}`, at: new Date(t.updatedAt) });
+    }
+  }
+
+  for (const f of input.files ?? []) {
+    events.push({ id: `f-${f.id}`, kind: 'file', type: 'file', title: `File uploaded: ${f.name}`, at: new Date(f.createdAt) });
+  }
+
+  return events
+    .filter(e => !isNaN(e.at.getTime()))
+    .sort((a, b) => b.at.getTime() - a.at.getTime());
+}
+
+/** Load + merge every timeline source for a deal. Missing/denied sources degrade to empty. */
+export async function getDealTimeline(
+  dealId: string,
+  opts: { limit?: number; formatValue?: TimelineValueFormatter } = {}
+): Promise<TimelineEvent[]> {
+  const limit = opts.limit ?? 200;
+  const safe = async <T,>(p: Promise<T>, fallback: T): Promise<T> => {
+    try { return await p; } catch (e) { console.warn('Timeline source failed:', e); return fallback; }
+  };
+
+  let activities: RawActivityRow[] = [];
+  let history: RawHistoryRow[] = [];
+  if (canUseRemote(dealId)) {
+    [activities, history] = await Promise.all([
+      safe((async () => {
+        const { data, error } = await supabase.from('deal_activities').select('*').eq('deal_id', dealId)
+          .order('created_at', { ascending: false }).limit(limit);
+        if (error) throw error;
+        return (data ?? []) as RawActivityRow[];
+      })(), [] as RawActivityRow[]),
+      safe((async () => {
+        const { data, error } = await supabase.from('deal_history').select('*').eq('deal_id', dealId)
+          .order('changed_at', { ascending: false }).limit(limit);
+        if (error) throw error;
+        return (data ?? []) as RawHistoryRow[];
+      })(), [] as RawHistoryRow[]),
+    ]);
+  }
+  const [notes, tasks, files] = await Promise.all([
+    safe(listNotes(dealId), []), safe(listTasks(dealId), []), safe(listFiles(dealId), []),
+  ]);
+  return buildTimelineEvents({ activities, history, notes, tasks, files, formatValue: opts.formatValue }).slice(0, limit);
+}

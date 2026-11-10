@@ -37,11 +37,26 @@ import {
   Phone
 } from 'lucide-react';
 import { initialsAvatar } from '../utils/avatar';
+import DealHealthIndicator from './deals/DealHealthIndicator';
+import StaleDealIndicator from './deals/StaleDealIndicator';
+import { SLAIndicator } from './deals/SLAIndicator';
+
+/** Which compact indicators to show (driven by twenty_* feature flags in the board). */
+export interface DealCardIndicators {
+  health?: boolean;
+  stale?: boolean;
+  sla?: boolean;
+}
 
 interface AIEnhancedDealCardProps {
   deal: Deal;
   isSelected?: boolean;
+  /** Keyboard focus ring (board hotkeys). */
+  isFocused?: boolean;
   onSelect?: () => void;
+  /** Shift-click: extend the selection to this card. */
+  onRangeSelect?: () => void;
+  indicators?: DealCardIndicators;
   onClick: () => void;
   showAnalyzeButton?: boolean;
   onAnalyze?: (deal: Deal) => Promise<boolean>;
@@ -58,7 +73,10 @@ interface AIEnhancedDealCardProps {
 export const AIEnhancedDealCard: React.FC<AIEnhancedDealCardProps> = ({
   deal,
   isSelected = false,
+  isFocused = false,
   onSelect,
+  onRangeSelect,
+  indicators,
   onClick,
   showAnalyzeButton = true,
   onAnalyze,
@@ -145,6 +163,18 @@ export const AIEnhancedDealCard: React.FC<AIEnhancedDealCardProps> = ({
 
   const handleCardClick = async (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest('button') || (e.target as HTMLElement).closest('input') || (e.target as HTMLElement).closest('a')) {
+      return;
+    }
+
+    // Shift/Ctrl/Cmd-click selects instead of opening
+    if (e.shiftKey && onRangeSelect) {
+      e.preventDefault();
+      onRangeSelect();
+      return;
+    }
+    if ((e.ctrlKey || e.metaKey) && onSelect) {
+      e.preventDefault();
+      onSelect();
       return;
     }
 
@@ -365,20 +395,29 @@ export const AIEnhancedDealCard: React.FC<AIEnhancedDealCardProps> = ({
     { icon: Facebook, color: 'bg-blue-700', name: 'Facebook', key: 'facebook' },
   ];
 
+  // SLA derived from time since the last update (72h target)
+  const elapsedSlaHours = Math.max(0, Math.round((Date.now() - new Date(deal.updatedAt).getTime()) / 3600000));
+  const slaStatus: 'on-track' | 'at-risk' | 'breached' =
+    elapsedSlaHours >= 72 ? 'breached' : elapsedSlaHours >= 54 ? 'at-risk' : 'on-track';
+
   const analyzing = isAnalyzing || localAnalyzing;
   const enriching = localEnriching;
 
   return (
     <div
       ref={cardRef}
+      data-deal-id={deal.id}
       onClick={handleCardClick}
-      className="bg-white dark:bg-gray-800 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer group relative border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 overflow-hidden"
+      className={`bg-white dark:bg-gray-800 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer group relative border hover:border-gray-300 dark:hover:border-gray-600 overflow-hidden ${
+        isSelected ? 'border-blue-500 bg-blue-50/40 dark:bg-blue-900/20' : 'border-gray-200 dark:border-gray-700'
+      } ${isFocused ? 'ring-2 ring-blue-500' : ''}`}
     >
       {/* Selection Checkbox */}
       {onSelect && (
-        <div className="absolute top-4 left-4 z-10">
+        <div className={`absolute top-4 left-4 z-10 transition-opacity ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 focus-within:opacity-100'}`}>
           <input
             type="checkbox"
+            aria-label={`Select ${deal.title || deal.company}`}
             checked={isSelected}
             onChange={(e) => {
               e.stopPropagation();
@@ -550,6 +589,25 @@ export const AIEnhancedDealCard: React.FC<AIEnhancedDealCardProps> = ({
             </span>
           </div>
         </Tooltip>
+
+        {/* Compact health / stale / SLA indicators (feature-flagged) */}
+        {indicators && (indicators.health || indicators.stale || indicators.sla) && (
+          <div className="flex flex-wrap items-center justify-center gap-1 mb-4 [&>*]:scale-90">
+            {indicators.health && deal.healthScore !== undefined && (
+              <DealHealthIndicator healthScore={deal.healthScore} healthFactors={deal.healthFactors ?? []} compact />
+            )}
+            {indicators.stale && <StaleDealIndicator deal={deal} />}
+            {indicators.sla && !deal.stage.startsWith('closed') && (
+              <SLAIndicator
+                dealId={deal.id}
+                compact
+                slaTargetHours={72}
+                elapsedHours={elapsedSlaHours}
+                status={slaStatus}
+              />
+            )}
+          </div>
+        )}
 
         {/* Deal Metadata */}
         <ErrorBoundary fallback={<div className="p-2 text-red-500 text-xs">Metadata component failed</div>}>

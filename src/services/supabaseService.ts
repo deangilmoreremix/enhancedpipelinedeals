@@ -370,16 +370,26 @@ class SupabaseService {
     }
 
     try {
-      const { data, error } = await this.supabase
-        .from('deals')
-        .select('*')
-        .order('updated_at', { ascending: false });
+      // Page through the table 500 rows at a time until exhausted
+      const PAGE_SIZE = 500;
+      const rows: DealRow[] = [];
+      for (let from = 0; ; from += PAGE_SIZE) {
+        const { data, error } = await this.supabase
+          .from('deals')
+          .select('*')
+          .order('updated_at', { ascending: false })
+          .order('id', { ascending: true })
+          .range(from, from + PAGE_SIZE - 1);
 
-      if (error) {
-        throw new Error(`Database query failed: ${error.message}`);
+        if (error) {
+          throw new Error(`Database query failed: ${error.message}`);
+        }
+        const page = (data || []) as DealRow[];
+        rows.push(...page);
+        if (page.length < PAGE_SIZE) break;
       }
-      
-      const deals: Deal[] = ((data || []) as DealRow[]).map(dealFromRow);
+
+      const deals: Deal[] = rows.map(dealFromRow);
       console.log(`✅ Loaded ${deals.length} deals from database`);
       // Soft-deleted rows are filtered client-side so this works before/after the deleted_at migration
       return opts.includeDeleted ? deals : deals.filter(d => !d.deletedAt);

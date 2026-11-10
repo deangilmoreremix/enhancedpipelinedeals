@@ -2,7 +2,16 @@ import { create } from 'zustand';
 import { Deal, PipelineStage } from '../types';
 import { getSupabaseService } from '../services/supabaseService';
 import { getDataSyncService } from '../services/dataSyncService';
-import { getStages, subscribe as subscribeStages, DEFAULT_STAGES } from '../services/pipelineStageService';
+import {
+  getStages,
+  subscribe as subscribeStages,
+  DEFAULT_STAGES,
+  createStage as createStageRow,
+  updateStage as updateStageRow,
+  reorderStages as reorderStageRows,
+  deleteStage as deleteStageRow
+} from '../services/pipelineStageService';
+import { computeDropPosition, needsRebalance, rebalance } from '../utils/boardPositions';
 import { isDemoMode } from '../config/demoMode';
 import { validateSchema, dealValidationSchema, sanitizeInput } from '../utils/validation';
 
@@ -23,6 +32,20 @@ interface DealStore {
   /** Optimistically move a deal to `stageKey` at fractional `position`; rolls back and returns false on failure. */
   moveDeal: (id: string, stageKey: string, position: number) => Promise<boolean>;
   softDeleteDeal: (id: string) => Promise<void>;
+  /** Move many deals to the end of `stageKey` (optimistic, each persisted). Returns ids that moved. */
+  bulkMoveDeals: (ids: string[], stageKey: string) => Promise<string[]>;
+  /** Apply the same field updates to many deals (optimistic, each persisted). Returns ids that succeeded. */
+  bulkUpdateDeals: (ids: string[], updates: Partial<Deal>) => Promise<string[]>;
+  /** Soft delete many deals. Returns ids that were deleted. */
+  bulkSoftDelete: (ids: string[]) => Promise<string[]>;
+  /** Re-space positions of a stage in one batched write when gaps have collapsed. */
+  rebalanceStage: (stageKey: string) => Promise<void>;
+
+  // Stage management (optimistic; persisted when connected)
+  addStage: (name: string) => Promise<PipelineStage | null>;
+  updateStage: (key: string, updates: Partial<Omit<PipelineStage, 'id' | 'key'>>) => Promise<boolean>;
+  reorderStages: (keysInOrder: string[]) => Promise<boolean>;
+  removeStage: (key: string, moveToKey: string) => Promise<boolean>;
   restoreDeal: (id: string) => Promise<void>;
   toggleFavorite: (id: string) => Promise<void>;
   /** Subscribe to realtime deal + stage changes; returns an unsubscribe function. */
@@ -51,13 +74,11 @@ const newLocalId = () => `deal-${Date.now()}-${Math.random().toString(36).slice(
  * Midpoint between neighbours; +1 after the last; first minus 1 at the front.
  */
 export function positionForIndex(deals: Record<string, Deal>, stageKey: string, index: number, excludeId?: string): number {
-  const col = Object.values(deals)
+  const positions = Object.values(deals)
     .filter(d => d.stage === stageKey && d.id !== excludeId)
-    .sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
-  if (col.length === 0) return 1;
-  if (index <= 0) return (col[0].position ?? 0) - 1;
-  if (index >= col.length) return (col[col.length - 1].position ?? 0) + 1;
-  return ((col[index - 1].position ?? 0) + (col[index].position ?? 0)) / 2;
+    .map(d => d.position ?? 0)
+    .sort((a, b) => a - b);
+  return computeDropPosition(positions, index);
 }
 
 /** Fractional position between two neighbours (either may be missing = list edge). */
@@ -228,10 +249,159 @@ export const useDealStore = create<DealStore>((set, get) => ({
       if (shouldPersist(state.isConnectedToDatabase)) {
         await getDataSyncService().updateDeal(id, { stage: stageKey, position });
       }
-      return true;
     } catch (error) {
       console.error('Failed to move deal, rolling back:', error);
       set(st => ({ deals: { ...st.deals, [id]: original }, error: 'Failed to move deal' }));
+      return false;
+    }
+
+    // Post-move hooks never block or fail the move
+    if (original.stage !== stageKey) {
+      void (async () => {
+        try {
+          const { workflowTriggerService } = await import('../services/workflowTriggerService');
+          const moved = get().deals[id] ?? { ...original, stage: stageKey, position };
+          await workflowTriggerService.handleStageChanged('deal', id, original.stage, stageKey, moved);
+        } catch (error) {
+          console.warn('Stage-change automation failed (move kept):', error);
+        }
+      })();
+    }
+    try {
+      const col = Object.values(get().deals).filter(d => d.stage === stageKey);
+      if (needsRebalance(col.map(d => d.position ?? 0))) await get().rebalanceStage(stageKey);
+    } catch (error) {
+      console.warn('Rebalance failed (move kept):', error);
+    }
+    return true;
+  },
+
+  rebalanceStage: async (stageKey) => {
+    const state = get();
+    const col = Object.values(state.deals)
+      .filter(d => d.stage === stageKey)
+      .sort((a, b) => (a.position ?? 0) - (b.position ?? 0) || a.createdAt.getTime() - b.createdAt.getTime());
+    if (col.length === 0) return;
+    const updates = rebalance(col.map(d => d.id));
+    const previous = Object.fromEntries(col.map(d => [d.id, d.position]));
+    set(st => {
+      const next = { ...st.deals };
+      updates.forEach(u => { if (next[u.id]) next[u.id] = { ...next[u.id], position: u.position }; });
+      return { deals: next };
+    });
+    if (!shouldPersist(state.isConnectedToDatabase)) return;
+    try {
+      // One batched round of writes for the whole column
+      await Promise.all(updates.map(u => getDataSyncService().updateDeal(u.id, { position: u.position })));
+    } catch (error) {
+      set(st => {
+        const next = { ...st.deals };
+        Object.entries(previous).forEach(([did, pos]) => { if (next[did]) next[did] = { ...next[did], position: pos }; });
+        return { deals: next, error: 'Failed to rebalance column' };
+      });
+      throw error;
+    }
+  },
+
+  bulkMoveDeals: async (ids, stageKey) => {
+    const base = maxPosition(get().deals, stageKey);
+    const results = await Promise.all(ids.map((id, i) =>
+      get().moveDeal(id, stageKey, base + 1 + i).then(ok => (ok ? id : null))));
+    return results.filter((x): x is string => x !== null);
+  },
+
+  bulkUpdateDeals: async (ids, updates) => {
+    const results = await Promise.all(ids.map(id =>
+      get().updateDeal(id, updates).then(() => id, () => null)));
+    return results.filter((x): x is string => x !== null);
+  },
+
+  bulkSoftDelete: async (ids) => {
+    const results = await Promise.all(ids.map(id =>
+      get().softDeleteDeal(id).then(() => id, () => null)));
+    return results.filter((x): x is string => x !== null);
+  },
+
+  addStage: async (name) => {
+    const state = get();
+    const trimmed = sanitizeInput(name).trim();
+    if (!trimmed) return null;
+    const base = trimmed.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'stage';
+    let key = base;
+    for (let i = 2; state.stages.some(s => s.key === key); i++) key = `${base}-${i}`;
+    const draft: Omit<PipelineStage, 'id'> = {
+      key, name: trimmed, color: 'gray', visible: true, probability: 0, isWon: false, isLost: false, wipLimit: null,
+      position: state.stages.reduce((m, s) => Math.max(m, s.position), -1) + 1
+    };
+    try {
+      const created = shouldPersist(state.isConnectedToDatabase) ? await createStageRow(draft) : { ...draft, id: key };
+      set(st => ({ stages: [...st.stages, created].sort((a, b) => a.position - b.position) }));
+      return created;
+    } catch (error) {
+      console.error('Failed to add stage:', error);
+      set({ error: 'Failed to add stage' });
+      return null;
+    }
+  },
+
+  updateStage: async (key, updates) => {
+    const state = get();
+    const original = state.stages.find(s => s.key === key);
+    if (!original) return false;
+    const apply = (patch: Partial<PipelineStage>) =>
+      set(st => ({ stages: st.stages.map(s => (s.key === key ? { ...s, ...patch } : s)) }));
+    apply(updates);
+    try {
+      if (shouldPersist(state.isConnectedToDatabase)) await updateStageRow(key, updates);
+      return true;
+    } catch (error) {
+      console.error('Failed to update stage, rolling back:', error);
+      apply(original);
+      set({ error: 'Failed to update stage' });
+      return false;
+    }
+  },
+
+  reorderStages: async (keysInOrder) => {
+    const state = get();
+    const previous = state.stages;
+    const byKey = new Map(previous.map(s => [s.key, s]));
+    const reordered = keysInOrder.map((k, position) => ({ ...byKey.get(k)!, position })).filter(s => s.key);
+    const rest = previous.filter(s => !keysInOrder.includes(s.key)).map((s, i) => ({ ...s, position: reordered.length + i }));
+    set({ stages: [...reordered, ...rest] });
+    try {
+      if (shouldPersist(state.isConnectedToDatabase)) {
+        await reorderStageRows([...reordered, ...rest].map(s => s.key));
+      }
+      return true;
+    } catch (error) {
+      console.error('Failed to reorder stages, rolling back:', error);
+      set({ stages: previous, error: 'Failed to reorder stages' });
+      return false;
+    }
+  },
+
+  removeStage: async (key, moveToKey) => {
+    const state = get();
+    if (key === moveToKey || !state.stages.some(s => s.key === moveToKey)) return false;
+    const prevStages = state.stages;
+    const prevDeals = state.deals;
+    const base = maxPosition(state.deals, moveToKey);
+    let n = 0;
+    set(st => {
+      const deals = { ...st.deals };
+      Object.values(deals)
+        .filter(d => d.stage === key)
+        .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
+        .forEach(d => { deals[d.id] = { ...d, stage: moveToKey, position: base + 1 + n++ }; });
+      return { deals, stages: st.stages.filter(s => s.key !== key) };
+    });
+    try {
+      if (shouldPersist(state.isConnectedToDatabase)) await deleteStageRow(key, moveToKey);
+      return true;
+    } catch (error) {
+      console.error('Failed to delete stage, rolling back:', error);
+      set({ stages: prevStages, deals: prevDeals, error: 'Failed to delete stage' });
       return false;
     }
   },

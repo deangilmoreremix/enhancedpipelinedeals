@@ -8,6 +8,8 @@ export interface DealDetailViewProps {
   onUpdate: (id: string, updates: Partial<Deal>) => Promise<Deal>;
   contactData?: Contact | null;
   onAddContact?: () => void;
+  /** 'modal' (default) renders a full-screen overlay; 'page' renders inline for /deals/:id. */
+  variant?: 'modal' | 'page';
 }
 
 export interface DealDetailModalProps extends DealDetailViewProps {}
@@ -35,10 +37,8 @@ export interface DealDetailOverviewProps {
   deal: Deal;
   editedDeal: Deal;
   linkedContact: Contact | null;
-  onEditField: (field: string, value: any) => void;
-  onStartEditingField: (field: string) => void;
-  onSaveField: () => Promise<void>;
-  editingField: string | null;
+  /** Persist a partial update through the deal store (inline field editors call this). */
+  onUpdateDeal: (updates: Partial<Deal>) => Promise<unknown>;
 }
 
 export interface DealDetailContactProps {

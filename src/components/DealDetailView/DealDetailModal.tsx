@@ -16,6 +16,12 @@ import { useContactStore } from '../../store/contactStore';
 import { aiEnrichmentService } from '../../services/aiEnrichmentService';
 import { useSmartAI } from '../../hooks/useSmartAI';
 import { DealDetailModalProps } from './types';
+import DealNotes from '../deals/DealNotes';
+import DealTasks from '../deals/DealTasks';
+import DealFiles from '../deals/DealFiles';
+import DealTimeline from '../deals/DealTimeline';
+import DealToasts from '../deals/DealToasts';
+import { pushToast } from '../../store/dealRecordStore';
 
 export const DealDetailModal: React.FC<DealDetailModalProps> = ({
   deal,
@@ -23,7 +29,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
   onClose,
   onUpdate,
   contactData,
-  onAddContact
+  variant = 'modal'
 }) => {
   const { contacts, updateContact } = useContactStore();
   const { smartScoreContact } = useSmartAI();
@@ -103,41 +109,16 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
       await onUpdate(deal.id, { isFavorite: updatedDeal.isFavorite });
     } catch (error) {
       console.error('Failed to update favorite status:', error);
+      pushToast('error', 'Could not update favorite');
       dispatch(dealDetailActions.updateEditedDeal(deal));
     }
   }, [deal.id, state.editedDeal.isFavorite, onUpdate]);
 
-  const handleEditField = useCallback((field: string, value: any) => {
-    dispatch(dealDetailActions.updateEditedDeal({ [field]: value }));
-  }, []);
-
-  const handleStartEditingField = useCallback((field: string) => {
-    dispatch(dealDetailActions.setEditingField(field));
-  }, []);
-
-  const handleSaveField = useCallback(async () => {
-    if (!state.editingField) return;
-
-    try {
-      let updates: Partial<any> = {};
-
-      if (state.editingField.startsWith('custom_')) {
-        const fieldName = state.editingField.replace('custom_', '');
-        const customFields = {
-          ...(state.editedDeal.customFields || {}),
-        };
-        updates = { customFields };
-      } else {
-        const fieldValue = state.editedDeal[state.editingField as keyof typeof state.editedDeal];
-        updates = { [state.editingField]: fieldValue };
-      }
-
-      await onUpdate(deal.id, updates);
-      dispatch(dealDetailActions.setEditingField(null));
-    } catch (error) {
-      console.error('Failed to update field:', error);
-    }
-  }, [state.editingField, state.editedDeal, deal.id, onUpdate]);
+  // Inline field editors persist through the store (optimistic; they surface their own errors).
+  const handleUpdateDeal = useCallback(
+    async (updates: Partial<typeof deal>) => onUpdate(deal.id, updates),
+    [deal.id, onUpdate]
+  );
 
   const handleAnalyzeDeal = useCallback(async () => {
     dispatch(dealDetailActions.setAnalyzing(true));
@@ -310,17 +291,10 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
 
   if (!isOpen) return null;
 
-  return (
-    <div
-      className="fixed inset-0 bg-black/95 backdrop-blur-md z-[60] flex items-center justify-center p-2 animate-fade-in"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) {
-          onClose();
-        }
-      }}
-    >
-      <div className="bg-white dark:bg-gray-900 rounded-xl w-full max-w-[95vw] h-[95vh] overflow-hidden flex animate-scale-in shadow-2xl">
+  const isPage = variant === 'page';
 
+  const body = (
+    <>
         {/* Sidebar */}
         <DealDetailSidebar
           deal={deal}
@@ -358,17 +332,30 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
           />
 
           {/* Tab Content */}
-          <div className="flex-1 overflow-y-auto bg-gray-50 min-h-0">
+          <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 min-h-0">
             {state.activeTab === 'overview' && (
               <DealDetailOverview
                 deal={deal}
                 editedDeal={state.editedDeal}
                 linkedContact={state.linkedContact}
-                onEditField={handleEditField}
-                onStartEditingField={handleStartEditingField}
-                onSaveField={handleSaveField}
-                editingField={state.editingField}
+                onUpdateDeal={handleUpdateDeal}
               />
+            )}
+
+            {state.activeTab === 'notes' && (
+              <div className="p-6"><DealNotes dealId={deal.id} /></div>
+            )}
+
+            {state.activeTab === 'tasks' && (
+              <div className="p-6"><DealTasks dealId={deal.id} /></div>
+            )}
+
+            {state.activeTab === 'files' && (
+              <div className="p-6"><DealFiles dealId={deal.id} /></div>
+            )}
+
+            {state.activeTab === 'timeline' && (
+              <div className="p-6"><DealTimeline dealId={deal.id} showFilters maxItems={200} refreshKey={`${deal.updatedAt?.getTime?.() ?? ''}`} /></div>
             )}
 
             {state.activeTab === 'insights' && (
@@ -473,8 +460,11 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
             )}
           </div>
         </div>
-      </div>
+    </>
+  );
 
+  const overlays = (
+    <>
       {/* Modals */}
       {state.activeModal === 'emailComposer' && state.linkedContact && (
         <EmailComposer
@@ -496,6 +486,32 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
           selectedContactId={state.linkedContact?.id}
         />
       )}
+      <DealToasts />
+    </>
+  );
+
+  if (isPage) {
+    return (
+      <div className="w-full h-[calc(100vh-13rem)] min-h-[32rem] bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden flex">
+        {body}
+        {overlays}
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/95 backdrop-blur-md z-[60] flex items-center justify-center p-2 animate-fade-in"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
+    >
+      <div className="bg-white dark:bg-gray-900 rounded-xl w-full max-w-[95vw] h-[95vh] overflow-hidden flex animate-scale-in shadow-2xl">
+        {body}
+      </div>
+      {overlays}
     </div>
   );
 };

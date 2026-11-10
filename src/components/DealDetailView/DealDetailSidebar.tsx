@@ -3,6 +3,9 @@ import { Sparkles, Brain, Wand2, Target, BarChart3, Mail, Phone, Edit, Heart, He
 import { DealDetailSidebarProps } from './types';
 import { AIAnalyzeButton, EmailButton, CallButton, AIEnrichButton, AIAutoEnrichButton, FavoriteButton } from '../ui/UnifiedActionButton';
 import { initialsAvatar } from '../../utils/avatar';
+import { useDealStore } from '../../store/dealStore';
+import { stageChip } from '../deals/fields/stageColors';
+import { formatMoney } from '../../utils/currencyMicros';
 
 export const DealDetailSidebar: React.FC<DealDetailSidebarProps> = ({
   deal,
@@ -17,14 +20,10 @@ export const DealDetailSidebar: React.FC<DealDetailSidebarProps> = ({
   onAction,
   onClose
 }) => {
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(value);
-  };
+  const stages = useDealStore(st => st.stages);
+  const stageDef = stages.find(st => st.key === editedDeal.stage);
+  const chip = stageChip(stageDef?.color);
+  const formatCurrency = (value: number) => formatMoney(value, editedDeal.currencyCode ?? 'USD');
 
   const getStageColor = (stage: string) => {
     const colors: Record<string, string> = {
@@ -91,8 +90,8 @@ export const DealDetailSidebar: React.FC<DealDetailSidebarProps> = ({
 
           {/* Stage and Priority */}
           <div className="flex items-center justify-center space-x-2 mt-3">
-            <span className={`${getStageColor(editedDeal.stage)} text-white text-xs px-3 py-1 rounded-full font-medium`}>
-              {editedDeal.stage.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+            <span style={chip.style} className={`${chip.className} text-white text-xs px-3 py-1 rounded-full font-medium`}>
+              {stageDef?.name ?? editedDeal.stage.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}
             </span>
             <span className={`text-xs font-medium ${getPriorityColor(editedDeal.priority)}`}>
               {editedDeal.priority.toUpperCase()} PRIORITY

@@ -1,8 +1,6 @@
 import React, { useState, useMemo, useEffect, Suspense } from 'react';
-import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import { useSmartAI } from '../hooks/useSmartAI';
 import { useGamificationUpdates } from '../hooks/useGamificationUpdates';
-import { DealCard } from './ui/DealCard';
 import { ImageUpload } from './ui/ImageUpload';
 import { AIEnhancedDealCard } from './AIEnhancedDealCard';
 import { EnhancedAIStatusIndicator } from './ui/EnhancedAIStatusIndicator';
@@ -10,9 +8,8 @@ import DealDetail from './DealDetail';
 import PipelineStats from './PipelineStats';
 import DealAnalytics from './DealAnalytics';
 import { saveCustomColumns } from '../services/pipelineColumnService';
-import { useDealStore, positionBetween } from '../store/dealStore';
+import { useDealStore } from '../store/dealStore';
 import { isDemoMode } from '../config/demoMode';
-import { CustomPipelineColumn } from '../types/pipeline';
 
 // Lazy load view components for code splitting
 const DealListView = React.lazy(() => import('./DealListView').then(module => ({ default: module.DealListView })));
@@ -23,20 +20,20 @@ const DealDashboardView = React.lazy(() => import('./DealDashboardView').then(mo
 import { getSupabaseService } from '../services/supabaseService';
 import { getOpenAIFunctionService } from '../services/openaiFunctionCallingService';
 import { Contact } from '../types/contact';
-import { Deal, PipelineColumn } from '../types';
+import { Deal } from '../types';
 import { Tooltip } from './ui/Tooltip';
 import {
   Search, Upload, Download, Brain, Sparkles, Plus, Filter, BarChart3,
   Settings, Grid, List, Target, Zap, TrendingUp, Users, Calendar,
   Mail, Phone, CheckCircle, AlertCircle, Clock, DollarSign, Crown,
-  Loader2, X, Table, BarChart, Activity
+  Loader2, X, Table, BarChart, Activity, Heart, ChevronDown
 } from 'lucide-react';
 
 // Twenty CRM enhanced kanban imports
-import { KanbanColumnHeader, ColumnAggregation } from './pipeline/kanban/KanbanColumnHeader';
-import { WIPLimitIndicator } from './pipeline/kanban/WIPLimitIndicator';
 import { CustomColumnManager } from './pipeline/kanban/CustomColumnManager';
-import { calculateColumnAggregation, getStageColor } from './pipeline/kanban/kanbanUtils';
+import { BOARD_SORT_OPTIONS, BoardSortKey } from './pipeline/kanban/kanbanUtils';
+import { KanbanBoard } from './pipeline/KanbanBoard';
+import { BoardExportFormat, downloadDeals } from './pipeline/exportDeals';
 import { isFeatureEnabled } from '../services/featureFlagService';
 import { initialsAvatar } from '../utils/avatar';
 
@@ -65,7 +62,11 @@ const Pipeline: React.FC = () => {
   const [currentView, setCurrentView] = useState<DealViewType>('kanban');
   const [showStats, setShowStats] = useState(true);
   const [filterStage, setFilterStage] = useState<string>('all');
-  const [sortBy, setSortBy] = useState<'value' | 'probability' | 'updated'>('updated');
+  const [sortBy, setSortBy] = useState<BoardSortKey>('manual');
+  const [favoritesOnly, setFavoritesOnly] = useState(false);
+  const [booting, setBooting] = useState(true);
+  const [showExportMenu, setShowExportMenu] = useState(false);
+  const [exportMessage, setExportMessage] = useState<string | null>(null);
 
   // AI states
   const [aiResearching, setAiResearching] = useState<string[]>([]);
@@ -77,9 +78,10 @@ const Pipeline: React.FC = () => {
 
    // Twenty CRM enhanced features states
    const [twentyFeaturesEnabled, setTwentyFeaturesEnabled] = useState({
-     kanbanAggregation: false,
-     wipLimits: false,
-     customColumns: false
+     customColumns: false,
+     health: false,
+     stale: false,
+     sla: false
    });
    const [showColumnManager, setShowColumnManager] = useState(false);
 
@@ -94,22 +96,21 @@ const Pipeline: React.FC = () => {
 
   // Load deals + stages through the store on mount
   useEffect(() => {
-    void fetchDeals();
+    void fetchDeals().finally(() => setBooting(false));
     void fetchStages();
   }, [fetchDeals, fetchStages]);
 
   // Check Twenty CRM feature flags
   useEffect(() => {
     const checkFeatures = async () => {
-      const kanbanAggregation = await isFeatureEnabled('twenty_kanban_aggregation');
-      const wipLimits = await isFeatureEnabled('twenty_wip_limits');
-      const customColumns = await isFeatureEnabled('twenty_custom_columns');
+      const [customColumns, health, stale, sla] = await Promise.all([
+        isFeatureEnabled('twenty_custom_columns'),
+        isFeatureEnabled('twenty_predictive_analytics'),
+        isFeatureEnabled('twenty_pipeline_analytics'),
+        isFeatureEnabled('twenty_sla_monitoring')
+      ]);
 
-      setTwentyFeaturesEnabled({
-        kanbanAggregation,
-        wipLimits,
-        customColumns
-      });
+      setTwentyFeaturesEnabled({ customColumns, health, stale, sla });
     };
 
      checkFeatures();
@@ -117,26 +118,6 @@ const Pipeline: React.FC = () => {
 
   // Real-time subscriptions (deals + stages) via the store
   useEffect(() => subscribeRealtime(), [subscribeRealtime, isConnected]);
-
-  // Board columns derived from stages + deals (ordered by deal position)
-  const columns = useMemo(() => {
-    const result: Record<string, PipelineColumn> = {};
-    const all = Object.values(deals);
-    stages.filter(st => st.visible).forEach(st => {
-      result[st.key] = {
-        id: st.key,
-        title: st.name,
-        color: st.color,
-        position: st.position + 1,
-        wipLimit: st.wipLimit ?? undefined,
-        dealIds: all
-          .filter(d => d.stage === st.key)
-          .sort((x, y) => (x.position ?? 0) - (y.position ?? 0) || x.createdAt.getTime() - y.createdAt.getTime())
-          .map(d => d.id)
-      };
-    });
-    return result;
-  }, [stages, deals]);
 
   // Save view preference when changed
   const handleViewChange = (view: DealViewType) => {
@@ -161,15 +142,12 @@ const Pipeline: React.FC = () => {
       result = result.filter(deal => deal.stage === filterStage);
     }
 
-    return result;
-   }, [deals, searchTerm, filterStage]);
+    if (favoritesOnly) {
+      result = result.filter(deal => deal.isFavorite);
+    }
 
-   // Compute column order from columns metadata
-   const columnOrder = useMemo(() => {
-     return Object.values(columns)
-       .sort((a, b) => (a.position || 0) - (b.position || 0))
-       .map(col => col.id);
-   }, [columns]);
+    return result;
+   }, [deals, searchTerm, filterStage, favoritesOnly]);
 
    // Calculate pipeline statistics
   const pipelineStats = useMemo(() => {
@@ -187,31 +165,6 @@ const Pipeline: React.FC = () => {
       conversionRate
     };
   }, [deals]);
-
-  const handleDragEnd = (result: DropResult) => {
-    const { destination, source, draggableId } = result;
-
-    if (!destination) return;
-
-    if (
-      destination.droppableId === source.droppableId &&
-      destination.index === source.index
-    ) {
-      return;
-    }
-
-    if (!deals[draggableId] || !columns[destination.droppableId]) return;
-
-    // Neighbours as displayed (respects active search/stage filters), excluding the dragged card
-    const visibleIds = new Set(filteredDeals.map(d => d.id));
-    const destList = columns[destination.droppableId].dealIds
-      .filter(id => id !== draggableId && visibleIds.has(id))
-      .map(id => deals[id]);
-    const position = positionBetween(destList[destination.index - 1], destList[destination.index]);
-
-    // Optimistic in the store; persists and rolls back on failure
-    void moveDeal(draggableId, destination.droppableId, position);
-  };
 
   const handleDealUpdate = async (id: string, updates: Partial<Deal>) => {
     try {
@@ -333,36 +286,16 @@ const Pipeline: React.FC = () => {
     }
   };
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(value);
-  };
-
-  // Static class names so Tailwind can see them; keyed by PipelineStage.color
-  const STAGE_COLOR_CLASSES: Record<string, string> = {
-    blue: 'border-blue-500 bg-blue-50',
-    indigo: 'border-indigo-500 bg-indigo-50',
-    purple: 'border-purple-500 bg-purple-50',
-    green: 'border-green-500 bg-green-50',
-    red: 'border-red-500 bg-red-50'
-  };
-
-  const getStageColor = (stageId: string) => {
-    const stage = stages.find(st => st.key === stageId);
-    const color = stage?.color?.replace(/-\d+$/, '');
-    return (color && STAGE_COLOR_CLASSES[color]) || 'border-gray-500 bg-gray-50';
-  };
-
-  const handleImportDeals = () => {
-    console.log('Import functionality not yet implemented');
-  };
-
-  const handleExportDeals = () => {
-    console.log('Export functionality not yet implemented');
+  const handleExportDeals = async (format: BoardExportFormat) => {
+    setShowExportMenu(false);
+    try {
+      const file = await downloadDeals(filteredDeals, format);
+      setExportMessage(`Exported ${filteredDeals.length} deal${filteredDeals.length === 1 ? '' : 's'} to ${file}`);
+    } catch (error) {
+      console.error('Export failed:', error);
+      setExportMessage('Export failed');
+    }
+    window.setTimeout(() => setExportMessage(null), 4000);
   };
 
   const handleClearAllData = async () => {
@@ -605,7 +538,9 @@ const Pipeline: React.FC = () => {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
               <input
                 type="text"
-                placeholder="Search deals..."
+                placeholder="Search deals... (press /)"
+                data-board-search
+                aria-label="Search deals"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all w-64 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
@@ -627,26 +562,64 @@ const Pipeline: React.FC = () => {
             </select>
           </Tooltip>
 
-          {/* Contact Management Buttons */}
-          <Tooltip content="Import Contacts - Upload contacts from CSV, Excel, or other CRM systems" position="bottom">
-            <button
-              onClick={handleImportDeals}
-              className="flex items-center space-x-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+          {/* Sort */}
+          <Tooltip content="Sort cards within each column" position="bottom">
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as BoardSortKey)}
+              aria-label="Sort cards"
+              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
             >
-              <Upload className="w-4 h-4" />
-              <span>Import Contacts</span>
-            </button>
+              {BOARD_SORT_OPTIONS.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
+            </select>
           </Tooltip>
-          
-          <Tooltip content="Export Contacts - Download your contacts as CSV, Excel, or JSON for backup or analysis" position="bottom">
-            <button
-              onClick={handleExportDeals}
-              className="flex items-center space-x-2 px-4 py-2 bg-indigo-50 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-700 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-800/60 transition-colors font-medium"
-            >
-              <Download className="w-4 h-4" />
-              <span>Export Contacts</span>
-            </button>
-          </Tooltip>
+
+          {/* Favorites filter chip */}
+          <button
+            type="button"
+            onClick={() => setFavoritesOnly(f => !f)}
+            aria-pressed={favoritesOnly}
+            className={`flex items-center space-x-1 px-3 py-2 rounded-full border text-sm font-medium transition-colors ${
+              favoritesOnly
+                ? 'bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 border-red-300 dark:border-red-700'
+                : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
+            }`}
+          >
+            <Heart className={`w-4 h-4 ${favoritesOnly ? 'fill-current' : ''}`} />
+            <span>Favorites only</span>
+          </button>
+
+          {/* Export (the filtered deals) */}
+          <div className="relative">
+            <Tooltip content="Export the deals currently shown as CSV, Excel, or JSON" position="bottom">
+              <button
+                onClick={() => setShowExportMenu(o => !o)}
+                aria-haspopup="true"
+                aria-expanded={showExportMenu}
+                className="flex items-center space-x-2 px-4 py-2 bg-indigo-50 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-700 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-800/60 transition-colors font-medium"
+              >
+                <Download className="w-4 h-4" />
+                <span>Export</span>
+                <ChevronDown className="w-3 h-3" />
+              </button>
+            </Tooltip>
+            {showExportMenu && (
+              <div className="absolute left-0 top-full mt-1 z-30 w-36 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1">
+                {(['csv', 'xlsx', 'json'] as BoardExportFormat[]).map(f => (
+                  <button
+                    key={f}
+                    onClick={() => void handleExportDeals(f)}
+                    className="w-full px-3 py-1.5 text-sm text-left text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+                  >
+                    {f.toUpperCase()} ({filteredDeals.length})
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          {exportMessage && (
+            <span className="text-sm text-gray-600 dark:text-gray-300" role="status">{exportMessage}</span>
+          )}
 
           <Tooltip content="Clear All Data - Delete all contacts, deals, and achievements from the database" position="bottom">
             <button
@@ -767,114 +740,47 @@ const Pipeline: React.FC = () => {
             case 'kanban':
             default:
             return (
-        <DragDropContext onDragEnd={handleDragEnd}>
-          <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 min-h-[600px]">
-            {columnOrder.map((columnId) => {
-              const column = columns[columnId];
-              const columnDeals = column.dealIds
-                .map(dealId => deals[dealId])
-                .filter(Boolean)
-                .filter(deal => filteredDeals.some(fd => fd.id === deal.id));
-
-              const columnAggregation = calculateColumnAggregation(columnDeals);
-
-              return (
-                <div key={column.id} className={`bg-white dark:bg-gray-800 rounded-xl border-2 ${getStageColor(column.id)} shadow-sm`}>
-                  {/* Enhanced Column Header with Twenty features */}
-                  {twentyFeaturesEnabled.kanbanAggregation ? (
-                    <KanbanColumnHeader
-                      title={column.title}
-                      aggregation={columnAggregation}
-                       wipLimit={twentyFeaturesEnabled.wipLimits ? (column.wipLimit ?? 10) : undefined} // Configurable via custom columns
-                      color={getStageColor(column.id)}
-                    />
-                  ) : (
-                    /* Original column header for backward compatibility */
-                    <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-                      <div className="flex items-center justify-between mb-2">
-                        <h3 className="font-semibold text-gray-900 dark:text-white">{column.title}</h3>
-                        <span className="bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-2 py-1 rounded-md text-xs font-medium">
-                          {columnDeals.length}
-                        </span>
-                      </div>
-                      <div className="text-sm text-gray-600 dark:text-gray-400">
-                        {formatCurrency(columnAggregation.sum)}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* WIP Limit Indicator */}
-                  {twentyFeaturesEnabled.wipLimits && (
-                    <div className="px-4 py-2 border-b border-gray-200 dark:border-gray-700">
-                      <WIPLimitIndicator
-                        current={columnDeals.length}
-                         limit={column.wipLimit ?? 10} // Configurable per column
-                      />
-                    </div>
-                  )}
-
-                  {/* Droppable Area */}
-                  <Droppable droppableId={column.id}>
-                    {(provided, snapshot) => (
-                      <div
-                        ref={provided.innerRef}
-                        {...provided.droppableProps}
-                        className={`p-4 min-h-[500px] space-y-3 ${
-                          snapshot.isDraggingOver ? 'bg-blue-50 dark:bg-blue-900/20' : ''
-                        }`}
-                      >
-                        {columnDeals.map((deal, index) => (
-                          <Draggable key={deal.id} draggableId={deal.id} index={index}>
-                            {(provided, snapshot) => (
-                              <div
-                                ref={provided.innerRef}
-                                {...provided.draggableProps}
-                                {...provided.dragHandleProps}
-                                className={`${
-                                  snapshot.isDragging ? 'rotate-2 shadow-xl' : ''
-                                }`}
-                              >
-                                <AIEnhancedDealCard
-                                   deal={deal}
-                                   onClick={() => handleDealClick(deal.id)}
-                                   onAnalyze={handleAIResearch}
-                                   isAnalyzing={aiResearching.includes(deal.id)}
-                                   onToggleFavorite={async (deal) => {
-                                     await handleDealUpdate(deal.id, { isFavorite: !deal.isFavorite });
-                                   }}
-                                   onFindNewImage={async (deal) => {
-                                     // Simulate finding new image
-                                     const newSeed = Date.now().toString();
-                                     const newAvatar = initialsAvatar(newSeed);
-                                     await handleDealUpdate(deal.id, { companyAvatar: newAvatar });
-                                   }}
-                                   onEdit={(deal) => {
-                                     // For now, just open the deal detail modal for editing
-                                     setSelectedDealId(deal.id);
-                                   }}
-                                   onDelete={handleDealDelete}
-                                   isOpenAIFunctionCalling={openAIFunctionCalling.includes(deal.id)}
-                                   openAIResult={openAIResults[deal.id]}
-                                 />
-                              </div>
-                            )}
-                          </Draggable>
-                        ))}
-                        {provided.placeholder}
-                        
-                        {/* Add Deal Button */}
-                        <button className="w-full p-4 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-gray-500 dark:text-gray-400 hover:border-gray-400 dark:hover:border-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors flex items-center justify-center">
-                          <Plus className="w-4 h-4 mr-2" />
-                          Add Deal
-                        </button>
-                      </div>
-                    )}
-                  </Droppable>
-                </div>
-              );
-            })}
-          </div>
-        </DragDropContext>
+        <KanbanBoard
+          deals={filteredDeals}
+          stages={stages}
+          sortBy={sortBy}
+          isLoading={booting}
+          indicators={{
+            health: twentyFeaturesEnabled.health,
+            stale: twentyFeaturesEnabled.stale,
+            sla: twentyFeaturesEnabled.sla
+          }}
+          onOpenDeal={handleDealClick}
+          renderCard={(deal, ctx) => (
+            <AIEnhancedDealCard
+              deal={deal}
+              isSelected={ctx.isSelected}
+              isFocused={ctx.isFocused}
+              onSelect={ctx.onSelect}
+              onRangeSelect={ctx.onRangeSelect}
+              indicators={ctx.indicators}
+              onClick={() => handleDealClick(deal.id)}
+              onAnalyze={handleAIResearch}
+              isAnalyzing={aiResearching.includes(deal.id)}
+              onToggleFavorite={async (d) => {
+                await handleDealUpdate(d.id, { isFavorite: !d.isFavorite });
+              }}
+              onFindNewImage={async (d) => {
+                // Simulate finding new image
+                const newSeed = Date.now().toString();
+                const newAvatar = initialsAvatar(newSeed);
+                await handleDealUpdate(d.id, { companyAvatar: newAvatar });
+              }}
+              onEdit={(d) => {
+                // For now, just open the deal detail modal for editing
+                setSelectedDealId(d.id);
+              }}
+              onDelete={handleDealDelete}
+              isOpenAIFunctionCalling={openAIFunctionCalling.includes(deal.id)}
+              openAIResult={openAIResults[deal.id]}
+            />
+          )}
+        />
             );
           }
         })()}

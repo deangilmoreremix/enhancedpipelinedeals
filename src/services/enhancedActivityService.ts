@@ -441,6 +441,7 @@ class EnhancedActivityService {
       priority: data.priority,
       status: data.status,
       createdAt: data.created_at,
+      updatedAt: data.updated_at,
       userId: data.user_name // This comes from the function
     };
   }

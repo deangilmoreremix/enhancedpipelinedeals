@@ -132,7 +132,7 @@ export class WorkflowExecutionEngine {
     const pendingSteps = new Set(workflow.steps.filter(s => s.type === 'trigger' || s.connections.length === 0).map(s => s.id));
 
     while (pendingSteps.size > 0) {
-      const stepId = pendingSteps.values().next().value;
+      const stepId = pendingSteps.values().next().value as string;
       pendingSteps.delete(stepId);
 
       if (executedSteps.has(stepId)) continue;
@@ -549,7 +549,7 @@ export class WorkflowExecutionEngine {
       };
 
       // Execute the code in a safe context
-      const AsyncFunction = (async function () {}).constructor;
+      const AsyncFunction = (async function () {}).constructor as new (...args: string[]) => (...fnArgs: unknown[]) => Promise<unknown>;
       const fn = new AsyncFunction('context', action.config.codeSnippet || '');
       const result = await fn(context);
 
@@ -600,17 +600,20 @@ export class WorkflowExecutionEngine {
     execution: WorkflowExecution
   ): Promise<{ success: boolean; output?: any; error?: string }> {
     try {
-      // Import AI service dynamically
-      const { AIService } = await import('./aiService');
+      // Import AI client dynamically
+      const { callAI } = await import('./aiClient');
 
       const prompt = this.interpolateVariables(action.config.aiAgentPrompt || '', execution);
-      const result = await AIService.processWithAI(prompt, {
-        model: action.config.aiAgentModel,
-        tools: action.config.aiAgentTools,
-        context: execution.context
+      const result = await callAI('chat', {
+        input: prompt,
+        context: {
+          model: action.config.aiAgentModel,
+          tools: action.config.aiAgentTools,
+          workflowContext: execution.context
+        }
       });
 
-      return { success: true, output: result };
+      return { success: true, output: { text: result.text, data: result.data } };
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : 'AI agent execution failed' };
     }

@@ -347,7 +347,7 @@ class PipelineAnalyticsService {
     if (totalDeals === 0) return { score: 0, analysis: 'No deals in pipeline' };
 
     let score = 0;
-    const analysis = [];
+    const analysis: string[] = [];
 
     stages.forEach((stage, index) => {
       const stageDeals = deals.filter(deal => deal.stage === stage).length;

@@ -150,7 +150,7 @@ export const SDRAgentConfigurator: React.FC<SDRAgentConfiguratorProps> = ({
           <ModernButton
             variant="primary"
             onClick={handleSave}
-            isLoading={isSaving}
+            loading={isSaving}
             leftIcon={<Save className="w-4 h-4" />}
           >
             Save Configuration
@@ -430,10 +430,11 @@ const AdvancedSettingsTab: React.FC<{
           max="5"
           value={config.performanceSettings?.maxRetries || 3}
           onChange={(e) => onUpdate({
+            // Other performance fields may be unset on stored configs; merge preserves them as-is.
             performanceSettings: {
               ...config.performanceSettings,
               maxRetries: parseInt(e.target.value)
-            }
+            } as NonNullable<SDRAgentPreferences['performanceSettings']>
           })}
           className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
         />

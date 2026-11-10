@@ -8,6 +8,7 @@ import { useSDRAgents } from './useSDRAgents';
 import { SDR_AGENTS } from './sdrAgentsConfig';
 import { sdrPreferencesService } from '../../services/sdrPreferencesService';
 import { Play, Users, BarChart3 } from 'lucide-react';
+import type { SDRAgentPreferences, SDRUserPreferences } from '../../types/sdr-config';
 
 export const SDRAgentsHub: React.FC = () => {
   const {
@@ -35,7 +36,7 @@ export const SDRAgentsHub: React.FC = () => {
     getAgentsBySuccessRate
   } = useSDRAgents();
 
-  const [configuringAgent, setConfiguringAgent] = useState<{ id: string; name: string; config?: Record<string, unknown> } | null>(null);
+  const [configuringAgent, setConfiguringAgent] = useState<{ id: string; name: string; config?: SDRUserPreferences } | null>(null);
   const [batchMode, setBatchMode] = useState(false);
   const [selectedBatchAgents, setSelectedBatchAgents] = useState<string[]>([]);
   const [showAnalytics, setShowAnalytics] = useState(false);
@@ -55,7 +56,7 @@ export const SDRAgentsHub: React.FC = () => {
     });
   };
 
-  const handleSaveConfiguration = async (preferences: Record<string, unknown>) => {
+  const handleSaveConfiguration = async (preferences: SDRAgentPreferences) => {
     if (!configuringAgent) return;
 
     await sdrPreferencesService.saveUserPreferences('user-1', configuringAgent.id, preferences);

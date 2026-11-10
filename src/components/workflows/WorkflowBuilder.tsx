@@ -47,7 +47,7 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
 }) => {
   const [selectedStep, setSelectedStep] = useState<WorkflowStep | null>(null);
   const [draggedItem, setDraggedItem] = useState<any>(null);
-  const canvasRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLDivElement | null>(null);
 
   const handleDragEnd = useCallback((result: DropResult) => {
     const { source, destination, draggableId } = result;
@@ -58,8 +58,10 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
     if (source.droppableId === 'toolbar' && destination.droppableId === 'canvas') {
       const itemType = draggableId;
       const rect = canvasRef.current?.getBoundingClientRect();
-      const x = destination.x - (rect?.left || 0);
-      const y = destination.y - (rect?.top || 0);
+      // Droppable locations carry no pointer coordinates; default to the canvas origin.
+      const dropLocation = destination as typeof destination & { x?: number; y?: number };
+      const x = (dropLocation.x ?? 0) - (rect?.left || 0);
+      const y = (dropLocation.y ?? 0) - (rect?.top || 0);
 
       addStepToCanvas(itemType, x, y);
     }
@@ -96,8 +98,7 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
           type: 'send_email',
           name: 'Send Email',
           description: 'Send an email notification',
-          config: {},
-          isActive: true
+          config: {}
         };
         break;
       case 'condition':
@@ -465,7 +466,7 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
                     value={selectedStep.trigger.type}
                     onChange={(e) => updateStep(selectedStep.id, {
                       trigger: {
-                        ...selectedStep.trigger,
+                        ...(selectedStep.trigger as WorkflowTrigger),
                         type: e.target.value as TriggerType
                       }
                     })}
@@ -491,7 +492,7 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
                     value={selectedStep.action.type}
                     onChange={(e) => updateStep(selectedStep.id, {
                       action: {
-                        ...selectedStep.action,
+                        ...(selectedStep.action as WorkflowAction),
                         type: e.target.value as ActionType
                       }
                     })}

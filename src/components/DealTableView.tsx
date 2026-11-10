@@ -32,7 +32,7 @@ export const DealTableView: React.FC<DealTableViewProps> = ({
 
     if (searchTerm.trim()) {
       result = result.filter(deal =>
-        deal.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (deal.title ?? "").toLowerCase().includes(searchTerm.toLowerCase()) ||
         deal.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
         deal.contact.toLowerCase().includes(searchTerm.toLowerCase())
       );
@@ -48,8 +48,8 @@ export const DealTableView: React.FC<DealTableViewProps> = ({
 
       switch (sortField) {
         case 'title':
-          aValue = a.title.toLowerCase();
-          bValue = b.title.toLowerCase();
+          aValue = (a.title ?? "").toLowerCase();
+          bValue = (b.title ?? "").toLowerCase();
           break;
         case 'company':
           aValue = a.company.toLowerCase();

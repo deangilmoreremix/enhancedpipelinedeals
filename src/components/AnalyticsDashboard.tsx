@@ -17,7 +17,7 @@ import {
   Trash2,
   Download,
   Upload,
-  Refresh,
+  RefreshCw,
   Filter,
   Calendar,
   Zap,
@@ -243,7 +243,7 @@ const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ isVisible = tru
             <ModernButton
               variant="secondary"
               size="sm"
-              leftIcon={<Refresh className="w-4 h-4" />}
+              leftIcon={<RefreshCw className="w-4 h-4" />}
               onClick={runAnalyticsResearch}
               loading={isResearching}
             >
@@ -471,7 +471,7 @@ const WidgetRenderer: React.FC<WidgetRendererProps> = ({ widget, selectedPeriod 
         <h4 className="font-semibold text-gray-900 dark:text-white">{widget.title}</h4>
         <div className="flex items-center space-x-2">
           <button className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
-            <Refresh className="w-4 h-4" />
+            <RefreshCw className="w-4 h-4" />
           </button>
           <button className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
             <Edit className="w-4 h-4" />

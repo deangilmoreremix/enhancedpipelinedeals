@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Filter, Calendar, Hash, Type as TypeIcon, Select as SelectIcon } from 'lucide-react';
+import { Filter, Calendar, Hash, Type as TypeIcon, List as SelectIcon } from 'lucide-react';
 
 interface ViewFilterValueInputProps {
   field: string;

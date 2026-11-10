@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { isFeatureEnabled } from '../../../services/featureFlagService';
 import { getCustomColumns } from '../../../services/pipelineColumnService';
-import { CustomPipelineColumn } from '../../../types/pipeline';
 
 export interface CustomPipelineColumn {
   id: string;

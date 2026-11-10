@@ -11,7 +11,7 @@ import DealManagementPanel from './DealManagementPanel';
 import { EmailComposer } from '../EmailComposer';
 import { ContactsModal } from '../ContactsModal';
 import { dealDetailReducer, dealDetailActions, initialDealDetailState } from './reducer';
-import { useButtonActions } from '../../hooks/useButtonActions';
+import { useButtonActions, type ButtonAction } from '../../hooks/useButtonActions';
 import { useContactStore } from '../../store/contactStore';
 import { aiEnrichmentService } from '../../services/aiEnrichmentService';
 import { useSmartAI } from '../../hooks/useSmartAI';
@@ -44,6 +44,11 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
     onOpenEmailComposer: () => dispatch(dealDetailActions.setActiveModal('emailComposer')),
     onOpenContactSelector: () => dispatch(dealDetailActions.setShowContactSelector(true))
   });
+
+  // Child components pass plain action strings and ignore the returned promise.
+  const onAction = (action: string, event?: React.MouseEvent): void => {
+    void handleAction(action as ButtonAction, event);
+  };
 
   // Update state when deal or contactData changes
   useEffect(() => {
@@ -327,7 +332,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
           onContactEnrichment={handleContactEnrichment}
           onFindNewImage={handleFindNewImage}
           onToggleFavorite={handleToggleFavorite}
-          onAction={handleAction}
+          onAction={onAction}
           onClose={onClose}
         />
 
@@ -349,7 +354,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
             onCancel={handleCancel}
             onToggleFavorite={handleToggleFavorite}
             onShare={handleShareDeal}
-            onAction={handleAction}
+            onAction={onAction}
           />
 
           {/* Tab Content */}

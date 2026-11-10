@@ -27,7 +27,7 @@ export const DealTimelineView: React.FC<DealTimelineViewProps> = ({
 
     if (searchTerm.trim()) {
       result = result.filter(deal =>
-        deal.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (deal.title ?? "").toLowerCase().includes(searchTerm.toLowerCase()) ||
         deal.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
         deal.contact.toLowerCase().includes(searchTerm.toLowerCase())
       );

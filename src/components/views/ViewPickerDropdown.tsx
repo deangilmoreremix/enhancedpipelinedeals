@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
-import { SavedPipelineView } from '../../services/savedPipelineViewService';
+import { SavedPipelineView as BaseSavedPipelineView } from '../../services/savedPipelineViewService';
 import { ChevronDown, Check, Star, Filter, BarChart3 } from 'lucide-react';
+
+// Views may carry an optional description that the service type does not declare yet.
+type SavedPipelineView = BaseSavedPipelineView & { description?: string };
 
 interface ViewPickerDropdownProps {
   views: SavedPipelineView[];

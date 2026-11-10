@@ -153,7 +153,7 @@ export const DealAnalyticsDashboard: React.FC<DealAnalyticsDashboardProps> = ({ 
 
       const exportData = {
         deal: {
-          title: sanitizeString(deal.title),
+          title: sanitizeString(deal.title ?? ""),
           company: sanitizeString(deal.company),
           value: sanitizeNumber(deal.value),
           probability: Math.max(0, Math.min(100, deal.probability)),
@@ -208,7 +208,7 @@ export const DealAnalyticsDashboard: React.FC<DealAnalyticsDashboardProps> = ({ 
       // Download JSON file
       const jsonLink = document.createElement('a');
       jsonLink.href = jsonUrl;
-      jsonLink.download = `deal-analytics-${sanitizeString(deal.title).replace(/\s+/g, '-').toLowerCase()}-${new Date().toISOString().split('T')[0]}.json`;
+      jsonLink.download = `deal-analytics-${sanitizeString(deal.title ?? "").replace(/\s+/g, '-').toLowerCase()}-${new Date().toISOString().split('T')[0]}.json`;
       jsonLink.style.display = 'none';
       document.body.appendChild(jsonLink);
       jsonLink.click();
@@ -218,7 +218,7 @@ export const DealAnalyticsDashboard: React.FC<DealAnalyticsDashboardProps> = ({ 
       setTimeout(() => {
         const csvLink = document.createElement('a');
         csvLink.href = csvUrl;
-        csvLink.download = `deal-metrics-${sanitizeString(deal.title).replace(/\s+/g, '-').toLowerCase()}-${new Date().toISOString().split('T')[0]}.csv`;
+        csvLink.download = `deal-metrics-${sanitizeString(deal.title ?? "").replace(/\s+/g, '-').toLowerCase()}-${new Date().toISOString().split('T')[0]}.csv`;
         csvLink.style.display = 'none';
         document.body.appendChild(csvLink);
         csvLink.click();

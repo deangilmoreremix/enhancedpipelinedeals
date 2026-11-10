@@ -20,7 +20,7 @@ import { ViewsReportingService } from '../../services/viewsReportingService';
 import { CustomMetricsService } from '../../services/customMetricsService';
 import { AdvancedFilteringService } from '../../services/advancedFilteringService';
 import { exportService } from '../../services/exportService';
-import { featureFlagService } from '../../services/featureFlagService';
+import { FeatureFlagService } from '../../services/featureFlagService';
 
 interface ViewsReportingManagerProps {
   deals: Record<string, Deal>;
@@ -76,7 +76,7 @@ export const ViewsReportingManager: React.FC<ViewsReportingManagerProps> = ({
 
     const flagValues: Record<string, boolean> = {};
     for (const flag of flags) {
-      flagValues[flag] = await featureFlagService.isFeatureEnabled(flag);
+      flagValues[flag] = await FeatureFlagService.isFeatureEnabled(flag);
     }
     setFeatureFlags(flagValues);
   };
@@ -240,11 +240,11 @@ export const ViewsReportingManager: React.FC<ViewsReportingManagerProps> = ({
             deals={deals}
             config={{
               columns: [
-                { id: 'qualification', title: 'Qualification', color: '#3b82f6' },
-                { id: 'proposal', title: 'Proposal', color: '#6366f1' },
-                { id: 'negotiation', title: 'Negotiation', color: '#f59e0b' },
-                { id: 'closed-won', title: 'Won', color: '#10b981' },
-                { id: 'closed-lost', title: 'Lost', color: '#ef4444' }
+                { id: 'qualification', title: 'Qualification', field: 'stage', color: '#3b82f6' },
+                { id: 'proposal', title: 'Proposal', field: 'stage', color: '#6366f1' },
+                { id: 'negotiation', title: 'Negotiation', field: 'stage', color: '#f59e0b' },
+                { id: 'closed-won', title: 'Won', field: 'stage', color: '#10b981' },
+                { id: 'closed-lost', title: 'Lost', field: 'stage', color: '#ef4444' }
               ],
               cardTemplate: {
                 showFields: ['title', 'company', 'value', 'probability'],

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Filter, X, Plus, Check } from 'lucide-react';
 
-interface FilterCondition {
+export interface FilterCondition {
   field: string;
   operator: string;
   value: string | number;

@@ -70,7 +70,7 @@ export const EditableChip: React.FC<EditableChipProps> = ({
   const [value, setValue] = useState<string | number | Date>(filter?.value || '');
   const [tag, setTag] = useState<string>('');
 
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLInputElement & HTMLSelectElement>(null);
 
   useEffect(() => {
     if (internalEditMode && inputRef.current) {
@@ -84,7 +84,7 @@ export const EditableChip: React.FC<EditableChipProps> = ({
     const newFilter: FilterCondition = {
       field,
       operator,
-      value: typeof value === 'string' ? value : value
+      value: value instanceof Date ? value.toISOString() : value
     };
 
     onSave(newFilter);
@@ -110,7 +110,7 @@ export const EditableChip: React.FC<EditableChipProps> = ({
           <input
             ref={inputRef}
             type="number"
-            value={value}
+            value={String(value)}
             onChange={(e) => setValue(Number(e.target.value))}
             onKeyDown={handleKeyDown}
             className="flex-1 min-w-[80px] px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-1 focus:ring-blue-500 focus:border-transparent"
@@ -185,7 +185,7 @@ export const EditableChip: React.FC<EditableChipProps> = ({
 
   return (
     <div className="inline-flex items-center px-3 py-1 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded-full text-sm">
-      {internalEditMode ? (
+      {internalEditMode || !filter ? (
         <>
           <select
             value={field}

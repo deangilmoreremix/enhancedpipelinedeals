@@ -153,7 +153,10 @@ export const AdvancedTableView: React.FC<AdvancedTableViewProps> = ({
 
     if (value === null || value === undefined) return '';
 
-    switch (column.type) {
+    // ViewColumn.format is typed as a string but may carry Intl options for stored views.
+    const formatOptions = column.format as unknown as Intl.NumberFormatOptions & Intl.DateTimeFormatOptions;
+    // 'array' is produced by some stored views but is not part of the ViewColumn type union.
+    switch (column.type as string) {
       case 'currency':
         return new Intl.NumberFormat('en-US', {
           style: 'currency',
@@ -162,11 +165,11 @@ export const AdvancedTableView: React.FC<AdvancedTableViewProps> = ({
         }).format(value);
 
       case 'number':
-        return column.format ? new Intl.NumberFormat('en-US', column.format).format(value) : value;
+        return column.format ? new Intl.NumberFormat('en-US', formatOptions).format(value) : value;
 
       case 'date':
         const date = new Date(value);
-        return date.toLocaleDateString('en-US', column.format || {
+        return date.toLocaleDateString('en-US', formatOptions || {
           year: 'numeric',
           month: 'short',
           day: 'numeric'

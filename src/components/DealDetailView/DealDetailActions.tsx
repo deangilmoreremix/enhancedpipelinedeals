@@ -31,8 +31,9 @@ export const DealDetailActions: React.FC<DealDetailActionsProps> = ({
     } catch (error) {
       try {
         getErrorReportingService().reportError(error as Error, {
-          context: 'Context detection in DealDetailActions',
-          dealId: deal.id,
+          component: 'DealDetailActions',
+          action: 'Context detection in DealDetailActions',
+          metadata: { dealId: deal.id },
           userId: user?.id || 'anonymous'
         });
       } catch (reportError) {

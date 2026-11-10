@@ -92,10 +92,11 @@ const DealTemplates: React.FC<DealTemplatesProps> = ({
 
       const newTemplate = await createTemplate({
         name: templateName,
-        description: templateDescription,
+        description: templateDescription ?? undefined,
         templateData,
         isPublic: false
-      });
+        // The service fills the remaining DealTemplate columns (category, counters, timestamps).
+      } as Parameters<typeof createTemplate>[0]);
 
       if (newTemplate) {
         setTemplates(prev => [newTemplate, ...prev]);

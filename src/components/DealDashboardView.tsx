@@ -228,7 +228,7 @@ export const DealDashboardView: React.FC<DealDashboardViewProps> = ({ deals }) =
                 labelLine={false}
                 label={({ name, percent, x, y }: { name?: string; percent?: number; x?: number; y?: number }) => (
                   <text x={x} y={y} textAnchor="middle" dominantBaseline="middle" fill="hsl(var(--foreground))" fontSize={12}>
-                    {name} {(percent * 100).toFixed(0)}%
+                    {name} {((percent ?? 0) * 100).toFixed(0)}%
                   </text>
                 )}
                 outerRadius={100}

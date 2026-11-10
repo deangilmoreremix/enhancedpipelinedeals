@@ -120,7 +120,7 @@ export const AdvancedDashboardView: React.FC<AdvancedDashboardViewProps> = ({
     switch (widget.type) {
       case 'metric':
         const metricKey = config.metricKey;
-        const value = dashboardData[metricKey as keyof typeof dashboardData];
+        const value = dashboardData[metricKey as keyof typeof dashboardData] as number;
         const format = config.format || 'number';
 
         return (
@@ -144,7 +144,7 @@ export const AdvancedDashboardView: React.FC<AdvancedDashboardViewProps> = ({
 
       case 'chart':
         const chartType = config.chartType || 'bar';
-        const chartData = config.dataKey ? dashboardData[config.dataKey as keyof typeof dashboardData] : [];
+        const chartData: unknown = config.dataKey ? dashboardData[config.dataKey as keyof typeof dashboardData] : [];
 
         if (chartType === 'bar' && Array.isArray(chartData)) {
           return (
@@ -174,7 +174,7 @@ export const AdvancedDashboardView: React.FC<AdvancedDashboardViewProps> = ({
                   outerRadius={80}
                   label={{ fill: chartTextColor }}
                 >
-                  {chartData.map((entry, index) => (
+                  {(chartData as Array<{ color?: string }>).map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color || '#3b82f6'} />
                   ))}
                 </Pie>
@@ -203,8 +203,8 @@ export const AdvancedDashboardView: React.FC<AdvancedDashboardViewProps> = ({
         return <div className="flex items-center justify-center h-full text-gray-500 dark:text-gray-400">Chart not configured</div>;
 
       case 'table':
-        const tableData = config.dataKey ? dashboardData[config.dataKey as keyof typeof dashboardData] : [];
-        const columns = config.columns || ['name', 'value'];
+        const tableData: unknown = config.dataKey ? dashboardData[config.dataKey as keyof typeof dashboardData] : [];
+        const columns: string[] = config.columns || ['name', 'value'];
 
         if (!Array.isArray(tableData)) {
           return <div className="flex items-center justify-center h-full text-gray-500 dark:text-gray-400">No data available</div>;
@@ -223,7 +223,7 @@ export const AdvancedDashboardView: React.FC<AdvancedDashboardViewProps> = ({
                 </tr>
               </thead>
               <tbody>
-                {tableData.slice(0, 10).map((row, index) => (
+                {(tableData as Array<Record<string, any>>).slice(0, 10).map((row, index) => (
                   <tr key={index} className="border-b border-gray-100 dark:border-gray-700">
                     {columns.map(col => (
                       <td key={col} className="p-2 text-gray-900 dark:text-gray-100">

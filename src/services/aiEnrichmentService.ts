@@ -226,6 +226,11 @@ class AIEnrichmentService {
       console.warn('Could not store enrichment record:', e);
     }
 
+    // Keep semantic search in sync with what we learned (non-fatal)
+    if (research.found) {
+      import('./semanticSearchService').then(m => m.indexContact(contact.id)).catch(() => undefined);
+    }
+
     return { applied, suggestions, research };
   }
 

@@ -17,6 +17,7 @@ type Obj = Record<string, unknown>;
 const str = { type: 'string' };
 const num = { type: 'number' };
 const strArr = { type: 'array', items: str };
+const nullableStr = { type: ['string', 'null'] };
 const obj = (properties: Obj) => ({
   type: 'object',
   properties,
@@ -30,6 +31,9 @@ interface TaskDef {
   schema?: { name: string; schema: Obj };
   jsonObject?: boolean;
   webSearch?: boolean;
+  /** Force the model to use web_search (tool_choice: required). */
+  requireSearch?: boolean;
+  searchContext?: 'low' | 'medium' | 'high';
 }
 
 const BASE = 'You are the AI engine of SmartCRM, a sales CRM. Be concrete, concise and factual. Never invent data that is not in the provided context; say "unknown" instead.';
@@ -105,6 +109,51 @@ export const TASKS: Record<string, TaskDef> = {
     jsonObject: true,
     system: `${BASE} Act as a sales coach. Return JSON with: advice[], talkTracks[], objections[{objection,response}], summary.`,
   },
+  contact_public_enrichment: {
+    tier: 'default',
+    webSearch: true,
+    requireSearch: true,
+    searchContext: 'medium',
+    system: `${BASE} You research ONE specific person using web search and report only PUBLIC, PROFESSIONAL information.
+Identity rules:
+- Use the provided name, company, title, location and email domain to make sure you have the RIGHT person. If several people match and you cannot tell which is the contact, or nothing reliable is found, set found=false and leave fields null.
+- Every non-null field must be supported by a source you actually found. Never guess, never fill gaps from general knowledge.
+Privacy rules:
+- Only professional/public information: role, employer, industry, public profile URLs (LinkedIn, X/Twitter, GitHub, personal/company website), city-level location, a one-line professional bio, and recent professional news.
+- Do NOT return home addresses, personal phone numbers, personal emails, family, health, political, religious or other sensitive details.
+confidence is 0-100 for identity match + data reliability.`,
+    schema: {
+      name: 'contact_public_enrichment',
+      schema: obj({
+        found: { type: 'boolean' },
+        profile: obj({
+          title: nullableStr, company: nullableStr, industry: nullableStr, location: nullableStr, bio: nullableStr,
+          website: nullableStr, linkedin_url: nullableStr, twitter_url: nullableStr, github_url: nullableStr,
+        }),
+        company_info: obj({ website: nullableStr, industry: nullableStr, size: nullableStr, headquarters: nullableStr, description: nullableStr }),
+        recent_news: { type: 'array', items: obj({ headline: str, url: str, date: nullableStr }) },
+        confidence: num,
+        notes: str,
+      }),
+    },
+  },
+  company_public_enrichment: {
+    tier: 'default',
+    webSearch: true,
+    requireSearch: true,
+    searchContext: 'medium',
+    system: `${BASE} Research ONE company using web search and report only public, verifiable facts about it. If you cannot identify the company reliably, set found=false and leave fields null. Never guess; every non-null field must be supported by a source. confidence is 0-100.`,
+    schema: {
+      name: 'company_public_enrichment',
+      schema: obj({
+        found: { type: 'boolean' },
+        name: nullableStr, website: nullableStr, industry: nullableStr, size: nullableStr, revenue: nullableStr,
+        founded: nullableStr, headquarters: nullableStr, funding: nullableStr, description: nullableStr,
+        competitors: strArr,
+        confidence: num,
+      }),
+    },
+  },
   transform_email: {
     tier: 'fast',
     system: `${BASE} Rewrite the email according to the requested action (e.g. shorten, lengthen, more formal, friendlier, fix grammar, add urgency). Keep facts unchanged. Return the full rewritten email in "content".`,
@@ -149,6 +198,8 @@ const ALIASES: Record<string, string> = {
   'email-generator': 'email_compose',
   'web-research': 'web_research',
   enrich: 'enrichment',
+  'contact-public-enrichment': 'contact_public_enrichment',
+  'public-enrichment': 'contact_public_enrichment',
   'ai-enrichment': 'enrichment',
   data_enrichment: 'enrichment',
   'social-discovery': 'social_discovery',
@@ -244,8 +295,11 @@ export const handler: Handler = async (event) => {
     temperature: typeof body.temperature === 'number' ? body.temperature : undefined,
     jsonSchema: def.schema,
     jsonObject: def.jsonObject || (task === 'chat' && body.json === true),
-    tools: def.webSearch ? [{ type: 'web_search' }] : clientTools(body.tools),
-    toolChoice: body.toolChoice as any,
+    tools: def.webSearch
+      ? [{ type: 'web_search', search_context_size: def.searchContext ?? 'medium', ...(body.userLocation ? { user_location: { type: 'approximate', ...(body.userLocation as Obj) } } : {}) }]
+      : clientTools(body.tools),
+    toolChoice: def.requireSearch ? 'required' : (body.toolChoice as any),
+    include: def.webSearch ? ['web_search_call.action.sources'] : undefined,
     previousResponseId: typeof body.previousResponseId === 'string' ? body.previousResponseId : undefined,
     store: body.store === true || typeof body.previousResponseId === 'string',
   };
@@ -272,6 +326,7 @@ export const handler: Handler = async (event) => {
       text: r.text,
       data: r.json ?? null,
       usage: r.usage ?? null,
+      citations: r.citations,
       tool_calls: r.output
         .filter((i: any) => i.type === 'function_call')
         .map((i: any) => {

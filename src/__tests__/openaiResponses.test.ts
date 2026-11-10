@@ -67,4 +67,26 @@ describe('Responses API helper', () => {
     const second = create.mock.calls[1][0];
     expect(second.input).toContainEqual({ type: 'function_call_output', call_id: 'c1', output: '{"sum":3}' });
   });
+
+  it('extracts citations from url_citation annotations and web_search sources (deduplicated)', () => {
+    const out = [
+      { type: 'web_search_call', action: { type: 'search', sources: [{ url: 'https://a.com/x', title: 'A' }, { url: 'https://b.com' }] } },
+      { type: 'message', content: [{ annotations: [{ type: 'url_citation', url: 'https://a.com/x', title: 'A page' }, { type: 'url_citation', url: 'https://c.com', title: 'C' }] }] },
+    ];
+    const c = mod.extractCitations(out);
+    expect(c.map((x: any) => x.url).sort()).toEqual(['https://a.com/x', 'https://b.com', 'https://c.com']);
+    expect(c.find((x: any) => x.url === 'https://a.com/x').title).toBe('A page');
+  });
+
+  it('passes include and web_search tool through to the request', () => {
+    const p = mod.buildParams({
+      input: 'x',
+      tools: [{ type: 'web_search', search_context_size: 'medium' }],
+      toolChoice: 'required',
+      include: ['web_search_call.action.sources'],
+    });
+    expect(p.include).toEqual(['web_search_call.action.sources']);
+    expect(p.tool_choice).toBe('required');
+    expect(p.tools[0].type).toBe('web_search');
+  });
 });

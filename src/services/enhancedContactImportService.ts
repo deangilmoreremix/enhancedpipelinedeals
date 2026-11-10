@@ -10,6 +10,8 @@ import { getCitationService } from './citationService';
 import * as ExcelJS from 'exceljs';
 import * as xml2js from 'xml2js';
 import * as yaml from 'js-yaml';
+import { getAIEnrichmentService } from './aiEnrichmentService';
+import { callAI } from './aiClient';
 
 export interface AIEnrichmentData {
   enrichedCompanyData?: {
@@ -256,58 +258,43 @@ class EnhancedContactImportService {
     try {
       const aiService = getEnhancedIntelligentAI();
 
-      // Company data enrichment
+      // Company data enrichment: public web research via the OpenAI web_search tool
       if (options.enrichCompanyData && contact.company) {
         sourcesUsed.push('company-research');
-
-        const companyPrompt = `Research this company comprehensively: ${contact.company}
-        ${contact.industry ? `Industry: ${contact.industry}` : ''}
-        ${contact.title ? `Contact Title: ${contact.title}` : ''}
-
-        Return as JSON: {
-          "industry": "primary industry",
-          "size": "company size (startup/SMB/enterprise)",
-          "revenue": "annual revenue range",
-          "competitors": ["competitor1", "competitor2"],
-          "founded": "founding year",
-          "description": "2-3 sentence company description",
-          "headquarters": "HQ location",
-          "funding": "funding status if applicable"
-        }`;
-
-        const companyResponse = await aiService.analyzeContact({ company: contact.company }, 'quality');
-        if (companyResponse.enrichedCompanyData) {
-          enriched.enrichedCompanyData = companyResponse.enrichedCompanyData;
+        const company = await getAIEnrichmentService().enrichCompany({ name: contact.company, industry: contact.industry });
+        if (company.confidence) {
+          enriched.enrichedCompanyData = {
+            industry: company.industry,
+            size: company.size,
+            revenue: company.revenue,
+            competitors: company.competitors,
+            founded: company.founded,
+            description: company.description,
+            headquarters: company.headquarters,
+            funding: company.fundingHistory,
+          } as any;
         }
       }
 
-      // Social profile discovery
-      if (options.discoverSocialProfiles) {
+      // Social profile discovery / public research on the person (OpenAI web_search, cited sources)
+      if (options.discoverSocialProfiles || options.includeWebResearch) {
         sourcesUsed.push('social-discovery');
-
-        if (options.includeWebResearch) {
-          const webSearch = getWebSearchService();
-          const searchQuery = `${contact.name} ${contact.company} ${contact.title} linkedin`;
-
-          const searchResults = await webSearch.searchWithCitation(searchQuery, {
-            maxResults: options.maxResearchResults || 3,
-            includeSources: true
-          });
-
-          // Extract LinkedIn and other social profiles from search results
-          const socialProfiles: any = {};
-          for (const result of searchResults.results) {
-            if (result.url.includes('linkedin.com')) {
-              socialProfiles.linkedin = result.url;
-            } else if (result.url.includes('twitter.com') || result.url.includes('x.com')) {
-              socialProfiles.twitter = result.url;
-            }
-          }
-
+        const research = await getAIEnrichmentService().researchContactPublicInfo({
+          name: contact.name, firstName: contact.firstName, lastName: contact.lastName,
+          company: contact.company, title: contact.title, industry: contact.industry, email: contact.email,
+        });
+        if (research.found) {
+          const p = research.profile;
+          const socialProfiles: Record<string, string> = {};
+          if (p.linkedin_url) socialProfiles.linkedin = p.linkedin_url;
+          if (p.twitter_url) socialProfiles.twitter = p.twitter_url;
+          if (p.github_url) socialProfiles.github = p.github_url;
           if (Object.keys(socialProfiles).length > 0) {
             enriched.socialProfiles = { ...enriched.socialProfiles, ...socialProfiles };
-            sourcesUsed.push('web-search');
           }
+          if (!enriched.title && p.title) enriched.title = p.title;
+          if (!enriched.industry && p.industry) enriched.industry = p.industry;
+          sourcesUsed.push('web-search');
         }
       }
 
@@ -330,14 +317,13 @@ class EnhancedContactImportService {
           "timelineSignals": ["signal1", "signal2"]
         }`;
 
-        const signalsResponse = await aiService.analyzeContact({
-          name: contact.name,
-          title: contact.title,
-          company: contact.company,
-          industry: contact.industry,
-          status: contact.status,
-          interestLevel: contact.interestLevel
-        }, 'quality');
+        const signalsResult = await callAI<any>('chat', {
+          instructions: 'You analyze B2B buying signals. Respond with a single JSON object only; use only the data provided, and return empty arrays when there is no evidence.',
+          input: signalsPrompt,
+          json: true,
+          tier: 'fast',
+        } as any);
+        const signalsResponse: any = { buyingSignals: signalsResult.data };
 
         if (signalsResponse.buyingSignals) {
           enriched.buyingSignals = signalsResponse.buyingSignals;

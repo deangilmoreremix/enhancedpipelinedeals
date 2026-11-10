@@ -1,4 +1,7 @@
 // Jest setup file for environment mocking
+import { TextEncoder, TextDecoder } from 'util';
+(globalThis as any).TextEncoder ??= TextEncoder;
+(globalThis as any).TextDecoder ??= TextDecoder;
 import fetchMock from 'jest-fetch-mock';
 import '@testing-library/jest-dom';
 

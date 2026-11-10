@@ -11,6 +11,8 @@ export type AITask =
   | 'email_compose'
   | 'web_research'
   | 'enrichment'
+  | 'contact_public_enrichment'
+  | 'company_public_enrichment'
   | 'social_discovery'
   | 'deal_analyze'
   | 'deal_automation'
@@ -37,6 +39,8 @@ export interface AICallOptions {
   /** The gateway loads these rows from Supabase and adds them to the prompt context. */
   contactId?: string;
   dealId?: string;
+  /** Web search bias: { country: 'US', city?, region?, timezone? } */
+  userLocation?: { country?: string; city?: string; region?: string; timezone?: string };
   tier?: 'fast' | 'default' | 'deep' | string;
   effort?: 'none' | 'low' | 'medium' | 'high' | 'xhigh' | 'max';
   maxOutputTokens?: number;
@@ -64,6 +68,8 @@ export interface AIResult<T = any> {
   usage: unknown;
   /** Function calls the model requested (execute, then continue with function_call_output). */
   tool_calls: AIToolCall[];
+  /** Web sources used (url_citation annotations + consulted URLs) for search-backed tasks. */
+  citations: Array<{ url: string; title: string | null }>;
 }
 
 export const AI_GATEWAY_URL: string =

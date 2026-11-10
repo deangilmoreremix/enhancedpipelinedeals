@@ -265,22 +265,24 @@ export const useButtonActions = ({
           return { success: false, error: 'No contact available for auto-enrichment' };
         }
 
-        // Real enrichment through the Responses API gateway. Only fields the model returns are applied;
-        // contact details such as phone/email are never invented.
-        const enriched: any = await getAIEnrichmentService().enrichContact(contact as any);
-        const mockEnrichment: Record<string, unknown> = {};
-        for (const key of ['title', 'industry', 'company', 'notes'] as const) {
-          if (enriched?.[key] && enriched[key] !== (contact as any)[key]) mockEnrichment[key] = enriched[key];
-        }
-        if (Object.keys(mockEnrichment).length === 0) {
-          return { success: false, error: 'No additional information could be found' };
+        // Public-web research with the OpenAI web_search tool. Fills empty fields only, never overwrites,
+        // appends a sourced note and merges public social profiles.
+        const { applied, suggestions, research } = await getAIEnrichmentService().enrichContactFromWeb(contact as any);
+        const enrichmentUpdates: Record<string, unknown> = applied;
+        if (!research.found || Object.keys(applied).length === 0) {
+          return {
+            success: false,
+            error: research.found
+              ? 'No new information found (existing fields already match)'
+              : (research.notes || 'No reliable public information found for this contact'),
+          };
         }
 
         if (onUpdateContact) {
-          await onUpdateContact(contact.id, mockEnrichment);
+          await onUpdateContact(contact.id, enrichmentUpdates);
         }
 
-        return { success: true, data: mockEnrichment };
+        return { success: true, data: { applied: enrichmentUpdates, suggestions, sources: research.sources, confidence: research.confidence } };
       } catch (error) {
         console.error('AI Auto-Enrich action failed:', error);
         return { success: false, error: 'Failed to auto-enrich contact' };

@@ -63,6 +63,8 @@ export interface RespondOptions {
   tools?: any[];
   toolChoice?: any;
   previousResponseId?: string;
+  /** Extra output to include, e.g. 'web_search_call.action.sources'. */
+  include?: string[];
   store?: boolean;
   metadata?: Record<string, string>;
 }
@@ -82,6 +84,7 @@ export function buildParams(opts: RespondOptions): Record<string, any> {
   if (opts.tools?.length) params.tools = opts.tools;
   if (opts.toolChoice) params.tool_choice = opts.toolChoice;
   if (opts.previousResponseId) params.previous_response_id = opts.previousResponseId;
+  if (opts.include?.length) params.include = opts.include;
   if (opts.metadata) params.metadata = opts.metadata;
   if (opts.jsonSchema) {
     params.text = {
@@ -100,6 +103,8 @@ export interface RespondResult {
   id: string;
   usage?: any;
   output: any[];
+  /** Web sources: url_citation annotations + every URL the web_search tool consulted. */
+  citations: Array<{ url: string; title: string | null }>;
 }
 
 function parseJSON(text: string): any {
@@ -118,6 +123,25 @@ function parseJSON(text: string): any {
   }
 }
 
+/** Collects url_citation annotations and web_search sources from a response's output items. */
+export function extractCitations(output: any[]): Array<{ url: string; title: string | null }> {
+  const seen = new Map<string, string | null>();
+  for (const item of output ?? []) {
+    if (item.type === 'message') {
+      for (const part of item.content ?? []) {
+        for (const a of part.annotations ?? []) {
+          if (a.type === 'url_citation' && a.url) seen.set(a.url, a.title ?? seen.get(a.url) ?? null);
+        }
+      }
+    } else if (item.type === 'web_search_call') {
+      for (const src of item.action?.sources ?? []) {
+        if (src.url && !seen.has(src.url)) seen.set(src.url, src.title ?? null);
+      }
+    }
+  }
+  return [...seen].map(([url, title]) => ({ url, title }));
+}
+
 /** Single Responses API call. */
 export async function respond(opts: RespondOptions): Promise<RespondResult> {
   const res: any = await getClient().responses.create(buildParams(opts) as any);
@@ -133,6 +157,7 @@ export async function respond(opts: RespondOptions): Promise<RespondResult> {
     id: res.id,
     usage: res.usage,
     output: res.output ?? [],
+    citations: extractCitations(res.output ?? []),
   };
 }
 

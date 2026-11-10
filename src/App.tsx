@@ -1,15 +1,42 @@
-import React, { useState } from 'react';
+import React, { Suspense, useState } from 'react';
+import { Route, Routes } from 'react-router-dom';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import { PersonalizationProvider } from './contexts/PersonalizationContext';
 import { GamificationProvider } from './contexts/GamificationContext';
 import { AuthProvider } from './components/auth/AuthProvider';
-import Pipeline from './components/Pipeline';
+import { AppNavigation } from './components/navigation/AppNavigation';
 import { DarkModeToggle } from './components/ui/DarkModeToggle';
 import { EnhancedAIStatusIndicator } from './components/ui/EnhancedAIStatusIndicator';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { SettingsModal } from './components/ui/SettingsModal';
 import { useKeyboardShortcuts, globalShortcuts } from './hooks/useKeyboardShortcuts';
 import { Settings } from 'lucide-react';
+
+const PipelinePage = React.lazy(() => import('./pages/PipelinePage'));
+const ContactsPage = React.lazy(() => import('./pages/ContactsPage'));
+const AgentsPage = React.lazy(() => import('./pages/AgentsPage'));
+const CalendarPage = React.lazy(() => import('./pages/CalendarPage'));
+const EmailPage = React.lazy(() => import('./pages/EmailPage'));
+const ViewsPage = React.lazy(() => import('./pages/ViewsPage'));
+const WorkflowsPage = React.lazy(() => import('./pages/WorkflowsPage'));
+const AnalyticsPage = React.lazy(() => import('./pages/AnalyticsPage'));
+const AppsPage = React.lazy(() => import('./pages/AppsPage'));
+
+const routeElement = (node: React.ReactNode) => (
+  <ErrorBoundary level="page">{node}</ErrorBoundary>
+);
+
+const PageFallback = () => (
+  <div className="flex items-center justify-center py-24 text-gray-500 dark:text-gray-400" role="status">
+    Loading...
+  </div>
+);
+
+const NotFound = () => (
+  <div className="max-w-7xl mx-auto px-4 py-16 text-center">
+    <h2 className="text-xl font-semibold">Page not found</h2>
+  </div>
+);
 
 function AppContent() {
   useKeyboardShortcuts(globalShortcuts);
@@ -36,11 +63,27 @@ function AppContent() {
               <DarkModeToggle />
             </div>
           </div>
+          <AppNavigation />
         </div>
       </header>
 
       {/* Main content */}
-      <Pipeline />
+      <main>
+        <Suspense fallback={<PageFallback />}>
+          <Routes>
+            <Route path="/" element={routeElement(<PipelinePage />)} />
+            <Route path="/contacts" element={routeElement(<ContactsPage />)} />
+            <Route path="/agents" element={routeElement(<AgentsPage />)} />
+            <Route path="/calendar" element={routeElement(<CalendarPage />)} />
+            <Route path="/email" element={routeElement(<EmailPage />)} />
+            <Route path="/views" element={routeElement(<ViewsPage />)} />
+            <Route path="/workflows" element={routeElement(<WorkflowsPage />)} />
+            <Route path="/analytics" element={routeElement(<AnalyticsPage />)} />
+            <Route path="/apps" element={routeElement(<AppsPage />)} />
+            <Route path="*" element={routeElement(<NotFound />)} />
+          </Routes>
+        </Suspense>
+      </main>
 
       {/* Enhanced AI Status Indicator */}
       <ErrorBoundary level="component">

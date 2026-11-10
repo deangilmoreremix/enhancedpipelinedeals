@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Contact } from '../types/contact';
+import { useContactStore } from '../store/contactStore';
 
 interface ContactsModalProps {
   isOpen: boolean;
@@ -14,41 +15,15 @@ export const ContactsModal: React.FC<ContactsModalProps> = ({
   onSelectContact,
   selectedContactId
 }) => {
-  if (!isOpen) return null;
+  const contacts = useContactStore(s => s.contacts);
+  const isLoading = useContactStore(s => s.isLoading);
+  const fetchContacts = useContactStore(s => s.fetchContacts);
 
-  // Mock contacts for now - in a real app this would come from a store or API
-  const mockContacts: Contact[] = [
-    {
-      id: '1',
-      name: 'John Doe',
-      firstName: 'John',
-      lastName: 'Doe',
-      email: 'john@example.com',
-      company: 'Tech Corp',
-      title: 'CEO',
-      phone: '+1-555-0123',
-      status: 'lead',
-      interestLevel: 'hot',
-      sources: ['LinkedIn'],
-      createdAt: new Date(),
-      updatedAt: new Date()
-    },
-    {
-      id: '2',
-      name: 'Jane Smith',
-      firstName: 'Jane',
-      lastName: 'Smith',
-      email: 'jane@example.com',
-      company: 'Design Studio',
-      title: 'Designer',
-      phone: '+1-555-0124',
-      status: 'lead',
-      interestLevel: 'medium',
-      sources: ['Website'],
-      createdAt: new Date(),
-      updatedAt: new Date()
-    }
-  ];
+  useEffect(() => {
+    if (isOpen && useContactStore.getState().contacts.length === 0) void fetchContacts();
+  }, [isOpen, fetchContacts]);
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[70] flex items-center justify-center p-4">
@@ -61,7 +36,10 @@ export const ContactsModal: React.FC<ContactsModalProps> = ({
         </div>
         <div className="p-4 max-h-96 overflow-y-auto">
           <div className="space-y-2">
-            {mockContacts.map(contact => (
+            {!isLoading && contacts.length === 0 && (
+              <p className="text-sm text-gray-500 dark:text-gray-400">No contacts yet.</p>
+            )}
+            {contacts.map(contact => (
               <button
                 key={contact.id}
                 onClick={() => onSelectContact(contact)}

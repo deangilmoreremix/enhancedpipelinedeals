@@ -1,4 +1,4 @@
-import { supabase } from './supabaseService';
+import { supabase, isSupabaseConfigured } from './supabaseService';
 import { CustomPipelineColumn } from '../types/pipeline';
 import { PipelineColumn } from '../types';
 
@@ -51,7 +51,7 @@ export class PipelineColumnService {
    */
   static async getCustomColumns(userId?: string): Promise<CustomPipelineColumn[]> {
     // If supabase client is not initialized, return default columns
-    if (!supabase) {
+    if (!isSupabaseConfigured) {
       return DEFAULT_COLUMNS;
     }
 

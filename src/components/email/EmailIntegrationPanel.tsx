@@ -232,5 +232,4 @@ export const EmailIntegrationPanel: React.FC<EmailIntegrationPanelProps> = ({
       </div>
     </div>
   );
-};</content>
-<parameter name="filePath">/workspaces/enhancedpipelinedeals/src/components/email/EmailIntegrationPanel.tsx
+};

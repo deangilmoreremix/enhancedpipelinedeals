@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Deal, Dashboard, DashboardWidget, CustomMetric } from '../types';
+import { Deal, Dashboard, DashboardWidget, CustomMetric } from '../../types';
 import {
   BarChart3,
   PieChart,

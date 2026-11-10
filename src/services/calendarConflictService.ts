@@ -182,5 +182,4 @@ export class CalendarConflictService {
       averageResolutionTime: 0
     };
   }
-}</content>
-<parameter name="filePath">/workspaces/enhancedpipelinedeals/src/services/calendarConflictService.ts
+}

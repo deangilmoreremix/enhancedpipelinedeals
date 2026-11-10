@@ -1,4 +1,4 @@
-import { supabase } from './supabaseService';
+import { supabase, isSupabaseConfigured } from './supabaseService';
 import { Deal } from '../types';
 import { Contact } from '../types/contact';
 
@@ -92,7 +92,7 @@ class EnhancedActivityService {
     const offset = filter?.offset || 0;
 
     // Check if supabase is available
-    if (!supabase) {
+    if (!isSupabaseConfigured) {
       return { activities: [], totalCount: 0, hasMore: false };
     }
 

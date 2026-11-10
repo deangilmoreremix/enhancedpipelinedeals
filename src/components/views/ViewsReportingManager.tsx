@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Deal, ViewType, SavedView, ViewFilter, ViewSort, ViewColumn, Dashboard, CustomMetric } from '../types';
+import { Deal, ViewType, SavedView, ViewFilter, ViewSort, ViewColumn, Dashboard, CustomMetric } from '../../types';
 import {
   Table,
   Kanban,

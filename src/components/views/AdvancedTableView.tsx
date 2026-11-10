@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { Deal, ViewColumn, ViewFilter, ViewSort } from '../types';
+import { Deal, ViewColumn, ViewFilter, ViewSort } from '../../types';
 import { ChevronUp, ChevronDown, Filter, MoreHorizontal, Edit2, Trash2 } from 'lucide-react';
 import { AdvancedFilteringService } from '../../services/advancedFilteringService';
 

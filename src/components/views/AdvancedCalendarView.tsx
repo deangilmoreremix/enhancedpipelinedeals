@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Deal, CalendarViewConfig } from '../types';
+import { Deal, CalendarViewConfig } from '../../types';
 import { Calendar, ChevronLeft, ChevronRight, Clock, Users, DollarSign } from 'lucide-react';
 
 interface AdvancedCalendarViewProps {

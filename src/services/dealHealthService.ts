@@ -1,4 +1,4 @@
-import { supabase } from './supabaseService';
+import { supabase, isSupabaseConfigured } from './supabaseService';
 import { Deal, HealthFactor, ProbabilityFactor, DealActivity } from '../types';
 
 /**
@@ -235,7 +235,7 @@ export class DealHealthService {
    * Update deal health score in database
    */
   static async updateDealHealth(dealId: string): Promise<boolean> {
-    if (!supabase) {
+    if (!isSupabaseConfigured) {
       console.warn('DealHealthService: Supabase not configured');
       return false;
     }

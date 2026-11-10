@@ -16,7 +16,6 @@ export interface SDRProductionConfig {
     };
   };
 
-  };
 
   // Database Configuration
   database: {

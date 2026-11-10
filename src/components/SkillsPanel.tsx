@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { authedFetch } from '../services/aiClient';
 
 interface SkillMeta {
   id: string;
@@ -28,7 +29,7 @@ export const SkillsPanel: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/.netlify/functions/skills-api");
+      const res = await authedFetch("/.netlify/functions/skills-api");
       if (!res.ok) {
         const text = await res.text();
         throw new Error(text || "Request failed");
@@ -65,7 +66,7 @@ export const SkillsPanel: React.FC = () => {
 
     setRunning(true);
     try {
-      const res = await fetch("/.netlify/functions/skills-api", {
+      const res = await authedFetch("/.netlify/functions/skills-api", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ skillId: selectedSkill, contactId })

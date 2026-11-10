@@ -96,7 +96,7 @@ class FeatureFlagsManager {
 
     this.flags.set('sso_integration', {
       name: 'SSO Integration',
-      description: 'Enable SAML and OIDC authentication',
+      description: 'Enable Supabase Auth based SSO',
       enabled: false, // Disabled by default, needs configuration
     });
 

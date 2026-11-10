@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import axios from 'axios';
-import { supabase } from './database';
+import { supabase } from '../services/database';
 
 interface Webhook {
   id: string;

@@ -15,6 +15,7 @@
 import {
   Agent,
   OpenAIConversationsSession,
+  run,
   setDefaultOpenAIKey,
   tool,
   webSearchTool,
@@ -334,4 +335,28 @@ export async function sessionForLead(leadId: string) {
     );
   }
   return session;
+}
+
+/** Non-streaming run of one specialist (or the orchestrator for agentId "auto"). Returns the structured draft or a pending approval. */
+export async function runSpecialistOnce(agentId: string, leadId: string, goal?: string) {
+  const { orchestrator, specialists } = buildAgents();
+  const agent = agentId === 'auto' ? orchestrator : specialists[agentId];
+  if (!agent) throw new Error(`Unknown SDR agent: ${agentId}`);
+  const session = await sessionForLead(leadId);
+  const result: any = await run(agent as any, `Lead id: ${leadId}\nGoal: ${goal || 'Advance this lead toward a meeting.'}`, {
+    session,
+    maxTurns: 12,
+  } as any);
+  if (result.interruptions?.length) {
+    return {
+      status: 'approval_required' as const,
+      state: result.state.toString(),
+      approvals: result.interruptions.map((i: any) => ({
+        callId: i.rawItem?.callId ?? i.rawItem?.id,
+        tool: i.name,
+        arguments: (() => { try { return JSON.parse(i.arguments || '{}'); } catch { return i.arguments; } })(),
+      })),
+    };
+  }
+  return { status: 'final' as const, agent: result.lastAgent?.name as string | undefined, output: result.finalOutput as SdrOutputT | string | null };
 }

@@ -9,17 +9,13 @@ const options = {
       description: 'Unified API for Twenty CRM with GraphQL and REST endpoints',
       contact: {
         name: 'Twenty CRM Support',
-        email: 'support@twenty.com',
+        email: 'support@example.invalid',
       },
     },
     servers: [
       {
-        url: 'http://localhost:4000',
-        description: 'Development server',
-      },
-      {
-        url: 'https://api.twenty.com',
-        description: 'Production server',
+        url: '/',
+        description: 'Current server',
       },
     ],
     components: {

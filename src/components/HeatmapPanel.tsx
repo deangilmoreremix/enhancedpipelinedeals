@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { callAI } from '../services/aiClient';
 
 interface HeatmapResponse {
   dealId?: string;
@@ -24,19 +25,12 @@ export const HeatmapPanel: React.FC = () => {
 
     setLoading(true);
     try {
-      const res = await fetch("/.netlify/functions/deal-heatmap", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ dealId })
+      const r = await callAI<{ risk_score: number; reason: string; next_action: string }>("deal_risk", {
+        dealId,
+        input: "Assess the risk of this deal."
       });
-
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(text || "Heatmap request failed");
-      }
-
-      const json = (await res.json()) as HeatmapResponse;
-      setResult(json);
+      if (!r.data) throw new Error("Risk assessment returned no result");
+      setResult({ dealId, risk_score: r.data.risk_score, reason: r.data.reason, factors: { next_action: r.data.next_action } });
     } catch (e: any) {
       console.error("[HeatmapPanel] error:", e);
       setError(e.message || "Failed to compute deal risk");

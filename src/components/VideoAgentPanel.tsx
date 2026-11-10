@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { callAI } from '../services/aiClient';
 
 interface VideoAgentResponse {
   contactId?: string;
@@ -31,19 +32,13 @@ export const VideoAgentPanel: React.FC = () => {
 
     setLoading(true);
     try {
-      const res = await fetch("/.netlify/functions/video-agent", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contactId, productUrl, goal })
+      // Script + storyboard are generated with OpenAI; rendering to video is not part of this stack.
+      const r = await callAI<{ script: string; storyboard: any[] }>("video_script", {
+        contactId,
+        input: `Video goal: ${goal}. Product page: ${productUrl}.`
       });
-
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(text || "Video agent request failed");
-      }
-
-      const json = (await res.json()) as VideoAgentResponse;
-      setResult(json);
+      if (!r.data) throw new Error("Video script generation returned no result");
+      setResult({ contactId, script: r.data.script, storyboard: r.data.storyboard });
     } catch (e: any) {
       console.error("[VideoAgentPanel] error:", e);
       setError(e.message || "Failed to run video agent");

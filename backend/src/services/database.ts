@@ -241,7 +241,7 @@ export async function runMigrations() {
     CREATE TABLE IF NOT EXISTS sso_configs (
       id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
       workspace_id UUID NOT NULL,
-      provider TEXT NOT NULL CHECK (provider IN ('saml', 'oidc', 'google', 'microsoft', 'okta')),
+      provider TEXT NOT NULL CHECK (provider IN ('supabase')),
       config JSONB NOT NULL DEFAULT '{}',
       is_active BOOLEAN DEFAULT FALSE,
       created_by UUID NOT NULL,

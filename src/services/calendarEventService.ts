@@ -144,8 +144,6 @@ export class CalendarEventService {
       throw new Error('Failed to delete calendar event');
     }
   }
-    }
-  }
 
   /**
    * Get calendar events for a user/deal/contact

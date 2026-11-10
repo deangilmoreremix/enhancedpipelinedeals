@@ -4,6 +4,7 @@ import { SDRAgentConfigurator } from "./sdr/SDRAgentConfigurator";
 import { sdrPreferencesService } from "../services/sdrPreferencesService";
 import { SDRUserPreferences } from "../types/sdr-config";
 import { Settings } from "lucide-react";
+import { authedFetch } from '../services/aiClient';
 
 interface SDRAgentMeta {
   id: string;
@@ -65,7 +66,7 @@ export const SDRAgentsPanel: React.FC = () => {
 
     setRunning(true);
     try {
-      const res = await fetch("/.netlify/functions/sdr-run", {
+      const res = await authedFetch("/.netlify/functions/sdr-run", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

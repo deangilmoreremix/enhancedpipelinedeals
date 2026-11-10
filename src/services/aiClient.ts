@@ -15,7 +15,13 @@ export type AITask =
   | 'deal_analyze'
   | 'deal_automation'
   | 'contact_automation'
-  | 'sales_coach';
+  | 'sales_coach'
+  | 'transform_email'
+  | 'case_study'
+  | 'cta'
+  | 'deal_risk'
+  | 'playbooks'
+  | 'video_script';
 
 export interface AIToolCall {
   call_id: string;
@@ -28,6 +34,9 @@ export interface AICallOptions {
   messages?: Array<{ role: string; content: string }>;
   instructions?: string;
   context?: unknown;
+  /** The gateway loads these rows from Supabase and adds them to the prompt context. */
+  contactId?: string;
+  dealId?: string;
   tier?: 'fast' | 'default' | 'deep' | string;
   effort?: 'none' | 'low' | 'medium' | 'high' | 'xhigh' | 'max';
   maxOutputTokens?: number;
@@ -59,6 +68,14 @@ export interface AIResult<T = any> {
 
 export const AI_GATEWAY_URL: string =
   (import.meta as any).env?.VITE_AI_GATEWAY_URL || '/.netlify/functions/ai-gateway';
+
+/** fetch() with the Supabase bearer token attached (for Netlify function calls). */
+export async function authedFetch(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
+  const headers = new Headers(init.headers || {});
+  const auth = await authHeader();
+  if (auth.Authorization && !headers.has('Authorization')) headers.set('Authorization', auth.Authorization);
+  return fetch(input, { ...init, headers });
+}
 
 export async function authHeader(): Promise<Record<string, string>> {
   let token: string | undefined;

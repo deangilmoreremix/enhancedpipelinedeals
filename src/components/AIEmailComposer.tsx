@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { ModernButton } from './ui/ModernButton';
 import { PersonaSelector } from './ui/PersonaSelector';
 import { Sparkles, Wand2, Zap, Target, FileText, Send, Loader2 } from 'lucide-react';
-import { authHeader } from '../services/aiClient';
+import { authHeader, callAI } from '../services/aiClient';
 
 interface AIEmailComposerProps {
   contactId: string;
@@ -85,20 +85,11 @@ export function AIEmailComposer({ contactId, dealId, onSend, initialContent = ''
     setIsGenerating(true);
 
     try {
-      const response = await fetch('/.netlify/functions/transformEmail', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          content,
-          action,
-          personaId: selectedPersona?.id
-        })
+      const result = await callAI<{ content: string }>('transform_email', {
+        input: `Action: ${action}\n\nEMAIL:\n${content}`,
+        instructions: selectedPersona ? `Match the persona "${selectedPersona.name}".` : undefined,
       });
-
-      const result = await response.json();
-      setContent(result.content);
+      if (result.data?.content) setContent(result.data.content);
     } catch (error) {
       console.error('Transformation failed:', error);
     } finally {
@@ -107,21 +98,17 @@ export function AIEmailComposer({ contactId, dealId, onSend, initialContent = ''
   };
 
   const insertCaseStudy = async () => {
-    const caseStudy = await fetch('/.netlify/functions/getCaseStudy', {
-      method: 'POST',
-      body: JSON.stringify({ dealId })
-    });
-    const result = await caseStudy.json();
-    setContent(prev => prev + '\n\n' + result.caseStudy);
+    const result = await callAI<{ caseStudy: string }>('case_study', { dealId, contactId, input: 'Write a relevant case study snippet for this email.' });
+    if (result.data?.caseStudy) setContent(prev => prev + '\n\n' + result.data!.caseStudy);
   };
 
   const insertCTA = async () => {
-    const cta = await fetch('/.netlify/functions/generateCTA', {
-      method: 'POST',
-      body: JSON.stringify({ dealId, personaId: selectedPersona?.id })
+    const result = await callAI<{ cta: string }>('cta', {
+      dealId, contactId,
+      input: 'Write a call-to-action for this email.',
+      instructions: selectedPersona ? `Match the persona "${selectedPersona.name}".` : undefined,
     });
-    const result = await cta.json();
-    setContent(prev => prev + '\n\n' + result.cta);
+    if (result.data?.cta) setContent(prev => prev + '\n\n' + result.data!.cta);
   };
 
   const sendEmail = async () => {

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { sdrPreferencesService } from '../../services/sdrPreferencesService';
 import { SDR_AGENTS } from './sdrAgentsConfig';
+import { authedFetch } from '../../services/aiClient';
 
 // Interfaces moved to types.ts
 export type { SDRAgentMetadata, SDRAgentAnalytics } from './types';
@@ -53,7 +54,7 @@ export const useSDRAgents = () => {
     const startTime = Date.now();
 
     try {
-      const res = await fetch("/.netlify/functions/sdr-run", {
+      const res = await authedFetch("/.netlify/functions/sdr-run", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

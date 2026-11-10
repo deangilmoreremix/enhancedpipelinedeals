@@ -84,32 +84,12 @@ export interface AuditEvent {
 export interface SSOConfig {
   id: string;
   workspaceId: string;
-  provider: 'saml' | 'oidc' | 'google' | 'microsoft' | 'okta';
-  config: SAMLConfig | OIDCConfig;
+  provider: 'supabase';
+  config: Record<string, any>;
   isActive: boolean;
   createdBy: string;
   createdAt: Date;
   updatedAt: Date;
-}
-
-export interface SAMLConfig {
-  entityId: string;
-  ssoUrl: string;
-  certificate: string;
-  logoutUrl?: string;
-  nameIdFormat?: string;
-  attributeMapping: Record<string, string>;
-}
-
-export interface OIDCConfig {
-  issuer: string;
-  clientId: string;
-  clientSecret: string;
-  redirectUri: string;
-  scopes: string[];
-  attributeMapping: Record<string, string>;
-  tokenEndpoint?: string;
-  userinfoEndpoint?: string;
 }
 
 export interface GDPRRequest {

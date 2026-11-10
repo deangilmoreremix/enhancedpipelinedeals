@@ -43,7 +43,7 @@ export default function SmartCRMApp(props: SmartCRMRemoteProps) {
             <PersonalizationProvider>
               <GamificationProvider>
                 <Router {...routerProps}>
-                  <App {...props} />
+                  <App />
                 </Router>
               </GamificationProvider>
             </PersonalizationProvider>

@@ -127,7 +127,7 @@ class EnhancedIntelligentAIService {
     return baseRoute;
   }
 
-  private async executeTask(taskType: string, data: any, options: { priority?: 'speed' | 'quality' | 'cost' } = {}): Promise<any> {
+  async executeTask(taskType: string, data: any, options: { priority?: 'speed' | 'quality' | 'cost' } = {}): Promise<any> {
     const route = this.getOptimalRoute(taskType, options.priority);
 
     console.log(`🤖 Enhanced AI Task: ${taskType} → ${route.primary} (${route.primaryModel}) - ${route.reason}`);
@@ -293,7 +293,7 @@ Best regards,
       console.warn('System status check failed:', error);
       return {
         overall: 'down' as const,
-        availableProviders: [],
+        availableProviders: [] as string[],
         error: (error && typeof error === 'object' && 'message' in error) ? (error as any).message : 'System status check failed',
         routing: []
       };

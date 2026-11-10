@@ -84,7 +84,7 @@ export class AIEnhancementsOrchestrator {
       ]);
 
       // Generate comprehensive insights using AI
-      const insights = await this.generateComprehensiveInsights(dealId, scoring, analysis);
+      const insights = await this.generateComprehensiveInsights(dealId, scoring ?? undefined, analysis ?? undefined);
 
       return {
         scoring: scoring || undefined,
@@ -443,7 +443,7 @@ export class AIEnhancementsOrchestrator {
         }
       } catch (error) {
         results[name] = 'down';
-        details[name] = { error: error.message };
+        details[name] = { error: error instanceof Error ? error.message : String(error) };
       }
     }
 

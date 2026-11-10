@@ -160,16 +160,16 @@ class ForecastingService {
       }
 
       // Calculate accuracy metrics
-      const predictions = forecasts.map(f => ({
+      const predictions = forecasts.map((f: any) => ({
         predicted: f.predicted_value,
         actual: f.actual_value,
         date: f.forecast_date,
         accuracy: this.calculatePredictionAccuracy(f.predicted_value, f.actual_value)
       }));
 
-      const overallAccuracy = predictions.reduce((sum, p) => sum + p.accuracy, 0) / predictions.length;
-      const mae = predictions.reduce((sum, p) => sum + Math.abs(p.predicted - p.actual), 0) / predictions.length;
-      const rmse = Math.sqrt(predictions.reduce((sum, p) => sum + Math.pow(p.predicted - p.actual, 2), 0) / predictions.length);
+      const overallAccuracy = predictions.reduce((sum: number, p: any) => sum + p.accuracy, 0) / predictions.length;
+      const mae = predictions.reduce((sum: number, p: any) => sum + Math.abs(p.predicted - p.actual), 0) / predictions.length;
+      const rmse = Math.sqrt(predictions.reduce((sum: number, p: any) => sum + Math.pow(p.predicted - p.actual, 2), 0) / predictions.length);
 
       return {
         overallAccuracy,
@@ -219,7 +219,7 @@ class ForecastingService {
     // Group by month
     const monthlyData: Record<string, { value: number; deals: number }> = {};
 
-    data.forEach(deal => {
+    data.forEach((deal: any) => {
       const month = new Date(deal.created_at).toISOString().substring(0, 7); // YYYY-MM
       if (!monthlyData[month]) {
         monthlyData[month] = { value: 0, deals: 0 };
@@ -385,4 +385,3 @@ export const getForecastingService = (): ForecastingService => {
 };
 
 export { ForecastingService };
-export type { ForecastModel, ForecastResult, ForecastScenario };

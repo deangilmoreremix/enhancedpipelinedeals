@@ -135,7 +135,7 @@ export class SummaryGenerationService {
 
       if (error) throw error;
 
-      return data.map(item => this.transformDatabaseResult(item));
+      return data.map((item: any) => this.transformDatabaseResult(item));
     } catch (error) {
       console.error('Failed to get entity summaries:', error);
       return [];
@@ -370,25 +370,25 @@ export class SummaryGenerationService {
 
       const totalSummaries = data.length;
       const averageConfidence = totalSummaries > 0
-        ? data.reduce((sum, item) => sum + item.confidence, 0) / totalSummaries
+        ? data.reduce((sum: number, item: any) => sum + item.confidence, 0) / totalSummaries
         : 0;
 
       const averageWordCount = totalSummaries > 0
-        ? data.reduce((sum, item) => sum + item.word_count, 0) / totalSummaries
+        ? data.reduce((sum: number, item: any) => sum + item.word_count, 0) / totalSummaries
         : 0;
 
-      const summaryTypeDistribution = data.reduce((acc, item) => {
+      const summaryTypeDistribution = data.reduce((acc: Record<string, number>, item: any) => {
         acc[item.summary_type] = (acc[item.summary_type] || 0) + 1;
         return acc;
       }, {} as Record<string, number>);
 
-      const entityTypeDistribution = data.reduce((acc, item) => {
+      const entityTypeDistribution = data.reduce((acc: Record<string, number>, item: any) => {
         acc[item.entity_type] = (acc[item.entity_type] || 0) + 1;
         return acc;
       }, {} as Record<string, number>);
 
       const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-      const recentActivity = data.filter(item =>
+      const recentActivity = data.filter((item: any) =>
         new Date(item.generated_at) > oneDayAgo
       ).length;
 

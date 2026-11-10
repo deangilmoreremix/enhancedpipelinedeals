@@ -64,7 +64,7 @@ export const useContactStore = create<ContactStore>((set, get) => ({
     // Validate contact data
     const validation = validateSchema(contactData, contactValidationSchema);
     if (!validation.isValid) {
-      const errorMessage = `Validation failed: ${validation.firstError}`;
+      const errorMessage = `Validation failed: ${validation.error}`;
       set({ error: errorMessage });
       throw new Error(errorMessage);
     }
@@ -104,7 +104,7 @@ export const useContactStore = create<ContactStore>((set, get) => ({
     if (Object.keys(updates).length > 0) {
       const validation = validateSchema(updates, contactValidationSchema);
       if (!validation.isValid) {
-        const errorMessage = `Validation failed: ${validation.firstError}`;
+        const errorMessage = `Validation failed: ${validation.error}`;
         set({ error: errorMessage });
         throw new Error(errorMessage);
       }

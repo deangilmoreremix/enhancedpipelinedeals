@@ -36,7 +36,7 @@ export const PersonalizationProvider: React.FC<{ children: ReactNode }> = ({ chi
   });
 
   const updateUserPreferences = (preferences: Partial<typeof userPreferences>) => {
-    setUserPreferences(prev => {
+    setUserPreferences((prev: PersonalizationContextType['userPreferences']) => {
       const newPrefs = { ...prev, ...preferences };
       // Save to localStorage
       localStorage.setItem('userPreferences', JSON.stringify(newPrefs));

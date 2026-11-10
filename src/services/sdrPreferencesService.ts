@@ -208,7 +208,7 @@ export class SDRPreferencesService {
         return [];
       }
 
-      return data.map(item => ({
+      return data.map((item: any) => ({
         id: item.id,
         name: item.name,
         description: item.description,
@@ -279,7 +279,7 @@ export class SDRPreferencesService {
         return [];
       }
 
-      return data.map(item => ({
+      return data.map((item: any) => ({
         id: item.id,
         userId: item.user_id,
         name: item.name,

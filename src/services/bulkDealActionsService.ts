@@ -170,7 +170,7 @@ export class BulkDealActionsService {
             throw new Error('Tags to remove required for remove_tag action');
           }
           const currentTags2 = deal.tags || [];
-          updateData.tags = currentTags2.filter(tag => !action.tagsToRemove!.includes(tag));
+          updateData.tags = currentTags2.filter((tag: any) => !action.tagsToRemove!.includes(tag));
           actionDescription = `Removed tags: ${action.tagsToRemove.join(', ')}`;
           break;
 
@@ -300,7 +300,7 @@ export class BulkDealActionsService {
             break;
           case 'remove_tag':
             const currentTags2 = deal.tags || [];
-            newValue = currentTags2.filter(tag => !(action.tagsToRemove || []).includes(tag));
+            newValue = currentTags2.filter((tag: any) => !(action.tagsToRemove || []).includes(tag));
             break;
           case 'schedule_followup':
             newValue = action.followupDate?.toISOString();

@@ -7,7 +7,7 @@ import { supabase } from '../../lib/core/supabaseClient';
 // HTTP handler for inbound webhooks
 export async function handleInboundEmail(req: any, res: any) {
   try {
-    const { from, subject, body_html, message_id } = req.body;
+    const { from, to, subject, body_html, message_id } = req.body;
 
     // Find the lead by sender email
     const { data: lead } = await supabase
@@ -30,8 +30,8 @@ export async function handleInboundEmail(req: any, res: any) {
     const inboundEmailContext = `
 New inbound email from lead:
 
-From: ${emailFrom}
-To: ${emailTo}
+From: ${from}
+To: ${to}
 Subject: ${subject}
 Message ID: ${message_id}
 
@@ -50,7 +50,7 @@ ${body_html}
 Inbound Email:
 ${inboundEmailContext}`;
 
-    console.log(`[INBOUND] Processing reply from ${emailFrom} for lead ${leadId}`);
+    console.log(`[INBOUND] Processing reply from ${from} for lead ${leadId}`);
 
     const result = await runSdrAutopilot({
       leadId,

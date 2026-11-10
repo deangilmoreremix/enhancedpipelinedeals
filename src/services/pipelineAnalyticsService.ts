@@ -218,7 +218,7 @@ class PipelineAnalyticsService {
       const response = await fetch('/.netlify/functions/get-agent-performance');
       const data = await response.json();
 
-      const performance: AgentPerformance[] = data.agents.map(agent => ({
+      const performance: AgentPerformance[] = data.agents.map((agent: any) => ({
         agentId: agent.id,
         agentName: agent.name,
         dealsManaged: agent.dealsManaged || 0,

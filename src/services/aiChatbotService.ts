@@ -472,7 +472,14 @@ export class AIChatbotService {
     console.log('Auto-executing actions:', actions);
   }
 
-  private async addMessage(sessionId: string, message: ChatbotMessage): Promise<ChatbotMessage> {
+  private async addMessage(
+    sessionId: string,
+    input: Omit<ChatbotMessage, 'id'> & { id?: string }
+  ): Promise<ChatbotMessage> {
+    const message: ChatbotMessage = {
+      ...input,
+      id: input.id ?? `msg_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
+    };
     const session = this.sessions.get(sessionId);
     if (session) {
       session.messages.push(message);

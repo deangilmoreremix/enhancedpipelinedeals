@@ -61,7 +61,7 @@ export const useDealStore = create<DealStore>((set, get) => ({
     // Validate deal data
     const validation = validateSchema(dealData, dealValidationSchema);
     if (!validation.isValid) {
-      const errorMessage = `Validation failed: ${validation.firstError}`;
+      const errorMessage = `Validation failed: ${validation.error}`;
       set({ error: errorMessage });
       throw new Error(errorMessage);
     }
@@ -103,7 +103,7 @@ export const useDealStore = create<DealStore>((set, get) => ({
     if (Object.keys(updates).length > 0) {
       const validation = validateSchema(updates, dealValidationSchema);
       if (!validation.isValid) {
-        const errorMessage = `Validation failed: ${validation.firstError}`;
+        const errorMessage = `Validation failed: ${validation.error}`;
         set({ error: errorMessage });
         throw new Error(errorMessage);
       }

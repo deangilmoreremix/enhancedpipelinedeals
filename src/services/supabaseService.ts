@@ -240,7 +240,7 @@ class SupabaseService {
       }
       
       // Transform data to handle gamification_stats deserialization
-      const contacts = (data || []).map(contact => ({
+      const contacts = (data || []).map((contact: any) => ({
         ...contact,
         gamificationStats: contact.gamification_stats || undefined,
         isTeamMember: contact.is_team_member || false

@@ -3,7 +3,7 @@
  * Initialize feature flags for gradual rollout of AI features
  */
 
-import { getSupabaseService } from './supabaseService';
+import { getSupabaseService } from '../services/supabaseService';
 
 export async function initializePhase7FeatureFlags(): Promise<void> {
   try {
@@ -415,5 +415,3 @@ async function createPhase7Tables(): Promise<void> {
   }
 }
 
-// Export for use in other parts of the application
-export { initializePhase7FeatureFlags };

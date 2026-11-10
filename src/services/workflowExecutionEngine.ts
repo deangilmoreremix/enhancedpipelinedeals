@@ -435,21 +435,24 @@ export class WorkflowExecutionEngine {
   ): Promise<{ success: boolean; output?: any; error?: string }> {
     try {
       // Import email service dynamically to avoid circular dependencies
-      const { EmailService } = await import('./emailService');
+      const { getEmailService } = await import('./emailService');
 
       const recipients = this.interpolateVariables(action.config.recipients || [], execution);
       const subject = this.interpolateVariables(action.config.subject || '', execution);
       const body = this.interpolateVariables(action.config.body || '', execution);
 
       // Use email service to send
-      const result = await EmailService.sendEmail({
-        to: recipients,
+      const sent = await getEmailService().sendEmail({
+        to: Array.isArray(recipients) ? recipients.join(', ') : String(recipients),
         subject,
-        body,
-        attachments: action.config.attachments
+        body
       });
 
-      return { success: result.success, output: result, error: result.error };
+      return {
+        success: sent,
+        output: { sent },
+        error: sent ? undefined : 'Failed to send email'
+      };
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : 'Failed to send email' };
     }

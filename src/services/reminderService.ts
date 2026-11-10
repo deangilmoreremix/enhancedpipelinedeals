@@ -198,8 +198,8 @@ export class ReminderService {
     }
 
     // Send email using email service
-    const emailService = await import('./emailService');
-    await emailService.EmailService.sendEmail({
+    const { getEmailService } = await import('./emailService');
+    await getEmailService().sendEmail({
       to: user.email,
       subject: `Reminder: ${reminder.title}`,
       body: `
@@ -278,7 +278,7 @@ export class ReminderService {
           .select('title, stage, value, contacts(name)')
           .eq('id', id)
           .single();
-        return deal ? `${deal.title} (${deal.stage}, $${deal.value}) - ${deal.contacts?.name || 'Unknown contact'}` : 'Unknown deal';
+        return deal ? `${deal.title} (${deal.stage}, $${deal.value}) - ${(deal.contacts as unknown as { name: string } | null)?.name || 'Unknown contact'}` : 'Unknown deal';
 
       case 'contact':
         const { data: contact } = await supabase

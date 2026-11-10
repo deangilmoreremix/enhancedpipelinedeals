@@ -383,19 +383,19 @@ class FeedbackLoopService {
     const stats = {
       totalFeedback: feedback.length,
       averageScore: feedback.length > 0
-        ? feedback.reduce((sum, f) => sum + f.score, 0) / feedback.length
+        ? feedback.reduce((sum: number, f: any) => sum + f.score, 0) / feedback.length
         : 0,
       feedbackByTask: {} as { [key: string]: number },
       feedbackBySentiment: {
-        good: feedback.filter(f => f.feedback === 'good').length,
-        bad: feedback.filter(f => f.feedback === 'bad').length,
-        neutral: feedback.filter(f => f.feedback === 'neutral').length
+        good: feedback.filter((f: any) => f.feedback === 'good').length,
+        bad: feedback.filter((f: any) => f.feedback === 'bad').length,
+        neutral: feedback.filter((f: any) => f.feedback === 'neutral').length
       },
       recentTrend: this.calculateRecentTrend(feedback)
     };
 
     // Group by task
-    feedback.forEach(f => {
+    feedback.forEach((f: any) => {
       stats.feedbackByTask[f.task] = (stats.feedbackByTask[f.task] || 0) + 1;
     });
 
@@ -444,7 +444,7 @@ class FeedbackLoopService {
       return [];
     }
 
-    return (data || []).map(f => ({
+    return (data || []).map((f: any) => ({
       ...f,
       // Sanitize sensitive data
       context: f.context ? JSON.stringify(f.context) : null

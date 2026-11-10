@@ -164,6 +164,11 @@ export class FeatureFlagService {
 }
 
 // Export convenience functions
+/**
+ * Accessor for the feature flag service (all operations are static on the class).
+ */
+export const getFeatureFlagService = (): typeof FeatureFlagService => FeatureFlagService;
+
 export const isFeatureEnabled = FeatureFlagService.isFeatureEnabled;
 export const getAllFeatureFlags = FeatureFlagService.getAllFeatureFlags;
 export const updateFeatureFlag = FeatureFlagService.updateFeatureFlag;

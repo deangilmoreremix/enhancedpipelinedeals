@@ -121,16 +121,16 @@ class EnhancedActivityService {
       let activities = data || [];
 
       if (filter?.priorities && filter.priorities.length > 0) {
-        activities = activities.filter(a => filter.priorities!.includes(a.priority));
+        activities = activities.filter((a: any) => filter.priorities!.includes(a.priority));
       }
 
       if (filter?.statuses && filter.statuses.length > 0) {
-        activities = activities.filter(a => filter.statuses!.includes(a.status));
+        activities = activities.filter((a: any) => filter.statuses!.includes(a.status));
       }
 
       if (filter?.tags && filter.tags.length > 0) {
-        activities = activities.filter(a =>
-          a.tags && a.tags.some(tag => filter.tags!.includes(tag))
+        activities = activities.filter((a: any) =>
+          a.tags && a.tags.some((tag: any) => filter.tags!.includes(tag))
         );
       }
 

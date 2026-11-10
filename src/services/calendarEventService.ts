@@ -231,7 +231,7 @@ export class CalendarEventService {
       throw new Error('Deal not found');
     }
 
-    const contact = deal.contacts;
+    const contact = deal.contacts as unknown as { id: string; name: string; email: string } | null;
     const attendees: Omit<CalendarAttendee, 'status'>[] = [];
 
     // Add contact as attendee if requested

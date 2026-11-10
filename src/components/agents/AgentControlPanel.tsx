@@ -1,21 +1,45 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
+
+interface AgentOption {
+  id: string;
+  name: string;
+}
+
+interface AgentLog {
+  message: string;
+}
+
+type SkillSettings = {
+  negotiation: boolean;
+  objection: boolean;
+  competitor: boolean;
+  followup: boolean;
+  research: boolean;
+};
+
+type ChannelSettings = {
+  email: boolean;
+  sms: boolean;
+  voice: boolean;
+  linkedin: boolean;
+};
 
 export const AgentControlPanel = () => {
   const [loading, setLoading] = useState(false);
   const [contactId, setContactId] = useState("");
   const [autopilotEnabled, setAutopilotEnabled] = useState(false);
-  const [agents, setAgents] = useState([]);
-  const [personas, setPersonas] = useState([]);
+  const [agents, setAgents] = useState<AgentOption[]>([]);
+  const [personas, setPersonas] = useState<AgentOption[]>([]);
   const [selectedAgent, setSelectedAgent] = useState("");
   const [selectedPersona, setSelectedPersona] = useState("");
   const [sequenceLength, setSequenceLength] = useState("30");
-  const [channels, setChannels] = useState({
+  const [channels, setChannels] = useState<ChannelSettings>({
     email: true,
     sms: false,
     voice: false,
     linkedin: false,
   });
-  const [skills, setSkills] = useState({
+  const [skills, setSkills] = useState<SkillSettings>({
     negotiation: true,
     objection: true,
     competitor: true,
@@ -26,7 +50,11 @@ export const AgentControlPanel = () => {
     start: "20:00",
     end: "08:00",
   });
-  const [logs, setLogs] = useState([]);
+  const [logs, setLogs] = useState<AgentLog[]>([]);
+  const [, setError] = useState<string | null>(null);
+  const [, setSuccess] = useState<string | null>(null);
+  const [, setAgentsLoading] = useState(false);
+  const [, setPersonasLoading] = useState(false);
 
   // Load data on mount with error handling
   useEffect(() => {
@@ -91,7 +119,6 @@ export const AgentControlPanel = () => {
         sequenceLength,
         channels,
         skills,
-        inbox,
         quietHours,
       }),
     });
@@ -186,7 +213,7 @@ export const AgentControlPanel = () => {
       <div>
         <label className="font-semibold">AI Skills</label>
         <div className="grid grid-cols-2 gap-3">
-          {Object.keys(skills).map((skill) => (
+          {(Object.keys(skills) as (keyof SkillSettings)[]).map((skill) => (
             <label key={skill} className="flex gap-2 items-center">
               <input
                 type="checkbox"
@@ -205,7 +232,7 @@ export const AgentControlPanel = () => {
       <div>
         <label className="font-semibold">Communication Channels</label>
         <div className="grid grid-cols-2 gap-3">
-          {Object.keys(channels).map((ch) => (
+          {(Object.keys(channels) as (keyof ChannelSettings)[]).map((ch) => (
             <label key={ch} className="flex gap-2 items-center">
               <input
                 type="checkbox"

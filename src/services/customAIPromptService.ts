@@ -146,7 +146,7 @@ export class CustomAIPromptService {
 
       if (error) throw error;
 
-      return data.map(item => this.transformDatabaseResult(item));
+      return data.map((item: any) => this.transformDatabaseResult(item));
     } catch (error) {
       console.error('Failed to get prompts by category:', error);
       return [];
@@ -236,7 +236,7 @@ export class CustomAIPromptService {
 
       if (error) throw error;
 
-      return data.map(item => ({
+      return data.map((item: any) => ({
         id: item.id,
         executedAt: new Date(item.executed_at),
         userId: item.user_id,
@@ -523,22 +523,22 @@ export class CustomAIPromptService {
       if (promptsError) throw promptsError;
 
       const totalPrompts = prompts.length;
-      const activePrompts = prompts.filter(p => p.usage_count > 0).length;
+      const activePrompts = prompts.filter((p: any) => p.usage_count > 0).length;
 
-      const categoryDistribution = prompts.reduce((acc, prompt) => {
+      const categoryDistribution = prompts.reduce((acc: Record<string, number>, prompt: any) => {
         acc[prompt.category] = (acc[prompt.category] || 0) + 1;
         return acc;
       }, {} as Record<string, number>);
 
-      const totalExecutions = prompts.reduce((sum, prompt) => sum + prompt.usage_count, 0);
+      const totalExecutions = prompts.reduce((sum: number, prompt: any) => sum + prompt.usage_count, 0);
       const averageSuccessRate = totalPrompts > 0
-        ? prompts.reduce((sum, prompt) => sum + (prompt.usage_count > 0 ? 0.85 : 0), 0) / totalPrompts
+        ? prompts.reduce((sum: number, prompt: any) => sum + (prompt.usage_count > 0 ? 0.85 : 0), 0) / totalPrompts
         : 0;
 
       const topPrompts = prompts
-        .sort((a, b) => b.usage_count - a.usage_count)
+        .sort((a: any, b: any) => b.usage_count - a.usage_count)
         .slice(0, 5)
-        .map(p => ({ id: p.id, name: p.name, usageCount: p.usage_count }));
+        .map((p: any) => ({ id: p.id, name: p.name, usageCount: p.usage_count }));
 
       return {
         totalPrompts,

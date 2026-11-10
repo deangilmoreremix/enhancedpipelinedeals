@@ -70,7 +70,7 @@ class KPIService {
 
       if (error) throw error;
 
-      return (data || []).map(k => this.transformKPI(k));
+      return (data || []).map((k: any) => this.transformKPI(k));
     } catch (error) {
       console.error('Failed to get KPIs:', error);
       return [];
@@ -220,7 +220,7 @@ class KPIService {
 
       if (error) throw error;
 
-      return (data || []).map(v => this.transformKPIValue(v));
+      return (data || []).map((v: any) => this.transformKPIValue(v));
     } catch (error) {
       console.error('Failed to get KPI values:', error);
       return [];
@@ -446,7 +446,7 @@ class KPIService {
 
     if (error) throw error;
 
-    return (data || []).reduce((sum, deal) => sum + (deal.value || 0), 0);
+    return (data || []).reduce((sum: number, deal: any) => sum + (deal.value || 0), 0);
   }
 
   private async calculateConversionRate(periodStart: Date, periodEnd: Date): Promise<number> {
@@ -461,7 +461,7 @@ class KPIService {
     if (error) throw error;
 
     const total = data?.length || 0;
-    const won = data?.filter(d => d.stage === 'closed-won').length || 0;
+    const won = data?.filter((d: any) => d.stage === 'closed-won').length || 0;
 
     return total > 0 ? (won / total) * 100 : 0;
   }
@@ -478,8 +478,8 @@ class KPIService {
 
     if (error) throw error;
 
-    const values = (data || []).map(d => d.value).filter(v => v > 0);
-    return values.length > 0 ? values.reduce((sum, v) => sum + v, 0) / values.length : 0;
+    const values = (data || []).map((d: any) => d.value).filter((v: any) => v > 0);
+    return values.length > 0 ? values.reduce((sum: number, v: any) => sum + v, 0) / values.length : 0;
   }
 
   private async calculateAverageVelocity(periodStart: Date, periodEnd: Date): Promise<number> {
@@ -494,8 +494,8 @@ class KPIService {
 
     if (error) throw error;
 
-    const values = (data || []).map(d => d.days_in_stage).filter(v => v > 0);
-    return values.length > 0 ? values.reduce((sum, v) => sum + v, 0) / values.length : 0;
+    const values = (data || []).map((d: any) => d.days_in_stage).filter((v: any) => v > 0);
+    return values.length > 0 ? values.reduce((sum: number, v: any) => sum + v, 0) / values.length : 0;
   }
 
   private async executeComplexFormula(kpi: KPI, periodStart: Date, periodEnd: Date): Promise<number> {
@@ -628,4 +628,3 @@ export const getKPIService = (): KPIService => {
 };
 
 export { KPIService };
-export type { KPI, KPIValue, KPISummary, KPIDashboard };

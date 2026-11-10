@@ -307,7 +307,7 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({
     endTime: '',
     location: '',
     meetingUrl: '',
-    eventType: 'meeting' as const,
+    eventType: 'meeting' as string,
     attendees: [] as string[]
   });
 

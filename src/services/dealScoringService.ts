@@ -211,16 +211,16 @@ export class DealScoringService {
 
       const totalScored = data.length;
       const averageScore = totalScored > 0
-        ? data.reduce((sum, item) => sum + item.overall_score, 0) / totalScored
+        ? data.reduce((sum: number, item: any) => sum + item.overall_score, 0) / totalScored
         : 0;
 
-      const levelDistribution = data.reduce((acc, item) => {
+      const levelDistribution = data.reduce((acc: Record<string, number>, item: any) => {
         acc[item.qualification_level] = (acc[item.qualification_level] || 0) + 1;
         return acc;
       }, {} as Record<string, number>);
 
       const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-      const recentUpdates = data.filter(item =>
+      const recentUpdates = data.filter((item: any) =>
         new Date(item.last_updated) > oneDayAgo
       ).length;
 

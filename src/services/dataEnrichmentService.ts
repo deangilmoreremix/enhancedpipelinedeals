@@ -80,7 +80,7 @@ export class DataEnrichmentService {
       console.error('Data enrichment failed:', error);
 
       // Save failed enrichment attempt
-      await this.saveFailedEnrichment(entityId, entityType, enrichmentType, error.message);
+      await this.saveFailedEnrichment(entityId, entityType, enrichmentType, error instanceof Error ? error.message : String(error));
 
       throw error;
     }
@@ -103,7 +103,7 @@ export class DataEnrichmentService {
 
       if (error) throw error;
 
-      return data.map(item => this.transformDatabaseResult(item));
+      return data.map((item: any) => this.transformDatabaseResult(item));
     } catch (error) {
       console.error('Failed to get enrichment history:', error);
       return [];
@@ -341,21 +341,21 @@ export class DataEnrichmentService {
       if (error) throw error;
 
       const totalEnrichments = data.length;
-      const completedEnrichments = data.filter(item => item.status === 'completed').length;
+      const completedEnrichments = data.filter((item: any) => item.status === 'completed').length;
       const successRate = totalEnrichments > 0 ? (completedEnrichments / totalEnrichments) * 100 : 0;
 
-      const enrichmentTypeDistribution = data.reduce((acc, item) => {
+      const enrichmentTypeDistribution = data.reduce((acc: Record<string, number>, item: any) => {
         acc[item.enrichment_type] = (acc[item.enrichment_type] || 0) + 1;
         return acc;
       }, {} as Record<string, number>);
 
-      const completedData = data.filter(item => item.status === 'completed');
+      const completedData = data.filter((item: any) => item.status === 'completed');
       const averageConfidence = completedData.length > 0
-        ? completedData.reduce((sum, item) => sum + item.confidence, 0) / completedData.length
+        ? completedData.reduce((sum: number, item: any) => sum + item.confidence, 0) / completedData.length
         : 0;
 
       const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-      const recentActivity = data.filter(item =>
+      const recentActivity = data.filter((item: any) =>
         new Date(item.last_updated) > oneDayAgo
       ).length;
 

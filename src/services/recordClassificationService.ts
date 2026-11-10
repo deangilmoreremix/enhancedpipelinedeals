@@ -167,19 +167,19 @@ export class RecordClassificationService {
 
       const totalClassified = data.length;
 
-      const categoryDistribution = data.reduce((acc, item) => {
+      const categoryDistribution = data.reduce((acc: Record<string, number>, item: any) => {
         const category = item.primary_category;
         acc[category] = (acc[category] || 0) + 1;
         return acc;
       }, {} as Record<string, number>);
 
       const averageConfidence = totalClassified > 0
-        ? data.reduce((sum, item) => sum + item.confidence, 0) / totalClassified
+        ? data.reduce((sum: number, item: any) => sum + item.confidence, 0) / totalClassified
         : 0;
 
       // Count tag frequency
       const tagCounts: Record<string, number> = {};
-      data.forEach(item => {
+      data.forEach((item: any) => {
         (item.classifications || []).forEach((classification: any) => {
           (classification.tags || []).forEach((tag: string) => {
             tagCounts[tag] = (tagCounts[tag] || 0) + 1;

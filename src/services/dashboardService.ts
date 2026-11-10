@@ -122,7 +122,7 @@ class DashboardService {
 
       if (error) throw error;
 
-      return (data || []).map(d => this.transformDashboard(d));
+      return (data || []).map((d: any) => this.transformDashboard(d));
     } catch (error) {
       console.error('Failed to get dashboards:', error);
       return [];
@@ -256,7 +256,7 @@ class DashboardService {
 
       if (error) throw error;
 
-      return (data || []).map(w => this.transformWidget(w));
+      return (data || []).map((w: any) => this.transformWidget(w));
     } catch (error) {
       console.error('Failed to get dashboard widgets:', error);
       return [];
@@ -649,4 +649,3 @@ export const getDashboardService = (): DashboardService => {
 };
 
 export { DashboardService };
-export type { Dashboard, DashboardConfig, Widget, WidgetConfig, WidgetData, WidgetPosition, WidgetType };

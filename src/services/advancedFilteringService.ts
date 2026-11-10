@@ -1,4 +1,5 @@
-import { ViewFilter, Deal, Contact } from '../types';
+import { ViewFilter, Deal } from '../types';
+import { Contact } from '../types/contact';
 
 /**
  * Advanced Filtering Service

@@ -1,10 +1,6 @@
 import { Handler } from '@netlify/functions';
-import OpenAI from 'openai';
+import { respond } from './_openai';
 import { createClient } from '@supabase/supabase-js';
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-});
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -86,17 +82,15 @@ Format as JSON with this structure:
   }
 }`;
 
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4',
-      messages: [
-        { role: 'system', content: 'You are an expert sales strategist analyzing pipeline data.' },
-        { role: 'user', content: analysisPrompt }
-      ],
-      temperature: 0.3,
-      max_tokens: 2000
+    const result = await respond({
+      tier: 'deep',
+      instructions: 'You are an expert sales strategist analyzing pipeline data. Respond with a single JSON object only.',
+      input: analysisPrompt,
+      jsonObject: true,
+      maxOutputTokens: 8000
     });
 
-    const analysis = JSON.parse(completion.choices[0].message.content || '{}');
+    const analysis = result.json ?? {};
 
     // Store analysis results in database for caching
     await supabase

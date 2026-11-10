@@ -1,10 +1,6 @@
 import { Handler } from '@netlify/functions';
-import OpenAI from 'openai';
+import { respondStream } from './_openai';
 import { createClient } from '@supabase/supabase-js';
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-});
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -67,28 +63,23 @@ Guidelines:
 
 ${input ? `Improve and complete this draft: ${input}` : 'Write a compelling email based on the context provided.'}`;
 
-    // Create streaming response
-    const stream = await openai.chat.completions.create({
-      model: 'gpt-4',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: input || 'Write a professional email for this contact and deal.' }
-      ],
-      stream: true,
-      temperature: 0.7,
-      max_tokens: 1000
+    // Stream via the Responses API (typed events -> output_text deltas)
+    const deltas = respondStream({
+      tier: 'default',
+      instructions: systemPrompt,
+      input: input || 'Write a professional email for this contact and deal.',
+      maxOutputTokens: 1500
     });
 
-    // Return streaming response
     const encoder = new TextEncoder();
     const readable = new ReadableStream({
       async start(controller) {
-        for await (const chunk of stream) {
-          const content = chunk.choices[0]?.delta?.content || '';
-          if (content) {
-            const data = `data: ${JSON.stringify({ content })}\n\n`;
-            controller.enqueue(encoder.encode(data));
+        try {
+          for await (const content of deltas) {
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content })}\n\n`));
           }
+        } catch (err) {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: String((err as Error).message) })}\n\n`));
         }
         controller.close();
       }

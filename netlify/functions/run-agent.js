@@ -1,13 +1,7 @@
 // netlify/functions/run-agent.js
 const { supabase } = require("./_supabaseClient");
-const OpenAI = require("openai");
+const { respond } = require("./_openai");
 
-// Initialize OpenAI client
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
-// TODO: Replace this with real OpenAI Agents SDK call
 async function generateMessageWithAI({ agentId, personaId, sequenceLength, step, contact }) {
   try {
     // Use OpenAI to generate personalized SDR message
@@ -27,23 +21,15 @@ Generate a personalized, professional outreach message that:
 
 Message:`;
 
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "system",
-          content: "You are an expert SDR copywriter. Generate personalized, effective sales outreach messages."
-        },
-        {
-          role: "user",
-          content: prompt
-        }
-      ],
-      max_tokens: 500,
-      temperature: 0.7
+    const result = await respond({
+      tier: "default",
+      instructions:
+        "You are an expert SDR copywriter. Generate personalized, effective sales outreach messages. Output only the message text.",
+      input: prompt,
+      maxOutputTokens: 800,
     });
 
-    return completion.choices[0].message.content || "Generated message content";
+    return result.text || "Generated message content";
   } catch (error) {
     console.error("OpenAI generation failed:", error);
     // Fallback to simple message

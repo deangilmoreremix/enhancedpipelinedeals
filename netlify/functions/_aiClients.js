@@ -1,22 +1,25 @@
-// sdr_only/_aiClients.js
-const OpenAI = require("openai");
-const { AgentMail } = require("agentmail");
-const { AgentMailToolkit } = require("agentmail-toolkit");
-const { Runner, Agent } = require("openai-agents");
+// Responses-API based SDR / AE agent builders.
+// (Replaces the old openai-agents + AgentMail toolkit setup; AgentMail was removed from the project.)
+const { respond, respondWithTools } = require("./_openai");
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+function makeRunner(instructions, tier) {
+  return {
+    /**
+     * Mirrors the previous `runner.run({ agent, messages })` shape.
+     * Returns { output, id, model }.
+     */
+    async run({ messages = [], handlers, tools } = {}) {
+      const input = messages.map((m) => ({ role: m.role || "user", content: m.content }));
+      const opts = { tier, instructions, input, maxOutputTokens: 1500 };
+      const r =
+        tools && tools.length && handlers
+          ? await respondWithTools({ ...opts, tools, handlers })
+          : await respond(opts);
+      return { output: r.text, id: r.id, model: r.model };
+    },
+  };
+}
 
-const agentmail = new AgentMail({
-  apiKey: process.env.AGENTMAIL_API_KEY,
-});
-
-const toolkit = new AgentMailToolkit(agentmail);
-
-/**
- * Build the SmartCRM SDR Agent with AgentMail tools attached.
- */
 function buildSdrAgent({ agentId, personaId, sequenceLength, step, contact }) {
   const instructions = `You are an AI SDR for SmartCRM called "${agentId}".
 Your job is to send step ${step} of a ${sequenceLength}-day outbound campaign.
@@ -30,67 +33,24 @@ Persona:
 Rules:
 - Keep emails short, clear, and focused on getting a reply.
 - Suggest a next step (reply, call, or demo) but don't be pushy.
-- Respect quiet hours (don't schedule emails for the user's night time if provided).
 - DO NOT invent facts about SmartCRM that aren't true. Focus on CRM, AI automations, AI SDR, and pipeline intelligence.`;
-
-  const tools = toolkit.get_tools();
-
-  const agent = new Agent({
-    name: `SmartCRM SDR - ${agentId}`,
-    instructions,
-    tools,
-    model: "gpt-4.1-mini",
-  });
-
-  const runner = new Runner({
-    client: openai,
-    agents: [agent],
-  });
-
-  return { agent, runner };
+  const agent = { name: `SmartCRM SDR - ${agentId}`, instructions };
+  return { agent, runner: makeRunner(instructions, "default") };
 }
 
-/**
- * SmartCRM AE Demo Agent
- */
-function buildAeAgent({ aeId, personaId, productName, contact }) {
+function buildAeAgent({ aeId, personaId, productName }) {
   const instructions = `You are an AI Account Executive (AE) for a product called "${productName || "SmartCRM"}".
 Your job is to handle interested leads and move them toward a meeting, demo, or clear next step.
 
-Persona:
-- AE Persona: ${personaId || "trusted_advisor"}
-- Tone: Expert, calm, confident, helpful.
-- You sound like a real human AE: you listen, clarify, and propose clear next steps.
+Persona: ${personaId || "trusted_advisor"} - expert, calm, confident, helpful, human.
 
 Rules:
 - Acknowledge their interest or question.
-- Keep replies concise and specific (no fluffy generic AI tone).
-- If they seem ready, propose a clear meeting time-window or send a scheduling link (if provided by the user).
-- If they have questions, answer them clearly step-by-step.
-- Do NOT invent features. Focus on CRM, AI automations, AI SDR, pipeline intelligence, and analytics.
-- When appropriate, use AgentMail tools to reply in the existing thread, not start a brand-new email thread.`;
-
-  const tools = toolkit.get_tools();
-
-  const agent = new Agent({
-    name: `SmartCRM AE - ${aeId || "ae_demo_agent"}`,
-    instructions,
-    tools,
-    model: "gpt-4.1-mini",
-  });
-
-  const runner = new Runner({
-    client: openai,
-    agents: [agent],
-  });
-
-  return { agent, runner };
+- Keep replies concise and specific.
+- If they seem ready, propose a clear meeting time-window.
+- Answer questions step-by-step. Do NOT invent features.`;
+  const agent = { name: `SmartCRM AE - ${aeId || "ae_demo_agent"}`, instructions };
+  return { agent, runner: makeRunner(instructions, "default") };
 }
 
-module.exports = {
-  openai,
-  agentmail,
-  toolkit,
-  buildSdrAgent,
-  buildAeAgent,
-};
+module.exports = { buildSdrAgent, buildAeAgent };

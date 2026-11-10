@@ -3,6 +3,7 @@ import { Deal } from '../types';
 import { getSupabaseService } from './supabaseService';
 import { mockContacts } from '../data/mockContacts';
 import { mockDeals } from '../data/mockDeals';
+import { isDemoMode } from '../config/demoMode';
 
 export interface DataSyncResult<T> {
   data: T;
@@ -90,7 +91,7 @@ class DataSyncService {
   }
 
   /**
-   * Get deals - combines mock data with user-created data
+   * Get deals - database deals + local deals; mock data only in demo mode
    */
   async getDeals(): Promise<DataSyncResult<Record<string, Deal>>> {
     try {
@@ -116,8 +117,8 @@ class DataSyncService {
         }
       }
 
-      // Combine mock data with database data and local user-created data
-      const allDeals = { ...mockDeals, ...databaseDeals, ...this.localDeals };
+      // Mock deals are only merged in demo mode (Supabase not configured or demo_mode flag)
+      const allDeals = { ...(isDemoMode() ? mockDeals : {}), ...databaseDeals, ...this.localDeals };
 
       const totalCount = Object.keys(allDeals).length;
       this.updateSyncStatus({ dealsCount: totalCount });
@@ -132,7 +133,7 @@ class DataSyncService {
       console.error('❌ Failed to load deals:', error);
 
       // Fallback to mock + local data
-      const fallbackDeals = { ...mockDeals, ...this.localDeals };
+      const fallbackDeals = { ...(isDemoMode() ? mockDeals : {}), ...this.localDeals };
       const totalCount = Object.keys(fallbackDeals).length;
 
       this.updateSyncStatus({ dealsConnected: false, dealsCount: totalCount });

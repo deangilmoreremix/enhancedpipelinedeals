@@ -392,7 +392,7 @@ export const validateSchema = (data: any, schema: any): ValidationResult => {
  * Deal validation schema
  */
 export const dealValidationSchema = {
-  name: { type: 'string', required: true, maxLength: 200 },
+  title: { type: 'string', required: false, maxLength: 200 },
   value: { type: 'number', required: false, min: 0 },
   probability: { type: 'number', required: false, min: 0, max: 100 },
   stage: { type: 'string', required: false, maxLength: 50 },

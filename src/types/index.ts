@@ -1,3 +1,21 @@
+export const DEFAULT_STAGE_KEYS = ['qualification', 'proposal', 'negotiation', 'closed-won', 'closed-lost'] as const;
+export type StageKey = typeof DEFAULT_STAGE_KEYS[number];
+
+/** A row of `pipeline_stages` (dynamic stage definition). */
+export interface PipelineStage {
+  id: string;
+  pipelineId?: string | null;
+  key: string;
+  name: string;
+  color: string;
+  position: number;
+  visible: boolean;
+  probability: number;
+  isWon: boolean;
+  isLost: boolean;
+  wipLimit?: number | null;
+}
+
 export interface Deal {
   id: string;
   title?: string; // Optional title field for deal naming
@@ -7,7 +25,7 @@ export interface Deal {
   assignedToId?: string; // Links to team member's contact ID
   assignedTo?: string; // Team member's name for display
   value: number;
-  stage: 'qualification' | 'proposal' | 'negotiation' | 'closed-won' | 'closed-lost';
+  stage: string; // stage key (see PipelineStage.key); DEFAULT_STAGE_KEYS are the built-ins
   probability: number;
   priority: 'high' | 'medium' | 'low';
   dueDate?: Date;
@@ -58,6 +76,13 @@ export interface Deal {
   timeline?: DealActivity[];
   lastHealthUpdate?: Date;
   lastProbabilityUpdate?: Date;
+
+  // Pipeline foundation (Phase A)
+  position?: number; // ordering within a stage
+  deletedAt?: Date | null; // soft delete
+  ownerId?: string;
+  closeDate?: Date;
+  currencyCode?: string;
 }
 
 export interface PipelineColumn {

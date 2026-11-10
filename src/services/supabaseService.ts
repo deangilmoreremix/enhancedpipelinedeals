@@ -1,5 +1,6 @@
 import { Contact } from '../types/contact';
 import { Deal } from '../types';
+import { dealFromRow, dealToRow, DealRow } from './dealMapper';
 import { supabase as sharedSupabase } from '../lib/core/supabaseClient';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
@@ -12,9 +13,9 @@ interface Database {
         Update: Partial<Omit<Contact, 'id' | 'createdAt'>>;
       };
       deals: {
-        Row: Deal;
-        Insert: Omit<Deal, 'id' | 'createdAt' | 'updatedAt'>;
-        Update: Partial<Omit<Deal, 'id' | 'createdAt'>>;
+        Row: DealRow;
+        Insert: DealRow;
+        Update: DealRow;
       };
       activities: {
         Row: {
@@ -363,7 +364,7 @@ class SupabaseService {
   }
 
   // Deal methods
-  async getDeals(): Promise<Deal[]> {
+  async getDeals(opts: { includeDeleted?: boolean } = {}): Promise<Deal[]> {
     if (!this.isConnected || !this.supabase) {
       throw new Error('Supabase not configured - cannot load deals');
     }
@@ -378,8 +379,10 @@ class SupabaseService {
         throw new Error(`Database query failed: ${error.message}`);
       }
       
-      console.log(`✅ Loaded ${data?.length || 0} deals from database`);
-      return data || [];
+      const deals: Deal[] = ((data || []) as DealRow[]).map(dealFromRow);
+      console.log(`✅ Loaded ${deals.length} deals from database`);
+      // Soft-deleted rows are filtered client-side so this works before/after the deleted_at migration
+      return opts.includeDeleted ? deals : deals.filter(d => !d.deletedAt);
     } catch (error) {
       console.error('Error loading deals:', error);
       throw error;
@@ -394,17 +397,13 @@ class SupabaseService {
     try {
       const { data, error } = await this.supabase
         .from('deals')
-        .insert({
-          ...deal,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
+        .insert(dealToRow(deal as Partial<Deal>))
         .select()
         .single();
 
       if (error) throw error;
       console.log('✅ Created deal in database:', data.title);
-      return data;
+      return dealFromRow(data);
     } catch (error) {
       console.error('Failed to create deal in database:', error);
       throw error;
@@ -415,7 +414,7 @@ class SupabaseService {
     const { data, error } = await this.supabase
       .from('deals')
       .update({
-        ...updates,
+        ...dealToRow(updates, { partial: true }),
         updated_at: new Date().toISOString(),
       })
       .eq('id', id)
@@ -423,7 +422,7 @@ class SupabaseService {
       .single();
 
     if (error) throw error;
-    return data;
+    return dealFromRow(data);
   }
 
   async deleteDeal(id: string): Promise<void> {
@@ -471,10 +470,17 @@ class SupabaseService {
       .subscribe();
   }
 
+  /** Realtime deals feed; `new`/`old` rows in the payload are mapped to Deal (old rows only carry the id). */
   subscribeToDeals(callback: (payload: any) => void) {
     return this.supabase
       .channel('deals')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'deals' }, callback)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'deals' }, (payload: any) => {
+        callback({
+          ...payload,
+          new: payload.new && Object.keys(payload.new).length ? dealFromRow(payload.new) : payload.new,
+          old: payload.old && payload.old.id ? { id: payload.old.id } : payload.old,
+        });
+      })
       .subscribe();
   }
 

@@ -9,7 +9,9 @@ import { EnhancedAIStatusIndicator } from './ui/EnhancedAIStatusIndicator';
 import DealDetail from './DealDetail';
 import PipelineStats from './PipelineStats';
 import DealAnalytics from './DealAnalytics';
-import { getCustomColumns, saveCustomColumns, toPipelineColumn } from '../services/pipelineColumnService';
+import { saveCustomColumns } from '../services/pipelineColumnService';
+import { useDealStore, positionBetween } from '../store/dealStore';
+import { isDemoMode } from '../config/demoMode';
 import { CustomPipelineColumn } from '../types/pipeline';
 
 // Lazy load view components for code splitting
@@ -18,8 +20,6 @@ const DealTableView = React.lazy(() => import('./DealTableView').then(module => 
 const DealCalendarView = React.lazy(() => import('./DealCalendarView').then(module => ({ default: module.DealCalendarView })));
 const DealTimelineView = React.lazy(() => import('./DealTimelineView').then(module => ({ default: module.DealTimelineView })));
 const DealDashboardView = React.lazy(() => import('./DealDashboardView').then(module => ({ default: module.DealDashboardView })));
-import { mockColumns } from '../data/mockDeals';
-import { getDataSyncService } from '../services/dataSyncService';
 import { getSupabaseService } from '../services/supabaseService';
 import { getOpenAIFunctionService } from '../services/openaiFunctionCallingService';
 import { Contact } from '../types/contact';
@@ -47,17 +47,25 @@ const Pipeline: React.FC = () => {
   const [showClearDataModal, setShowClearDataModal] = useState(false);
 
   // Pipeline states
-  const [deals, setDeals] = useState<Record<string, Deal>>({});
-  const [columns, setColumns] = useState(mockColumns);
+  // Single source of truth: the deal store (deals, stages, optimistic moves, realtime)
+  const deals = useDealStore(s => s.deals);
+  const stages = useDealStore(s => s.stages);
+  const dataError = useDealStore(s => s.error);
+  const isConnected = useDealStore(s => s.isConnectedToDatabase);
+  const fetchDeals = useDealStore(s => s.fetchDeals);
+  const fetchStages = useDealStore(s => s.fetchStages);
+  const moveDeal = useDealStore(s => s.moveDeal);
+  const updateDealInStore = useDealStore(s => s.updateDeal);
+  const createDealInStore = useDealStore(s => s.createDeal);
+  const softDeleteDeal = useDealStore(s => s.softDeleteDeal);
+  const subscribeRealtime = useDealStore(s => s.subscribeRealtime);
+  const dataSource: 'database' | 'mock' = isConnected && !isDemoMode() ? 'database' : 'mock';
   const [selectedDealId, setSelectedDealId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [currentView, setCurrentView] = useState<DealViewType>('kanban');
   const [showStats, setShowStats] = useState(true);
   const [filterStage, setFilterStage] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'value' | 'probability' | 'updated'>('updated');
-  const [isLoading, setIsLoading] = useState(true);
-  const [dataSource, setDataSource] = useState<'database' | 'mock'>('mock');
-  const [dataError, setDataError] = useState<string | null>(null);
 
   // AI states
   const [aiResearching, setAiResearching] = useState<string[]>([]);
@@ -81,42 +89,14 @@ const Pipeline: React.FC = () => {
   // Gamification hook
   const { handleDealStageChange: updateGamification, handleDealValueChange: updateGamificationValue } = useGamificationUpdates();
 
-  // Data sync service
-  const dataSyncService = getDataSyncService();
-
   // OpenAI Function Calling service
   const openAIFunctionService = getOpenAIFunctionService();
 
-  // Load data on component mount
+  // Load deals + stages through the store on mount
   useEffect(() => {
-    const loadData = async () => {
-      console.log('🔄 Pipeline: Loading data...');
-      try {
-        setIsLoading(true);
-        setDataError(null);
-
-        const dealsResult = await dataSyncService.getDeals();
-        console.log('📊 Pipeline: Deals loaded:', dealsResult.data ? Object.keys(dealsResult.data).length : 0, 'deals');
-        setDeals(dealsResult.data);
-        setDataSource(dealsResult.isFromDatabase ? 'database' : 'mock');
-        console.log('💾 Pipeline: Data source:', dealsResult.isFromDatabase ? 'database' : 'mock');
-
-        if (dealsResult.error) {
-          console.error('❌ Pipeline: Data loading error:', dealsResult.error);
-          setDataError(dealsResult.error);
-        }
-      } catch (error) {
-        console.error('❌ Pipeline: Failed to load data:', error);
-        setDataError('Failed to load data');
-        setDataSource('mock');
-      } finally {
-        setIsLoading(false);
-        console.log('✅ Pipeline: Data loading complete');
-      }
-    };
-
-    loadData();
-  }, []);
+    void fetchDeals();
+    void fetchStages();
+  }, [fetchDeals, fetchStages]);
 
   // Check Twenty CRM feature flags
   useEffect(() => {
@@ -135,92 +115,28 @@ const Pipeline: React.FC = () => {
      checkFeatures();
    }, []);
 
-  // Load custom columns based on feature flag
-  useEffect(() => {
-    const loadColumns = async () => {
-      if (twentyFeaturesEnabled.customColumns) {
-          const customCols = await getCustomColumns();
-          if (customCols && customCols.length > 0) {
-            setColumns(prev => {
-              const newCols: Record<string, PipelineColumn> = {};
-              customCols.forEach(custom => {
-                const col = toPipelineColumn(custom);
-                newCols[col.id] = { ...col, dealIds: [] };
-              });
-              return newCols;
-            });
-            return;
-          }
-      }
-      // Fallback to mock columns
-      setColumns(mockColumns);
-    };
-    loadColumns();
-  }, [twentyFeaturesEnabled.customColumns]);
+  // Real-time subscriptions (deals + stages) via the store
+  useEffect(() => subscribeRealtime(), [subscribeRealtime, isConnected]);
 
-  // Real-time subscriptions
-  useEffect(() => {
-    if (!dataSyncService.isDatabaseConnected()) {
-      console.log('🔄 Pipeline: Database not connected, skipping subscription setup');
-      return;
-    }
-
-    console.log('🔄 Pipeline: Setting up real-time subscription for dataSource:', dataSource);
-
-    const supabase = getSupabaseService();
-
-    // Subscribe to deals changes
-    const dealsSubscription = supabase.subscribeToDeals((payload: any) => {
-      const { eventType, new: newRecord, old: oldRecord } = payload;
-
-      console.log('📡 Pipeline: Received real-time update:', eventType, newRecord?.id || oldRecord?.id);
-
-      setDeals(prev => {
-        switch (eventType) {
-          case 'INSERT':
-            console.log('📡 Pipeline: Inserting deal:', newRecord.id);
-            return { ...prev, [newRecord.id]: newRecord };
-          case 'UPDATE':
-            console.log('📡 Pipeline: Updating deal:', newRecord.id);
-            return { ...prev, [newRecord.id]: newRecord };
-          case 'DELETE':
-            console.log('📡 Pipeline: Deleting deal:', oldRecord.id);
-            const newDeals = { ...prev };
-            delete newDeals[oldRecord.id];
-            return newDeals;
-          default:
-            console.log('📡 Pipeline: Unknown event type:', eventType);
-            return prev;
-        }
-      });
+  // Board columns derived from stages + deals (ordered by deal position)
+  const columns = useMemo(() => {
+    const result: Record<string, PipelineColumn> = {};
+    const all = Object.values(deals);
+    stages.filter(st => st.visible).forEach(st => {
+      result[st.key] = {
+        id: st.key,
+        title: st.name,
+        color: st.color,
+        position: st.position + 1,
+        wipLimit: st.wipLimit ?? undefined,
+        dealIds: all
+          .filter(d => d.stage === st.key)
+          .sort((x, y) => (x.position ?? 0) - (y.position ?? 0) || x.createdAt.getTime() - y.createdAt.getTime())
+          .map(d => d.id)
+      };
     });
-
-    console.log('✅ Pipeline: Real-time subscription established');
-
-    return () => {
-      console.log('🔄 Pipeline: Cleaning up real-time subscription');
-      dealsSubscription.unsubscribe();
-    };
-   }, [dataSource]);
-
-   // Populate column.dealIds from deals when deals are loaded and columns are empty
-   useEffect(() => {
-    const hasEmpty = Object.values(columns).some(col => !col.dealIds || col.dealIds.length === 0);
-    if (!hasEmpty) return;
-
-    setColumns(prev => {
-      const updated = { ...prev };
-      Object.keys(updated).forEach(colId => {
-        if (!updated[colId].dealIds || updated[colId].dealIds.length === 0) {
-          const ids = Object.keys(deals)
-            .filter(id => deals[id].stage === colId)
-            .map(id => id);
-          updated[colId] = { ...updated[colId], dealIds: ids };
-        }
-      });
-      return updated;
-    });
-  }, [deals]);
+    return result;
+  }, [stages, deals]);
 
   // Save view preference when changed
   const handleViewChange = (view: DealViewType) => {
@@ -284,73 +200,25 @@ const Pipeline: React.FC = () => {
       return;
     }
 
-    const sourceColumn = columns[source.droppableId];
-    const destColumn = columns[destination.droppableId];
+    if (!deals[draggableId] || !columns[destination.droppableId]) return;
 
-    // Update deal stage
-    const updatedDeal = {
-      ...deals[draggableId],
-      stage: destination.droppableId as Deal['stage'],
-      updatedAt: new Date()
-    };
+    // Neighbours as displayed (respects active search/stage filters), excluding the dragged card
+    const visibleIds = new Set(filteredDeals.map(d => d.id));
+    const destList = columns[destination.droppableId].dealIds
+      .filter(id => id !== draggableId && visibleIds.has(id))
+      .map(id => deals[id]);
+    const position = positionBetween(destList[destination.index - 1], destList[destination.index]);
 
-    // Update deals
-    setDeals(prev => ({
-      ...prev,
-      [draggableId]: updatedDeal
-    }));
-
-    // Update columns
-    if (source.droppableId === destination.droppableId) {
-      // Reordering within same column
-      const newDealIds = Array.from(sourceColumn.dealIds);
-      newDealIds.splice(source.index, 1);
-      newDealIds.splice(destination.index, 0, draggableId);
-
-      setColumns(prev => ({
-        ...prev,
-        [source.droppableId]: {
-          ...sourceColumn,
-          dealIds: newDealIds
-        }
-      }));
-    } else {
-      // Moving between columns
-      const sourceDealIds = Array.from(sourceColumn.dealIds);
-      const destDealIds = Array.from(destColumn.dealIds);
-
-      sourceDealIds.splice(source.index, 1);
-      destDealIds.splice(destination.index, 0, draggableId);
-
-      setColumns(prev => ({
-        ...prev,
-        [source.droppableId]: {
-          ...sourceColumn,
-          dealIds: sourceDealIds
-        },
-        [destination.droppableId]: {
-          ...destColumn,
-          dealIds: destDealIds
-        }
-      }));
-    }
+    // Optimistic in the store; persists and rolls back on failure
+    void moveDeal(draggableId, destination.droppableId, position);
   };
 
   const handleDealUpdate = async (id: string, updates: Partial<Deal>) => {
     try {
-      // If database is connected, update via data sync service
-      if (dataSyncService.isDatabaseConnected()) {
-        await dataSyncService.updateDeal(id, updates);
-      }
-
-      // Update local state
-      setDeals(prev => ({
-        ...prev,
-        [id]: { ...prev[id], ...updates, updatedAt: new Date() }
-      }));
-
-      // Trigger gamification updates for value changes
       const previousDeal = deals[id];
+      // Optimistic update + persistence handled by the store
+      await updateDealInStore(id, updates);
+
       // Trigger gamification updates for stage changes
       if (updates.stage && updates.stage !== previousDeal?.stage) {
         const updatedDeal = { ...previousDeal, ...updates } as Deal;
@@ -474,15 +342,19 @@ const Pipeline: React.FC = () => {
     }).format(value);
   };
 
+  // Static class names so Tailwind can see them; keyed by PipelineStage.color
+  const STAGE_COLOR_CLASSES: Record<string, string> = {
+    blue: 'border-blue-500 bg-blue-50',
+    indigo: 'border-indigo-500 bg-indigo-50',
+    purple: 'border-purple-500 bg-purple-50',
+    green: 'border-green-500 bg-green-50',
+    red: 'border-red-500 bg-red-50'
+  };
+
   const getStageColor = (stageId: string) => {
-    const colors: Record<string, string> = {
-      'qualification': 'border-blue-500 bg-blue-50',
-      'proposal': 'border-indigo-500 bg-indigo-50',
-      'negotiation': 'border-purple-500 bg-purple-50',
-      'closed-won': 'border-green-500 bg-green-50',
-      'closed-lost': 'border-red-500 bg-red-50'
-    };
-    return colors[stageId] || 'border-gray-500 bg-gray-50';
+    const stage = stages.find(st => st.key === stageId);
+    const color = stage?.color?.replace(/-\d+$/, '');
+    return (color && STAGE_COLOR_CLASSES[color]) || 'border-gray-500 bg-gray-50';
   };
 
   const handleImportDeals = () => {
@@ -506,10 +378,7 @@ const Pipeline: React.FC = () => {
         supabase.client.from('activities').delete().neq('id', '00000000-0000-0000-0000-000000000000'),
       ]);
 
-      setDeals({});
-      const reloaded = await dataSyncService.getDeals();
-      setDeals(reloaded.data);
-      setDataSource(reloaded.isFromDatabase ? 'database' : 'mock');
+      await fetchDeals();
 
       console.log('✅ All data cleared successfully');
     } catch (error) {
@@ -584,13 +453,7 @@ const Pipeline: React.FC = () => {
 
   const handleDealDelete = async (dealId: string) => {
     try {
-      if (dataSyncService.isDatabaseConnected()) {
-        await dataSyncService.deleteDeal(dealId);
-      }
-
-      const { [dealId]: removed, ...remainingDeals } = deals;
-      setDeals(remainingDeals);
-
+      await softDeleteDeal(dealId);
       console.log(`✅ Deal deleted: ${dealId}`);
     } catch (error) {
       console.error('Failed to delete deal:', error);
@@ -599,47 +462,7 @@ const Pipeline: React.FC = () => {
 
   const handleAddDeal = async (dealData: Omit<Deal, 'id' | 'createdAt' | 'updatedAt'>) => {
     try {
-      if (dataSyncService.isDatabaseConnected()) {
-        // Create deal in database
-        const newDeal = await dataSyncService.createDeal(dealData);
-
-        // Add deal to state
-        setDeals(prev => ({
-          ...prev,
-          [newDeal.id]: newDeal
-        }));
-
-        // Add deal to appropriate column
-        setColumns(prev => ({
-          ...prev,
-          [newDeal.stage]: {
-            ...prev[newDeal.stage],
-            dealIds: [...prev[newDeal.stage].dealIds, newDeal.id]
-          }
-        }));
-      } else {
-        // Fallback to local state only (mock mode)
-        const newDeal: Deal = {
-          ...dealData,
-          id: `deal-${Date.now()}`,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        };
-
-        setDeals(prev => ({
-          ...prev,
-          [newDeal.id]: newDeal
-        }));
-
-        setColumns(prev => ({
-          ...prev,
-          [newDeal.stage]: {
-            ...prev[newDeal.stage],
-            dealIds: [...prev[newDeal.stage].dealIds, newDeal.id]
-          }
-        }));
-      }
-
+      await createDealInStore(dealData);
       console.log('✅ Deal created successfully');
     } catch (error) {
       console.error('Failed to create deal:', error);
@@ -798,11 +621,9 @@ const Pipeline: React.FC = () => {
               className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
             >
               <option value="all">All Stages</option>
-              <option value="qualification">Qualification</option>
-              <option value="proposal">Proposal</option>
-              <option value="negotiation">Negotiation</option>
-              <option value="closed-won">Closed Won</option>
-              <option value="closed-lost">Closed Lost</option>
+              {stages.map(st => (
+                <option key={st.key} value={st.key}>{st.name}</option>
+              ))}
             </select>
           </Tooltip>
 
@@ -1106,18 +927,9 @@ const Pipeline: React.FC = () => {
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-hidden">
             <CustomColumnManager
               onColumnsChange={async (customColumns) => {
-                // Persist custom columns
+                // Persist stages, then reload them into the store
                 await saveCustomColumns(customColumns);
-                // Convert to pipeline columns and update state, preserving existing dealIds
-                setColumns(prev => {
-                  const newCols: Record<string, PipelineColumn> = {};
-                  customColumns.forEach(custom => {
-                    const col = toPipelineColumn(custom);
-                    const existing = prev[col.id];
-                    newCols[col.id] = { ...col, dealIds: existing?.dealIds || [] };
-                  });
-                  return newCols;
-                });
+                await fetchStages();
               }}
               onClose={() => setShowColumnManager(false)}
             />

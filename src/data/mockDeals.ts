@@ -115,7 +115,7 @@ export const mockDeals: Record<string, Deal> = {
     },
     lastEnrichment: {
       confidence: 85,
-      aiProvider: 'Gemini 1.5 Pro',
+      aiProvider: 'OpenAI GPT-6',
       timestamp: new Date()
     }
   },

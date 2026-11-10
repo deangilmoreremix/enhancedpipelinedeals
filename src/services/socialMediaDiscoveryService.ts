@@ -47,7 +47,7 @@ class SocialMediaDiscoveryService {
       if (!result.data) throw new Error('Invalid response format');
       const discovery: any = result.data;
       
-      // Transform the Gemma response into our structured format
+      // Transform the AI response into our structured format
       const channels: SocialMediaChannel[] = [];
       
       if (discovery.discoveredChannels) {
@@ -122,7 +122,7 @@ class SocialMediaDiscoveryService {
         socialPresenceScore: this.calculatePresenceScore(channels),
         recommendedPlatforms: discovery.prioritizedChannels || ['LinkedIn'],
         verificationStatus: this.determineVerificationStatus(channels),
-        aiProvider: 'Gemma Channel Identification',
+        aiProvider: 'AI Channel Identification',
         confidence: discovery.confidence || 60
       };
     } catch (error) {
@@ -192,7 +192,7 @@ class SocialMediaDiscoveryService {
         socialPresenceScore: this.calculatePresenceScore(channels),
         recommendedPlatforms: enrichment.platformRecommendations || [],
         verificationStatus: this.determineVerificationStatus(channels),
-        aiProvider: 'Gemma App Enrichment',
+        aiProvider: 'AI App Enrichment',
         confidence: enrichment.confidence || 75
       };
     } catch (error) {

@@ -1,13 +1,10 @@
 import { supabase } from '../lib/core/supabaseClient';
 import { logger } from '../lib/core/logger';
-import { CalendarOAuthService } from './calendarOAuthService';
 
 export interface CalendarEvent {
   id: string;
   dealId?: string;
   contactId?: string;
-  integrationId?: string;
-  externalEventId?: string;
   title: string;
   description?: string;
   startTime: Date;
@@ -62,10 +59,6 @@ export class CalendarEventService {
     userId: string,
     request: CreateEventRequest
   ): Promise<CalendarEvent> {
-    // Check if we should sync with external calendar
-    const integrations = await CalendarOAuthService.getUserIntegrations(userId);
-    const activeIntegration = integrations.find(i => i.settings.syncEnabled);
-
     const eventData = {
       deal_id: request.dealId,
       contact_id: request.contactId,
@@ -93,16 +86,6 @@ export class CalendarEventService {
     if (error) {
       logger.error('Failed to create calendar event', { error, userId, request });
       throw new Error('Failed to create calendar event');
-    }
-
-    // Sync with external calendar if integration exists
-    if (activeIntegration) {
-      try {
-        await this.syncEventToExternal(event.id, activeIntegration.id);
-      } catch (syncError) {
-        logger.warn('Failed to sync event to external calendar', { eventId: event.id, syncError });
-        // Don't fail the event creation if sync fails
-      }
     }
 
     return this.mapDbToEvent(event);
@@ -143,15 +126,6 @@ export class CalendarEventService {
       throw new Error('Failed to update calendar event');
     }
 
-    // Sync with external calendar if integration exists
-    if (event.integration_id) {
-      try {
-        await this.syncEventToExternal(eventId, event.integration_id);
-      } catch (syncError) {
-        logger.warn('Failed to sync updated event to external calendar', { eventId, syncError });
-      }
-    }
-
     return this.mapDbToEvent(event);
   }
 
@@ -159,13 +133,6 @@ export class CalendarEventService {
    * Delete a calendar event
    */
   static async deleteEvent(eventId: string, userId: string): Promise<void> {
-    // Get event details before deletion for external sync
-    const { data: event } = await supabase
-      .from('calendar_events')
-      .select('integration_id, external_event_id')
-      .eq('id', eventId)
-      .single();
-
     // Delete from database
     const { error } = await supabase
       .from('calendar_events')
@@ -176,14 +143,7 @@ export class CalendarEventService {
       logger.error('Failed to delete calendar event', { error, eventId, userId });
       throw new Error('Failed to delete calendar event');
     }
-
-    // Delete from external calendar if it exists
-    if (event?.integration_id && event?.external_event_id) {
-      try {
-        await this.deleteEventFromExternal(event.external_event_id, event.integration_id);
-      } catch (syncError) {
-        logger.warn('Failed to delete event from external calendar', { eventId, syncError });
-      }
+  }
     }
   }
 
@@ -311,219 +271,11 @@ export class CalendarEventService {
     });
   }
 
-  /**
-   * Sync event to external calendar
-   */
-  private static async syncEventToExternal(eventId: string, integrationId: string): Promise<void> {
-    const accessToken = await CalendarOAuthService.getValidAccessToken(integrationId);
-
-    // Get integration details
-    const { data: integration } = await supabase
-      .from('calendar_integrations')
-      .select('provider, calendar_id')
-      .eq('id', integrationId)
-      .single();
-
-    if (!integration) {
-      throw new Error('Calendar integration not found');
-    }
-
-    // Get event details
-    const { data: event } = await supabase
-      .from('calendar_events')
-      .select('*')
-      .eq('id', eventId)
-      .single();
-
-    if (!event) {
-      throw new Error('Event not found');
-    }
-
-    if (integration.provider === 'google') {
-      await this.syncToGoogleCalendar(event, integration, accessToken);
-    } else if (integration.provider === 'outlook') {
-      await this.syncToOutlookCalendar(event, integration, accessToken);
-    } else {
-      throw new Error(`Unsupported calendar provider: ${integration.provider}`);
-    }
-  }
-
-  private static async syncToGoogleCalendar(
-    event: any,
-    integration: any,
-    accessToken: string
-  ): Promise<void> {
-    const googleEvent = {
-      summary: event.title,
-      description: event.description,
-      start: {
-        dateTime: event.start_time,
-        timeZone: event.timezone
-      },
-      end: {
-        dateTime: event.end_time,
-        timeZone: event.timezone
-      },
-      location: event.location,
-      attendees: event.attendees?.map((a: any) => ({
-        email: a.email,
-        displayName: a.name,
-        responseStatus: a.status === 'accepted' ? 'accepted' :
-                       a.status === 'declined' ? 'declined' :
-                       a.status === 'tentative' ? 'tentative' : 'needsAction'
-      })),
-      reminders: {
-        useDefault: false,
-        overrides: event.reminders?.map((r: any) => ({
-          method: r.type.toUpperCase(),
-          minutes: r.minutesBefore
-        })) || []
-      }
-    };
-
-    const url = event.external_event_id
-      ? `https://www.googleapis.com/calendar/v3/calendars/${integration.calendar_id}/events/${event.external_event_id}`
-      : `https://www.googleapis.com/calendar/v3/calendars/${integration.calendar_id}/events`;
-
-    const method = event.external_event_id ? 'PUT' : 'POST';
-
-    const response = await fetch(url, {
-      method,
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(googleEvent)
-    });
-
-    if (!response.ok) {
-      throw new Error(`Google Calendar API error: ${response.status}`);
-    }
-
-    const googleEventData = await response.json();
-
-    // Update event with external ID if this was a create
-    if (!event.external_event_id) {
-      await supabase
-        .from('calendar_events')
-        .update({
-          external_event_id: googleEventData.id,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', event.id);
-    }
-  }
-
-  private static async syncToOutlookCalendar(
-    event: any,
-    integration: any,
-    accessToken: string
-  ): Promise<void> {
-    const outlookEvent = {
-      subject: event.title,
-      body: {
-        contentType: 'text',
-        content: event.description || ''
-      },
-      start: {
-        dateTime: event.start_time,
-        timeZone: event.timezone
-      },
-      end: {
-        dateTime: event.end_time,
-        timeZone: event.timezone
-      },
-      location: {
-        displayName: event.location || ''
-      },
-      attendees: event.attendees?.map((a: any) => ({
-        emailAddress: {
-          address: a.email,
-          name: a.name
-        },
-        type: 'required'
-      })) || [],
-      reminders: {
-        isReminderOn: true,
-        reminderMinutesBeforeStart: event.reminders?.[0]?.minutesBefore || 15
-      }
-    };
-
-    const url = event.external_event_id
-      ? `https://graph.microsoft.com/v1.0/me/calendars/${integration.calendar_id}/events/${event.external_event_id}`
-      : `https://graph.microsoft.com/v1.0/me/calendars/${integration.calendar_id}/events`;
-
-    const method = event.external_event_id ? 'PATCH' : 'POST';
-
-    const response = await fetch(url, {
-      method,
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(outlookEvent)
-    });
-
-    if (!response.ok) {
-      throw new Error(`Microsoft Graph API error: ${response.status}`);
-    }
-
-    const outlookEventData = await response.json();
-
-    // Update event with external ID if this was a create
-    if (!event.external_event_id) {
-      await supabase
-        .from('calendar_events')
-        .update({
-          external_event_id: outlookEventData.id,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', event.id);
-    }
-  }
-
-  private static async deleteEventFromExternal(
-    externalEventId: string,
-    integrationId: string
-  ): Promise<void> {
-    const accessToken = await CalendarOAuthService.getValidAccessToken(integrationId);
-
-    const { data: integration } = await supabase
-      .from('calendar_integrations')
-      .select('provider, calendar_id')
-      .eq('id', integrationId)
-      .single();
-
-    if (!integration) return;
-
-    let url: string;
-    if (integration.provider === 'google') {
-      url = `https://www.googleapis.com/calendar/v3/calendars/${integration.calendar_id}/events/${externalEventId}`;
-    } else if (integration.provider === 'outlook') {
-      url = `https://graph.microsoft.com/v1.0/me/calendars/${integration.calendar_id}/events/${externalEventId}`;
-    } else {
-      throw new Error(`Unsupported calendar provider: ${integration.provider}`);
-    }
-
-    const response = await fetch(url, {
-      method: 'DELETE',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`
-      }
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to delete event from ${integration.provider} calendar: ${response.status}`);
-    }
-  }
-
   private static mapDbToEvent(db: any): CalendarEvent {
     return {
       id: db.id,
       dealId: db.deal_id,
       contactId: db.contact_id,
-      integrationId: db.integration_id,
-      externalEventId: db.external_event_id,
       title: db.title,
       description: db.description,
       startTime: new Date(db.start_time),

@@ -6,7 +6,7 @@
 import { callAI, AIGatewayError } from './aiClient';
 
 export interface AIGatewayRequest {
-  provider: 'openai' | 'gemini' | 'gemma';
+  provider: 'openai';
   model: string;
   taskType: string;
   aiRequestData: any;
@@ -76,21 +76,6 @@ class AIGatewayService {
       taskType,
       aiRequestData: { messages, max_output_tokens: maxTokens || 1000, ...rest },
     };
-  }
-
-  /** Legacy Gemini-shaped builder; requests are served by OpenAI now. */
-  createGeminiRequest(
-    prompt: string,
-    model: string = 'default',
-    taskType: string = 'chat',
-    systemInstruction?: string,
-    options: any = {}
-  ): AIGatewayRequest {
-    const messages = [
-      ...(systemInstruction ? [{ role: 'system', content: systemInstruction }] : []),
-      { role: 'user', content: prompt },
-    ];
-    return this.createOpenAIRequest(messages, model, taskType, options);
   }
 
   /** Real health check: tiny `fast` request through the gateway. */

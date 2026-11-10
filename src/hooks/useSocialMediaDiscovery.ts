@@ -1,6 +1,6 @@
 /**
  * Social Media Discovery Hook
- * Provides easy access to Gemma-powered social media channel discovery
+ * Provides easy access to AI-powered social media channel discovery
  */
 
 import { useState } from 'react';
@@ -28,18 +28,18 @@ export const useSocialMediaDiscovery = (): SocialMediaDiscoveryHook => {
     setDiscoveryError(null);
     
     try {
-      console.log(`🔍 Starting Gemma social discovery for company: ${companyData.name}`);
+      console.log(`🔍 Starting social discovery for company: ${companyData.name}`);
       
       const result = await discoveryService.discoverCompanyChannels(companyData);
       setLastDiscovery(result);
       
-      console.log(`✅ Gemma discovered ${result.channels.length} social channels with ${result.confidence}% confidence`);
+      console.log(`✅ Discovered ${result.channels.length} social channels with ${result.confidence}% confidence`);
       
       return result;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Social media discovery failed';
       setDiscoveryError(errorMessage);
-      console.error('❌ Gemma social discovery failed:', error);
+      console.error('❌ social discovery failed:', error);
       throw error;
     } finally {
       setIsDiscovering(false);
@@ -51,18 +51,18 @@ export const useSocialMediaDiscovery = (): SocialMediaDiscoveryHook => {
     setDiscoveryError(null);
     
     try {
-      console.log(`🔍 Starting Gemma social discovery for contact: ${contactData.firstName} ${contactData.lastName}`);
+      console.log(`🔍 Starting social discovery for contact: ${contactData.firstName} ${contactData.lastName}`);
       
       const result = await discoveryService.discoverContactChannels(contactData);
       setLastDiscovery(result);
       
-      console.log(`✅ Gemma discovered ${result.channels.length} social channels for contact`);
+      console.log(`✅ Discovered ${result.channels.length} social channels for contact`);
       
       return result;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Contact social discovery failed';
       setDiscoveryError(errorMessage);
-      console.error('❌ Gemma contact social discovery failed:', error);
+      console.error('❌ contact social discovery failed:', error);
       throw error;
     } finally {
       setIsDiscovering(false);
@@ -74,18 +74,18 @@ export const useSocialMediaDiscovery = (): SocialMediaDiscoveryHook => {
     setDiscoveryError(null);
     
     try {
-      console.log(`🔍 Starting Gemma app social enrichment for: ${appData.name}`);
+      console.log(`🔍 Starting app social enrichment for: ${appData.name}`);
       
       const result = await discoveryService.enrichAppSocialChannels(appData);
       setLastDiscovery(result);
       
-      console.log(`✅ Gemma enriched app with ${result.channels.length} social channels`);
+      console.log(`✅ Enriched app with ${result.channels.length} social channels`);
       
       return result;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'App social enrichment failed';
       setDiscoveryError(errorMessage);
-      console.error('❌ Gemma app social enrichment failed:', error);
+      console.error('❌ app social enrichment failed:', error);
       throw error;
     } finally {
       setIsDiscovering(false);
@@ -97,17 +97,17 @@ export const useSocialMediaDiscovery = (): SocialMediaDiscoveryHook => {
     setDiscoveryError(null);
     
     try {
-      console.log(`🔍 Validating ${channels.length} social media channels with Gemma`);
+      console.log(`🔍 Validating ${channels.length} social media channels`);
       
       const result = await discoveryService.validateChannels(channels);
       
-      console.log(`✅ Gemma validated ${result.length} channels`);
+      console.log(`✅ Validated ${result.length} channels`);
       
       return result;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Channel validation failed';
       setDiscoveryError(errorMessage);
-      console.error('❌ Gemma channel validation failed:', error);
+      console.error('❌ channel validation failed:', error);
       throw error;
     } finally {
       setIsDiscovering(false);

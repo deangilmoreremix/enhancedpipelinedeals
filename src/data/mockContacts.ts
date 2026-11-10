@@ -106,7 +106,7 @@ export const mockContacts: Contact[] = [
     isFavorite: true,
     lastEnrichment: {
       confidence: 82,
-      aiProvider: 'Gemini 1.5 Pro',
+      aiProvider: 'OpenAI GPT-6',
       timestamp: new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000)
     }
   },

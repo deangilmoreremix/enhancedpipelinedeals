@@ -203,7 +203,7 @@ export const AIEnhancedDealCard: React.FC<AIEnhancedDealCardProps> = ({
 
       setLastEnrichment({
         confidence: Math.max(deal.probability, 75),
-        aiProvider: 'Hybrid AI (GPT-4o + Gemini)',
+        aiProvider: 'OpenAI (GPT-6)',
         timestamp: new Date()
       });
     } catch (error) {

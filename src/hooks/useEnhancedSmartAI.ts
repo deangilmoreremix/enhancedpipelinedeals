@@ -74,7 +74,7 @@ export const useEnhancedSmartAI = (): EnhancedSmartAIHook => {
             reasoningPath: analysis.reasoningPath
           }
         },
-        aiProvider: status.availableProviders.includes('openai') ? '🤖 GPT-5 Enhanced' : '🧠 Gemini 2.0',
+        aiProvider: status.availableProviders.includes('openai') ? '🤖 GPT-6 Enhanced' : '⚠️ AI unavailable',
         enhancedFeatures: true
       };
     } catch (error) {

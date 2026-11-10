@@ -3,7 +3,7 @@
  * Features: AbortController support, memory leak prevention, timeout handling, circuit breakers, rate limiting
  */
 
-import { callAI } from '../../../services/aiClient';
+import { runSdrAgent, type SdrEvent, type SdrOutput } from '../../../services/sdrAgentClient';
 import { supabase } from '../../core/supabaseClient';
 import { enhancedLogger, withLogContext, createCorrelationId } from '../../core/enhancedLogger';
 import {
@@ -122,14 +122,73 @@ export abstract class BaseSDRAgent {
   }
 
   /**
-   * Main execution method - to be implemented by each agent
+   * Executes the agent on the server with the OpenAI Agents SDK (netlify/functions/sdr-agent.ts):
+   * the specialist loads CRM context with tools, may research with web_search, passes guardrails
+   * (opt-out + moderation) and returns a structured draft. Sending always pauses for human approval.
    */
-  abstract execute(context: SDRContext, abortSignal: AbortSignal): Promise<SDRAgentResult>;
+  async execute(context: SDRContext, abortSignal: AbortSignal, onEvent?: (e: SdrEvent) => void): Promise<SDRAgentResult> {
+    const { contact, deal } = await this.loadData(context, abortSignal);
+    const slug = this.agentId.replace(/^sdr-/, '').replace(/-/g, '_');
 
-  /**
-   * Generate AI prompt for this agent type
-   */
-  protected abstract generatePrompt(context: SDRContext): string;
+    const terminal = await runSdrAgent(
+      {
+        agentId: this.agentId,
+        leadId: contact.id,
+        goal: this.generatePrompt({ ...context, contact, deal }),
+        signal: abortSignal,
+      },
+      onEvent,
+    );
+
+    if (terminal.type === 'error') {
+      return { success: false, action: `${slug}_${terminal.blocked ? 'blocked' : 'failed'}`, error: terminal.error, metadata: { contactId: contact.id, dealId: deal?.id } };
+    }
+
+    if (terminal.type === 'approval_required') {
+      return {
+        success: true,
+        action: `${slug}_pending_approval`,
+        message: 'Waiting for human approval before sending',
+        metadata: { contactId: contact.id, dealId: deal?.id, state: terminal.state, approvals: terminal.approvals },
+      };
+    }
+
+    if (terminal.type !== 'final') {
+      return { success: false, action: `${slug}_failed`, error: 'Unexpected agent result' };
+    }
+
+    const out = terminal.output as SdrOutput | string | null;
+    if (!out || typeof out === 'string') {
+      return { success: true, action: `${slug}_drafted`, message: typeof out === 'string' ? out : undefined, metadata: { contactId: contact.id, dealId: deal?.id } };
+    }
+
+    return {
+      success: true,
+      action: `${slug}_drafted`,
+      message: `${this.name} drafted a ${out.outreach.channel} message for ${contact.name}`,
+      emailData: out.outreach.channel === 'email' && contact.email
+        ? { to: contact.email, subject: out.outreach.subject ?? '', body: out.outreach.body }
+        : undefined,
+      metadata: {
+        contactId: contact.id,
+        dealId: deal?.id,
+        agent: terminal.agent,
+        channel: out.outreach.channel,
+        body: out.outreach.body,
+        strategy: out.strategy,
+        key_points: out.key_points,
+        call_to_action: out.outreach.call_to_action,
+        crm_updates: out.crm_updates,
+        confidence: out.confidence,
+      },
+    };
+  }
+
+  /** Agent-specific goal text sent to the server agent (override to add custom guidance). */
+  protected generatePrompt(context: SDRContext): string {
+    const custom = context.customPrompts ? Object.values(context.customPrompts).join('\n') : '';
+    return [`Run your specialty for this lead.`, custom].filter(Boolean).join('\n');
+  }
 
   /**
    * Validate context before execution
@@ -261,48 +320,6 @@ export abstract class BaseSDRAgent {
         this.activeOperations.delete(operationId);
       }
     });
-  }
-
-  /**
-   * Get AI completion using OpenAI with circuit breaker and timeout
-   */
-  protected async getCompletion(
-    prompt: string,
-    options: { tier?: 'fast' | 'default' | 'deep'; maxOutputTokens?: number } = {},
-    abortSignal?: AbortSignal
-  ): Promise<string> {
-    // Truncate prompt if too long
-    const safePrompt = prompt.slice(0, CONFIG.MAX_PROMPT_LENGTH);
-
-    return withResilience(
-      async (signal) => {
-        // Check combined abort signals
-        if (abortSignal?.aborted || signal.aborted) {
-          throw new AbortError('AI completion aborted');
-        }
-
-        // Responses API via the server-side gateway (no API key in the browser)
-        const response = await callAI('chat', {
-          input: safePrompt,
-          tier: options.tier ?? 'default',
-          maxOutputTokens: options.maxOutputTokens ?? 1500,
-          signal: abortSignal,
-        });
-
-        const content = response.text;
-        if (!content) {
-          throw new Error('No content received from OpenAI');
-        }
-
-        // Truncate response if too long
-        return content.slice(0, CONFIG.MAX_RESPONSE_LENGTH);
-      },
-      {
-        timeout: { timeoutMs: CONFIG.AI_TIMEOUT_MS, operationName: 'openai-completion' },
-        retry: retryPolicies.ai,
-        circuitBreaker: circuitBreakers.openAI,
-      }
-    );
   }
 
   /**

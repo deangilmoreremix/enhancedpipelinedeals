@@ -199,7 +199,7 @@ class EnhancedAIResearchService implements AIResearchService {
         potentialNeeds: companyResearch.potentialNeeds || ['Digital transformation', 'Process optimization', 'Growth acceleration'],
         salesApproach: companyResearch.salesApproach || 'Value-focused approach with ROI demonstration',
         keyDecisionMakers: companyResearch.keyDecisionMakers || ['CEO', 'CTO', 'VP Operations'],
-        aiProvider: '🧠 Hybrid AI (Gemini + GPT-5)' // Intelligent routing between models
+        aiProvider: '🧠 OpenAI GPT-6' // Intelligent routing between models
       };
 
       // Complete research
@@ -245,7 +245,7 @@ class EnhancedAIResearchService implements AIResearchService {
         valueProposition: contactData.valueProposition || 'Solutions that drive business efficiency and growth',
         communicationStyle: contactData.communicationStyle || 'Professional and consultative approach',
         iceBreakers: contactData.iceBreakers || ['Industry trends', 'Business challenges', 'Technology solutions'],
-        aiProvider: '⚡ Hybrid AI (Gemini + GPT-5)' // Intelligent routing between models
+        aiProvider: '⚡ OpenAI GPT-6' // Intelligent routing between models
       };
     } catch (error) {
       console.error('❌ AI contact research failed, using mock data:', error);

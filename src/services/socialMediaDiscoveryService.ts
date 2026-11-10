@@ -1,9 +1,9 @@
 /**
- * Social Media Discovery Service - Specialized Gemma Integration
- * Uses Gemma models for discovering and validating social media channels
+ * Social Media Discovery Service
+ * Discovers social media channels via the server-side Responses API gateway
  */
 
-import { getEnhancedIntelligentAI } from './enhancedIntelligentAIService';
+import { callAI } from './aiClient';
 
 export interface SocialMediaChannel {
   platform: string;
@@ -27,10 +27,8 @@ export interface SocialMediaDiscoveryResult {
 }
 
 class SocialMediaDiscoveryService {
-  private intelligentAI = getEnhancedIntelligentAI();
-
   /**
-   * Discover social media channels for a company using Gemma
+   * Discover social media channels for a company
    */
   async discoverCompanyChannels(companyData: {
     name: string;
@@ -39,43 +37,15 @@ class SocialMediaDiscoveryService {
     size?: string;
   }): Promise<SocialMediaDiscoveryResult> {
     try {
-      console.log(`📱 Discovering social channels for ${companyData.name} using Gemma`);
+      console.log(`📱 Discovering social channels for ${companyData.name}`);
 
-      // Call the social discovery edge function
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      if (!supabaseUrl) {
-        throw new Error('Supabase URL not configured');
-      }
-
-      const response = await fetch(`${supabaseUrl}/functions/v1/social-discovery`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-        },
-        body: JSON.stringify({
-          entityData: companyData,
-          entityType: 'company',
-          taskType: 'discover-channels'
-        }),
+      // Discover via the server-side Responses API gateway
+      const result = await callAI('social_discovery', {
+        context: { entityType: 'company', entity: companyData },
+        input: 'Discover social media channels for this company. Return JSON only.',
       });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-        throw new Error(`Social discovery failed: ${errorData.error || response.statusText}`);
-      }
-
-      const data = await response.json();
-      
-      // Extract content from AI response
-      let discovery;
-      if (data.choices && data.choices[0] && data.choices[0].message) {
-        discovery = JSON.parse(data.choices[0].message.content);
-      } else if (data.candidates && data.candidates[0] && data.candidates[0].content) {
-        discovery = JSON.parse(data.candidates[0].content.parts[0].text);
-      } else {
-        throw new Error('Invalid response format');
-      }
+      if (!result.data) throw new Error('Invalid response format');
+      const discovery: any = result.data;
       
       // Transform the Gemma response into our structured format
       const channels: SocialMediaChannel[] = [];
@@ -100,7 +70,7 @@ class SocialMediaDiscoveryService {
         socialPresenceScore: this.calculatePresenceScore(channels),
         recommendedPlatforms: discovery.platformRecommendations || [],
         verificationStatus: this.determineVerificationStatus(channels),
-        aiProvider: 'Gemma Social Discovery',
+        aiProvider: 'AI Social Discovery',
         confidence: discovery.confidence || 70
       };
     } catch (error) {
@@ -120,43 +90,15 @@ class SocialMediaDiscoveryService {
     industry?: string;
   }): Promise<SocialMediaDiscoveryResult> {
     try {
-      console.log(`👤 Discovering social channels for ${contactData.firstName} ${contactData.lastName} using Gemma`);
+      console.log(`👤 Discovering social channels for ${contactData.firstName} ${contactData.lastName}`);
 
-      // Call the social discovery edge function
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      if (!supabaseUrl) {
-        throw new Error('Supabase URL not configured');
-      }
-
-      const response = await fetch(`${supabaseUrl}/functions/v1/social-discovery`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-        },
-        body: JSON.stringify({
-          entityData: contactData,
-          entityType: 'contact',
-          taskType: 'discover-channels'
-        }),
+      // Discover via the server-side Responses API gateway
+      const result = await callAI('social_discovery', {
+        context: { entityType: 'contact', entity: contactData },
+        input: 'Discover social media channels for this contact. Return JSON only.',
       });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-        throw new Error(`Contact social discovery failed: ${errorData.error || response.statusText}`);
-      }
-
-      const data = await response.json();
-      
-      // Extract content from AI response
-      let discovery;
-      if (data.choices && data.choices[0] && data.choices[0].message) {
-        discovery = JSON.parse(data.choices[0].message.content);
-      } else if (data.candidates && data.candidates[0] && data.candidates[0].content) {
-        discovery = JSON.parse(data.candidates[0].content.parts[0].text);
-      } else {
-        throw new Error('Invalid response format');
-      }
+      if (!result.data) throw new Error('Invalid response format');
+      const discovery: any = result.data;
 
       const channels: SocialMediaChannel[] = [];
       
@@ -190,7 +132,7 @@ class SocialMediaDiscoveryService {
   }
 
   /**
-   * Enrich app data with social media presence using Gemma
+   * Enrich app data with social media presence
    */
   async enrichAppSocialChannels(appData: {
     name: string;
@@ -200,43 +142,15 @@ class SocialMediaDiscoveryService {
     category?: string;
   }): Promise<SocialMediaDiscoveryResult> {
     try {
-      console.log(`🔍 Enriching app social channels for ${appData.name} using Gemma`);
+      console.log(`🔍 Enriching app social channels for ${appData.name}`);
 
-      // Call the social discovery edge function
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      if (!supabaseUrl) {
-        throw new Error('Supabase URL not configured');
-      }
-
-      const response = await fetch(`${supabaseUrl}/functions/v1/social-discovery`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-        },
-        body: JSON.stringify({
-          entityData: appData,
-          entityType: 'app',
-          taskType: 'enrich-app'
-        }),
+      // Discover via the server-side Responses API gateway
+      const result = await callAI('social_discovery', {
+        context: { entityType: 'app', entity: appData },
+        input: 'Discover social media channels for this app. Return JSON only.',
       });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-        throw new Error(`App social enrichment failed: ${errorData.error || response.statusText}`);
-      }
-
-      const data = await response.json();
-      
-      // Extract content from AI response
-      let enrichment;
-      if (data.choices && data.choices[0] && data.choices[0].message) {
-        enrichment = JSON.parse(data.choices[0].message.content);
-      } else if (data.candidates && data.candidates[0] && data.candidates[0].content) {
-        enrichment = JSON.parse(data.candidates[0].content.parts[0].text);
-      } else {
-        throw new Error('Invalid response format');
-      }
+      if (!result.data) throw new Error('Invalid response format');
+      const enrichment: any = result.data;
       
       const channels: SocialMediaChannel[] = [];
       
@@ -291,13 +205,23 @@ class SocialMediaDiscoveryService {
    * Validate discovered social media channels
    */
   async validateChannels(channels: SocialMediaChannel[]): Promise<SocialMediaChannel[]> {
-    // In a real implementation, this would make HTTP requests to validate URLs
-    // For now, we'll simulate validation
-    return channels.map(channel => ({
-      ...channel,
-      verified: Math.random() > 0.3, // Simulate 70% success rate
-      lastActive: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000) // Random date within last 30 days
-    }));
+    // Browsers can't probe third-party profile URLs (CORS), so validation is structural:
+    // the URL must parse and its host must match the claimed platform. No data is fabricated.
+    const hostHints: Record<string, string> = {
+      linkedin: 'linkedin.com', twitter: 'twitter.com', x: 'x.com', facebook: 'facebook.com',
+      instagram: 'instagram.com', youtube: 'youtube.com', github: 'github.com', tiktok: 'tiktok.com',
+    };
+    return channels.map(channel => {
+      let verified = false;
+      try {
+        const host = new URL(channel.url).hostname.replace(/^www\./, '');
+        const hint = hostHints[channel.platform.toLowerCase()];
+        verified = hint ? host.endsWith(hint) : true;
+      } catch {
+        verified = false;
+      }
+      return { ...channel, verified: verified && channel.confidence >= 50 };
+    });
   }
 
   // Helper methods

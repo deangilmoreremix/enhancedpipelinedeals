@@ -93,12 +93,12 @@ export const TASKS: Record<string, TaskDef> = {
   deal_automation: {
     tier: 'default',
     jsonObject: true,
-    system: `${BASE} Suggest deal automations. Return JSON with: automations[{name,trigger,actions[],rationale}], summary.`,
+    system: `${BASE} Design one automation sequence that progresses the deal. Return a single JSON object: {"name": string, "description": string, "trigger": string, "action": string, "steps": [{"type": "email"|"call"|"task"|"linkedin"|"wait", "name": string, "details": string, "waitDays": number}]}. Keep 5-7 concrete steps.`,
   },
   contact_automation: {
     tier: 'default',
     jsonObject: true,
-    system: `${BASE} Suggest contact automations/sequences. Return JSON with: automations[{name,trigger,actions[],rationale}], summary.`,
+    system: `${BASE} Design one lead-nurturing automation sequence for the contact. Return a single JSON object: {"name": string, "description": string, "trigger": string, "action": string, "steps": [{"type": "email"|"call"|"task"|"linkedin"|"wait", "name": string, "details": string, "waitDays": number}]}. Keep 5-7 concrete steps.`,
   },
   sales_coach: {
     tier: 'default',

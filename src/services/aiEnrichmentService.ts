@@ -1,5 +1,6 @@
 import { useOpenAI } from './openaiService';
 import { IntelligentAIService } from './intelligentAIService';
+import { callAI } from './aiClient';
 
 export interface ContactEnrichmentData {
   name?: string;
@@ -80,41 +81,13 @@ class AIEnrichmentService {
   async enrichContact(contactData: Partial<ContactEnrichmentData>): Promise<ContactEnrichmentData> {
     console.log('🔍 Enriching contact data...');
     try {
-      // Call the AI enrichment edge function
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      if (!supabaseUrl) {
-        throw new Error('Supabase URL not configured');
-      }
-
-      const response = await fetch(`${supabaseUrl}/functions/v1/ai-enrichment`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-        },
-        body: JSON.stringify({
-          entityData: contactData,
-          entityType: 'contact',
-          taskType: 'enrich'
-        }),
+      // Enrich via the server-side Responses API gateway
+      const result = await callAI('enrichment', {
+        context: { entityType: 'contact', entity: contactData },
+        input: 'Enrich this contact record. Return JSON only.',
       });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-        throw new Error(`Enrichment failed: ${errorData.error || response.statusText}`);
-      }
-
-      const data = await response.json();
-      
-      // Extract content from AI response
-      let enrichmentResult;
-      if (data.choices && data.choices[0] && data.choices[0].message) {
-        enrichmentResult = JSON.parse(data.choices[0].message.content);
-      } else if (data.candidates && data.candidates[0] && data.candidates[0].content) {
-        enrichmentResult = JSON.parse(data.candidates[0].content.parts[0].text);
-      } else {
-        throw new Error('Invalid response format');
-      }
+      if (!result.data) throw new Error('Invalid response format');
+      const enrichmentResult: any = result.data;
 
       // Add AI image enhancement if no avatar provided
       if (!enrichmentResult.avatar && !contactData.avatarSrc) {
@@ -131,7 +104,7 @@ class AIEnrichmentService {
       return {
         ...contactData,
         confidence: 0,
-        aiProvider: '❌ GPT-5 + Gemma Enrichment Failed',
+        aiProvider: '❌ Enrichment Failed',
         notes: 'Failed to enrich contact data. Please try again later.'
       };
     }
@@ -140,41 +113,13 @@ class AIEnrichmentService {
   async enrichCompany(companyData: Partial<CompanyEnrichmentData>): Promise<CompanyEnrichmentData> {
     console.log('🔍 Enriching company data...');
     try {
-      // Call the AI enrichment edge function
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      if (!supabaseUrl) {
-        throw new Error('Supabase URL not configured');
-      }
-
-      const response = await fetch(`${supabaseUrl}/functions/v1/ai-enrichment`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-        },
-        body: JSON.stringify({
-          entityData: companyData,
-          entityType: 'company',
-          taskType: 'enrich'
-        }),
+      // Enrich via the server-side Responses API gateway
+      const result = await callAI('enrichment', {
+        context: { entityType: 'company', entity: companyData },
+        input: 'Enrich this company record. Return JSON only.',
       });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-        throw new Error(`Company enrichment failed: ${errorData.error || response.statusText}`);
-      }
-
-      const data = await response.json();
-      
-      // Extract content from AI response
-      let enrichmentResult;
-      if (data.choices && data.choices[0] && data.choices[0].message) {
-        enrichmentResult = JSON.parse(data.choices[0].message.content);
-      } else if (data.candidates && data.candidates[0] && data.candidates[0].content) {
-        enrichmentResult = JSON.parse(data.candidates[0].content.parts[0].text);
-      } else {
-        throw new Error('Invalid response format');
-      }
+      if (!result.data) throw new Error('Invalid response format');
+      const enrichmentResult: any = result.data;
 
       return {
         ...companyData,
@@ -194,41 +139,13 @@ class AIEnrichmentService {
   async enrichDeal(dealData: Partial<DealEnrichmentData>): Promise<DealEnrichmentData> {
     console.log('🔍 Enriching deal data...');
     try {
-      // Call the AI enrichment edge function
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      if (!supabaseUrl) {
-        throw new Error('Supabase URL not configured');
-      }
-
-      const response = await fetch(`${supabaseUrl}/functions/v1/ai-enrichment`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-        },
-        body: JSON.stringify({
-          entityData: dealData,
-          entityType: 'deal',
-          taskType: 'enrich'
-        }),
+      // Enrich via the server-side Responses API gateway
+      const result = await callAI('enrichment', {
+        context: { entityType: 'deal', entity: dealData },
+        input: 'Enrich this deal record. Return JSON only.',
       });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-        throw new Error(`Deal enrichment failed: ${errorData.error || response.statusText}`);
-      }
-
-      const data = await response.json();
-      
-      // Extract content from AI response
-      let enrichmentResult;
-      if (data.choices && data.choices[0] && data.choices[0].message) {
-        enrichmentResult = JSON.parse(data.choices[0].message.content);
-      } else if (data.candidates && data.candidates[0] && data.candidates[0].content) {
-        enrichmentResult = JSON.parse(data.candidates[0].content.parts[0].text);
-      } else {
-        throw new Error('Invalid response format');
-      }
+      if (!result.data) throw new Error('Invalid response format');
+      const enrichmentResult: any = result.data;
 
       return {
         ...dealData,

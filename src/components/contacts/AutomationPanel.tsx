@@ -28,6 +28,7 @@ import {
   Sparkles,
   Loader2
 } from 'lucide-react';
+import { callAI } from '../../services/aiClient';
 
 interface AutomationPanelProps {
   contact: Contact;
@@ -313,19 +314,10 @@ export const AutomationPanel: React.FC<AutomationPanelProps> = ({ contact }) => 
     setAiGenerating(true);
 
     try {
-      // Call the contact-automation edge function
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      if (!supabaseUrl) {
-        throw new Error('Supabase URL not configured');
-      }
-
-      const response = await fetch(`${supabaseUrl}/functions/v1/contact-automation`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-        },
-        body: JSON.stringify({
+      // Generate via the server-side Responses API gateway
+      const result = await callAI('contact_automation', {
+        input: 'Design a lead nurturing automation (consultative style, medium length: 5-7 steps). Return JSON only.',
+        context: {
           contact: {
             name: contact.name,
             firstName: contact.firstName,
@@ -336,28 +328,11 @@ export const AutomationPanel: React.FC<AutomationPanelProps> = ({ contact }) => 
             interestLevel: contact.interestLevel,
             sources: contact.sources,
             notes: contact.notes
-          },
-          automationGoal: 'Lead nurturing',
-          sequenceLength: 'Medium (5-7 steps)',
-          communicationStyle: 'Consultative',
-          taskType: 'generate-automation'
-        }),
+          }
+        }
       });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-        throw new Error(`Automation generation failed: ${errorData.error || response.statusText}`);
-      }
-
-      const data = await response.json();
-
-      // Extract automation from AI response
-      let automation;
-      if (data.choices && data.choices[0] && data.choices[0].message) {
-        automation = JSON.parse(data.choices[0].message.content);
-      } else if (data.candidates && data.candidates[0] && data.candidates[0].content) {
-        automation = JSON.parse(data.candidates[0].content.parts[0].text);
-      } else {
+      const automation: any = result.data;
+      if (!automation || !Array.isArray(automation.steps)) {
         throw new Error('Invalid response format from AI service');
       }
 

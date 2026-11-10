@@ -391,6 +391,7 @@ export class SLAMonitoringService {
   private async executeSLAWebhookAction(action: WorkflowAction, context: any): Promise<void> {
     try {
       const url = action.config.webhookUrl;
+      if (!url) throw new Error('Webhook URL not configured');
       const payload = {
         ...context,
         timestamp: new Date().toISOString(),

@@ -158,7 +158,7 @@ export class CustomAIPromptService {
    */
   async updatePrompt(
     promptId: string,
-    updates: Partial<Pick<CustomAIPrompt, 'name' | 'description' | 'promptTemplate' | 'variables' | 'model' | 'temperature' | 'maxTokens' | 'systemMessage' | 'examples'>>
+    updates: Partial<Pick<CustomAIPrompt, 'name' | 'description' | 'promptTemplate' | 'variables' | 'model' | 'temperature' | 'maxTokens' | 'systemMessage' | 'examples' | 'performanceMetrics'>>
   ): Promise<CustomAIPrompt | null> {
     try {
       const existingPrompt = await this.getPrompt(promptId);

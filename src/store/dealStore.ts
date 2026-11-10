@@ -14,6 +14,7 @@ import {
 import { computeDropPosition, needsRebalance, rebalance } from '../utils/boardPositions';
 import { isDemoMode } from '../config/demoMode';
 import { validateSchema, dealValidationSchema, sanitizeInput } from '../utils/validation';
+import { emitDealEvent } from '../services/dealEvents';
 
 interface DealStore {
   deals: Record<string, Deal>;
@@ -171,6 +172,9 @@ export const useDealStore = create<DealStore>((set, get) => ({
       }
 
       set(st => ({ deals: { ...st.deals, [newDeal.id]: newDeal }, isLoading: false }));
+      // Connected mode: the DB trigger writes workflow_events (server runner + realtime handle it).
+      // Local/demo mode has no database, so notify browser workflows directly.
+      if (!shouldPersist(state.isConnectedToDatabase)) emitDealEvent({ type: 'created', deal: newDeal });
       return newDeal;
     } catch (error) {
       set({ error: 'Failed to create deal', isLoading: false });
@@ -222,6 +226,7 @@ export const useDealStore = create<DealStore>((set, get) => ({
         set(state => ({ deals: { ...state.deals, [id]: merged } }));
         return merged;
       }
+      emitDealEvent({ type: 'updated', id, before: originalDeal ?? {}, after: sanitizedUpdates });
       return optimisticDeal;
     } catch (error) {
       // Revert optimistic update on error

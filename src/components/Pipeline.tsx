@@ -33,6 +33,7 @@ import {
 import { CustomColumnManager } from './pipeline/kanban/CustomColumnManager';
 import { BOARD_SORT_OPTIONS, BoardSortKey } from './pipeline/kanban/kanbanUtils';
 import { KanbanBoard } from './pipeline/KanbanBoard';
+import PipelineSummaryBar from './pipeline/PipelineSummaryBar';
 import { BoardToolbar } from './pipeline/BoardToolbar';
 import { BoardToolbarExport } from './pipeline/BoardToolbarExport';
 import { FilterBar } from './pipeline/FilterBar';
@@ -554,6 +555,13 @@ const Pipeline: React.FC = () => {
           averageDealSize={pipelineStats.averageDealSize}
           conversionRate={pipelineStats.conversionRate}
         />
+      )}
+
+      {/* Collapsible pipeline summary (totals, weighted forecast, win rate, per-stage bar) */}
+      {currentView === 'kanban' && (
+        <div className="mb-4">
+          <PipelineSummaryBar deals={filteredDeals} stages={stages} defaultCollapsed />
+        </div>
       )}
 
       {/* Search and Filter Controls */}

@@ -59,6 +59,13 @@ const NotFound = () => (
 );
 
 function AppContent() {
+  // Start workflow triggers (deal events bus + realtime workflow_events); non-fatal if it fails
+  useEffect(() => {
+    import('./services/workflowTriggerService')
+      .then(m => m.workflowTriggerService.initialize())
+      .catch(err => console.warn('Workflow trigger service not started:', err));
+  }, []);
+
   useKeyboardShortcuts(globalShortcuts);
   const { isInitialized } = useTheme();
   const [showSettings, setShowSettings] = useState(false);

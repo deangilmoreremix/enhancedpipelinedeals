@@ -1,5 +1,4 @@
 import { useOpenAI } from './openaiService';
-import { useGeminiAI } from './geminiService';
 import { IntelligentAIService } from './intelligentAIService';
 
 interface ResearchStatus {
@@ -75,7 +74,6 @@ class EnhancedAIResearchService implements AIResearchService {
 
   constructor() {
     const openaiService = useOpenAI();
-    const geminiService = useGeminiAI();
     this.intelligentAI = new IntelligentAIService();
   }
 

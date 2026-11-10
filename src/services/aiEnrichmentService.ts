@@ -1,5 +1,4 @@
 import { useOpenAI } from './openaiService';
-import { useGeminiAI } from './geminiService';
 import { IntelligentAIService } from './intelligentAIService';
 
 export interface ContactEnrichmentData {

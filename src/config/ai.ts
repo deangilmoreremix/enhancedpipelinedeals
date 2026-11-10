@@ -1,9 +1,10 @@
-// SDR Autopilot AI Model Configuration
-// GPT-5.2 models for SmartCRM SDR Autopilot system
+// SDR Autopilot AI configuration. Values are gateway tiers; the concrete OpenAI
+// model ids (gpt-6-astra / gpt-6.1-sol / gpt-6-luna) are owned by the server
+// (netlify/functions/_openai.ts, overridable with OPENAI_MODEL_* env vars).
 
-export const SMARTCRM_SDR_MODEL = "gpt-4o";  // Main SDR/autopilot brain
-export const SMARTCRM_SDR_FAST  = "gpt-4o-mini";   // Quick subject/reply helpers
-export const SMARTCRM_SDR_PRO   = "gpt-4o";       // Heavy analytics (optional)
+export const SMARTCRM_SDR_MODEL = "default"; // Main SDR/autopilot brain
+export const SMARTCRM_SDR_FAST = "fast";     // Quick subject/reply helpers
+export const SMARTCRM_SDR_PRO = "deep";      // Heavy analytics
 
 // Model selection helper for SDR tasks
 export function pickModelForSdrTask(task: "autopilot" | "inline" | "analytics") {

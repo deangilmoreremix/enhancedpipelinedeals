@@ -194,7 +194,7 @@ export const handler: Handler = async (event) => {
     maxOutputTokens: Number(body.maxOutputTokens) || 4000,
     temperature: typeof body.temperature === 'number' ? body.temperature : undefined,
     jsonSchema: def.schema,
-    jsonObject: def.jsonObject,
+    jsonObject: def.jsonObject || (task === 'chat' && body.json === true),
     tools: def.webSearch ? [{ type: 'web_search' }] : undefined,
   };
   // json_object mode requires the word "JSON" in the input/instructions (instructions mention it).

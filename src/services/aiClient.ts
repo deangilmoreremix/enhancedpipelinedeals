@@ -26,6 +26,8 @@ export interface AICallOptions {
   effort?: 'none' | 'low' | 'medium' | 'high' | 'xhigh' | 'max';
   maxOutputTokens?: number;
   temperature?: number;
+  /** `chat` only: request a JSON object (instructions must mention JSON). */
+  json?: boolean;
   signal?: AbortSignal;
 }
 

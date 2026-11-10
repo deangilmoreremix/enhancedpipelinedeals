@@ -35,8 +35,8 @@ export const mockDeals: Record<string, Deal> = {
     notes: 'Initial discovery call scheduled. Good fit for our enterprise solution.',
     createdAt: new Date(today.getTime() - 3 * 24 * 60 * 60 * 1000), // 3 days ago
     updatedAt: new Date(today.getTime() - 1 * 24 * 60 * 60 * 1000), // 1 day ago
-    contactAvatar: 'https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg?auto=compress&cs=tinysrgb&w=64&h=64&dpr=2',
-    companyAvatar: 'https://api.dicebear.com/7.x/initials/svg?seed=TechCorp&backgroundColor=3b82f6&textColor=ffffff',
+    contactAvatar: undefined,
+    companyAvatar: undefined,
     lastActivity: 'Discovery call completed',
     tags: ['enterprise', 'hot-lead'],
     isFavorite: true,
@@ -65,8 +65,8 @@ export const mockDeals: Record<string, Deal> = {
     notes: 'Proposal sent. Waiting for technical review.',
     createdAt: new Date(today.getTime() - 10 * 24 * 60 * 60 * 1000), // 10 days ago
     updatedAt: new Date(today.getTime() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
-    contactAvatar: 'https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=64&h=64&dpr=2',
-    companyAvatar: 'https://api.dicebear.com/7.x/initials/svg?seed=StartupXYZ&backgroundColor=8b5cf6&textColor=ffffff',
+    contactAvatar: undefined,
+    companyAvatar: undefined,
     lastActivity: 'Proposal submitted',
     tags: ['startup', 'marketing'],
     isFavorite: false,
@@ -100,8 +100,8 @@ export const mockDeals: Record<string, Deal> = {
     notes: 'Negotiating contract terms. Very promising.',
     createdAt: new Date(today.getTime() - 20 * 24 * 60 * 60 * 1000), // 20 days ago
     updatedAt: today,
-    contactAvatar: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=64&h=64&dpr=2',
-    companyAvatar: 'https://api.dicebear.com/7.x/initials/svg?seed=EnterpriseCorp&backgroundColor=10b981&textColor=ffffff',
+    contactAvatar: undefined,
+    companyAvatar: undefined,
     lastActivity: 'Contract review in progress',
     tags: ['enterprise', 'cloud', 'high-value'],
     customFields: {
@@ -135,8 +135,8 @@ export const mockDeals: Record<string, Deal> = {
     notes: 'Technical requirements being evaluated.',
     createdAt: new Date(today.getTime() - 5 * 24 * 60 * 60 * 1000), // 5 days ago
     updatedAt: new Date(today.getTime() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
-    contactAvatar: 'https://images.pexels.com/photos/1040880/pexels-photo-1040880.jpeg?auto=compress&cs=tinysrgb&w=64&h=64&dpr=2',
-    companyAvatar: 'https://api.dicebear.com/7.x/initials/svg?seed=Innovate&backgroundColor=f59e0b&textColor=ffffff',
+    contactAvatar: undefined,
+    companyAvatar: undefined,
     lastActivity: 'Technical demo scheduled',
     tags: ['saas', 'integration'],
     isFavorite: false,
@@ -162,8 +162,8 @@ export const mockDeals: Record<string, Deal> = {
     notes: 'Deal closed! Implementation to begin next month.',
     createdAt: new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000), // 30 days ago
     updatedAt: new Date(today.getTime() - 1 * 24 * 60 * 60 * 1000), // Yesterday
-    contactAvatar: 'https://images.pexels.com/photos/1036623/pexels-photo-1036623.jpeg?auto=compress&cs=tinysrgb&w=64&h=64&dpr=2',
-    companyAvatar: 'https://api.dicebear.com/7.x/initials/svg?seed=BigCorp&backgroundColor=ef4444&textColor=ffffff',
+    contactAvatar: undefined,
+    companyAvatar: undefined,
     lastActivity: 'Contract signed',
     tags: ['analytics', 'closed'],
     isFavorite: true,
@@ -199,8 +199,8 @@ export const mockDeals: Record<string, Deal> = {
     notes: 'Proposal under review by technical team.',
     createdAt: new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000), // 7 days ago
     updatedAt: new Date(today.getTime() - 1 * 24 * 60 * 60 * 1000), // 1 day ago
-    contactAvatar: 'https://images.pexels.com/photos/1043474/pexels-photo-1043474.jpeg?auto=compress&cs=tinysrgb&w=64&h=64&dpr=2',
-    companyAvatar: 'https://api.dicebear.com/7.x/initials/svg?seed=TechStart&backgroundColor=3b82f6&textColor=ffffff',
+    contactAvatar: undefined,
+    companyAvatar: undefined,
     lastActivity: 'Follow-up call scheduled',
     tags: ['mobile', 'development'],
     customFields: {

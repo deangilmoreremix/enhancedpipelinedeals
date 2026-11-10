@@ -3,7 +3,6 @@ import { Contact } from '../types/contact';
 import { getSupabaseService } from '../services/supabaseService';
 import { getDataSyncService } from '../services/dataSyncService';
 import { validateSchema, contactValidationSchema, sanitizeInput, normalizeEmail, normalizePhoneNumber } from '../utils/validation';
-import { initialsAvatar } from '../utils/avatar';
 
 interface ContactStore {
   contacts: Contact[];
@@ -232,11 +231,9 @@ export const useContactStore = create<ContactStore>((set, get) => ({
       throw new Error('Contact not found');
     }
 
-    // Simulate API call to find new image
-    await new Promise(resolve => setTimeout(resolve, 800));
-    // Generate a new avatar with a different seed
-    const newSeed = Date.now().toString();
-    const newAvatarUrl = initialsAvatar(newSeed);
+    // Generate a new avatar with OpenAI GPT Image 2.6 (stored in Supabase Storage)
+    const { generateContactAvatar } = await import('../services/imageService');
+    const newAvatarUrl = (await generateContactAvatar({ id: contactId, name: contact.name, title: contact.title, industry: contact.industry })).url;
 
     await updateContact(contactId, {
       avatarSrc: newAvatarUrl

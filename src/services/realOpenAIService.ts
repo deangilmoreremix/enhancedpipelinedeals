@@ -1,13 +1,7 @@
 import { Contact } from '../types/contact';
 import { AIContactAnalysis } from '../types/contact';
-
-interface OpenAIResponse {
-  choices: Array<{
-    message: {
-      content: string;
-    };
-  }>;
-}
+import { callAI } from './aiClient';
+import { getModelById } from '../config/aiModels';
 
 interface OpenAIService {
   analyzeContact: (contact: Contact, modelId?: string) => Promise<AIContactAnalysis>;
@@ -18,50 +12,15 @@ interface OpenAIService {
 }
 
 class RealOpenAIService implements OpenAIService {
-  private apiKey: string;
-  private baseUrl = 'https://api.openai.com/v1';
-  private defaultModel: string;
-
-  constructor() {
-    this.apiKey = import.meta.env.VITE_OPENAI_API_KEY;
-    this.defaultModel = import.meta.env.VITE_OPENAI_MODEL || 'gpt-4o';
-    
-    if (!this.apiKey) {
-      console.warn('OpenAI API key not found. Using mock responses.');
-    }
-  }
-
+  /** All requests go through the server-side Responses API gateway; no key in the browser. */
   private async makeRequest(messages: Array<{ role: string; content: string }>, modelId?: string): Promise<string> {
-    if (!this.apiKey) {
-      throw new Error('OpenAI API key not configured');
-    }
-
-    const model = modelId || this.defaultModel;
-    try {
-      const response = await fetch(`${this.baseUrl}/chat/completions`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${this.apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: model,
-          messages,
-          temperature: 0.7,
-          max_tokens: 1000,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`);
-      }
-
-      const data: OpenAIResponse = await response.json();
-      return data.choices[0]?.message?.content || '';
-    } catch (error) {
-      console.error('OpenAI API request failed:', error);
-      throw error;
-    }
+    const model = modelId ? getModelById(modelId) : undefined;
+    const result = await callAI('chat', {
+      messages,
+      tier: model?.tier ?? 'default',
+      maxOutputTokens: 1500,
+    });
+    return result.text || '';
   }
 
   async analyzeContact(contact: Contact, modelId?: string): Promise<AIContactAnalysis> {

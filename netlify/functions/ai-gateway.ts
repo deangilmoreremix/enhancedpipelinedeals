@@ -128,6 +128,14 @@ const ALIASES: Record<string, string> = {
   'sales-coach': 'sales_coach',
 };
 
+// Client-defined tools: flat Responses function tools only (+ hosted web_search). The client executes them.
+function clientTools(tools: unknown): any[] | undefined {
+  if (!Array.isArray(tools) || !tools.length) return undefined;
+  return tools
+    .filter((t: any) => t && (t.type === 'web_search' || (t.type === 'function' && typeof t.name === 'string')))
+    .slice(0, 64);
+}
+
 // --- auth: a valid Supabase user JWT, or the project's anon key (app supports anon access) ---
 async function authorize(header: string | undefined): Promise<boolean> {
   if (process.env.AI_GATEWAY_ALLOW_UNAUTHENTICATED === 'true') return true;
@@ -158,6 +166,7 @@ function rateLimited(id: string, limit = 60, windowMs = 60_000) {
 
 function buildInput(body: Obj): string | any[] {
   if (Array.isArray(body.messages)) return body.messages as any[];
+  if (Array.isArray(body.input)) return body.input as any[]; // Responses input items (e.g. function_call_output)
   const parts: string[] = [];
   if (body.input) parts.push(typeof body.input === 'string' ? body.input : JSON.stringify(body.input));
   if (body.context) parts.push(`CONTEXT (JSON):\n${JSON.stringify(body.context, null, 2)}`);
@@ -195,7 +204,10 @@ export const handler: Handler = async (event) => {
     temperature: typeof body.temperature === 'number' ? body.temperature : undefined,
     jsonSchema: def.schema,
     jsonObject: def.jsonObject || (task === 'chat' && body.json === true),
-    tools: def.webSearch ? [{ type: 'web_search' }] : undefined,
+    tools: def.webSearch ? [{ type: 'web_search' }] : clientTools(body.tools),
+    toolChoice: body.toolChoice as any,
+    previousResponseId: typeof body.previousResponseId === 'string' ? body.previousResponseId : undefined,
+    store: body.store === true || typeof body.previousResponseId === 'string',
   };
   // json_object mode requires the word "JSON" in the input/instructions (instructions mention it).
 
@@ -220,6 +232,13 @@ export const handler: Handler = async (event) => {
       text: r.text,
       data: r.json ?? null,
       usage: r.usage ?? null,
+      tool_calls: r.output
+        .filter((i: any) => i.type === 'function_call')
+        .map((i: any) => {
+          let args: unknown = {};
+          try { args = JSON.parse(i.arguments || '{}'); } catch { /* keep {} */ }
+          return { call_id: i.call_id, name: i.name, arguments: args };
+        }),
     });
   } catch (e: any) {
     const status = typeof e?.status === 'number' && e.status >= 400 && e.status < 600 ? e.status : 500;

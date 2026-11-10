@@ -3,7 +3,9 @@
  * Provides full agent lifecycle management and orchestration
  */
 
-import OpenAI from 'openai';
+import { callAI } from './aiClient';
+import { supabase } from '../lib/core/supabaseClient';
+import { getModelById } from '../config/aiModels';
 
 interface AgentConfig {
   id: string;
@@ -24,15 +26,10 @@ interface AgentThread {
 }
 
 class OpenAIAgentsService {
-  private openai: OpenAI;
   private agents = new Map<string, AgentConfig>();
   private threads = new Map<string, AgentThread>();
 
   constructor() {
-    this.openai = new OpenAI({
-      apiKey: import.meta.env.VITE_OPENAI_API_KEY,
-    });
-
     this.initializeAgents();
   }
 
@@ -49,7 +46,7 @@ class OpenAIAgentsService {
       - Personalize based on company research
       - Keep under 100 words`,
       tools: ['web_search', 'company_research'],
-      model: 'gpt-4o',
+      model: 'gpt-6.1-sol',
       temperature: 0.7
     });
 
@@ -64,7 +61,7 @@ class OpenAIAgentsService {
       - Suggest next steps in the buying process
       - Personalize based on interaction history`,
       tools: ['crm_lookup', 'sequence_analysis'],
-      model: 'gpt-4o',
+      model: 'gpt-6.1-sol',
       temperature: 0.6
     });
 
@@ -80,7 +77,7 @@ class OpenAIAgentsService {
       - Managing contract and closing processes
       - Providing strategic consultation`,
       tools: ['contract_analysis', 'stakeholder_mapping', 'pricing_optimizer'],
-      model: 'gpt-4o',
+      model: 'gpt-6.1-sol',
       temperature: 0.5
     });
   }
@@ -128,62 +125,51 @@ class OpenAIAgentsService {
         context
       });
 
-      // Prepare messages for OpenAI
-      const messages = thread.messages.map(msg => ({
-        role: msg.role,
-        content: msg.content
-      }));
-
-      // Add context to system message
+      // Instructions (+ CRM context); Responses API takes system guidance as `instructions`
+      let instructions = agent.instructions;
       if (context.contact || context.company || context.deal) {
-        const contextStr = this.buildContextString(context);
-        messages[0].content += `\n\nCONTEXT:\n${contextStr}`;
+        instructions += `\n\nCONTEXT:\n${this.buildContextString(context)}`;
       }
 
-      const completion = await this.openai.chat.completions.create({
-        model: agent.model || 'gpt-4o',
-        messages,
-        temperature: agent.temperature || 0.7,
-        max_tokens: 1000,
-        tools: this.getAgentTools(agent.tools)
+      const tier = (agent.model && getModelById(agent.model)?.tier) || 'default';
+      const tools = this.getAgentTools(agent.tools);
+      const history = thread.messages
+        .filter(m => m.role === 'user' || m.role === 'assistant')
+        .map(m => ({ role: m.role, content: m.content }));
+
+      // First turn, then a tool loop continued with previous_response_id + function_call_output items
+      let response = await callAI('chat', {
+        instructions,
+        input: history,
+        tools: tools.length ? tools : undefined,
+        toolChoice: tools.length ? 'auto' : undefined,
+        tier,
+        maxOutputTokens: 1500,
+        store: true,
       });
 
-      const assistantMessage = completion.choices[0].message;
-
-      // Add assistant response to thread
-      thread.messages.push({
-        role: 'assistant',
-        content: assistantMessage.content || '',
-        timestamp: new Date().toISOString(),
-        toolCalls: assistantMessage.tool_calls
-      });
-
-      // Handle tool calls if any
-      if (assistantMessage.tool_calls) {
-        const toolResults = await this.executeTools(assistantMessage.tool_calls, context);
+      for (let turn = 0; turn < 4 && response.tool_calls?.length; turn++) {
+        const outputs = await this.executeTools(response.tool_calls, context);
         thread.messages.push({
           role: 'tool',
-          content: JSON.stringify(toolResults),
+          content: JSON.stringify(outputs.map(o => ({ name: o.name, result: o.result }))),
           timestamp: new Date().toISOString()
         });
-
-        // Get final response after tool execution
-        const finalCompletion = await this.openai.chat.completions.create({
-          model: agent.model || 'gpt-4o',
-          messages: thread.messages.map(msg => ({
-            role: msg.role,
-            content: msg.content
-          })),
-          temperature: agent.temperature || 0.7,
-          max_tokens: 500
-        });
-
-        thread.messages.push({
-          role: 'assistant',
-          content: finalCompletion.choices[0].message.content || '',
-          timestamp: new Date().toISOString()
+        response = await callAI('chat', {
+          instructions,
+          input: outputs.map(o => ({ type: 'function_call_output', call_id: o.call_id, output: JSON.stringify(o.result) })),
+          previousResponseId: response.id,
+          tools: tools.length ? tools : undefined,
+          tier,
+          maxOutputTokens: 1500,
         });
       }
+
+      thread.messages.push({
+        role: 'assistant',
+        content: response.text || '',
+        timestamp: new Date().toISOString()
+      });
 
       return {
         threadId,
@@ -232,17 +218,15 @@ class OpenAIAgentsService {
         case 'web_search':
           tools.push({
             type: 'function',
-            function: {
-              name: 'web_search',
-              description: 'Search the web for company or industry information',
-              parameters: {
-                type: 'object',
-                properties: {
-                  query: { type: 'string', description: 'Search query' },
-                  type: { type: 'string', enum: ['company', 'industry', 'news'] }
-                },
-                required: ['query']
-              }
+            name: 'web_search',
+            description: 'Search the web for company or industry information',
+            parameters: {
+              type: 'object',
+              properties: {
+                query: { type: 'string', description: 'Search query' },
+                type: { type: 'string', enum: ['company', 'industry', 'news'] }
+              },
+              required: ['query']
             }
           });
           break;
@@ -250,18 +234,16 @@ class OpenAIAgentsService {
         case 'crm_lookup':
           tools.push({
             type: 'function',
-            function: {
-              name: 'crm_lookup',
-              description: 'Look up contact or deal information from CRM',
-              parameters: {
-                type: 'object',
-                properties: {
-                  entityType: { type: 'string', enum: ['contact', 'deal', 'company'] },
-                  entityId: { type: 'string' },
-                  fields: { type: 'array', items: { type: 'string' } }
-                },
-                required: ['entityType', 'entityId']
-              }
+            name: 'crm_lookup',
+            description: 'Look up contact or deal information from CRM',
+            parameters: {
+              type: 'object',
+              properties: {
+                entityType: { type: 'string', enum: ['contact', 'deal', 'company'] },
+                entityId: { type: 'string' },
+                fields: { type: 'array', items: { type: 'string' } }
+              },
+              required: ['entityType', 'entityId']
             }
           });
           break;
@@ -269,18 +251,16 @@ class OpenAIAgentsService {
         case 'contract_analysis':
           tools.push({
             type: 'function',
-            function: {
-              name: 'contract_analysis',
-              description: 'Analyze contract terms and requirements',
-              parameters: {
-                type: 'object',
-                properties: {
-                  dealValue: { type: 'number' },
-                  contractType: { type: 'string' },
-                  specialTerms: { type: 'array', items: { type: 'string' } }
-                },
-                required: ['dealValue']
-              }
+            name: 'contract_analysis',
+            description: 'Analyze contract terms and requirements',
+            parameters: {
+              type: 'object',
+              properties: {
+                dealValue: { type: 'number' },
+                contractType: { type: 'string' },
+                specialTerms: { type: 'array', items: { type: 'string' } }
+              },
+              required: ['dealValue']
             }
           });
           break;
@@ -290,77 +270,68 @@ class OpenAIAgentsService {
     return tools;
   }
 
-  private async executeTools(toolCalls: any[], context: any): Promise<any> {
-    const results = {};
+  private async executeTools(
+    toolCalls: Array<{ call_id: string; name: string; arguments: any }>,
+    _context: any
+  ): Promise<Array<{ call_id: string; name: string; result: any }>> {
+    const outputs: Array<{ call_id: string; name: string; result: any }> = [];
 
-    for (const toolCall of toolCalls) {
-      const { name, arguments: args } = toolCall.function;
-
+    for (const call of toolCalls) {
+      const args = call.arguments || {};
+      let result: any;
       try {
-        switch (name) {
+        switch (call.name) {
           case 'web_search':
-            const searchArgs = JSON.parse(args);
-            results[name] = await this.performWebSearch(searchArgs.query, searchArgs.type);
+            result = await this.performWebSearch(args.query, args.type);
             break;
-
           case 'crm_lookup':
-            const lookupArgs = JSON.parse(args);
-            results[name] = await this.performCRMLookup(lookupArgs.entityType, lookupArgs.entityId, lookupArgs.fields);
+            result = await this.performCRMLookup(args.entityType, args.entityId, args.fields);
             break;
-
           case 'contract_analysis':
-            const contractArgs = JSON.parse(args);
-            results[name] = await this.performContractAnalysis(contractArgs);
+            result = await this.performContractAnalysis(args);
             break;
-
           default:
-            results[name] = { error: `Unknown tool: ${name}` };
+            result = { error: `Unknown tool: ${call.name}` };
         }
       } catch (error) {
-        results[name] = { error: error instanceof Error ? error.message : 'Unknown error' };
+        result = { error: error instanceof Error ? error.message : 'Unknown error' };
       }
+      outputs.push({ call_id: call.call_id, name: call.name, result });
     }
 
-    return results;
+    return outputs;
   }
 
-  private async performWebSearch(query: string, type: string): Promise<any> {
-    // Placeholder - integrate with web search service
-    return {
-      query,
-      type,
-      results: [
-        {
-          title: `Search result for ${query}`,
-          snippet: `Relevant information about ${query} in ${type} context`,
-          url: `https://example.com/search/${query}`,
-          credibility: 85
-        }
-      ]
-    };
+  /** Real web search via the Responses API hosted `web_search` tool (server-side). */
+  private async performWebSearch(query: string, type?: string): Promise<any> {
+    const r = await callAI('chat', {
+      instructions: 'Search the web and answer with concise, sourced findings (include source URLs).',
+      input: `${type ? `[${type}] ` : ''}${query}`,
+      tools: [{ type: 'web_search' }],
+      tier: 'fast',
+      maxOutputTokens: 1200,
+    });
+    return { query, type, summary: r.text };
   }
 
-  private async performCRMLookup(entityType: string, entityId: string, fields: string[]): Promise<any> {
-    // Placeholder - integrate with CRM service
-    return {
-      entityType,
-      entityId,
-      data: {
-        name: 'Sample Entity',
-        status: 'active',
-        lastActivity: new Date().toISOString()
-      }
-    };
+  private async performCRMLookup(entityType: string, entityId: string, fields?: string[]): Promise<any> {
+    const table = ({ contact: 'contacts', deal: 'deals', company: 'companies' } as Record<string, string>)[entityType];
+    if (!table) return { error: `Unsupported entity type: ${entityType}` };
+    const columns = fields?.length ? fields.filter(f => /^[a-z_]+$/.test(f)).join(',') || '*' : '*';
+    const { data, error } = await supabase.from(table).select(columns).eq('id', entityId).maybeSingle();
+    if (error) return { error: error.message };
+    return data ? { entityType, entityId, data } : { entityType, entityId, error: 'Not found' };
   }
 
   private async performContractAnalysis(args: any): Promise<any> {
-    // Placeholder - implement contract analysis logic
-    return {
-      dealValue: args.dealValue,
-      recommendedTerms: ['Standard SLA', '30-day payment terms', 'Annual renewal'],
-      riskAssessment: 'Low',
-      negotiationPoints: ['Volume discount consideration', 'Implementation timeline']
-    };
+    const r = await callAI('chat', {
+      instructions: 'You are a contracts analyst for B2B sales. Respond with a single JSON object: {"recommendedTerms": string[], "riskAssessment": string, "negotiationPoints": string[]}.',
+      input: JSON.stringify(args),
+      json: true,
+      tier: 'default',
+      maxOutputTokens: 1200,
+    } as any);
+    return { dealValue: args.dealValue, ...(r.data ?? { error: 'Analysis unavailable' }) };
   }
 
   getAgent(agentId: string): AgentConfig | undefined {

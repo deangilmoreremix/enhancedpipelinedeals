@@ -17,8 +17,14 @@ export type AITask =
   | 'contact_automation'
   | 'sales_coach';
 
+export interface AIToolCall {
+  call_id: string;
+  name: string;
+  arguments: any;
+}
+
 export interface AICallOptions {
-  input?: string;
+  input?: string | any[];
   messages?: Array<{ role: string; content: string }>;
   instructions?: string;
   context?: unknown;
@@ -28,6 +34,12 @@ export interface AICallOptions {
   temperature?: number;
   /** `chat` only: request a JSON object (instructions must mention JSON). */
   json?: boolean;
+  /** Flat Responses function tools: { type:'function', name, description, parameters }. Executed by the caller. */
+  tools?: any[];
+  toolChoice?: any;
+  /** Continue a stored response (send `function_call_output` items as `input`). */
+  previousResponseId?: string;
+  store?: boolean;
   signal?: AbortSignal;
 }
 
@@ -41,6 +53,8 @@ export interface AIResult<T = any> {
   /** Parsed JSON for structured / json_object tasks. */
   data: T | null;
   usage: unknown;
+  /** Function calls the model requested (execute, then continue with function_call_output). */
+  tool_calls: AIToolCall[];
 }
 
 export const AI_GATEWAY_URL: string =

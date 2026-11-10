@@ -1,13 +1,14 @@
 /**
  * Deal AI Model Router
- * Intelligent routing to optimal GPT-5.2 variants based on task complexity
+ * Routes deal AI tasks to a gateway tier (fast | default | deep) by complexity.
+ * The server maps tiers to concrete models (gpt-6-luna / gpt-6.1-sol / gpt-6-astra).
  */
 
 import { DealAiTask } from './types';
 
 export const MODEL_ROUTING = {
-  // GPT-5.2 Instant - Fast responses for simple tasks
-  'gpt-4o-mini': [
+  // Fast responses for simple tasks
+  fast: [
     // Primary actions - quick insights
     'deal_favorite_insights', 'deal_share_summary',
 
@@ -22,8 +23,8 @@ export const MODEL_ROUTING = {
     'automation_meeting_times'
   ],
 
-  // GPT-5.2 Thinking - Balanced reasoning for complex workflows
-  'gpt-4o': [
+  // Balanced reasoning for complex workflows
+  default: [
     // Deal analysis
     'deal_analyze', 'deal_edit_helper', 'sidebar_deal_analyze',
 
@@ -47,8 +48,8 @@ export const MODEL_ROUTING = {
     'automation_call_scheduling', 'automation_progress_tracking'
   ],
 
-  // GPT-5.2 Pro - Advanced reasoning for predictions and intelligence
-  'gpt-4o': [
+  // Advanced reasoning for predictions and intelligence
+  deep: [
     // Intelligence layer
     'intel_next_best_actions', 'intel_risk_assessment', 'intel_value_prediction',
     'intel_timeline_estimation', 'intel_deal_scoring', 'intel_stakeholder_analysis',
@@ -69,56 +70,40 @@ export const MODEL_ROUTING = {
   ]
 };
 
-export function getOptimalModel(task: DealAiTask): string {
-  for (const [model, tasks] of Object.entries(MODEL_ROUTING)) {
-    if (tasks.includes(task)) {
-      return model;
-    }
+export type DealAiTier = 'fast' | 'default' | 'deep';
+
+export function getOptimalModel(task: DealAiTask): DealAiTier {
+  for (const [tier, tasks] of Object.entries(MODEL_ROUTING)) {
+    if ((tasks as string[]).includes(task)) return tier as DealAiTier;
   }
-  return 'gpt-4o'; // Default fallback
+  return 'default';
 }
 
-export function getModelCapabilities(model: string): {
+export function getModelCapabilities(tier: string): {
   maxTokens: number;
-  reasoningEffort: 'low' | 'medium' | 'high';
+  reasoningEffort: 'none' | 'low' | 'medium' | 'high';
   supportsTools: boolean;
   costPerToken: number;
 } {
-  const capabilities: Record<string, {
+  // costPerToken is 0 until pricing is configured for the account.
+  const capabilities: Record<DealAiTier, {
     maxTokens: number;
-    reasoningEffort: 'low' | 'medium' | 'high';
+    reasoningEffort: 'none' | 'low' | 'medium' | 'high';
     supportsTools: boolean;
     costPerToken: number;
   }> = {
-    'gpt-4o-mini': {
-      maxTokens: 4096,
-      reasoningEffort: 'low',
-      supportsTools: false,
-      costPerToken: 0.00015
-    },
-    'gpt-4o': {
-      maxTokens: 8192,
-      reasoningEffort: 'medium',
-      supportsTools: true,
-      costPerToken: 0.0003
-    },
-    'gpt-4o': {
-      maxTokens: 16384,
-      reasoningEffort: 'high',
-      supportsTools: true,
-      costPerToken: 0.0006
-    }
+    fast: { maxTokens: 4096, reasoningEffort: 'none', supportsTools: true, costPerToken: 0 },
+    default: { maxTokens: 8192, reasoningEffort: 'medium', supportsTools: true, costPerToken: 0 },
+    deep: { maxTokens: 16384, reasoningEffort: 'high', supportsTools: true, costPerToken: 0 },
   };
-
-  return capabilities[model] || capabilities['gpt-4o'];
+  return capabilities[tier as DealAiTier] || capabilities.default;
 }
 
-export function getFallbackModels(primaryModel: string): string[] {
-  const fallbacks: Record<string, string[]> = {
-    'gpt-4o': ['gpt-4o', 'gpt-4o-mini'],
-    'gpt-4o': ['gpt-4o', 'gpt-4o-mini'],
-    'gpt-4o-mini': ['gpt-4o', 'gpt-4o']
+export function getFallbackModels(primaryTier: string): string[] {
+  const fallbacks: Record<DealAiTier, DealAiTier[]> = {
+    deep: ['deep', 'default'],
+    default: ['default', 'fast'],
+    fast: ['fast', 'default'],
   };
-
-  return fallbacks[primaryModel] || ['gpt-4o', 'gpt-4o-mini'];
+  return fallbacks[primaryTier as DealAiTier] || ['default', 'fast'];
 }

@@ -36,6 +36,7 @@ import {
   Plus,
   Phone
 } from 'lucide-react';
+import { initialsAvatar } from '../utils/avatar';
 
 interface AIEnhancedDealCardProps {
   deal: Deal;
@@ -134,12 +135,12 @@ export const AIEnhancedDealCard: React.FC<AIEnhancedDealCardProps> = ({
   // Generate avatar URLs based on company and contact names
   const getCompanyAvatar = (companyName: string) => {
     const seed = companyName.toLowerCase().replace(/\s+/g, '');
-    return deal.companyAvatar || `https://api.dicebear.com/7.x/initials/svg?seed=${seed}&backgroundColor=3b82f6,8b5cf6,f59e0b,10b981,ef4444&textColor=ffffff`;
+    return deal.companyAvatar || initialsAvatar(seed);
   };
 
   const getPersonAvatar = (personName: string) => {
     const seed = personName.toLowerCase().replace(/\s+/g, '');
-    return deal.contactAvatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}&backgroundColor=3b82f6,8b5cf6,f59e0b,10b981,ef4444`;
+    return deal.contactAvatar || initialsAvatar(seed);
   };
 
   const handleCardClick = async (e: React.MouseEvent) => {

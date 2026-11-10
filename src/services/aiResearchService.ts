@@ -1,5 +1,6 @@
 import { useOpenAI } from './openaiService';
 import { IntelligentAIService } from './intelligentAIService';
+import { initialsAvatar } from '../utils/avatar';
 
 interface ResearchStatus {
   id: string;
@@ -261,13 +262,13 @@ class EnhancedAIResearchService implements AIResearchService {
       .toUpperCase()
       .slice(0, 2);
     
-    return `https://api.dicebear.com/7.x/initials/svg?seed=${companyName}&backgroundColor=3b82f6,8b5cf6,f59e0b,10b981,ef4444&textColor=ffffff&chars=2`;
+    return initialsAvatar(companyName);
   }
 
   async findPersonImage(personName: string, company?: string, title?: string): Promise<string> {
     // Generate person avatar using DiceBear API
     const seed = personName.toLowerCase().replace(/\s+/g, '');
-    return `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}&backgroundColor=3b82f6,8b5cf6,f59e0b,10b981,ef4444`;
+    return initialsAvatar(seed);
   }
 
   async enhanceWithAI(data: any, query: string, priority: 'speed' | 'quality' | 'cost' = 'quality'): Promise<any> {
@@ -321,7 +322,7 @@ class EnhancedAIResearchService implements AIResearchService {
       technologies: this.generateTechnologies(),
       fundingInfo: `Series B - $25M raised`,
       stockSymbol: this.generateStockSymbol(companyName),
-      logoUrl: `https://api.dicebear.com/7.x/initials/svg?seed=${companyName}&backgroundColor=3b82f6&textColor=ffffff`,
+      logoUrl: initialsAvatar(companyName),
       potentialNeeds: ['Digital transformation', 'Process optimization', 'Cost reduction'],
       salesApproach: 'Consultative selling with focus on ROI',
       keyDecisionMakers: ['CEO', 'CTO', 'VP of Operations'],
@@ -340,7 +341,7 @@ class EnhancedAIResearchService implements AIResearchService {
       email: `${firstName.toLowerCase()}.${lastName.toLowerCase()}@${companyName?.toLowerCase().replace(/\s+/g, '') || 'company'}.com`,
       phone: this.generatePhone(),
       linkedin: `https://linkedin.com/in/${firstName.toLowerCase()}-${lastName.toLowerCase()}`,
-      imageUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${personName}`,
+      imageUrl: initialsAvatar(personName),
       department: this.generateDepartment(),
       location: this.generateLocation(),
       background: `${personName} is an experienced professional with expertise in their field.`,

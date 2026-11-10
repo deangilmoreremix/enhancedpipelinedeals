@@ -23,6 +23,7 @@ import {
   Phone,
   UserX
 } from 'lucide-react';
+import { initialsAvatar } from '../../utils/avatar';
 
 interface DealCardProps {
   deal: Deal;
@@ -72,11 +73,11 @@ export const DealCard: React.FC<DealCardProps> = ({
   }, []);
 
   const getCompanyAvatar = useCallback((companyName: string) => {
-    return `https://ui-avatars.com/api/?name=${encodeURIComponent(companyName)}&background=3b82f6&color=ffffff&size=40`;
+    return initialsAvatar(companyName);
   }, []);
 
   const getContactAvatar = useCallback((contactName: string) => {
-    return `https://ui-avatars.com/api/?name=${encodeURIComponent(contactName)}&background=10b981&color=ffffff&size=32`;
+    return initialsAvatar(contactName);
   }, []);
 
   const getStageColor = useCallback((stage: string) => {

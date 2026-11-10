@@ -38,6 +38,7 @@ import { WIPLimitIndicator } from './pipeline/kanban/WIPLimitIndicator';
 import { CustomColumnManager } from './pipeline/kanban/CustomColumnManager';
 import { calculateColumnAggregation, getStageColor } from './pipeline/kanban/kanbanUtils';
 import { isFeatureEnabled } from '../services/featureFlagService';
+import { initialsAvatar } from '../utils/avatar';
 
 type DealViewType = 'kanban' | 'list' | 'table' | 'calendar' | 'dashboard' | 'timeline';
 
@@ -1021,7 +1022,7 @@ const Pipeline: React.FC = () => {
                                    onFindNewImage={async (deal) => {
                                      // Simulate finding new image
                                      const newSeed = Date.now().toString();
-                                     const newAvatar = `https://api.dicebear.com/7.x/initials/svg?seed=${newSeed}&backgroundColor=3b82f6,8b5cf6,f59e0b,10b981,ef4444&textColor=ffffff`;
+                                     const newAvatar = initialsAvatar(newSeed);
                                      await handleDealUpdate(deal.id, { companyAvatar: newAvatar });
                                    }}
                                    onEdit={(deal) => {

@@ -3,7 +3,7 @@
  * Features: AbortController support, memory leak prevention, timeout handling, circuit breakers, rate limiting
  */
 
-import OpenAI from 'openai';
+import { callAI } from '../../../services/aiClient';
 import { supabase } from '../../core/supabaseClient';
 import { enhancedLogger, withLogContext, createCorrelationId } from '../../core/enhancedLogger';
 import {
@@ -86,7 +86,6 @@ export interface AgentExecutionOptions {
 // ============================================================================
 
 export abstract class BaseSDRAgent {
-  protected openai: OpenAI;
   protected agentId: string;
   protected name: string;
   protected description: string;
@@ -100,13 +99,6 @@ export abstract class BaseSDRAgent {
     this.name = name;
     this.description = description;
     
-    const apiKey = import.meta.env?.VITE_OPENAI_API_KEY || import.meta.env?.OPENAI_API_KEY;
-    if (!apiKey) {
-      throw new Error('OpenAI API key is required');
-    }
-    
-    this.openai = new OpenAI({ apiKey });
-
     this.metrics = {
       totalRuns: 0,
       successfulRuns: 0,
@@ -276,7 +268,7 @@ export abstract class BaseSDRAgent {
    */
   protected async getCompletion(
     prompt: string,
-    options: Partial<OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming> = {},
+    options: { tier?: 'fast' | 'default' | 'deep'; maxOutputTokens?: number } = {},
     abortSignal?: AbortSignal
   ): Promise<string> {
     // Truncate prompt if too long
@@ -289,16 +281,15 @@ export abstract class BaseSDRAgent {
           throw new AbortError('AI completion aborted');
         }
 
-        const response = await this.openai.chat.completions.create({
-          model: options.model || 'gpt-4',
-          messages: [{ role: 'user', content: safePrompt }],
-          temperature: options.temperature ?? 0.7,
-          max_tokens: options.max_tokens ?? 1000,
-          stream: false,
-          ...options,
-        } as OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming);
+        // Responses API via the server-side gateway (no API key in the browser)
+        const response = await callAI('chat', {
+          input: safePrompt,
+          tier: options.tier ?? 'default',
+          maxOutputTokens: options.maxOutputTokens ?? 1500,
+          signal: abortSignal,
+        });
 
-        const content = response.choices[0]?.message?.content;
+        const content = response.text;
         if (!content) {
           throw new Error('No content received from OpenAI');
         }

@@ -42,7 +42,7 @@ class SupabaseImageService {
     const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
     if (!supabaseUrl || !supabaseAnonKey) {
-      console.warn('Supabase configuration missing. Image upload will be simulated.');
+      console.warn('Supabase configuration missing. Image uploads are disabled.');
       this.supabase = null;
     } else {
       this.supabase = createClient(supabaseUrl, supabaseAnonKey);
@@ -358,11 +358,7 @@ class SupabaseImageService {
   async getSignedUrl(fileName: string, expiresIn: number = 3600): Promise<{ success: boolean; url?: string; error?: string }> {
     try {
       if (!this.supabase) {
-        // Return a placeholder URL for development
-        return {
-          success: true,
-          url: `https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=400&h=400&dpr=2`
-        };
+        return { success: false, error: 'Supabase Storage is not configured' };
       }
 
       const { data, error } = await this.supabase.storage
@@ -395,50 +391,8 @@ class SupabaseImageService {
     file: File,
     onProgress?: (progress: ImageUploadProgress) => void
   ): Promise<ImageUploadResult> {
-    try {
-      onProgress?.({
-        loaded: 0,
-        total: file.size,
-        percentage: 0,
-        status: 'uploading'
-      });
-
-      // Simulate upload progress
-      for (let i = 0; i <= 100; i += 20) {
-        await new Promise(resolve => setTimeout(resolve, 200));
-        onProgress?.({
-          loaded: (file.size * i) / 100,
-          total: file.size,
-          percentage: i,
-          status: i < 100 ? 'uploading' : 'processing'
-        });
-      }
-
-      await new Promise(resolve => setTimeout(resolve, 300));
-
-      onProgress?.({
-        loaded: file.size,
-        total: file.size,
-        percentage: 100,
-        status: 'complete'
-      });
-
-      // Generate a placeholder URL for development
-      const seed = Date.now().toString();
-      const placeholderUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}&backgroundColor=3b82f6,8b5cf6,f59e0b,10b981,ef4444&textColor=ffffff`;
-
-      return {
-        success: true,
-        url: `simulated-uploads/${file.name}`,
-        publicUrl: placeholderUrl,
-        fileName: `simulated-${Date.now()}-${file.name}`
-      };
-    } catch (error) {
-      return {
-        success: false,
-        error: 'Simulation failed'
-      };
-    }
+    void file; void onProgress;
+    return { success: false, error: 'Supabase Storage is not configured (set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY).' };
   }
 
   /**
@@ -495,54 +449,8 @@ class SupabaseImageService {
     file: File,
     onProgress?: (progress: ImageUploadProgress) => void
   ): Promise<ImageUploadResult> {
-    // Simulate AI processing for better image
-    onProgress?.({
-      loaded: 0,
-      total: file.size,
-      percentage: 10,
-      status: 'uploading'
-    });
-
-    await new Promise(resolve => setTimeout(resolve, 500));
-
-    onProgress?.({
-      loaded: file.size * 0.5,
-      total: file.size,
-      percentage: 50,
-      status: 'processing'
-    });
-
-    // Simulate upload progress
-    for (let i = 50; i <= 90; i += 10) {
-      await new Promise(resolve => setTimeout(resolve, 100));
-      onProgress?.({
-        loaded: (file.size * i) / 100,
-        total: file.size,
-        percentage: i,
-        status: 'processing'
-      });
-    }
-
-    // Simulate final processing
-    await new Promise(resolve => setTimeout(resolve, 500));
-
-    onProgress?.({
-      loaded: file.size,
-      total: file.size,
-      percentage: 100,
-      status: 'complete'
-    });
-
-    // Generate AI-enhanced avatar URL
-    const seed = Date.now().toString();
-    const aiEnhancedUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}&backgroundColor=3b82f6,8b5cf6,f59e0b,10b981,ef4444&textColor=ffffff`;
-
-    return {
-      success: true,
-      url: `simulated-uploads/${file.name}`,
-      publicUrl: aiEnhancedUrl,
-      fileName: `simulated-${Date.now()}-${file.name}`
-    };
+    void file; void onProgress;
+    return { success: false, error: 'Supabase Storage is not configured (set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY).' };
   }
 
   /**

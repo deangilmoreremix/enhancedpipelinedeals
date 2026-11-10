@@ -60,7 +60,7 @@ export interface AIResult<T = any> {
 export const AI_GATEWAY_URL: string =
   (import.meta as any).env?.VITE_AI_GATEWAY_URL || '/.netlify/functions/ai-gateway';
 
-async function authHeader(): Promise<Record<string, string>> {
+export async function authHeader(): Promise<Record<string, string>> {
   let token: string | undefined;
   try {
     const { data } = await supabase.auth.getSession();

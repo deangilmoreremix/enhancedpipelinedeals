@@ -6,9 +6,10 @@
 export interface SDRProductionConfig {
   // OpenAI Configuration
   openai: {
+    /** Server-side only; never set in browser code. */
     apiKey: string;
+    /** Gateway tier (fast | default | deep). */
     model: string;
-    temperature: number;
     maxTokens: number;
     rateLimit: {
       requestsPerMinute: number;
@@ -61,9 +62,8 @@ export interface SDRProductionConfig {
 export const defaultProductionConfig: SDRProductionConfig = {
   openai: {
     apiKey: process.env.OPENAI_API_KEY || '',
-    model: 'gpt-4',
-    temperature: 0.7,
-    maxTokens: 1000,
+    model: 'default',
+    maxTokens: 1500,
     rateLimit: {
       requestsPerMinute: 50,
       requestsPerHour: 1000,
@@ -171,10 +171,7 @@ export function loadProductionConfig(): SDRProductionConfig {
 export function validateProductionConfig(config: SDRProductionConfig): { valid: boolean; errors: string[] } {
   const errors: string[] = [];
 
-  // Validate OpenAI
-  if (!config.openai.apiKey) {
-    errors.push('OpenAI API key is required');
-  }
+  // The OpenAI key lives on the server (Netlify env OPENAI_API_KEY); nothing to validate in the client.
 
   // Email service validation (AgentMail removed)
   // Note: Email sending is not configured

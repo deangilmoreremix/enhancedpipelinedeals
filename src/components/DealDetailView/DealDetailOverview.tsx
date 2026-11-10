@@ -2,6 +2,7 @@ import React from 'react';
 import { User, Search, RefreshCw, FileText, Edit, Mail, Phone, Calendar } from 'lucide-react';
 import { DealDetailOverviewProps } from './types';
 import { daysSince } from '../../utils/dateUtils';
+import { initialsAvatar } from '../../utils/avatar';
 
 export const DealDetailOverview: React.FC<DealDetailOverviewProps> = ({
   deal,
@@ -101,7 +102,7 @@ export const DealDetailOverview: React.FC<DealDetailOverviewProps> = ({
 
           <div className="flex items-start space-x-4 mb-4">
             <img
-              src={linkedContact.avatarSrc || `https://api.dicebear.com/7.x/avataaars/svg?seed=${linkedContact.name}`}
+              src={linkedContact.avatarSrc || initialsAvatar(linkedContact.name)}
               alt={linkedContact.name}
               className="w-16 h-16 rounded-lg border-2 border-gray-200 dark:border-gray-600 shadow-sm"
             />

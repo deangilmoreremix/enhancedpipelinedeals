@@ -1,22 +1,26 @@
-import { Handler } from '@netlify/functions';
-import { respondStream } from './_openai';
+/**
+ * Streaming email composer (Netlify Functions v2). POST /api/ai/compose-email
+ * Body: { contactId, dealId?, input?, personaId? } -> SSE `data: {"content": "..."}` frames.
+ */
 import { createClient } from '@supabase/supabase-js';
+import { authorize, rateLimited, respondStream, CORS_HEADERS } from './_openai';
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY!
 );
 
-export const handler: Handler = async (event) => {
-  if (event.httpMethod !== 'POST') {
-    return {
-      statusCode: 405,
-      body: JSON.stringify({ error: 'Method not allowed' })
-    };
-  }
+const err = (status: number, error: string) =>
+  new Response(JSON.stringify({ error }), { status, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } });
+
+export default async (req: Request): Promise<Response> => {
+  if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS_HEADERS });
+  if (req.method !== 'POST') return err(405, 'Method not allowed');
+  if (!(await authorize(req.headers.get('authorization') || undefined))) return err(401, 'Unauthorized');
+  if (rateLimited(req.headers.get('x-nf-client-connection-ip') || 'anon')) return err(429, 'Rate limit exceeded');
 
   try {
-    const { contactId, dealId, input, personaId } = JSON.parse(event.body);
+    const { contactId, dealId, input, personaId } = await req.json();
 
     // Fetch contact and deal context
     const { data: contact } = await supabase
@@ -90,16 +94,14 @@ ${input ? `Improve and complete this draft: ${input}` : 'Write a compelling emai
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
         'Connection': 'keep-alive',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Content-Type'
+        ...CORS_HEADERS
       }
     });
 
   } catch (error) {
     console.error('Compose email error:', error);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: 'Failed to compose email' })
-    };
+    return err(500, 'Failed to compose email');
   }
 };
+
+export const config = { path: '/api/ai/compose-email' };

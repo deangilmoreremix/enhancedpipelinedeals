@@ -8,6 +8,7 @@
  *   support effort `none` (mapped to `low`); `minimal` is mapped to `low`.
  */
 import OpenAI from 'openai';
+import { createClient } from '@supabase/supabase-js';
 
 export type Tier = 'fast' | 'default' | 'deep';
 export type Effort = 'none' | 'low' | 'medium' | 'high' | 'xhigh' | 'max';
@@ -201,3 +202,32 @@ export const CORS_HEADERS = {
 export function json(statusCode: number, body: unknown) {
   return { statusCode, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS }, body: JSON.stringify(body) };
 }
+
+// --- auth: a valid Supabase user JWT, or the project's anon key (app supports anon access) ---
+export async function authorize(header: string | undefined): Promise<boolean> {
+  if (process.env.AI_GATEWAY_ALLOW_UNAUTHENTICATED === 'true') return true;
+  const token = (header || '').replace(/^Bearer\s+/i, '').trim();
+  if (!token) return false;
+  const anon = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+  if (anon && token === anon) return true;
+  const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || anon;
+  if (!url || !key) return false;
+  try {
+    const { data, error } = await createClient(url, key).auth.getUser(token);
+    return !error && Boolean(data.user);
+  } catch {
+    return false;
+  }
+}
+
+// --- tiny in-memory rate limit (per warm instance) ---
+const hits = new Map<string, number[]>();
+export function rateLimited(id: string, limit = 60, windowMs = 60_000) {
+  const now = Date.now();
+  const arr = (hits.get(id) || []).filter((t) => now - t < windowMs);
+  arr.push(now);
+  hits.set(id, arr);
+  return arr.length > limit;
+}
+

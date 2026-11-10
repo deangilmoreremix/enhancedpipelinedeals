@@ -3,6 +3,7 @@ import { Deal } from '../types';
 import { Contact } from '../types/contact';
 import { getPhoneService } from '../services/phoneService';
 import { getAIFunctionOrchestrator } from '../services/aiFunctionOrchestrator';
+import { initialsAvatar } from '../utils/avatar';
 
 export type ButtonAction =
   | 'email'
@@ -291,7 +292,7 @@ export const useButtonActions = ({
           return { success: false, error: 'No contact available' };
         }
 
-        const mockImageUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${contact.name.toLowerCase().replace(/\s+/g, '')}`;
+        const mockImageUrl = initialsAvatar(contact.name.toLowerCase().replace(/\s+/g, ''));
 
         if (onUpdateContact) {
           await onUpdateContact(contact.id, { avatarSrc: mockImageUrl });

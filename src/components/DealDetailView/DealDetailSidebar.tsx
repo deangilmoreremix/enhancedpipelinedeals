@@ -2,6 +2,7 @@ import React from 'react';
 import { Sparkles, Brain, Wand2, Target, BarChart3, Mail, Phone, Edit, Heart, HeartOff, Camera, User, Globe, Clock, Building2, Tag, DollarSign, TrendingUp, AlertCircle, CheckCircle, Plus, X, Zap, Calendar, FileText } from 'lucide-react';
 import { DealDetailSidebarProps } from './types';
 import { AIAnalyzeButton, EmailButton, CallButton, AIEnrichButton, AIAutoEnrichButton, FavoriteButton } from '../ui/UnifiedActionButton';
+import { initialsAvatar } from '../../utils/avatar';
 
 export const DealDetailSidebar: React.FC<DealDetailSidebarProps> = ({
   deal,
@@ -244,7 +245,7 @@ export const DealDetailSidebar: React.FC<DealDetailSidebarProps> = ({
               <div className="flex items-center space-x-3 mb-3">
                 <div className="relative">
                   <img
-                    src={linkedContact.avatarSrc || `https://api.dicebear.com/7.x/avataaars/svg?seed=${linkedContact.name}`}
+                    src={linkedContact.avatarSrc || initialsAvatar(linkedContact.name)}
                     alt={linkedContact.name}
                     className="w-12 h-12 rounded-full border-2 border-white dark:border-gray-600 shadow-md"
                   />

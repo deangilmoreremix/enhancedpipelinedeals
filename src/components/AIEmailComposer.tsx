@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { ModernButton } from './ui/ModernButton';
 import { PersonaSelector } from './ui/PersonaSelector';
 import { Sparkles, Wand2, Zap, Target, FileText, Send, Loader2 } from 'lucide-react';
+import { authHeader } from '../services/aiClient';
 
 interface AIEmailComposerProps {
   contactId: string;
@@ -29,10 +30,11 @@ export function AIEmailComposer({ contactId, dealId, onSend, initialContent = ''
     setIsStreaming(true);
 
     try {
-      const response = await fetch('/.netlify/functions/composeEmail', {
+      const response = await fetch('/api/ai/compose-email', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...(await authHeader()),
         },
         body: JSON.stringify({
           contactId,
@@ -42,8 +44,8 @@ export function AIEmailComposer({ contactId, dealId, onSend, initialContent = ''
         })
       });
 
-      if (!response.body) {
-        throw new Error('No response body');
+      if (!response.ok || !response.body) {
+        throw new Error(`Compose failed (${response.status})`);
       }
 
       const reader = response.body.getReader();

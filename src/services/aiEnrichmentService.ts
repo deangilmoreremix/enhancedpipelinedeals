@@ -1,6 +1,7 @@
 import { useOpenAI } from './openaiService';
 import { IntelligentAIService } from './intelligentAIService';
 import { callAI } from './aiClient';
+import { initialsAvatar } from '../utils/avatar';
 
 export interface ContactEnrichmentData {
   name?: string;
@@ -92,7 +93,7 @@ class AIEnrichmentService {
       // Add AI image enhancement if no avatar provided
       if (!enrichmentResult.avatar && !contactData.avatarSrc) {
         const seed = (contactData.firstName || contactData.name || 'user').toLowerCase();
-        enrichmentResult.avatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}&backgroundColor=3b82f6,8b5cf6,f59e0b,10b981,ef4444&textColor=ffffff`;
+        enrichmentResult.avatar = initialsAvatar(seed);
       }
 
       return {
@@ -167,7 +168,7 @@ class AIEnrichmentService {
     // In a real implementation, this could use profile photo search APIs
     const seed = name.toLowerCase().replace(/\s+/g, '');
     const style = Math.random() > 0.5 ? 'avataaars' : 'micah';
-    return `https://api.dicebear.com/7.x/${style}/svg?seed=${seed}${company ? '-' + company : ''}&backgroundColor=3b82f6,8b5cf6,f59e0b,10b981,ef4444`;
+    return initialsAvatar(style);
   }
 }
 

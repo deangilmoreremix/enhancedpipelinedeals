@@ -10,8 +10,7 @@
  *        or (stream: true) buffered text/event-stream of output_text deltas.
  */
 import type { Handler } from '@netlify/functions';
-import { createClient } from '@supabase/supabase-js';
-import { CORS_HEADERS, json, respond, respondStream, RespondOptions } from './_openai';
+import { CORS_HEADERS, json, respond, respondStream, RespondOptions, authorize, rateLimited } from './_openai';
 
 type Obj = Record<string, unknown>;
 const str = { type: 'string' };
@@ -134,34 +133,6 @@ function clientTools(tools: unknown): any[] | undefined {
   return tools
     .filter((t: any) => t && (t.type === 'web_search' || (t.type === 'function' && typeof t.name === 'string')))
     .slice(0, 64);
-}
-
-// --- auth: a valid Supabase user JWT, or the project's anon key (app supports anon access) ---
-async function authorize(header: string | undefined): Promise<boolean> {
-  if (process.env.AI_GATEWAY_ALLOW_UNAUTHENTICATED === 'true') return true;
-  const token = (header || '').replace(/^Bearer\s+/i, '').trim();
-  if (!token) return false;
-  const anon = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
-  if (anon && token === anon) return true;
-  const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || anon;
-  if (!url || !key) return false;
-  try {
-    const { data, error } = await createClient(url, key).auth.getUser(token);
-    return !error && Boolean(data.user);
-  } catch {
-    return false;
-  }
-}
-
-// --- tiny in-memory rate limit (per warm instance) ---
-const hits = new Map<string, number[]>();
-function rateLimited(id: string, limit = 60, windowMs = 60_000) {
-  const now = Date.now();
-  const arr = (hits.get(id) || []).filter((t) => now - t < windowMs);
-  arr.push(now);
-  hits.set(id, arr);
-  return arr.length > limit;
 }
 
 function buildInput(body: Obj): string | any[] {

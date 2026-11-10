@@ -3,6 +3,7 @@ import { Contact } from '../types/contact';
 import { getSupabaseService } from '../services/supabaseService';
 import { getDataSyncService } from '../services/dataSyncService';
 import { validateSchema, contactValidationSchema, sanitizeInput, normalizeEmail, normalizePhoneNumber } from '../utils/validation';
+import { initialsAvatar } from '../utils/avatar';
 
 interface ContactStore {
   contacts: Contact[];
@@ -235,7 +236,7 @@ export const useContactStore = create<ContactStore>((set, get) => ({
     await new Promise(resolve => setTimeout(resolve, 800));
     // Generate a new avatar with a different seed
     const newSeed = Date.now().toString();
-    const newAvatarUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${newSeed}`;
+    const newAvatarUrl = initialsAvatar(newSeed);
 
     await updateContact(contactId, {
       avatarSrc: newAvatarUrl

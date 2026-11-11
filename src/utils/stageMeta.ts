@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react';
 import type { PipelineStage } from '../types';
-import { DEFAULT_STAGES } from '../services/pipelineStageService';
+import { DEFAULT_STAGES } from './defaultStages';
 
 /**
  * Stage metadata helpers. Stages are data (pipeline_stages), so nothing outside seeds / import mappers
@@ -112,4 +112,51 @@ export function stageColorClasses(color?: string): StageColorClasses {
   const token = raw.replace(/^(border|bg|text)-/, '').replace(/-\d+$/, '');
   const c = COLOR_CLASSES[token] ?? COLOR_CLASSES.gray;
   return { border: c.border, borderLeft: c.borderL, bg: c.bg, chip: c.chip, text: c.text, dot: c.dot };
+}
+
+const HEX: Record<string, string> = {
+  blue: '#3b82f6', indigo: '#6366f1', purple: '#a855f7', green: '#10b981', red: '#ef4444', yellow: '#eab308',
+  orange: '#f97316', amber: '#f59e0b', pink: '#ec4899', teal: '#14b8a6', gray: '#6b7280', cyan: '#06b6d4',
+  slate: '#64748b', emerald: '#10b981', rose: '#f43f5e', sky: '#0ea5e9'
+};
+
+/** Hex colour for a stage colour token (charts); custom CSS colours pass through. */
+export function stageHex(color?: string): string {
+  const raw = (color ?? '').trim();
+  if (isCssColor(raw)) return raw;
+  const token = raw.replace(/^(border|bg|text)-/, '').replace(/-\d+$/, '');
+  return HEX[token] ?? HEX.gray;
+}
+
+// ---------------------------------------------------------------------------
+// Non-React access (services, hooks outside components)
+// ---------------------------------------------------------------------------
+
+let activeStages: PipelineStage[] = DEFAULT_STAGES;
+
+/** dealStore keeps this in sync with its `stages` so services can resolve stage flags synchronously. */
+export const setActiveStages = (stages: PipelineStage[]): void => { activeStages = stages && stages.length > 0 ? stages : DEFAULT_STAGES; };
+export const getActiveStages = (): PipelineStage[] => activeStages;
+
+export const stageIsWon = (key?: string | null): boolean => !!key && isWonStage(activeStages, key);
+export const stageIsLost = (key?: string | null): boolean => !!key && isLostStage(activeStages, key);
+export const stageIsOpen = (key?: string | null): boolean => !!key && isOpenStage(activeStages, key);
+export const stageDisplayName = (key: string): string => getStageMeta(activeStages, key).name;
+export const wonStageKeys = (): string[] => stageKeysWhere(activeStages, 'won');
+export const lostStageKeys = (): string[] => stageKeysWhere(activeStages, 'lost');
+export const openStageKeys = (): string[] => stageKeysWhere(activeStages, 'open');
+
+/** Fetch the stage list (database, with defaults as the safe fallback) and return the keys of `kind`. */
+export async function loadStageKeys(kind: 'won' | 'lost' | 'open' | 'closed'): Promise<string[]> {
+  let stages: PipelineStage[] = DEFAULT_STAGES;
+  try {
+    // Lazy import keeps this module free of the supabase client (pure unit tests, SSR)
+    const { getStages } = await import('../services/pipelineStageService');
+    const fetched = await getStages();
+    if (fetched && fetched.length > 0) stages = fetched;
+  } catch {
+    /* fall back to defaults */
+  }
+  const keys = stageKeysWhere(stages, kind);
+  return keys;
 }

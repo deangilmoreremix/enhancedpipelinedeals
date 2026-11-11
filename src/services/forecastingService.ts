@@ -6,6 +6,7 @@
 import { getSupabaseService } from './supabaseService';
 import { getAdvancedAnalyticsService } from './advancedAnalyticsService';
 
+import { loadStageKeys } from '../utils/stageMeta';
 export interface ForecastModel {
   id: string;
   name: string;
@@ -207,12 +208,13 @@ class ForecastingService {
         break;
     }
 
+    const wonKeys = await loadStageKeys('won');
     const { data } = await supabase
       .from('deals')
       .select('value, created_at, stage')
       .gte('created_at', startDate.toISOString())
       .lte('created_at', endDate.toISOString())
-      .eq('stage', 'closed-won');
+      .in('stage', wonKeys);
 
     if (!data) return [];
 

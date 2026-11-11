@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { useStageMeta } from '../../utils/stageUtils';
+import { sortedStages } from '../../utils/stageMeta';
 import { Filter, X, Plus, Check } from 'lucide-react';
 
 export interface FilterCondition {
@@ -16,6 +18,7 @@ export const AdvancedFilter: React.FC<AdvancedFilterProps> = ({
   onApplyFilters, 
   onClearFilters 
 }) => {
+  const { stages: stageList } = useStageMeta();
   const [isOpen, setIsOpen] = useState(false);
   const [filters, setFilters] = useState<FilterCondition[]>([]);
   const [newFilter, setNewFilter] = useState<FilterCondition>({
@@ -57,13 +60,7 @@ export const AdvancedFilter: React.FC<AdvancedFilterProps> = ({
   };
 
   const valueOptions: Record<string, { id: string; label: string }[]> = {
-    stage: [
-      { id: 'qualification', label: 'Qualification' },
-      { id: 'proposal', label: 'Proposal' },
-      { id: 'negotiation', label: 'Negotiation' },
-      { id: 'closed-won', label: 'Closed Won' },
-      { id: 'closed-lost', label: 'Closed Lost' },
-    ],
+    stage: sortedStages(stageList).map(st => ({ id: st.key, label: st.name })),
     priority: [
       { id: 'high', label: 'High' },
       { id: 'medium', label: 'Medium' },

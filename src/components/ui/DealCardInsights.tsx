@@ -2,10 +2,20 @@ import React from 'react';
 import { Deal } from '../../types';
 import { ThumbsUp, ThumbsDown } from 'lucide-react';
 
+import { openStageKeys } from '../../utils/stageMeta';
 interface DealCardInsightsProps {
   deal: Deal;
   onFeedback?: (e: React.MouseEvent, feedbackType: 'positive' | 'negative') => void;
 }
+
+/** Typical time to close by position in the pipeline (first open stage = longest). */
+const closeWindow = (stage: string): string => {
+  const open = openStageKeys();
+  const idx = open.indexOf(stage);
+  if (idx === 0) return '2-4 weeks';
+  if (idx > 0 && idx < open.length - 1) return '1-2 weeks';
+  return '3-5 days';
+};
 
 export const DealCardInsights: React.FC<DealCardInsightsProps> = ({
   deal,
@@ -14,7 +24,7 @@ export const DealCardInsights: React.FC<DealCardInsightsProps> = ({
   // Mock AI insights for the deal
   const insights = [
     `Based on ${deal.company}'s industry and deal size, there's a ${deal.probability > 70 ? 'high' : 'moderate'} likelihood of conversion.`,
-    `Similar deals in this stage typically close within ${deal.stage === 'qualification' ? '2-4 weeks' : deal.stage === 'proposal' ? '1-2 weeks' : '3-5 days'}.`,
+    `Similar deals in this stage typically close within ${closeWindow(deal.stage)}.`,
     `The ${deal.priority} priority suggests ${deal.priority === 'high' ? 'immediate attention needed' : deal.priority === 'medium' ? 'regular follow-up required' : 'monitor for changes'}.`
   ];
 

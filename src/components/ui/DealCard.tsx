@@ -24,6 +24,8 @@ import {
   UserX
 } from 'lucide-react';
 import { initialsAvatar } from '../../utils/avatar';
+import { useStageMeta } from '../../utils/stageUtils';
+import { stageColorClasses } from '../../utils/stageMeta';
 
 interface DealCardProps {
   deal: Deal;
@@ -80,18 +82,6 @@ export const DealCard: React.FC<DealCardProps> = ({
     return initialsAvatar(contactName);
   }, []);
 
-  const getStageColor = useCallback((stage: string) => {
-    const colors = {
-      'lead': 'bg-gray-100 text-gray-800',
-      'qualified': 'bg-blue-100 text-blue-800',
-      'proposal': 'bg-yellow-100 text-yellow-800',
-      'negotiation': 'bg-orange-100 text-orange-800',
-      'closed-won': 'bg-green-100 text-green-800',
-      'closed-lost': 'bg-red-100 text-red-800'
-    };
-    return colors[stage as keyof typeof colors] || 'bg-gray-100 text-gray-800';
-  }, []);
-
   const getPriorityColor = useCallback((priority: string) => {
     const colors = {
       'low': 'text-green-600',
@@ -114,7 +104,10 @@ export const DealCard: React.FC<DealCardProps> = ({
   const formattedValue = useMemo(() => formatCurrency(deal.value), [deal.value, formatCurrency]);
   const companyAvatar = useMemo(() => deal.companyAvatar || getCompanyAvatar(deal.company), [deal.company, deal.companyAvatar, getCompanyAvatar]);
   const contactAvatar = useMemo(() => getContactAvatar(deal.contact), [deal.contact, getContactAvatar]);
-  const stageColor = useMemo(() => getStageColor(deal.stage), [deal.stage, getStageColor]);
+  const { meta } = useStageMeta();
+  const stageMeta = meta(deal.stage);
+  const stageClasses = stageColorClasses(stageMeta.color);
+  const stageColor = stageClasses.chip;
   const priorityColor = useMemo(() => getPriorityColor(deal.priority), [deal.priority, getPriorityColor]);
   const priorityIcon = useMemo(() => getPriorityIcon(deal.priority), [deal.priority, getPriorityIcon]);
   const createdDate = useMemo(() => formatDate(deal.createdAt.toISOString()), [deal.createdAt, formatDate]);
@@ -332,8 +325,8 @@ export const DealCard: React.FC<DealCardProps> = ({
               <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{deal.title || deal.company}</h3>
             )}
             <div className="flex items-center space-x-2 mt-1">
-              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${stageColor}`}>
-                {deal.stage.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+              <span style={stageClasses.style} className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${stageColor}`}>
+                {stageMeta.name}
               </span>
               <div className={`flex items-center space-x-1 ${priorityColor} dark:text-opacity-90`}>
                 {priorityIcon}

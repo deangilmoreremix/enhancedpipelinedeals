@@ -1,4 +1,5 @@
 import React from 'react';
+import { getActiveStages, sortedStages } from '../../utils/stageMeta';
 import { Deal } from '../../types';
 import { Clock, AlertCircle } from 'lucide-react';
 
@@ -14,13 +15,9 @@ const StaleDealIndicator: React.FC<StaleDealIndicatorProps> = ({
   onStaleAlert
 }) => {
   const getTimeInStage = (): number => {
-    const stageDates: Record<string, Date> = {
-      qualification: deal.createdAt,
-      proposal: deal.updatedAt,
-      negotiation: deal.updatedAt
-    };
-
-    const relevantDate = stageDates[deal.stage] || deal.updatedAt || deal.createdAt;
+    // Deals still in the first stage have been there since creation; otherwise measure from the last update
+    const firstStage = sortedStages(getActiveStages())[0]?.key;
+    const relevantDate = deal.stage === firstStage ? deal.createdAt : deal.updatedAt || deal.createdAt;
     const now = new Date();
     const diffTime = Math.abs(now.getTime() - relevantDate.getTime());
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));

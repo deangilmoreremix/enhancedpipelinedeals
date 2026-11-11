@@ -4,6 +4,8 @@ import type { Deal } from '../../types';
 import { useDealStore } from '../../store/dealStore';
 import { useBoardSelectionStore } from '../../store/boardSelectionStore';
 import { useBoardHotkeys } from '../../hooks/useBoardHotkeys';
+import { useMarqueeSelection } from '../../hooks/useMarqueeSelection';
+import { useStageKeyboardMove } from '../../hooks/useStageKeyboardMove';
 import { buildGroupColumns, isGroupingDroppable, updatesForGroupDrop } from '../../utils/boardGrouping';
 import { sortDeals } from './kanban/kanbanUtils';
 import { BoardColumn, PAGE_SIZE } from './BoardColumn';
@@ -55,7 +57,15 @@ export const GroupedBoard: React.FC<KanbanBoardProps> = ({ deals, sortBy, isLoad
     () => columns.map(c => ({ key: c.key, ids: c.deals.slice(0, limits[c.key] ?? PAGE_SIZE).map(d => d.id) })),
     [columns, limits]
   );
-  useBoardHotkeys({ getColumns: hotkeyColumns, onOpen: onOpenDeal, onQuickCreate: () => undefined });
+  const moveByKeyboard = useStageKeyboardMove((m) => notify(m));
+  useBoardHotkeys({
+    getColumns: hotkeyColumns,
+    onOpen: onOpenDeal,
+    onQuickCreate: () => undefined,
+    onMoveStage: (dir, ids) => void moveByKeyboard(dir, ids)
+  });
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const marquee = useMarqueeSelection(scrollRef);
 
   const droppable = isGroupingDroppable(groupBy);
 
@@ -86,8 +96,16 @@ export const GroupedBoard: React.FC<KanbanBoardProps> = ({ deals, sortBy, isLoad
         </p>
       )}
       <DragDropContext onDragEnd={handleDragEnd} sensors={sensors} enableDefaultSensors={false}>
-        <div className="overflow-auto pb-4 max-h-[calc(100vh-9rem)] min-h-[600px]" data-testid="kanban-scroll">
-          <div className="flex items-start gap-4">
+        <div ref={scrollRef} onMouseDown={marquee.onMouseDown} className="overflow-auto pb-4 max-h-[calc(100vh-9rem)] min-h-[600px]" data-testid="kanban-scroll">
+          <div className="flex items-start gap-4 relative">
+            {marquee.rect && (
+              <div
+                aria-hidden
+                data-testid="marquee-rect"
+                className="absolute z-20 pointer-events-none rounded-sm border border-blue-600 bg-blue-600/10"
+                style={{ left: marquee.rect.left, top: marquee.rect.top, width: marquee.rect.right - marquee.rect.left, height: marquee.rect.bottom - marquee.rect.top }}
+              />
+            )}
             {columns.map(col => {
               const ordered = col.deals.map(d => d.id);
               return (

@@ -7,7 +7,6 @@ import { EnhancedAIStatusIndicator } from './ui/EnhancedAIStatusIndicator';
 import DealDetail from './DealDetail';
 import PipelineStats from './PipelineStats';
 import DealAnalytics from './DealAnalytics';
-import { saveCustomColumns } from '../services/pipelineColumnService';
 import { useDealStore } from '../store/dealStore';
 import { isDemoMode } from '../config/demoMode';
 
@@ -30,7 +29,11 @@ import {
 } from 'lucide-react';
 
 // Twenty CRM enhanced kanban imports
-import { CustomColumnManager } from './pipeline/kanban/CustomColumnManager';
+import { StageManagerModal } from './pipeline/kanban/CustomColumnManager';
+import DealToasts from './deals/DealToasts';
+import { HotkeysHelp } from './pipeline/HotkeysHelp';
+import { useContactStore } from '../store/contactStore';
+import { stageKeysWhere } from '../utils/stageUtils';
 import { BOARD_SORT_OPTIONS, BoardSortKey } from './pipeline/kanban/kanbanUtils';
 import { KanbanBoard } from './pipeline/KanbanBoard';
 import PipelineSummaryBar from './pipeline/PipelineSummaryBar';
@@ -43,11 +46,11 @@ import DealTrashPanel from './deals/DealTrashPanel';
 import MergeDealsModal from './deals/MergeDealsModal';
 import { findDuplicateGroups } from '../services/dealMergeService';
 import { useBoardFilters } from '../hooks/useBoardFilters';
-import { presetForSorting, useBoardViewStore } from '../store/boardViewStore';
+import { BoardViewType, presetForSorting, useBoardViewStore } from '../store/boardViewStore';
 import { isFeatureEnabled } from '../services/featureFlagService';
 import { initialsAvatar } from '../utils/avatar';
 
-type DealViewType = 'kanban' | 'list' | 'table' | 'calendar' | 'dashboard' | 'timeline';
+type DealViewType = BoardViewType;
 
 const Pipeline: React.FC = () => {
   // Modal states
@@ -68,7 +71,6 @@ const Pipeline: React.FC = () => {
   const subscribeRealtime = useDealStore(s => s.subscribeRealtime);
   const dataSource: 'database' | 'mock' = isConnected && !isDemoMode() ? 'database' : 'mock';
   const [selectedDealId, setSelectedDealId] = useState<string | null>(null);
-  const [currentView, setCurrentView] = useState<DealViewType>('kanban');
   const [showStats, setShowStats] = useState(true);
   const [booting, setBooting] = useState(true);
   const [exportMessage, setExportMessage] = useState<string | null>(null);
@@ -90,7 +92,13 @@ const Pipeline: React.FC = () => {
   const setSortPreset = useBoardViewStore(s => s.setSortPreset);
   const pendingAction = useBoardViewStore(s => s.pendingAction);
   const consumeAction = useBoardViewStore(s => s.consumeAction);
-  const board = useBoardFilters(deals);
+  // The layout lives in the board view store (persisted; saved views carry it)
+  const currentView = useBoardViewStore(s => s.currentView);
+  const setCurrentView = useBoardViewStore(s => s.setCurrentView);
+  // ONE filtered AND sorted list (board.viewDeals) feeds every view
+  const board = useBoardFilters(deals, stages);
+  const contacts = useContactStore(s => s.contacts);
+  const fetchContacts = useContactStore(s => s.fetchContacts);
 
   // AI states
   const [aiResearching, setAiResearching] = useState<string[]>([]);
@@ -102,7 +110,6 @@ const Pipeline: React.FC = () => {
 
    // Twenty CRM enhanced features states
    const [twentyFeaturesEnabled, setTwentyFeaturesEnabled] = useState({
-     customColumns: false,
      health: false,
      stale: false,
      sla: false
@@ -127,14 +134,13 @@ const Pipeline: React.FC = () => {
   // Check Twenty CRM feature flags
   useEffect(() => {
     const checkFeatures = async () => {
-      const [customColumns, health, stale, sla] = await Promise.all([
-        isFeatureEnabled('twenty_custom_columns'),
+      const [health, stale, sla] = await Promise.all([
         isFeatureEnabled('twenty_predictive_analytics'),
         isFeatureEnabled('twenty_pipeline_analytics'),
         isFeatureEnabled('twenty_sla_monitoring')
       ]);
 
-      setTwentyFeaturesEnabled({ customColumns, health, stale, sla });
+      setTwentyFeaturesEnabled({ health, stale, sla });
     };
 
      checkFeatures();
@@ -143,17 +149,20 @@ const Pipeline: React.FC = () => {
   // Real-time subscriptions (deals + stages) via the store
   useEffect(() => subscribeRealtime(), [subscribeRealtime, isConnected]);
 
-  // Save view preference when changed
+  // The dashboard needs real contacts
+  useEffect(() => {
+    if (currentView === 'dashboard' && contacts.length === 0) void fetchContacts();
+  }, [currentView, contacts.length, fetchContacts]);
+
+  // Switching view (persisted in the board view store)
   const handleViewChange = (view: DealViewType) => {
     setCurrentView(view);
   };
 
   // Deals after search + favorites + filters (chips and advanced groups)
   const filteredDeals = board.deals;
-  const filteredDealsMap = useMemo(
-    () => Object.fromEntries(filteredDeals.map(d => [d.id, d])) as Record<string, Deal>,
-    [filteredDeals]
-  );
+  const viewDeals = board.viewDeals;
+  const isFiltered = board.activeFilterCount > 0;
   const sortPreset = presetForSorting(sorting);
 
   // Quick stage filter = a `stage equals` chip in the filter bar
@@ -187,11 +196,13 @@ const Pipeline: React.FC = () => {
 
    // Calculate pipeline statistics
   const pipelineStats = useMemo(() => {
-    const allDeals = Object.values(deals);
+    // Computed from the filtered deals so the stats always match what the views show
+    const allDeals = filteredDeals;
+    const wonKeys = new Set(stageKeysWhere(stages, 'won'));
     const totalValue = allDeals.reduce((sum, deal) => sum + deal.value, 0);
     const totalDeals = allDeals.length;
     const averageDealSize = totalDeals > 0 ? totalValue / totalDeals : 0;
-    const wonDeals = allDeals.filter(deal => deal.stage === 'closed-won').length;
+    const wonDeals = allDeals.filter(deal => wonKeys.has(deal.stage)).length;
     const conversionRate = totalDeals > 0 ? (wonDeals / totalDeals) * 100 : 0;
 
     return {
@@ -200,7 +211,7 @@ const Pipeline: React.FC = () => {
       averageDealSize,
       conversionRate
     };
-  }, [deals]);
+  }, [filteredDeals, stages]);
 
   const handleDealUpdate = async (id: string, updates: Partial<Deal>) => {
     try {
@@ -533,16 +544,16 @@ const Pipeline: React.FC = () => {
           </div>
 
           {/* Pipeline Settings - Twenty Features */}
-          {twentyFeaturesEnabled.customColumns && (
-            <Tooltip content="Configure pipeline columns and settings" position="bottom">
-              <button
-                onClick={() => setShowColumnManager(true)}
-                className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
-              >
-                <Settings className="w-5 h-5" />
-              </button>
-            </Tooltip>
-          )}
+          <Tooltip content="Manage pipeline stages (add, rename, colour, reorder, probability, won/lost)" position="bottom">
+            <button
+              type="button"
+              aria-label="Manage pipeline stages"
+              onClick={() => setShowColumnManager(true)}
+              className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+            >
+              <Settings className="w-5 h-5" />
+            </button>
+          </Tooltip>
 
         </div>
       </div>
@@ -678,6 +689,7 @@ const Pipeline: React.FC = () => {
         </div>
 
         <div className="flex items-center space-x-2">
+          <HotkeysHelp />
           <Tooltip content="Toggle Statistics - Show or hide pipeline metrics and KPIs" position="left">
             <button
               onClick={() => setShowStats(!showStats)}
@@ -754,12 +766,12 @@ const Pipeline: React.FC = () => {
         </div>
       }>
         {(() => {
+          // Every view receives the same filtered AND sorted list
           const commonProps = {
-            deals: filteredDealsMap, // already search/filter applied
+            deals: viewDeals,
             onDealClick: handleDealClick,
             onDealUpdate: handleDealUpdate,
-            searchTerm: '',
-            filterStage: 'all'
+            isFiltered
           };
 
           switch (currentView) {
@@ -776,7 +788,7 @@ const Pipeline: React.FC = () => {
               return <DealTimelineView {...commonProps} />;
 
             case 'dashboard':
-              return <DealDashboardView deals={filteredDealsMap} contacts={[]} />;
+              return <DealDashboardView deals={viewDeals} contacts={contacts} />;
 
             case 'kanban':
             default:
@@ -786,6 +798,7 @@ const Pipeline: React.FC = () => {
           stages={stages}
           sortBy={board.sortBy}
           grouping={board.grouping}
+          onEditStages={() => setShowColumnManager(true)}
           isLoading={booting}
           indicators={{
             health: twentyFeaturesEnabled.health,
@@ -802,6 +815,7 @@ const Pipeline: React.FC = () => {
               onRangeSelect={ctx.onRangeSelect}
               indicators={ctx.indicators}
               onClick={() => handleDealClick(deal.id)}
+              onQuickUpdate={(updates) => handleDealUpdate(deal.id, updates)}
               onAnalyze={handleAIResearch}
               isAnalyzing={aiResearching.includes(deal.id)}
               onToggleFavorite={async (d) => {
@@ -885,21 +899,11 @@ const Pipeline: React.FC = () => {
         </div>
       )}
 
-      {/* Custom Column Manager Modal - Twenty Feature */}
-      {showColumnManager && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-hidden">
-            <CustomColumnManager
-              onColumnsChange={async (customColumns) => {
-                // Persist stages, then reload them into the store
-                await saveCustomColumns(customColumns);
-                await fetchStages();
-              }}
-              onClose={() => setShowColumnManager(false)}
-            />
-          </div>
-        </div>
-      )}
+      {/* Stage manager (add, rename, colour, reorder, hide, delete, WIP, probability, won/lost) */}
+      <StageManagerModal isOpen={showColumnManager} onClose={() => setShowColumnManager(false)} />
+
+      {/* Inline-edit errors (cells raise toasts through the record toast store) */}
+      {!selectedDealId && <DealToasts />}
     </div>
   );
 };

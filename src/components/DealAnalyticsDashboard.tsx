@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { stageIsOpen, stageIsWon } from '../utils/stageMeta';
 import { Deal } from '../types';
 import { BarChart3, TrendingUp, TrendingDown, DollarSign, Target, Clock, Users, Activity, Download, Filter, Calendar, Brain, Wand2, Sparkles, Search } from 'lucide-react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
@@ -60,20 +61,20 @@ export const DealAnalyticsDashboard: React.FC<DealAnalyticsDashboardProps> = ({ 
     if (allDeals.length === 0) {
       // Fallback to single deal metrics if no database data
       return {
-        totalRevenue: deal.stage === 'closed-won' ? deal.value : 0,
+        totalRevenue: stageIsWon(deal.stage) ? deal.value : 0,
         totalDeals: 1,
-        wonDeals: deal.stage === 'closed-won' ? 1 : 0,
-        conversionRate: deal.stage === 'closed-won' ? 100 : deal.probability,
-        avgDealSize: deal.stage === 'closed-won' ? deal.value : 0,
+        wonDeals: stageIsWon(deal.stage) ? 1 : 0,
+        conversionRate: stageIsWon(deal.stage) ? 100 : deal.probability,
+        avgDealSize: stageIsWon(deal.stage) ? deal.value : 0,
         timeToClose: Math.ceil((new Date().getTime() - deal.createdAt.getTime()) / (1000 * 60 * 60 * 24)),
         pipelineValue: deal.value
       };
     }
 
-    const wonDeals = allDeals.filter(d => d.stage === 'closed-won');
+    const wonDeals = allDeals.filter(d => stageIsWon(d.stage));
     const totalRevenue = wonDeals.reduce((sum, d) => sum + d.value, 0);
     const pipelineValue = allDeals
-      .filter(d => !['closed-won', 'closed-lost'].includes(d.stage))
+      .filter(d => stageIsOpen(d.stage))
       .reduce((sum, d) => sum + d.value, 0);
 
     return {

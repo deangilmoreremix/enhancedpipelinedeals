@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Draggable, Droppable, DraggableProvidedDragHandleProps } from '@hello-pangea/dnd';
 import { Plus } from 'lucide-react';
+import { useBoardSelectionStore } from '../../store/boardSelectionStore';
 import { Deal, PipelineStage } from '../../types';
 import { KanbanColumnHeader } from './kanban/KanbanColumnHeader';
 import { WIPLimitIndicator } from './kanban/WIPLimitIndicator';
@@ -12,6 +13,7 @@ import {
   getStageBorderClass,
   getStageHeaderClass
 } from './kanban/kanbanUtils';
+import { stageColorClasses } from '../../utils/stageMeta';
 import { QuickCreateDeal } from './QuickCreateDeal';
 import { ColumnSkeleton } from './BoardSkeleton';
 
@@ -53,6 +55,7 @@ export const BoardColumn: React.FC<BoardColumnProps> = ({
   const [operation, setOperation] = useState<AggregateOperation>('sum');
   const [field, setField] = useState<AggregateField>('value');
   const sentinelRef = useRef<HTMLDivElement>(null);
+  const selectedIds = useBoardSelectionStore(s => s.selectedIds);
   const isUncategorized = columnKey === UNCATEGORIZED_ID;
   const wipLimit = stage?.wipLimit && stage.wipLimit > 0 ? stage.wipLimit : undefined;
 
@@ -74,12 +77,15 @@ export const BoardColumn: React.FC<BoardColumnProps> = ({
     return () => io.disconnect();
   }, [hasMore, shown.length, onShowMore]);
 
-  const border = getStageBorderClass(color ?? stage?.color);
+  const sc = stageColorClasses(color ?? stage?.color);
+  // Custom (hex/rgb) stage colours have no Tailwind class: fall back to an inline border colour
+  const border = sc.style ? '' : getStageBorderClass(color ?? stage?.color);
   const headerTint = getStageHeaderClass(color ?? stage?.color);
 
   return (
     <div
       className={`bg-white dark:bg-gray-800 rounded-xl border-2 ${border} shadow-sm flex flex-col`}
+      style={sc.style ? { borderColor: sc.style.borderColor } : undefined}
       data-column-key={columnKey}
     >
       {/* Sticky header (opaque backing so cards don't show through the tint) */}
@@ -130,9 +136,17 @@ export const BoardColumn: React.FC<BoardColumnProps> = ({
                       ref={dragProvided.innerRef}
                       {...dragProvided.draggableProps}
                       {...dragProvided.dragHandleProps}
-                      className={dragSnapshot.isDragging ? 'rotate-2 shadow-xl' : ''}
+                      className={`relative ${dragSnapshot.isDragging ? 'rotate-2 shadow-xl' : ''}`}
                     >
                       {renderCard(deal)}
+                      {dragSnapshot.isDragging && selectedIds.length > 1 && selectedIds.includes(deal.id) && (
+                        <span
+                          data-testid="multi-drag-chip"
+                          className="absolute -top-2 -right-2 z-10 px-2 py-0.5 text-xs font-semibold text-white bg-blue-600 rounded-full shadow"
+                        >
+                          +{selectedIds.length - 1}
+                        </span>
+                      )}
                     </div>
                   )}
                 </Draggable>

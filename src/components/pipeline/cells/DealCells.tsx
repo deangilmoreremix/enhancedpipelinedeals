@@ -195,7 +195,9 @@ const ChipMenuCell: React.FC<BaseCellProps & {
   options: ChipOption[];
   onCommit: (next: string) => Promise<unknown> | unknown;
   chipBase: string;
-}> = ({ label, value, options, onCommit, disabled, className = '', chipBase }) => {
+  /** Custom button content (defaults to the option label). */
+  renderLabel?: (opt: ChipOption | undefined, current: string) => React.ReactNode;
+}> = ({ label, value, options, onCommit, disabled, className = '', chipBase, renderLabel }) => {
   const f = useInlineField<string>(onCommit, label);
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
@@ -236,7 +238,7 @@ const ChipMenuCell: React.FC<BaseCellProps & {
         style={opt?.chipStyle}
         className={`${chipBase} ${opt?.chipClassName ?? 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'} ${disabled ? '' : 'hover:ring-1 hover:ring-blue-300 dark:hover:ring-blue-600'} ${f.pending ? 'opacity-60' : ''}`}
       >
-        {opt?.label ?? current}
+        {renderLabel ? renderLabel(opt, current) : opt?.label ?? current}
       </button>
       {open && pos && (
         <ul
@@ -294,6 +296,33 @@ export const PriorityCell: React.FC<BaseCellProps & {
   chipBase?: string;
 }> = ({ chipBase = 'px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full capitalize', onCommit, value, ...p }) => (
   <ChipMenuCell {...p} value={value} options={PRIORITY_CHIPS} chipBase={chipBase} onCommit={v => onCommit(v as Deal['priority'])} />
+);
+
+const PRIORITY_DOT: Record<string, string> = { high: 'bg-red-500', medium: 'bg-yellow-500', low: 'bg-green-500' };
+const PRIORITY_DOT_OPTIONS: ChipOption[] = [
+  { value: 'high', label: 'High Priority', chipClassName: '' },
+  { value: 'medium', label: 'Medium Priority', chipClassName: '' },
+  { value: 'low', label: 'Low Priority', chipClassName: '' }
+];
+
+/** Priority as the board card shows it (dot + label), editable in place. */
+export const PriorityDotCell: React.FC<BaseCellProps & {
+  value: Deal['priority'];
+  onCommit: (next: Deal['priority']) => Promise<unknown> | unknown;
+}> = ({ value, onCommit, ...p }) => (
+  <ChipMenuCell
+    {...p}
+    value={value}
+    options={PRIORITY_DOT_OPTIONS}
+    chipBase="inline-flex items-center space-x-2 rounded-full px-2 py-0.5 text-xs text-gray-700 dark:text-gray-300 font-medium"
+    onCommit={v => onCommit(v as Deal['priority'])}
+    renderLabel={(opt, cur) => (
+      <>
+        <span className={`w-2 h-2 rounded-full ${PRIORITY_DOT[cur] ?? 'bg-gray-400'}`} />
+        <span>{opt?.label ?? cur}</span>
+      </>
+    )}
+  />
 );
 
 // ---------------------------------------------------------------------------

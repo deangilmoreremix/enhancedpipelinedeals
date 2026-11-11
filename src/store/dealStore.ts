@@ -15,6 +15,7 @@ import { computeDropPosition, needsRebalance, rebalance } from '../utils/boardPo
 import { isDemoMode } from '../config/demoMode';
 import { validateSchema, dealValidationSchema, sanitizeInput } from '../utils/validation';
 import { emitDealEvent } from '../services/dealEvents';
+import { setActiveStages } from '../utils/stageMeta';
 
 interface DealStore {
   deals: Record<string, Deal>;
@@ -594,3 +595,8 @@ export const useDealStore = create<DealStore>((set, get) => ({
     });
   }
 }));
+
+// Keep the synchronous stage registry (used by services) in step with the store
+useDealStore.subscribe((state, prev) => {
+  if (state.stages !== prev.stages) setActiveStages(state.stages);
+});

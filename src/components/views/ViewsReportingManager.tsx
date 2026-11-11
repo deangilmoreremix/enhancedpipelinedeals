@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useStageMeta } from '../../utils/stageUtils';
+import { sortedStages, stageHex } from '../../utils/stageMeta';
 import { Deal, ViewType, SavedView, ViewFilter, ViewSort, ViewColumn, Dashboard, CustomMetric } from '../../types';
 import {
   Table,
@@ -35,6 +37,7 @@ export const ViewsReportingManager: React.FC<ViewsReportingManagerProps> = ({
   onDealUpdate,
   currentUserId
 }) => {
+  const { stages: stageList } = useStageMeta();
   const [currentViewType, setCurrentViewType] = useState<ViewType>('table');
   const [savedViews, setSavedViews] = useState<SavedView[]>([]);
   const [currentSavedView, setCurrentSavedView] = useState<SavedView | null>(null);
@@ -239,13 +242,9 @@ export const ViewsReportingManager: React.FC<ViewsReportingManagerProps> = ({
           <AdvancedKanbanView
             deals={deals}
             config={{
-              columns: [
-                { id: 'qualification', title: 'Qualification', field: 'stage', color: '#3b82f6' },
-                { id: 'proposal', title: 'Proposal', field: 'stage', color: '#6366f1' },
-                { id: 'negotiation', title: 'Negotiation', field: 'stage', color: '#f59e0b' },
-                { id: 'closed-won', title: 'Won', field: 'stage', color: '#10b981' },
-                { id: 'closed-lost', title: 'Lost', field: 'stage', color: '#ef4444' }
-              ],
+              columns: sortedStages(stageList).filter(st => st.visible).map(st => ({
+                id: st.key, title: st.name, field: 'stage', color: stageHex(st.color)
+              })),
               cardTemplate: {
                 showFields: ['title', 'company', 'value', 'probability'],
                 layout: 'detailed'

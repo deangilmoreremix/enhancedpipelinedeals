@@ -1,4 +1,5 @@
-import { Deal } from '../../../types';
+import { Deal, PipelineStage } from '../../../types';
+import { getActiveStages, getStageMeta, stageColorClasses } from '../../../utils/stageMeta';
 
 export interface ColumnAggregation {
   count: number;
@@ -37,21 +38,26 @@ export const calculateColumnAggregation = (deals: Deal[]): ColumnAggregation => 
   };
 };
 
-/**
- * Get stage color classes for kanban columns
- */
-export const getStageColor = (stageId: string): string => {
-  const colors: Record<string, string> = {
-    new: 'border-blue-500 bg-blue-50 dark:bg-blue-900/20',
-    contacted: 'border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20',
-    qualified: 'border-purple-500 bg-purple-50 dark:bg-purple-900/20',
-    proposal: 'border-orange-500 bg-orange-50 dark:bg-orange-900/20',
-    closed: 'border-green-500 bg-green-50 dark:bg-green-900/20',
-    'closed-won': 'border-green-500 bg-green-50 dark:bg-green-900/20',
-    'closed-lost': 'border-red-500 bg-red-50 dark:bg-red-900/20'
-  };
+const GENERIC_STAGE_COLORS: Record<string, string> = {
+  new: 'border-blue-500 bg-blue-50 dark:bg-blue-900/20',
+  contacted: 'border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20',
+  qualified: 'border-purple-500 bg-purple-50 dark:bg-purple-900/20',
+  proposal: 'border-orange-500 bg-orange-50 dark:bg-orange-900/20',
+  closed: 'border-green-500 bg-green-50 dark:bg-green-900/20'
+};
 
-  return colors[stageId] || 'border-gray-500 bg-gray-50 dark:bg-gray-900/20';
+/**
+ * Stage colour classes (border + tinted background) for a stage key. Configured stages (pass `stages`, or the
+ * live registry) win; the generic names above are only a fallback for keys that are not configured stages.
+ */
+export const getStageColor = (stageId: string, stages?: PipelineStage[]): string => {
+  const list = stages ?? getActiveStages();
+  const meta = getStageMeta(list, stageId);
+  if (stages || (!meta.unknown && !GENERIC_STAGE_COLORS[stageId])) {
+    const c = stageColorClasses(meta.color);
+    return `${c.border} ${c.bg}`.trim();
+  }
+  return GENERIC_STAGE_COLORS[stageId] || 'border-gray-500 bg-gray-50 dark:bg-gray-900/20';
 };
 
 // ---------------------------------------------------------------------------

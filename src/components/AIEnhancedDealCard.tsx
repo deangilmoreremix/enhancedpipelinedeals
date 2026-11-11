@@ -37,6 +37,8 @@ import {
   Phone
 } from 'lucide-react';
 import { initialsAvatar } from '../utils/avatar';
+import { useStageMeta } from '../utils/stageUtils';
+import { TextCell, PriorityDotCell } from './pipeline/cells/DealCells';
 import DealHealthIndicator from './deals/DealHealthIndicator';
 import StaleDealIndicator from './deals/StaleDealIndicator';
 import { SLAIndicator } from './deals/SLAIndicator';
@@ -68,6 +70,8 @@ interface AIEnhancedDealCardProps {
   onDelete?: (dealId: string) => void;
   isOpenAIFunctionCalling?: boolean;
   openAIResult?: any;
+  /** Quick-edit: click the title, value or priority chip to edit in place (optimistic, rolls back on failure). */
+  onQuickUpdate?: (updates: Partial<Deal>) => Promise<unknown> | void;
 }
 
 export const AIEnhancedDealCard: React.FC<AIEnhancedDealCardProps> = ({
@@ -87,8 +91,10 @@ export const AIEnhancedDealCard: React.FC<AIEnhancedDealCardProps> = ({
   onEdit,
   onDelete,
   isOpenAIFunctionCalling = false,
-  openAIResult
+  openAIResult,
+  onQuickUpdate
 }) => {
+  const { meta } = useStageMeta();
   const [showAIInsights, setShowAIInsights] = useState(false);
   const [localAnalyzing, setLocalAnalyzing] = useState(false);
   const [localEnriching, setLocalEnriching] = useState(false);
@@ -129,17 +135,6 @@ export const AIEnhancedDealCard: React.FC<AIEnhancedDealCardProps> = ({
       case 'medium': return 'Medium Priority';
       case 'low': return 'Low Priority';
       default: return 'Normal Priority';
-    }
-  };
-
-  const getStageColor = (stage: string) => {
-    switch (stage) {
-      case 'qualification': return 'bg-blue-500';
-      case 'proposal': return 'bg-indigo-500';
-      case 'negotiation': return 'bg-purple-500';
-      case 'closed-won': return 'bg-green-500';
-      case 'closed-lost': return 'bg-red-500';
-      default: return 'bg-gray-500';
     }
   };
 
@@ -447,7 +442,16 @@ export const AIEnhancedDealCard: React.FC<AIEnhancedDealCardProps> = ({
         <div className="flex items-start justify-between mb-4 mt-4 text-gray-900 dark:text-white">
           <div className="flex-1 min-w-0">
             <h3 className="text-gray-900 dark:text-white font-semibold text-lg mb-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors truncate">
-              {deal.title}
+              {onQuickUpdate ? (
+                <TextCell
+                  label="Title"
+                  value={deal.title ?? ''}
+                  required
+                  onCommit={v => onQuickUpdate({ title: v })}
+                  display={v => v || <span className="text-gray-400">Untitled</span>}
+                  className="truncate"
+                />
+              ) : deal.title}
             </h3>
             
             {/* Company Info with Avatar */}
@@ -581,6 +585,11 @@ export const AIEnhancedDealCard: React.FC<AIEnhancedDealCardProps> = ({
         )}
 
         {/* Priority Level */}
+        {onQuickUpdate ? (
+          <div className="flex items-center justify-center mb-4">
+            <PriorityDotCell label="Priority" value={deal.priority} onCommit={v => onQuickUpdate({ priority: v })} />
+          </div>
+        ) : (
         <Tooltip content={`Priority: ${getPriorityLabel(deal.priority)} - Determines urgency and resource allocation`} position="top">
           <div className="flex items-center justify-center space-x-2 mb-4">
             <div className={`w-2 h-2 rounded-full ${getPriorityColor(deal.priority)} animate-pulse`} />
@@ -589,6 +598,7 @@ export const AIEnhancedDealCard: React.FC<AIEnhancedDealCardProps> = ({
             </span>
           </div>
         </Tooltip>
+        )}
 
         {/* Compact health / stale / SLA indicators (feature-flagged) */}
         {indicators && (indicators.health || indicators.stale || indicators.sla) && (
@@ -597,7 +607,7 @@ export const AIEnhancedDealCard: React.FC<AIEnhancedDealCardProps> = ({
               <DealHealthIndicator healthScore={deal.healthScore} healthFactors={deal.healthFactors ?? []} compact />
             )}
             {indicators.stale && <StaleDealIndicator deal={deal} />}
-            {indicators.sla && !deal.stage.startsWith('closed') && (
+            {indicators.sla && !meta(deal.stage).isWon && !meta(deal.stage).isLost && (
               <SLAIndicator
                 dealId={deal.id}
                 compact
@@ -613,6 +623,7 @@ export const AIEnhancedDealCard: React.FC<AIEnhancedDealCardProps> = ({
         <ErrorBoundary fallback={<div className="p-2 text-red-500 text-xs">Metadata component failed</div>}>
           <DealCardMetadata
             deal={deal}
+            onQuickUpdate={onQuickUpdate}
             onAnalyze={onAnalyze ? () => handleAnalyzeClick({ stopPropagation: () => {} } as any) : undefined}
             onAIEnrich={onAIEnrich ? () => handleAIEnrichClick({ stopPropagation: () => {} } as any) : undefined}
             isAnalyzing={analyzing}

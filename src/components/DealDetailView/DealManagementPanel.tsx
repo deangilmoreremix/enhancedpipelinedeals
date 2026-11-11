@@ -7,8 +7,6 @@ import DealHealthIndicator from '../deals/DealHealthIndicator';
 import WinProbabilityCalculator from '../deals/WinProbabilityCalculator';
 import DealTimeline from '../deals/DealTimeline';
 import DealTemplates from '../deals/DealTemplates';
-import BulkDealActions from '../deals/BulkDealActions';
-import { BulkActionResult } from '../../types';
 
 interface DealManagementPanelProps {
   deal: Deal;
@@ -25,11 +23,8 @@ const DealManagementPanel: React.FC<DealManagementPanelProps> = ({
     deal_health: false,
     win_probability: false,
     deal_templates: false,
-    bulk_actions: false,
     deal_timeline: false
   });
-  const [showBulkActions, setShowBulkActions] = useState(false);
-  const [selectedDeals, setSelectedDeals] = useState<Deal[]>([deal]);
 
   useEffect(() => {
     checkFeatureFlags();
@@ -54,7 +49,6 @@ const DealManagementPanel: React.FC<DealManagementPanelProps> = ({
       deal_health: dealHealth,
       win_probability: winProbability,
       deal_templates: dealTemplates,
-      bulk_actions: bulkActions,
       deal_timeline: dealTimeline
     });
   };
@@ -76,15 +70,6 @@ const DealManagementPanel: React.FC<DealManagementPanelProps> = ({
       await onUpdate(deal.id, {});
     } catch (error) {
       console.error('Error refreshing deal probability:', error);
-    }
-  };
-
-  const handleBulkActionComplete = (results: BulkActionResult[]) => {
-    setShowBulkActions(false);
-    // Refresh deal data if this deal was affected
-    const thisDealResult = results.find(r => r.dealId === deal.id);
-    if (thisDealResult?.success) {
-      onUpdate(deal.id, {});
     }
   };
 
@@ -139,35 +124,6 @@ const DealManagementPanel: React.FC<DealManagementPanelProps> = ({
         />
       )}
 
-      {/* Bulk Actions */}
-      {featuresEnabled.bulk_actions && (
-        <div className="bg-white rounded-lg border p-4">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-gray-900">Bulk Actions</h3>
-            <button
-              onClick={() => setShowBulkActions(true)}
-              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
-            >
-              Open Bulk Actions
-            </button>
-          </div>
-          <p className="text-sm text-gray-600">
-            Perform bulk operations on multiple deals. This feature allows you to update stages,
-            assign owners, add tags, and more across selected deals.
-          </p>
-        </div>
-      )}
-
-      {/* Bulk Actions Modal */}
-      {showBulkActions && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <BulkDealActions
-            selectedDeals={selectedDeals}
-            onActionComplete={handleBulkActionComplete}
-            onClose={() => setShowBulkActions(false)}
-          />
-        </div>
-      )}
     </div>
   );
 };

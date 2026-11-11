@@ -1,5 +1,5 @@
 import { useDealStore } from '../store/dealStore';
-import { DEFAULT_STAGES } from '../services/pipelineStageService';
+import { DEFAULT_STAGES } from './defaultStages';
 import { getStageMeta, isLostStage, isOpenStage, isWonStage, stageColorClasses } from './stageMeta';
 
 // Pure helpers live in stageMeta.ts (no store import, safe for services); re-exported here as the public API.

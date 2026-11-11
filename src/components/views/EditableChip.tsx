@@ -1,4 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useStageMeta } from '../../utils/stageUtils';
+import { sortedStages } from '../../utils/stageMeta';
 import { FilterCondition } from '../ui/AdvancedFilter';
 import { X, Edit2, Check, Tag } from 'lucide-react';
 
@@ -64,6 +66,7 @@ export const EditableChip: React.FC<EditableChipProps> = ({
   availableFields = DEFAULT_FIELDS,
   editMode = false
 }) => {
+  const { stages: stageList } = useStageMeta();
   const [internalEditMode, setInternalEditMode] = useState(editMode);
   const [field, setField] = useState(filter?.field || availableFields[0].id);
   const [operator, setOperator] = useState(filter?.operator || 'eq');
@@ -124,13 +127,7 @@ export const EditableChip: React.FC<EditableChipProps> = ({
             { id: 'medium', label: 'Medium' },
             { id: 'low', label: 'Low' }
           ],
-          stage: [
-            { id: 'qualification', label: 'Qualification' },
-            { id: 'proposal', label: 'Proposal' },
-            { id: 'negotiation', label: 'Negotiation' },
-            { id: 'closed-won', label: 'Closed Won' },
-            { id: 'closed-lost', label: 'Closed Lost' }
-          ]
+          stage: sortedStages(stageList).map(st => ({ id: st.key, label: st.name }))
         };
         return (
           <select

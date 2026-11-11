@@ -1,6 +1,7 @@
 import { supabase } from './supabaseService';
 import { Deal, ProbabilityFactor, DealActivity } from '../types';
 
+import { getActiveStages, getStageMeta, openStageKeys } from '../utils/stageMeta';
 /**
  * Service for calculating advanced win probability for deals
  */
@@ -74,15 +75,16 @@ export class DealProbabilityService {
     }
 
     // Stage-based historical conversion
-    const stageMultipliers = {
-      'qualification': 0.8,
-      'proposal': 1.2,
-      'negotiation': 1.5,
-      'closed-won': 2.0,
-      'closed-lost': 0.1
-    };
+    // Won deals count double, lost barely; open stages scale from 0.8 (first) to 1.5 (last) along the pipeline
+    const stageMeta = getStageMeta(getActiveStages(), deal.stage);
+    const openKeys = openStageKeys();
+    const openIdx = openKeys.indexOf(deal.stage);
+    let multiplier = 1;
+    if (stageMeta.isWon) multiplier = 2.0;
+    else if (stageMeta.isLost) multiplier = 0.1;
+    else if (openIdx >= 0 && openKeys.length > 1) multiplier = 0.8 + (openIdx / (openKeys.length - 1)) * 0.7;
 
-    impact *= stageMultipliers[deal.stage as keyof typeof stageMultipliers] || 1;
+    impact *= multiplier;
 
     return {
       id: `historical-${deal.id}`,

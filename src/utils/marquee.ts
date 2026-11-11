@@ -33,5 +33,5 @@ export function applyMarqueeSelection(current: string[], hit: string[], additive
 export function isMarqueeBlocked(target: EventTarget | null): boolean {
   const el = target as HTMLElement | null;
   if (!el || typeof el.closest !== 'function') return true;
-  return !!el.closest('[data-deal-id], button, input, select, textarea, a, [role="button"], [role="listbox"], [role="menu"], [contenteditable="true"], [data-no-marquee]');
+  return !!el.closest('[data-deal-id], button, input, select, textarea, a, [role="button"], [role="listbox"], [role="menu"], [contenteditable="true"], [data-rfd-drag-handle-draggable-id], [data-no-marquee]');
 }

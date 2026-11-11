@@ -3,6 +3,7 @@
  * Advanced reporting and insights for sales pipeline performance
  */
 
+import { getActiveStages, openStageKeys, sortedStages, stageIsLost, stageIsWon } from '../utils/stageMeta';
 interface PipelineMetrics {
   totalDeals: number;
   totalValue: number;
@@ -69,7 +70,7 @@ class PipelineAnalyticsService {
       const totalValue = deals.reduce((sum, deal) => sum + (deal.value || 0), 0);
       const averageDealSize = totalDeals > 0 ? totalValue / totalDeals : 0;
 
-      const closedDeals = deals.filter(deal => deal.stage === 'closed-won');
+      const closedDeals = deals.filter(deal => stageIsWon(deal.stage));
       const conversionRate = totalDeals > 0 ? (closedDeals.length / totalDeals) * 100 : 0;
 
       const velocity = this.calculateAverageVelocity(deals);
@@ -103,7 +104,7 @@ class PipelineAnalyticsService {
 
     try {
       const deals = await this.getDealsData();
-      const stages = ['qualification', 'proposal', 'negotiation', 'closed-won', 'closed-lost'];
+      const stages = sortedStages(getActiveStages()).map(st => st.key);
 
       const analytics: StageAnalytics[] = stages.map(stage => {
         const stageDeals = deals.filter(deal => deal.stage === stage);
@@ -173,13 +174,13 @@ class PipelineAnalyticsService {
         ).length;
 
         const dealsClosed = deals.filter(deal =>
-          deal.stage === 'closed-won' &&
+          stageIsWon(deal.stage) &&
           new Date(deal.updatedAt) >= periodStart &&
           new Date(deal.updatedAt) <= periodEnd
         ).length;
 
         const revenue = deals
-          .filter(deal => deal.stage === 'closed-won')
+          .filter(deal => stageIsWon(deal.stage))
           .reduce((sum, deal) => sum + (deal.value || 0), 0);
 
         // Calculate growth (compared to previous period)
@@ -290,7 +291,7 @@ class PipelineAnalyticsService {
 
   private calculateAverageVelocity(deals: any[]): number {
     const closedDeals = deals.filter(deal =>
-      deal.stage === 'closed-won' && deal.createdAt && deal.updatedAt
+      stageIsWon(deal.stage) && deal.createdAt && deal.updatedAt
     );
 
     if (closedDeals.length === 0) return 0;
@@ -307,12 +308,12 @@ class PipelineAnalyticsService {
 
   private calculateWinRate(deals: any[]): number {
     const closedDeals = deals.filter(deal =>
-      deal.stage === 'closed-won' || deal.stage === 'closed-lost'
+      stageIsWon(deal.stage) || stageIsLost(deal.stage)
     );
 
     if (closedDeals.length === 0) return 0;
 
-    const wonDeals = closedDeals.filter(deal => deal.stage === 'closed-won').length;
+    const wonDeals = closedDeals.filter(deal => stageIsWon(deal.stage)).length;
     return Math.round((wonDeals / closedDeals.length) * 100);
   }
 
@@ -341,7 +342,7 @@ class PipelineAnalyticsService {
   }
 
   private analyzeStageDistribution(deals: any[]): { score: number; analysis: string } {
-    const stages = ['qualification', 'proposal', 'negotiation'];
+    const stages = openStageKeys();
     const totalDeals = deals.length;
 
     if (totalDeals === 0) return { score: 0, analysis: 'No deals in pipeline' };
@@ -355,7 +356,7 @@ class PipelineAnalyticsService {
 
       // Ideal distribution: 40% qualification, 30% proposal, 20% negotiation
       const idealPercentages = [40, 30, 20];
-      const ideal = idealPercentages[index];
+      const ideal = idealPercentages[index] ?? 10;
 
       const deviation = Math.abs(percentage - ideal);
       const stageScore = Math.max(0, 10 - deviation);
@@ -416,7 +417,8 @@ class PipelineAnalyticsService {
   }
 
   private getNextStage(stage: string): string | null {
-    const stages = ['qualification', 'proposal', 'negotiation', 'closed-won'];
+    // Next stage in pipeline order, skipping lost stages (a lost stage is not a conversion)
+    const stages = sortedStages(getActiveStages()).filter(st => !st.isLost).map(st => st.key);
     const index = stages.indexOf(stage);
     return index >= 0 && index < stages.length - 1 ? stages[index + 1] : null;
   }

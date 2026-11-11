@@ -1,4 +1,6 @@
 import React, { useState, useMemo } from 'react';
+import { useStageMeta } from '../../utils/stageUtils';
+import { getStageMeta, stageColorClasses, stageHex } from '../../utils/stageMeta';
 import { Deal, CalendarViewConfig } from '../../types';
 import { Calendar, ChevronLeft, ChevronRight, Clock, Users, DollarSign } from 'lucide-react';
 
@@ -17,6 +19,7 @@ export const AdvancedCalendarView: React.FC<AdvancedCalendarViewProps> = ({
   onDateClick,
   onEventClick
 }) => {
+  const { stages: stageList } = useStageMeta();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
 
@@ -45,14 +48,7 @@ export const AdvancedCalendarView: React.FC<AdvancedCalendarViewProps> = ({
           const colorValue = deal[colorField as keyof Deal];
           if (colorValue && typeof colorValue === 'string') {
             // Map stage to color
-            const stageColors: Record<string, string> = {
-              'qualification': '#3b82f6',
-              'proposal': '#6366f1',
-              'negotiation': '#f59e0b',
-              'closed-won': '#10b981',
-              'closed-lost': '#ef4444'
-            };
-            color = stageColors[colorValue] || color;
+            color = colorField === 'stage' ? stageHex(getStageMeta(stageList, colorValue).color) : color;
           }
         }
 
@@ -77,7 +73,7 @@ export const AdvancedCalendarView: React.FC<AdvancedCalendarViewProps> = ({
     });
 
     return events;
-  }, [deals, config]);
+  }, [deals, config, stageList]);
 
   // Get events for a specific date
   const getEventsForDate = (date: Date) => {
@@ -351,12 +347,11 @@ export const AdvancedCalendarView: React.FC<AdvancedCalendarViewProps> = ({
                         <DollarSign className="w-4 h-4" />
                         ${event.deal.value.toLocaleString()}
                       </div>
-                      <div className={`px-2 py-1 rounded-full text-xs ${
-                        event.deal.stage === 'closed-won' ? 'bg-green-100 text-green-800' :
-                        event.deal.stage === 'closed-lost' ? 'bg-red-100 text-red-800' :
-                        'bg-blue-100 text-blue-800'
-                      }`}>
-                        {event.deal.stage.replace('-', ' ').toUpperCase()}
+                      <div
+                        style={stageColorClasses(getStageMeta(stageList, event.deal.stage).color).style}
+                        className={`px-2 py-1 rounded-full text-xs ${stageColorClasses(getStageMeta(stageList, event.deal.stage).color).chip}`}
+                      >
+                        {getStageMeta(stageList, event.deal.stage).name.toUpperCase()}
                       </div>
                     </div>
                   </div>

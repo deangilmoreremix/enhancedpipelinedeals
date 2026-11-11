@@ -5,7 +5,7 @@ import { searchDeals } from '../services/dealSearchService';
 import { BoardGroupBy, presetForSorting, useBoardViewStore } from '../store/boardViewStore';
 import type { BoardSortKey } from '../components/pipeline/kanban/kanbanUtils';
 import type { BoardGrouping } from '../components/pipeline/KanbanBoard';
-import { DEFAULT_STAGES } from '../services/pipelineStageService';
+import { DEFAULT_STAGES } from '../utils/defaultStages';
 import { sortViewDeals } from '../utils/viewDeals';
 
 export const SEARCH_DEBOUNCE_MS = 200;

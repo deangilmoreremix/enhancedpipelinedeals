@@ -1,6 +1,7 @@
 import { supabase, isSupabaseConfigured } from './supabaseService';
 import { Deal, HealthFactor, ProbabilityFactor, DealActivity } from '../types';
 
+import { getActiveStages, getStageMeta, openStageKeys } from '../utils/stageMeta';
 /**
  * Service for calculating and managing deal health indicators
  */
@@ -221,14 +222,15 @@ export class DealHealthService {
    * Get stage progress score (0-100)
    */
   private static getStageProgressScore(stage: string): number {
-    const stageScores = {
-      'qualification': 20,
-      'proposal': 60,
-      'negotiation': 80,
-      'closed-won': 100,
-      'closed-lost': 0
-    };
-    return stageScores[stage as keyof typeof stageScores] || 0;
+    // Progress through the configured pipeline: won = 100, lost = 0, open stages by position
+    const m = getStageMeta(getActiveStages(), stage);
+    if (m.isWon) return 100;
+    if (m.isLost || m.unknown) return 0;
+    const open = openStageKeys();
+    const idx = open.indexOf(stage);
+    if (idx < 0) return 0;
+    // 20 for the first open stage, up to 80 for the last (matches the previous 20/60/80 spread)
+    return open.length === 1 ? 50 : Math.round(20 + (idx / (open.length - 1)) * 60);
   }
 
   /**

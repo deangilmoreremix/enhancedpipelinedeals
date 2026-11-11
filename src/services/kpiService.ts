@@ -6,6 +6,7 @@
 import { getSupabaseService } from './supabaseService';
 import { getPipelineAnalyticsService } from './pipelineAnalyticsService';
 
+import { loadStageKeys } from '../utils/stageMeta';
 export interface KPI {
   id: string;
   name: string;
@@ -301,11 +302,13 @@ class KPIService {
   /**
    * Get predefined KPI templates
    */
+  // NOTE: the quoted stage names inside the template formulas below are legacy formula identifiers (they are stored with
+  // saved KPIs and matched in executeKPIFormula); the calculations themselves resolve won stages from pipeline_stages.
   getKPITemplates(): Array<Omit<KPI, 'id' | 'createdAt' | 'updatedAt'>> {
     return [
       {
         name: 'Monthly Revenue',
-        description: 'Total revenue from closed deals in the current month',
+        description: 'Total revenue from won deals in the current month',
         formula: 'SUM(deals.value WHERE stage = "closed-won" AND closed_date >= period_start AND closed_date <= period_end)',
         dataSource: 'deals',
         targetValue: 50000,
@@ -315,7 +318,7 @@ class KPIService {
       },
       {
         name: 'Conversion Rate',
-        description: 'Percentage of deals that convert to closed-won',
+        description: 'Percentage of deals that reach a won stage',
         formula: '(COUNT(deals WHERE stage = "closed-won") / COUNT(deals)) * 100',
         dataSource: 'deals',
         targetValue: 25,
@@ -437,10 +440,11 @@ class KPIService {
   private async calculateRevenueSum(periodStart: Date, periodEnd: Date): Promise<number> {
     const supabase = (this.supabaseService as any).supabase;
 
+    const wonKeys = await loadStageKeys('won');
     const { data, error } = await supabase
       .from('deals')
       .select('value')
-      .eq('stage', 'closed-won')
+      .in('stage', wonKeys)
       .gte('updated_at', periodStart.toISOString())
       .lte('updated_at', periodEnd.toISOString());
 
@@ -460,8 +464,9 @@ class KPIService {
 
     if (error) throw error;
 
+    const wonKeys = new Set(await loadStageKeys('won'));
     const total = data?.length || 0;
-    const won = data?.filter((d: any) => d.stage === 'closed-won').length || 0;
+    const won = data?.filter((d: any) => wonKeys.has(d.stage)).length || 0;
 
     return total > 0 ? (won / total) * 100 : 0;
   }
@@ -469,10 +474,11 @@ class KPIService {
   private async calculateAverageDealSize(periodStart: Date, periodEnd: Date): Promise<number> {
     const supabase = (this.supabaseService as any).supabase;
 
+    const wonKeys = await loadStageKeys('won');
     const { data, error } = await supabase
       .from('deals')
       .select('value')
-      .eq('stage', 'closed-won')
+      .in('stage', wonKeys)
       .gte('updated_at', periodStart.toISOString())
       .lte('updated_at', periodEnd.toISOString());
 

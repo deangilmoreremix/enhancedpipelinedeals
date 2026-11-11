@@ -1,4 +1,6 @@
 import React from 'react';
+import { useStageMeta } from '../../utils/stageUtils';
+import { stageColorClasses } from '../../utils/stageMeta';
 import { Deal } from '../../types';
 import { DollarSign, TrendingUp, Target, BarChart3 } from 'lucide-react';
 import { Tooltip } from '../ui/Tooltip';
@@ -101,16 +103,8 @@ const WeightedPipelineTotal: React.FC<WeightedPipelineTotalProps> = ({
     }
   ];
 
-  const getStageColor = (stage: string) => {
-    const colors: Record<string, string> = {
-      qualification: 'bg-blue-100 text-blue-700',
-      proposal: 'bg-yellow-100 text-yellow-700',
-      negotiation: 'bg-orange-100 text-orange-700',
-      'closed-won': 'bg-green-100 text-green-700',
-      'closed-lost': 'bg-red-100 text-red-700'
-    };
-    return colors[stage] || 'bg-gray-100 text-gray-700';
-  };
+  const { meta } = useStageMeta();
+  const getStageColor = (stage: string) => stageColorClasses(meta(stage).color).chip;
 
   return (
     <div className="space-y-6">
@@ -152,8 +146,8 @@ const WeightedPipelineTotal: React.FC<WeightedPipelineTotalProps> = ({
                 {Object.entries(stats.stageBreakdown).map(([stage, data]) => (
                   <tr key={stage} className="border-b border-gray-100 dark:border-gray-700 last:border-0">
                     <td className="py-3">
-                      <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-medium ${getStageColor(stage)}`}>
-                        {stage.replace(/-/g, ' ')}
+                      <span style={stageColorClasses(meta(stage).color).style} className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-medium ${getStageColor(stage)}`}>
+                        {meta(stage).name}
                       </span>
                     </td>
                     <td className="text-right py-3 font-medium">{data.count}</td>

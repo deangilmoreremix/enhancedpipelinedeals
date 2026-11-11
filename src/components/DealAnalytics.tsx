@@ -29,6 +29,8 @@ import {
   ChevronDown
 } from 'lucide-react';
 import { Deal } from '../types';
+import { useStageMeta } from '../utils/stageUtils';
+import { sortedStages, stageHex, stageKeysWhere } from '../utils/stageMeta';
 
 interface DealAnalyticsProps {
   deals: Record<string, Deal>;
@@ -53,15 +55,19 @@ interface PipelineStage {
 
 const DealAnalytics: React.FC<DealAnalyticsProps> = ({ deals, contacts = [] }) => {
   const [selectedPeriod, setSelectedPeriod] = useState<'week' | 'month' | 'quarter'>('month');
+  const { stages } = useStageMeta();
+  const wonKeys = useMemo(() => new Set(stageKeysWhere(stages, 'won')), [stages]);
+  const lostKeys = useMemo(() => new Set(stageKeysWhere(stages, 'lost')), [stages]);
+  const openStageList = useMemo(() => sortedStages(stages).filter(st => !st.isWon && !st.isLost), [stages]);
 
   // Calculate KPI metrics
   const calculateKPIs = (): KPIMetric[] => {
     const dealsArray = deals ? Object.values(deals) : [];
     const totalRevenue = dealsArray
-      .filter(deal => deal.stage === 'closed-won')
+      .filter(deal => wonKeys.has(deal.stage))
       .reduce((sum, deal) => sum + deal.value, 0);
     const totalDeals = dealsArray.length;
-    const wonDeals = dealsArray.filter(deal => deal.stage === 'closed-won').length;
+    const wonDeals = dealsArray.filter(deal => wonKeys.has(deal.stage)).length;
     const conversionRate = totalDeals > 0 ? (wonDeals / totalDeals) * 100 : 0;
     const totalContacts = contacts?.length || 0;
     const avgDealSize = wonDeals > 0 ? totalRevenue / wonDeals : 0;
@@ -108,48 +114,28 @@ const DealAnalytics: React.FC<DealAnalyticsProps> = ({ deals, contacts = [] }) =
     const stageValues: Record<string, number> = {};
     const dealCounts: Record<string, number> = {};
     
-    ['qualification', 'proposal', 'negotiation', 'closed-won', 'closed-lost'].forEach(stage => {
+    sortedStages(stages).forEach(({ key: stage }) => {
       const stageDeals = dealsArray.filter(deal => deal.stage === stage);
       stageValues[stage] = stageDeals.reduce((sum, deal) => sum + deal.value, 0);
       dealCounts[stage] = stageDeals.length;
     });
 
     return { stageValues, dealCounts };
-  }, [deals]);
+  }, [deals, stages]);
 
-  // Enhanced pipeline stage data with colors
-  const pipelineStageData: PipelineStage[] = [
-    {
-      name: 'Qualification',
-      value: stageData.stageValues.qualification || 0,
-      deals: stageData.dealCounts.qualification || 0,
-      color: '#3B82F6'
-    },
-    {
-      name: 'Proposal',
-      value: stageData.stageValues.proposal || 0,
-      deals: stageData.dealCounts.proposal || 0,
-      color: '#8B5CF6'
-    },
-    {
-      name: 'Negotiation',
-      value: stageData.stageValues.negotiation || 0,
-      deals: stageData.dealCounts.negotiation || 0,
-      color: '#F59E0B'
-    },
-    {
-      name: 'Won',
-      value: stageData.stageValues['closed-won'] || 0,
-      deals: stageData.dealCounts['closed-won'] || 0,
-      color: '#10B981'
-    },
-    {
-      name: 'Lost',
-      value: stageData.stageValues['closed-lost'] || 0,
-      deals: stageData.dealCounts['closed-lost'] || 0,
-      color: '#EF4444'
-    }
-  ];
+  const sumKeys = (rec: Record<string, number>, keys: Iterable<string>) => {
+    let n = 0;
+    for (const k of keys) n += rec[k] || 0;
+    return n;
+  };
+
+  // Enhanced pipeline stage data with colors (one entry per configured stage)
+  const pipelineStageData: PipelineStage[] = sortedStages(stages).map(st => ({
+    name: st.name,
+    value: stageData.stageValues[st.key] || 0,
+    deals: stageData.dealCounts[st.key] || 0,
+    color: stageHex(st.color)
+  }));
 
   // Generate trend data for chart
   const generateTrendData = () => {
@@ -160,7 +146,7 @@ const DealAnalytics: React.FC<DealAnalyticsProps> = ({ deals, contacts = [] }) =
       month,
       revenue: Math.floor(totalValue * (0.7 + Math.random() * 0.6) / 6),
       deals: Math.floor(Object.keys(deals).length * (0.8 + Math.random() * 0.4) / 6),
-      pipeline: Math.floor((stageData.stageValues.qualification + stageData.stageValues.proposal + stageData.stageValues.negotiation) * (0.6 + Math.random() * 0.8) / 6)
+      pipeline: Math.floor(sumKeys(stageData.stageValues, openStageList.map(st => st.key)) * (0.6 + Math.random() * 0.8) / 6)
     }));
   };
 
@@ -169,33 +155,33 @@ const DealAnalytics: React.FC<DealAnalyticsProps> = ({ deals, contacts = [] }) =
 
   // Calculate value by status
   const valueByStatus = {
-    active: (stageData.stageValues.qualification || 0) + (stageData.stageValues.proposal || 0) + (stageData.stageValues.negotiation || 0),
-    won: stageData.stageValues['closed-won'] || 0,
-    lost: stageData.stageValues['closed-lost'] || 0
+    active: sumKeys(stageData.stageValues, openStageList.map(st => st.key)),
+    won: sumKeys(stageData.stageValues, wonKeys),
+    lost: sumKeys(stageData.stageValues, lostKeys)
   };
 
   // Convert to array format for charts
-  const stageDataArray = Object.entries(stageData.dealCounts).map(([stage, count]) => ({
-    stage: stage === 'closed-won' ? 'Won' : 
-           stage === 'closed-lost' ? 'Lost' :
-           stage === 'qualification' ? 'Qualified' : 
-           stage === 'proposal' ? 'Proposed' : 'Negotiating',
-    count
-  }));
+  const stageDataArray = sortedStages(stages).map(st => ({ stage: st.name, count: stageData.dealCounts[st.key] || 0 }));
 
-  // Calculate conversion rates between stages
-  const calculateConversionRate = (fromStage: string, toStage: string) => {
-    const fromCount = stageData.dealCounts[fromStage as keyof typeof stageData.dealCounts];
-    const toCount = stageData.dealCounts[toStage as keyof typeof stageData.dealCounts];
-    
-    return fromCount > 0 ? Math.round((toCount / fromCount) * 100) : 0;
-  };
+  // Conversion between consecutive open stages, and from the last open stage to won
+  const firstWon = sortedStages(stages).find(st => st.isWon);
+  const conversionTiles = (() => {
+    const tiles: Array<{ label: string; rate: number }> = [];
+    const rate = (from: string, to: string) => {
+      const fromCount = stageData.dealCounts[from] || 0;
+      const toCount = stageData.dealCounts[to] || 0;
+      return fromCount > 0 ? Math.round((toCount / fromCount) * 100) : 0;
+    };
+    for (let i = 0; i + 1 < openStageList.length; i++) {
+      tiles.push({ label: `${openStageList[i].name} → ${openStageList[i + 1].name}`, rate: rate(openStageList[i].key, openStageList[i + 1].key) });
+    }
+    const last = openStageList[openStageList.length - 1];
+    if (last && firstWon) tiles.push({ label: `${last.name} → ${firstWon.name}`, rate: rate(last.key, firstWon.key) });
+    return tiles;
+  })();
 
-  const conversionRates = {
-    qualToProposal: calculateConversionRate('qualification', 'proposal'),
-    proposalToNegotiation: calculateConversionRate('proposal', 'negotiation'),
-    negotiationToWon: calculateConversionRate('negotiation', 'closed-won')
-  };
+  const totalDealCount = Object.values(stageData.dealCounts).reduce((a, b) => a + b, 0);
+  const wonDealCount = sumKeys(stageData.dealCounts, wonKeys);
 
   return (
     <div className="space-y-6 mb-8">
@@ -436,18 +422,12 @@ const DealAnalytics: React.FC<DealAnalyticsProps> = ({ deals, contacts = [] }) =
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <h3 className="text-base font-semibold text-gray-900 mb-4">Conversion Rates</h3>
           <div className="grid grid-cols-1 gap-2 mb-4">
-            <div className="border border-indigo-100 bg-indigo-50 rounded-lg p-3 text-center">
-              <p className="text-xs text-indigo-600 mb-1">Qual → Proposal</p>
-              <p className="text-lg font-medium">{conversionRates.qualToProposal}%</p>
-            </div>
-            <div className="border border-indigo-100 bg-indigo-50 rounded-lg p-3 text-center">
-              <p className="text-xs text-indigo-600 mb-1">Prop → Negotiation</p>
-              <p className="text-lg font-medium">{conversionRates.proposalToNegotiation}%</p>
-            </div>
-            <div className="border border-indigo-100 bg-indigo-50 rounded-lg p-3 text-center">
-              <p className="text-xs text-indigo-600 mb-1">Neg → Won</p>
-              <p className="text-lg font-medium">{conversionRates.negotiationToWon}%</p>
-            </div>
+            {conversionTiles.map(t => (
+              <div key={t.label} className="border border-indigo-100 bg-indigo-50 rounded-lg p-3 text-center">
+                <p className="text-xs text-indigo-600 mb-1">{t.label}</p>
+                <p className="text-lg font-medium">{t.rate}%</p>
+              </div>
+            ))}
           </div>
           
           {/* Quick Stats Summary */}
@@ -472,7 +452,7 @@ const DealAnalytics: React.FC<DealAnalyticsProps> = ({ deals, contacts = [] }) =
                 <span className="text-xs text-gray-500">Win Rate</span>
                 <div className="flex items-center">
                   <ArrowUp size={16} className="text-green-600" />
-                  <span className="text-sm font-medium">{((stageData.dealCounts['closed-won'] || 0) / Object.values(stageData.dealCounts).reduce((a, b) => a + b, 0) * 100).toFixed(0)}%</span>
+                  <span className="text-sm font-medium">{(totalDealCount > 0 ? (wonDealCount / totalDealCount) * 100 : 0).toFixed(0)}%</span>
                 </div>
               </div>
             </div>

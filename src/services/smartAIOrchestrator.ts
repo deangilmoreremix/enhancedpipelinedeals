@@ -6,6 +6,7 @@
 import { getMonitoringService } from './monitoringService';
 import { validateContactData, validateDealData } from '../utils/validation';
 
+import { loadStageKeys, stageIsLost, stageIsWon } from '../utils/stageMeta';
 // Task types for intelligent model routing
 export type AiTask =
   | "contact_analyze"
@@ -153,11 +154,13 @@ export class CRMContextBuilder {
         .limit(10);
 
       // Fetch current deals
-      const { data: deals } = await supabase
+      const closedKeys = await loadStageKeys('closed');
+      let dealsQuery = supabase
         .from('deals')
         .select('*')
-        .eq('contact_id', contactId)
-        .not('stage', 'in', '(closed-won,closed-lost)');
+        .eq('contact_id', contactId);
+      if (closedKeys.length > 0) dealsQuery = dealsQuery.not('stage', 'in', `(${closedKeys.join(',')})`);
+      const { data: deals } = await dealsQuery;
 
       return {
         contactId,
@@ -254,9 +257,9 @@ export class CRMContextBuilder {
     const deals = await this.loadDeals();
     const stageDistribution: Record<string, number> = {};
     deals.forEach(d => { stageDistribution[d.stage] = (stageDistribution[d.stage] || 0) + 1; });
-    const won = deals.filter(d => d.stage === 'closed-won');
-    const closed = deals.filter(d => d.stage === 'closed-won' || d.stage === 'closed-lost');
-    const open = deals.filter(d => !String(d.stage).startsWith('closed'));
+    const won = deals.filter(d => stageIsWon(d.stage));
+    const closed = deals.filter(d => stageIsWon(d.stage) || stageIsLost(d.stage));
+    const open = deals.filter(d => !stageIsWon(d.stage) && !stageIsLost(d.stage));
     const avg = deals.length ? deals.reduce((n, d) => n + (Number(d.value) || 0), 0) / deals.length : 0;
     return {
       entityId,
@@ -273,14 +276,14 @@ export class CRMContextBuilder {
   static async buildGlobalAnalyticsSnapshot(workspaceId: string): Promise<any> {
     const pipeline = await this.buildPipelineSnapshot(workspaceId);
     const deals = await this.loadDeals();
-    const open = deals.filter(d => !String(d.stage).startsWith('closed'));
+    const open = deals.filter(d => !stageIsWon(d.stage) && !stageIsLost(d.stage));
     const weighted = open.reduce((n, d) => n + (Number(d.value) || 0) * ((Number(d.probability) || 0) / 100), 0);
     return {
       workspaceId,
       kpis: {
         openPipelineValue: open.reduce((n, d) => n + (Number(d.value) || 0), 0),
         weightedPipelineValue: Math.round(weighted),
-        wonValue: deals.filter(d => d.stage === 'closed-won').reduce((n, d) => n + (Number(d.value) || 0), 0),
+        wonValue: deals.filter(d => stageIsWon(d.stage)).reduce((n, d) => n + (Number(d.value) || 0), 0),
       },
       pipeline,
     };

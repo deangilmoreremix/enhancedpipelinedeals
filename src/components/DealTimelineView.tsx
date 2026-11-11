@@ -1,41 +1,32 @@
 import React, { useMemo, useState } from 'react';
 import { Deal } from '../types';
+import { useStageMeta } from '../utils/stageUtils';
+import { stageColorClasses } from '../utils/stageMeta';
+import { formatMoneyCompact, totalsOf } from '../utils/viewDeals';
+import { useViewSelection } from '../hooks/useViewSelection';
+import { BulkActionBar } from './pipeline/BulkActionBar';
+import { useViewToasts } from './pipeline/ViewToasts';
 import {
   Clock, DollarSign, TrendingUp, Building2, User, Star,
-  Calendar, Sparkles, CheckCircle, XCircle, AlertCircle,
+  Calendar, Sparkles, CheckCircle, XCircle,
   ArrowRight, Filter
 } from 'lucide-react';
 
-interface DealTimelineViewProps {
-  deals: Record<string, Deal>;
+export interface DealTimelineViewProps {
+  /** Filtered AND sorted deals (Pipeline's single `viewDeals`). */
+  deals: Deal[];
   onDealClick: (dealId: string) => void;
-  onDealUpdate: (dealId: string, updates: Partial<Deal>) => void;
-  searchTerm: string;
-  filterStage: string;
+  onDealUpdate?: (dealId: string, updates: Partial<Deal>) => Promise<unknown> | void;
+  isFiltered?: boolean;
 }
 
-export const DealTimelineView: React.FC<DealTimelineViewProps> = ({
-  deals,
-  onDealClick,
-  searchTerm,
-  filterStage
-}) => {
+export const DealTimelineView: React.FC<DealTimelineViewProps> = ({ deals, onDealClick, isFiltered = false }) => {
   const [timeFilter, setTimeFilter] = useState<'all' | 'today' | 'week' | 'month'>('all');
+  const { meta } = useStageMeta();
+  const { notify, toastsNode } = useViewToasts();
 
   const filteredAndGroupedDeals = useMemo(() => {
-    let result = Object.values(deals);
-
-    if (searchTerm.trim()) {
-      result = result.filter(deal =>
-        (deal.title ?? "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-        deal.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        deal.contact.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-
-    if (filterStage !== 'all') {
-      result = result.filter(deal => deal.stage === filterStage);
-    }
+    let result = deals;
 
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -50,20 +41,24 @@ export const DealTimelineView: React.FC<DealTimelineViewProps> = ({
       result = result.filter(deal => new Date(deal.updatedAt) >= monthAgo);
     }
 
-    result.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
-
-    const grouped: { [key: string]: Deal[] } = {};
+    // Day groups are chronological (newest first); inside a day the shared view sort order is kept
+    const dayOf = (d: Deal) => { const x = new Date(d.updatedAt); return new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime(); };
+    const days = new Map<number, Deal[]>();
     result.forEach(deal => {
-      const date = new Date(deal.updatedAt);
-      const key = date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-      if (!grouped[key]) {
-        grouped[key] = [];
-      }
-      grouped[key].push(deal);
+      const k = dayOf(deal);
+      days.set(k, [...(days.get(k) ?? []), deal]);
     });
-
+    const grouped: { [key: string]: Deal[] } = {};
+    [...days.entries()].sort((a, b) => b[0] - a[0]).forEach(([k, list]) => {
+      grouped[new Date(k).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })] = list;
+    });
     return grouped;
-  }, [deals, searchTerm, filterStage, timeFilter]);
+  }, [deals, timeFilter]);
+
+  const visibleDeals = useMemo(() => Object.values(filteredAndGroupedDeals).flat(), [filteredAndGroupedDeals]);
+  const visibleIds = useMemo(() => visibleDeals.map(d => d.id), [visibleDeals]);
+  const sel = useViewSelection(visibleIds, { onOpen: onDealClick, notify });
+  const totals = useMemo(() => totalsOf(visibleDeals), [visibleDeals]);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -83,41 +78,20 @@ export const DealTimelineView: React.FC<DealTimelineViewProps> = ({
   };
 
   const getStageIcon = (stage: string) => {
-    switch (stage) {
-      case 'closed-won':
-        return <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />;
-      case 'closed-lost':
-        return <XCircle className="w-5 h-5 text-red-600 dark:text-red-400" />;
-      case 'negotiation':
-        return <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400" />;
-      default:
-        return <Clock className="w-5 h-5 text-blue-600 dark:text-blue-400" />;
-    }
+    const m = meta(stage);
+    if (m.isWon) return <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />;
+    if (m.isLost) return <XCircle className="w-5 h-5 text-red-600 dark:text-red-400" />;
+    return <Clock className={`w-5 h-5 ${stageColorClasses(m.color).text}`} style={stageColorClasses(m.color).style ? { color: m.color } : undefined} />;
   };
 
   const getStageColor = (stage: string) => {
-    const colors: Record<string, string> = {
-      'qualification': 'border-blue-500 bg-blue-50 dark:bg-blue-900/20',
-      'proposal': 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20',
-      'negotiation': 'border-amber-500 bg-amber-50 dark:bg-amber-900/20',
-      'closed-won': 'border-green-500 bg-green-50 dark:bg-green-900/20',
-      'closed-lost': 'border-red-500 bg-red-50 dark:bg-red-900/20'
-    };
-    return colors[stage] || 'border-gray-500 bg-gray-50 dark:bg-gray-900/20';
+    const c = stageColorClasses(meta(stage).color);
+    return `${c.borderLeft} ${c.bg}`;
   };
 
-  const getStageName = (stage: string) => {
-    const names: Record<string, string> = {
-      'qualification': 'Qualification',
-      'proposal': 'Proposal',
-      'negotiation': 'Negotiation',
-      'closed-won': 'Closed Won',
-      'closed-lost': 'Closed Lost'
-    };
-    return names[stage] || stage;
-  };
+  const getStageName = (stage: string) => meta(stage).name;
 
-  const totalDeals = Object.values(filteredAndGroupedDeals).flat().length;
+  const totalDeals = visibleDeals.length;
 
   if (totalDeals === 0) {
     return (
@@ -127,7 +101,7 @@ export const DealTimelineView: React.FC<DealTimelineViewProps> = ({
         </div>
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">No activity found</h3>
         <p className="text-gray-600 dark:text-gray-400 text-center max-w-md">
-          {searchTerm || filterStage !== 'all' || timeFilter !== 'all'
+          {isFiltered || timeFilter !== 'all'
             ? 'Try adjusting your filters to see more activity'
             : 'Deal activities will appear here as you work'}
         </p>
@@ -191,12 +165,25 @@ export const DealTimelineView: React.FC<DealTimelineViewProps> = ({
                     </div>
 
                     <div
+                      data-deal-id={deal.id}
+                      aria-selected={sel.selected.has(deal.id)}
                       onClick={() => onDealClick(deal.id)}
-                      className={`border-l-4 rounded-lg p-4 cursor-pointer hover:shadow-lg transition-all ${getStageColor(deal.stage)}`}
+                      style={stageColorClasses(meta(deal.stage).color).styleAccent}
+                      className={`border-l-4 rounded-lg p-4 cursor-pointer hover:shadow-lg transition-all ${getStageColor(deal.stage)} ${
+                        sel.selected.has(deal.id) ? 'ring-2 ring-blue-500' : sel.focusedId === deal.id ? 'ring-2 ring-blue-300' : ''
+                      }`}
                     >
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex-1">
                           <div className="flex items-center space-x-3 mb-2">
+                            <input
+                              type="checkbox"
+                              aria-label={`Select ${deal.title ?? deal.company}`}
+                              checked={sel.selected.has(deal.id)}
+                              onClick={(e) => e.stopPropagation()}
+                              onChange={(e) => sel.select(deal.id, { shiftKey: (e.nativeEvent as MouseEvent).shiftKey })}
+                              className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-700"
+                            />
                             <h4 className="text-lg font-semibold text-gray-900 dark:text-white">
                               {deal.title}
                             </h4>
@@ -266,6 +253,13 @@ export const DealTimelineView: React.FC<DealTimelineViewProps> = ({
           ))}
         </div>
       </div>
+      <div className="flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700" data-testid="timeline-footer">
+        <span className="text-sm text-gray-600 dark:text-gray-400">{totals.count} deal{totals.count !== 1 ? 's' : ''}</span>
+        <span className="text-sm font-medium text-gray-900 dark:text-white">Total: {formatMoneyCompact(totals.sum)}</span>
+      </div>
+
+      <BulkActionBar onNotify={notify} />
+      {toastsNode}
     </div>
   );
 };

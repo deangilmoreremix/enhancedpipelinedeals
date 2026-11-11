@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { getActiveStages, sortedStages } from '../../utils/stageMeta';
 import { Filter, Calendar, Hash, Type as TypeIcon, List as SelectIcon } from 'lucide-react';
 
 interface ViewFilterValueInputProps {
@@ -156,11 +157,7 @@ export const ViewFilterValueInput: React.FC<ViewFilterValueInputProps> = ({
               ))}
               {actualType === 'select' && field === 'stage' && !options?.length && (
                 <>
-                  <option value="qualification">Qualification</option>
-                  <option value="proposal">Proposal</option>
-                  <option value="negotiation">Negotiation</option>
-                  <option value="closed-won">Closed Won</option>
-                  <option value="closed-lost">Closed Lost</option>
+                  {sortedStages(getActiveStages()).map(st => <option key={st.key} value={st.key}>{st.name}</option>)}
                 </>
               )}
               {actualType === 'select' && field === 'priority' && !options?.length && (

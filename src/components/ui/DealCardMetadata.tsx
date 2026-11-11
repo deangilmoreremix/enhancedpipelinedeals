@@ -2,6 +2,9 @@ import React from 'react';
 import { Deal } from '../../types';
 import { Calendar, DollarSign, Target, TrendingUp, Users, Building2, Tag, Clock, MapPin, Briefcase, Award } from 'lucide-react';
 import { Tooltip } from './Tooltip';
+import { useStageMeta } from '../../utils/stageUtils';
+import { stageColorClasses } from '../../utils/stageMeta';
+import { NumberCell } from '../pipeline/cells/DealCells';
 
 interface DealCardMetadataProps {
   deal: Deal;
@@ -9,6 +12,8 @@ interface DealCardMetadataProps {
   onAIEnrich?: (e: React.MouseEvent) => void;
   isAnalyzing?: boolean;
   isEnriching?: boolean;
+  /** Quick-edit the value in place (click the amount). */
+  onQuickUpdate?: (updates: Partial<Deal>) => Promise<unknown> | void;
 }
 
 export const DealCardMetadata: React.FC<DealCardMetadataProps> = ({
@@ -16,8 +21,10 @@ export const DealCardMetadata: React.FC<DealCardMetadataProps> = ({
   onAnalyze,
   onAIEnrich,
   isAnalyzing = false,
-  isEnriching = false
+  isEnriching = false,
+  onQuickUpdate
 }) => {
+  const { meta } = useStageMeta();
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -27,16 +34,8 @@ export const DealCardMetadata: React.FC<DealCardMetadataProps> = ({
     }).format(value);
   };
 
-  const getStageColor = (stage: string) => {
-    const colors: Record<string, string> = {
-      'qualification': 'bg-blue-500',
-      'proposal': 'bg-indigo-500',
-      'negotiation': 'bg-purple-500',
-      'closed-won': 'bg-green-500',
-      'closed-lost': 'bg-red-500'
-    };
-    return colors[stage] || 'bg-gray-500';
-  };
+  const stage = meta(deal.stage);
+  const stageColors = stageColorClasses(stage.color);
 
   const getPriorityColor = (priority: string) => {
     const colors: Record<string, string> = {
@@ -53,13 +52,26 @@ export const DealCardMetadata: React.FC<DealCardMetadataProps> = ({
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-2">
           <DollarSign className="w-4 h-4 text-green-600 dark:text-green-400" />
-          <span className="text-lg font-bold text-green-700 dark:text-green-400">
-            {formatCurrency(deal.value)}
-          </span>
+          {onQuickUpdate ? (
+            <NumberCell
+              label="Value"
+              value={deal.value}
+              onCommit={v => onQuickUpdate({ value: v })}
+              display={formatCurrency}
+              className="text-lg font-bold text-green-700 dark:text-green-400"
+            />
+          ) : (
+            <span className="text-lg font-bold text-green-700 dark:text-green-400">
+              {formatCurrency(deal.value)}
+            </span>
+          )}
         </div>
         <div className="flex items-center space-x-2">
-          <span className={`px-2 py-1 text-xs font-medium text-white rounded-full ${getStageColor(deal.stage)}`}>
-            {deal.stage.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+          <span
+            style={stageColors.style ? { backgroundColor: stage.color, color: '#fff' } : undefined}
+            className={`px-2 py-1 text-xs font-medium text-white rounded-full ${stageColors.dot || ''}`}
+          >
+            {stage.name}
           </span>
         </div>
       </div>

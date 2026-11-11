@@ -25,17 +25,6 @@ export const DealDetailSidebar: React.FC<DealDetailSidebarProps> = ({
   const chip = stageChip(stageDef?.color);
   const formatCurrency = (value: number) => formatMoney(value, editedDeal.currencyCode ?? 'USD');
 
-  const getStageColor = (stage: string) => {
-    const colors: Record<string, string> = {
-      'qualification': 'bg-blue-500',
-      'proposal': 'bg-indigo-500',
-      'negotiation': 'bg-purple-500',
-      'closed-won': 'bg-green-500',
-      'closed-lost': 'bg-red-500'
-    };
-    return colors[stage] || 'bg-gray-500';
-  };
-
   const getPriorityColor = (priority: string) => {
     const colors: Record<string, string> = {
       'high': 'text-red-600',

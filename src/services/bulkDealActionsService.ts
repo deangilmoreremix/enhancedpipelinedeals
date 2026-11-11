@@ -1,6 +1,7 @@
 import { supabase } from './supabaseService';
 import { BulkDealAction, BulkActionResult, Deal } from '../types';
 
+import { getActiveStages } from '../utils/stageMeta';
 /**
  * Service for performing bulk operations on multiple deals
  */
@@ -15,7 +16,7 @@ export class BulkDealActionsService {
         name: 'Change Stage',
         description: 'Move multiple deals to a new stage',
         actionType: 'change_stage',
-        targetStage: 'qualification',
+        targetStage: getActiveStages()[0]?.key ?? '',
         isDestructive: false
       },
       {

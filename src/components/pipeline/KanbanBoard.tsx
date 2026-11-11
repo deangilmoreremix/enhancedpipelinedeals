@@ -12,6 +12,9 @@ import { Deal, PipelineStage } from '../../types';
 import { useDealStore } from '../../store/dealStore';
 import { useBoardSelectionStore } from '../../store/boardSelectionStore';
 import { useBoardHotkeys } from '../../hooks/useBoardHotkeys';
+import { useMarqueeSelection } from '../../hooks/useMarqueeSelection';
+import { useStageKeyboardMove } from '../../hooks/useStageKeyboardMove';
+import { dragGroup, dropSelectionOnStage } from '../../utils/multiDrag';
 import { computeDropPosition, getDestinationIndex } from '../../utils/boardPositions';
 import { BoardSortKey, sortDeals } from './kanban/kanbanUtils';
 import { BoardColumn, PAGE_SIZE, UNCATEGORIZED_ID } from './BoardColumn';
@@ -46,6 +49,8 @@ export interface KanbanBoardProps {
   onOpenDeal: (dealId: string) => void;
   renderCard: (deal: Deal, ctx: BoardCardContext) => React.ReactNode;
   grouping?: BoardGrouping;
+  /** Opens the full stage manager ("Edit all stages…" in the column menu). */
+  onEditStages?: () => void;
 }
 
 type ToastType = 'info' | 'success' | 'warning' | 'error';
@@ -68,7 +73,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = (props) => {
 };
 
 const StageBoard: React.FC<KanbanBoardProps> = ({
-  deals, stages, sortBy, isLoading, indicators, onOpenDeal, renderCard, grouping
+  deals, stages, sortBy, isLoading, indicators, onOpenDeal, renderCard, grouping, onEditStages
 }) => {
   const applySort = useCallback(
     (list: Deal[]) => (grouping?.sortFn ? grouping.sortFn(list) : sortDeals(list, sortBy)),
@@ -77,6 +82,7 @@ const StageBoard: React.FC<KanbanBoardProps> = ({
   const manualOrder = sortBy === 'manual' && !grouping?.sortFn;
   const allDealsMap = useDealStore(s => s.deals);
   const moveDeal = useDealStore(s => s.moveDeal);
+  const bulkMoveDeals = useDealStore(s => s.bulkMoveDeals);
   const createDeal = useDealStore(s => s.createDeal);
   const updateStage = useDealStore(s => s.updateStage);
   const reorderStages = useDealStore(s => s.reorderStages);
@@ -150,11 +156,17 @@ const StageBoard: React.FC<KanbanBoardProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [columns, uncategorized, limits]);
 
+  const moveByKeyboard = useStageKeyboardMove(notify);
   useBoardHotkeys({
     getColumns: hotkeyColumns,
     onOpen: onOpenDeal,
-    onQuickCreate: (key) => { if (key !== UNCATEGORIZED_ID) setQuickCreateKey(key); }
+    onQuickCreate: (key) => { if (key !== UNCATEGORIZED_ID) setQuickCreateKey(key); },
+    onMoveStage: (dir, ids) => void moveByKeyboard(dir, ids)
   });
+
+  // Drag-rectangle selection on the board background
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const marquee = useMarqueeSelection(scrollRef);
 
   // Drop selection entries for deals that vanished (deleted/moved by realtime)
   const clearSelection = useBoardSelectionStore(s => s.clearSelection);
@@ -200,6 +212,18 @@ const StageBoard: React.FC<KanbanBoardProps> = ({
     const deal = allDealsMap[draggableId];
     const destStage = visibleStages.find(s => s.key === destination.droppableId);
     if (!deal || !destStage) return;
+
+    // Multi-card drag: dragging a selected card carries the whole selection to the target stage
+    const group = dragGroup(draggableId, useBoardSelectionStore.getState().selectedIds, allDealsMap);
+    if (group.length > 1) {
+      if (!sameColumn) {
+        void dropSelectionOnStage(group, destStage.key, {
+          stages: visibleStages, deals: allDealsMap, bulkMoveDeals, notify, override: shiftRef.current
+        });
+        return;
+      }
+      // dropping inside the same column only reorders the dragged card (below)
+    }
 
     // WIP limit: block unless Shift is held (same-column reorders never change the count)
     if (!sameColumn && destStage.wipLimit && destStage.wipLimit > 0) {
@@ -288,8 +312,21 @@ const StageBoard: React.FC<KanbanBoardProps> = ({
       )}
 
       <DragDropContext onDragEnd={handleDragEnd} sensors={sensors} enableDefaultSensors={false}>
-        <div className="overflow-auto pb-4 max-h-[calc(100vh-9rem)] min-h-[600px]" data-testid="kanban-scroll">
-          <div className="flex items-start gap-4">
+        <div
+          ref={scrollRef}
+          onMouseDown={marquee.onMouseDown}
+          className="overflow-auto pb-4 max-h-[calc(100vh-9rem)] min-h-[600px]"
+          data-testid="kanban-scroll"
+        >
+          <div className="flex items-start gap-4 relative">
+            {marquee.rect && (
+              <div
+                aria-hidden
+                data-testid="marquee-rect"
+                className="absolute z-20 pointer-events-none rounded-sm border border-blue-600 bg-blue-600/10"
+                style={{ left: marquee.rect.left, top: marquee.rect.top, width: marquee.rect.right - marquee.rect.left, height: marquee.rect.bottom - marquee.rect.top }}
+              />
+            )}
             <Droppable droppableId="board-columns" type="COLUMN" direction="horizontal">
               {(boardProvided) => (
                 <div ref={boardProvided.innerRef} {...boardProvided.droppableProps} className="flex items-start gap-4">
@@ -336,6 +373,9 @@ const StageBoard: React.FC<KanbanBoardProps> = ({
                                 onRename={(name) => void updateStage(stage.key, { name })}
                                 onColor={(color) => void updateStage(stage.key, { color })}
                                 onWipLimit={(limit) => void updateStage(stage.key, { wipLimit: limit })}
+                                onProbability={(probability) => void updateStage(stage.key, { probability })}
+                                onOutcome={(o) => void updateStage(stage.key, { isWon: o === 'won', isLost: o === 'lost' })}
+                                onEditAll={onEditStages}
                                 onHide={() => void updateStage(stage.key, { visible: false })}
                                 onMove={(dir) => moveStage(stage.key, dir)}
                                 onDelete={async (moveTo) => {

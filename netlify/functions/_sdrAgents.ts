@@ -22,7 +22,8 @@ import {
 } from '@openai/agents';
 import { z } from 'zod';
 import { createClient } from '@supabase/supabase-js';
-import { getClient, resolveTier } from './_openai';
+import { createHmac, timingSafeEqual } from 'node:crypto';
+import { getClient, resolveTier, userClient } from './_openai';
 
 // ---------------------------------------------------------------------------
 // setup
@@ -42,6 +43,60 @@ function db() {
 }
 
 const model = (tier: 'fast' | 'default' | 'deep' = 'default') => resolveTier(tier).model;
+
+// ---------------------------------------------------------------------------
+// access control + signed resume state
+// ---------------------------------------------------------------------------
+
+/**
+ * The SDR tools below run with the service role, so a run must only start for a lead (and deal) the CALLER can see.
+ * The check uses the caller's own JWT (RLS applies). Returns an error message, or null when access is fine.
+ */
+export async function checkLeadAccess(authHeader: string | undefined, leadId: string, dealId?: string | null): Promise<string | null> {
+  const asUser = userClient(authHeader);
+  if (!asUser) return 'SUPABASE_URL / SUPABASE_ANON_KEY are not configured on the server';
+  const { data: lead, error } = await asUser.from('contacts').select('id').eq('id', leadId).maybeSingle();
+  if (error) return error.message;
+  if (!lead) return 'Lead not found';
+  if (dealId) {
+    const { data: deal, error: dErr } = await asUser.from('deals').select('id').eq('id', dealId).maybeSingle();
+    if (dErr) return dErr.message;
+    if (!deal) return 'Deal not found';
+  }
+  return null;
+}
+
+const STATE_TTL_MS = 60 * 60_000;
+
+function stateSecret(): string {
+  const explicit = process.env.SDR_STATE_SECRET;
+  if (explicit) return explicit;
+  const service = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
+  if (!service) throw new Error('SDR_STATE_SECRET (or SUPABASE_SERVICE_ROLE_KEY) is not configured; cannot sign SDR run state');
+  return createHmac('sha256', 'sdr-state-v1').update(service).digest('hex'); // derived, so the service key itself is never the MAC key
+}
+
+export interface StateBinding { userId: string; leadId: string; agentId: string }
+const mac = (b: StateBinding, ts: string, state: string) =>
+  createHmac('sha256', stateSecret()).update(`${b.userId}\n${b.leadId}\n${b.agentId}\n${ts}\n${state}`).digest('hex');
+
+/** `v1.<issuedAtMs>.<hmac>.<state>`: bound to caller + lead + agent and time-limited. Clients must treat it as opaque. */
+export function signSdrState(state: string, b: StateBinding): string {
+  const ts = String(Date.now());
+  return `v1.${ts}.${mac(b, ts, state)}.${state}`;
+}
+
+/** Returns the raw RunState string, or null when the value is unsigned, modified, expired or bound to someone else. */
+export function verifySdrState(signed: unknown, b: StateBinding): string | null {
+  if (typeof signed !== 'string') return null;
+  const m = /^v1\.(\d{10,16})\.([0-9a-f]{64})\.([\s\S]+)$/.exec(signed);
+  if (!m) return null;
+  const [, ts, sig, state] = m;
+  if (Date.now() - Number(ts) > STATE_TTL_MS || Number(ts) > Date.now() + 60_000) return null;
+  const want = Buffer.from(mac(b, ts, state), 'hex');
+  const got = Buffer.from(sig, 'hex');
+  return want.length === got.length && timingSafeEqual(want, got) ? state : null;
+}
 
 // ---------------------------------------------------------------------------
 // tools
@@ -338,7 +393,7 @@ export async function sessionForLead(leadId: string) {
 }
 
 /** Non-streaming run of one specialist (or the orchestrator for agentId "auto"). Returns the structured draft or a pending approval. */
-export async function runSpecialistOnce(agentId: string, leadId: string, goal?: string, dealId?: string | null) {
+export async function runSpecialistOnce(agentId: string, leadId: string, goal?: string, dealId?: string | null, signFor?: { userId: string }) {
   const { orchestrator, specialists } = buildAgents();
   const agent = agentId === 'auto' ? orchestrator : specialists[agentId];
   if (!agent) throw new Error(`Unknown SDR agent: ${agentId}`);
@@ -350,7 +405,7 @@ export async function runSpecialistOnce(agentId: string, leadId: string, goal?: 
   if (result.interruptions?.length) {
     return {
       status: 'approval_required' as const,
-      state: result.state.toString(),
+      state: signFor ? signSdrState(result.state.toString(), { userId: signFor.userId, leadId, agentId }) : result.state.toString(),
       approvals: result.interruptions.map((i: any) => ({
         callId: i.rawItem?.callId ?? i.rawItem?.id,
         tool: i.name,

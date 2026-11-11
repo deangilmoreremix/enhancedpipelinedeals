@@ -8,6 +8,7 @@ import DealDetail from './DealDetail';
 import PipelineStats from './PipelineStats';
 import DealAnalytics from './DealAnalytics';
 import { useDealStore } from '../store/dealStore';
+import { toastFailure } from '../utils/permissionToast';
 import { usePermissions } from '../hooks/usePermissions';
 import { isDemoMode } from '../config/demoMode';
 
@@ -825,7 +826,7 @@ const Pipeline: React.FC = () => {
               onAnalyze={handleAIResearch}
               isAnalyzing={aiResearching.includes(deal.id)}
               onToggleFavorite={async (d) => {
-                await handleDealUpdate(d.id, { isFavorite: !d.isFavorite });
+                try { await useDealStore.getState().toggleFavorite(d.id); } catch (err) { toastFailure(err, 'edit', 'deal', 'Could not update favorite'); }
               }}
               onFindNewImage={async (d) => {
                 // Simulate finding new image

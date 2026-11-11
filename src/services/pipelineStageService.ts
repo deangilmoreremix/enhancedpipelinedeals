@@ -1,6 +1,7 @@
 import { supabase, isSupabaseConfigured } from '../lib/core/supabaseClient';
 import { DEFAULT_STAGE_KEYS, PipelineStage } from '../types';
 import { DEFAULT_STAGES } from '../utils/defaultStages';
+import { assertRowsAffected } from '../utils/rlsError';
 
 export { DEFAULT_STAGES };
 
@@ -101,18 +102,36 @@ export async function updateStage(key: string, updates: Partial<Omit<PipelineSta
 
 export async function reorderStages(keysInOrder: string[]): Promise<void> {
   const results = await Promise.all(keysInOrder.map((key, position) =>
-    supabase.from('pipeline_stages').update({ position }).eq('key', key).is('pipeline_id', null)));
+    supabase.from('pipeline_stages').update({ position }).eq('key', key).is('pipeline_id', null).select('id')));
   const failed = results.find(r => r.error);
   if (failed?.error) throw failed.error;
+  // RLS filters UPDATEs silently: a stage that matched no row was not reordered
+  results.forEach(r => assertRowsAffected(r.data as unknown[] | null));
 }
 
-/** Deletes a stage, moving its deals to `moveToKey` first. */
+/** Deletes a stage, moving its deals (appended after the target stage's last deal) to `moveToKey` first. */
 export async function deleteStage(key: string, moveToKey: string): Promise<void> {
   if (key === moveToKey) throw new Error('Cannot move deals to the stage being deleted');
-  const mv = await supabase.from('deals').update({ stage: moveToKey }).eq('stage', key);
-  if (mv.error) throw mv.error;
-  const { error } = await supabase.from('pipeline_stages').delete().eq('key', key).is('pipeline_id', null);
+
+  const { data: moving, error: selErr } = await supabase
+    .from('deals').select('id,position').eq('stage', key).order('position', { ascending: true });
+  if (selErr) throw selErr;
+  const { data: tail, error: tailErr } = await supabase
+    .from('deals').select('position').eq('stage', moveToKey).order('position', { ascending: false }).limit(1);
+  if (tailErr) throw tailErr;
+  const base = Number((tail as Array<{ position?: number | null }> | null)?.[0]?.position ?? -1);
+
+  const toMove = (moving ?? []) as Array<{ id: string }>;
+  for (let i = 0; i < toMove.length; i++) {
+    const mv = await supabase.from('deals')
+      .update({ stage: moveToKey, position: base + 1 + i }).eq('id', toMove[i].id).select('id');
+    if (mv.error) throw mv.error;
+    assertRowsAffected(mv.data as unknown[] | null);
+  }
+
+  const { data, error } = await supabase.from('pipeline_stages').delete().eq('key', key).is('pipeline_id', null).select('id');
   if (error) throw error;
+  assertRowsAffected(data as unknown[] | null);
 }
 
 /**

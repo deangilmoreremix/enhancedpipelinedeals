@@ -479,9 +479,9 @@ export const useDealStore = create<DealStore>((set, get) => ({
   },
 
   toggleFavorite: async (id) => {
-    const deal = get().deals[id];
-    if (!deal) return;
-    await get().updateDeal(id, { isFavorite: !deal.isFavorite });
+    if (!get().deals[id]) return;
+    const { toggleFavorite } = await import('../services/favoritesService');
+    await toggleFavorite('deal', id); // updates deals.is_favorite and the favorites row together
   },
 
   subscribeRealtime: () => {

@@ -2,20 +2,8 @@
  * Streaming email composer (Netlify Functions v2). POST /api/ai/compose-email
  * Body: { contactId, dealId?, input?, personaId? } -> SSE `data: {"content": "..."}` frames.
  */
-import { createClient } from '@supabase/supabase-js';
-import { authorize, rateLimited, respondStream, CORS_HEADERS } from './_openai';
+import { authorize, userClient, rateLimited, respondStream, CORS_HEADERS } from './_openai';
 import { describeContact } from './_prompts';
-
-let _supabase: ReturnType<typeof createClient> | null = null;
-function db() {
-  if (!_supabase) {
-    const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-    const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
-    if (!url || !key) throw new Error('Supabase service credentials are not configured on the server');
-    _supabase = createClient(url, key);
-  }
-  return _supabase;
-}
 
 const err = (status: number, error: string) =>
   new Response(JSON.stringify({ error }), { status, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } });
@@ -23,7 +11,8 @@ const err = (status: number, error: string) =>
 export default async (req: Request): Promise<Response> => {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS_HEADERS });
   if (req.method !== 'POST') return err(405, 'Method not allowed');
-  if (!(await authorize(req.headers.get('authorization') || undefined))) return err(401, 'Unauthorized');
+  const authHeader = req.headers.get('authorization') || undefined;
+  if (!(await authorize(authHeader))) return err(401, 'Unauthorized');
   if (rateLimited(req.headers.get('x-nf-client-connection-ip') || 'anon')) return err(429, 'Rate limit exceeded');
 
   let payload: any;
@@ -32,13 +21,17 @@ export default async (req: Request): Promise<Response> => {
   if (!contactId) return err(400, 'contactId is required');
 
   try {
-    const supabase = db();
+    // Contact / deal / persona reads run AS THE CALLER (RLS applies), never with the service role.
+    const supabase = userClient(authHeader);
+    if (!supabase) return err(500, 'SUPABASE_URL / SUPABASE_ANON_KEY are not configured on the server');
     // Fetch contact and deal context
     const { data: contact } = await supabase
       .from('contacts')
       .select('*')
       .eq('id', contactId)
       .maybeSingle<any>();
+
+    if (!contact) return err(404, 'Contact not found');
 
     let dealContext = '';
     if (dealId) {

@@ -108,27 +108,51 @@ export default async function ({ t, openai, loadFunction }) {
   });
 
   // ---------- helpers: auth + rate limit
-  await t('authorize: header forms (case-insensitive Bearer, whitespace), AI_GATEWAY_ALLOW_UNAUTHENTICATED escape hatch', async () => {
-    assert.equal(await o.authorize('bearer anon-key'), true);
+  await t('authorize: header forms (case-insensitive Bearer, whitespace); anon key rejected by default; switches: ALLOW_ANON_FUNCTIONS (anon key) / AI_GATEWAY_ALLOW_UNAUTHENTICATED (legacy: also token-less)', async () => {
+    assert.equal(await o.authorize('bearer anon-key'), false, 'anon key is public: not a credential by default');
     assert.equal(await o.authorize('Bearer   good-jwt  '), true);
     assert.equal(await o.authorize(undefined), false);
     assert.equal(await o.authorize('Bearer wrong'), false);
+    process.env.ALLOW_ANON_FUNCTIONS = 'true';
+    assert.equal(await o.authorize('bearer anon-key'), true);
+    assert.equal(await o.authorize(undefined), false);
+    assert.equal(await o.authorize('Bearer wrong'), false);
+    delete process.env.ALLOW_ANON_FUNCTIONS;
     process.env.AI_GATEWAY_ALLOW_UNAUTHENTICATED = 'true';
     assert.equal(await o.authorize(undefined), true);
+    assert.equal(await o.authorize('Bearer anon-key'), true);
     delete process.env.AI_GATEWAY_ALLOW_UNAUTHENTICATED;
   });
-  await t('authUser: JWT -> its user id; anon key -> demo user; garbage/none -> null; AI_GATEWAY_ALLOW_UNAUTHENTICATED -> demo user', async () => {
+  await t('authUser: JWT -> its user id; anon key -> null unless allowed (then demo user); service key -> service; garbage/none -> null', async () => {
     assert.deepEqual(await o.authUser('Bearer good-jwt'), { id: 'user-1' });
     assert.deepEqual(await o.authUser('bearer  good-jwt '), { id: 'user-1' });
-    assert.deepEqual(await o.authUser('Bearer anon-key'), { id: o.DEMO_USER_ID, demo: true });
+    assert.equal(await o.authUser('Bearer anon-key'), null);
     assert.match(o.DEMO_USER_ID, /^[0-9a-f-]{36}$/);
     assert.equal(await o.authUser('Bearer wrong'), null);
     assert.equal(await o.authUser(undefined), null);
     assert.equal(await o.authUser(''), null);
+    assert.deepEqual(await o.authUser('Bearer service-role-key'), { id: o.DEMO_USER_ID, service: true });
+    process.env.ALLOW_ANON_FUNCTIONS = 'true';
+    assert.deepEqual(await o.authUser('Bearer anon-key'), { id: o.DEMO_USER_ID, demo: true });
+    assert.equal(await o.authUser(undefined), null);
+    delete process.env.ALLOW_ANON_FUNCTIONS;
     process.env.AI_GATEWAY_ALLOW_UNAUTHENTICATED = 'true';
     assert.deepEqual(await o.authUser(undefined), { id: o.DEMO_USER_ID, demo: true });
     assert.deepEqual(await o.authUser('Bearer good-jwt'), { id: 'user-1' }, 'a real JWT still wins over the demo user');
     delete process.env.AI_GATEWAY_ALLOW_UNAUTHENTICATED;
+  });
+  await t('userClient: anon apikey + caller Authorization (RLS applies); null without SUPABASE_ANON_KEY; callerRole via current_role_name()', async () => {
+    const c = o.userClient('Bearer admin-jwt');
+    assert.ok(c);
+    assert.equal(await o.callerRole('Bearer admin-jwt'), 'admin');
+    assert.equal(await o.callerRole('Bearer manager-jwt'), 'manager');
+    assert.equal(await o.callerRole('Bearer good-jwt'), 'member');
+    assert.equal(await o.callerRole('Bearer anon-key'), null);
+    assert.equal(await o.callerRole(undefined), null);
+    const keep = { a: process.env.SUPABASE_ANON_KEY, b: process.env.VITE_SUPABASE_ANON_KEY };
+    delete process.env.SUPABASE_ANON_KEY; delete process.env.VITE_SUPABASE_ANON_KEY;
+    try { assert.equal(o.userClient('Bearer good-jwt'), null); assert.equal(await o.callerRole('Bearer admin-jwt'), null); }
+    finally { process.env.SUPABASE_ANON_KEY = keep.a; process.env.VITE_SUPABASE_ANON_KEY = keep.b; }
   });
   await t('rateLimited sliding window', async () => {
     const id = 'rl-' + Math.random();

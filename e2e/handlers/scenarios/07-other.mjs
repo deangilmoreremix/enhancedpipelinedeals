@@ -1,12 +1,17 @@
 import { spawn } from 'node:child_process';
 import path from 'node:path';
-import { assert, callV1, freshIp } from '../lib/util.mjs';
+import { assert, callV1, freshIp, withEnv } from '../lib/util.mjs';
 
 export const label = 'remaining functions (calendar/email/import/pipeline/autopilot/...)';
 
 const FUTURE = '2027-03-01T15:00:00.000Z';
 
-export default async function ({ t, openai, supa, loadFunction, REPO }) {
+// These legacy functions are exercised in demo mode (anon key accepted); strict (default) mode is covered by 01/02/05/06.
+export default async function (ctx) {
+  return withEnv({ ALLOW_ANON_FUNCTIONS: 'true' }, () => run(ctx));
+}
+
+async function run({ t, openai, supa, loadFunction, REPO }) {
   const load = async (n) => (await loadFunction(n)).handler;
   const OUT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../.build');
 

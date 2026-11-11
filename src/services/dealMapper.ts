@@ -79,6 +79,9 @@ export function dealFromRow(row: DealRow): Deal {
     ownerId: row.owner_id ?? row.assigned_to_id ?? undefined,
     closeDate: toDate(row.close_date),
     currencyCode: row.currency_code ?? undefined,
+    // Read-only, set by the database (RLS ownership/workspace checks use these)
+    createdBy: row.created_by ?? undefined,
+    workspaceId: row.workspace_id ?? undefined,
   };
   return defined(deal) as Deal;
 }

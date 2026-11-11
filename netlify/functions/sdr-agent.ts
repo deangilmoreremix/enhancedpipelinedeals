@@ -13,8 +13,8 @@
  * With stream:false the same data is returned as one JSON object.
  */
 import { run, RunState, InputGuardrailTripwireTriggered, OutputGuardrailTripwireTriggered } from '@openai/agents';
-import { authorize, rateLimited, CORS_HEADERS } from './_openai';
-import { buildAgents, sessionForLead } from './_sdrAgents';
+import { authUser, rateLimited, CORS_HEADERS } from './_openai';
+import { buildAgents, sessionForLead, checkLeadAccess, signSdrState, verifySdrState } from './_sdrAgents';
 
 const JSON_HEADERS = { 'Content-Type': 'application/json', ...CORS_HEADERS };
 
@@ -31,7 +31,9 @@ function approvalsOf(items: any[]) {
 export default async (req: Request): Promise<Response> => {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS_HEADERS });
   if (req.method !== 'POST') return reply(405, { ok: false, error: 'Method not allowed' });
-  if (!(await authorize(req.headers.get('authorization') || undefined))) return reply(401, { ok: false, error: 'Unauthorized' });
+  const authHeader = req.headers.get('authorization') || undefined;
+  const user = await authUser(authHeader);
+  if (!user) return reply(401, { ok: false, error: 'Unauthorized' });
   if (rateLimited(req.headers.get('x-nf-client-connection-ip') || 'anon', 30)) return reply(429, { ok: false, error: 'Rate limit exceeded' });
 
   let body: any;
@@ -45,15 +47,27 @@ export default async (req: Request): Promise<Response> => {
   const agent = agentId === 'auto' ? orchestrator : specialists[agentId];
   if (!agent) return reply(400, { ok: false, error: `Unknown agent: ${agentId}`, agents: Object.keys(specialists) });
 
+  // tools run with the service role: the caller must be able to see the lead under RLS first
+  const denied = await checkLeadAccess(authHeader, leadId);
+  if (denied) return reply(denied.endsWith('not found') ? 404 : 500, { ok: false, error: denied });
+
+  // resume state must be the signed blob we issued to THIS user for THIS lead + agent (a forged state could self-approve sends)
+  const binding = { userId: user.id, leadId, agentId };
+  let resumeState: string | null = null;
+  if (body.resume?.state !== undefined) {
+    resumeState = verifySdrState(body.resume.state, binding);
+    if (!resumeState) return reply(400, { ok: false, error: 'Invalid, expired or modified resume state' });
+  }
+
   const wantsStream = body.stream !== false;
   const enc = new TextEncoder();
 
   const execute = async (emit: (e: Record<string, unknown>) => void) => {
     const session = await sessionForLead(leadId);
     let input: any;
-    if (body.resume?.state) {
+    if (resumeState) {
       // Resume a run that paused for human approval
-      const state: any = await RunState.fromString(agent as any, body.resume.state);
+      const state: any = await RunState.fromString(agent as any, resumeState);
       const decisions: Array<{ callId: string; approve: boolean }> = body.resume.decisions || [];
       for (const item of state.getInterruptions()) {
         const d = decisions.find((x) => x.callId === (item.rawItem?.callId ?? item.rawItem?.id));
@@ -81,7 +95,7 @@ export default async (req: Request): Promise<Response> => {
     await stream.completed;
 
     if (stream.interruptions?.length) {
-      emit({ type: 'approval_required', state: stream.state.toString(), approvals: approvalsOf(stream.interruptions) });
+      emit({ type: 'approval_required', state: signSdrState(stream.state.toString(), binding), approvals: approvalsOf(stream.interruptions) });
     } else {
       emit({ type: 'final', agent: stream.lastAgent?.name, output: stream.finalOutput ?? null });
     }

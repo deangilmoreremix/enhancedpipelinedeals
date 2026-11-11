@@ -3,6 +3,7 @@ import {
   Workflow,
   WorkflowExecution,
   WorkflowTrigger,
+  WorkflowStep,
   WorkflowAction,
   TriggerType,
   ActionType,
@@ -13,6 +14,31 @@ import {
 } from '../types/workflow';
 import { workflowExecutionEngine } from './workflowExecutionEngine';
 import { findMatchingTrigger } from './workflowTriggerMatch';
+import { assertRowsAffected, isPermissionDenied, permissionMessage } from '../utils/rlsError';
+import { getCurrentUserId, isUuid } from './dealRecordShared';
+
+/**
+ * Triggers are derived from the workflow's trigger steps (the builder's source of truth) so the
+ * `triggers` column (read by the server runner) never drifts from the canvas. Explicit triggers that
+ * no step carries are kept; a trigger step wins over an explicit trigger with the same id.
+ */
+export function deriveTriggers(steps: WorkflowStep[] | undefined, explicit: WorkflowTrigger[] | undefined): WorkflowTrigger[] {
+  const out = new Map<string, WorkflowTrigger>();
+  (explicit ?? []).forEach(t => { if (t?.id) out.set(t.id, t); });
+  (steps ?? []).forEach(st => {
+    if (st?.type === 'trigger' && st.trigger?.id) {
+      out.set(st.trigger.id, { ...st.trigger, isActive: st.trigger.isActive !== false && st.isActive !== false });
+    }
+  });
+  return [...out.values()];
+}
+
+/** Friendly, user-visible message for a failed workflow write. */
+export function workflowErrorMessage(error: unknown, action: 'create' | 'edit' | 'delete' = 'edit'): string {
+  if (isPermissionDenied(error)) return permissionMessage('manage_workflows', 'workflow').replace('manage', action === 'delete' ? 'delete' : action);
+  const msg = (error as { message?: unknown })?.message;
+  return typeof msg === 'string' && msg ? `Could not ${action} the workflow: ${msg}` : `Could not ${action} the workflow`;
+}
 
 /**
  * Enhanced Workflow Service
@@ -21,6 +47,10 @@ import { findMatchingTrigger } from './workflowTriggerMatch';
 export class EnhancedWorkflowService {
   private static instance: EnhancedWorkflowService;
   private activeWorkflows: Map<string, Workflow> = new Map();
+  private lastError: string | null = null;
+
+  /** Message for the most recent failed write (null after a success), so the UI can show it. */
+  getLastError(): string | null { return this.lastError; }
 
   static getInstance(): EnhancedWorkflowService {
     if (!EnhancedWorkflowService.instance) {
@@ -33,7 +63,10 @@ export class EnhancedWorkflowService {
    * Create a new workflow
    */
   async createWorkflow(workflow: Omit<Workflow, 'id' | 'createdAt' | 'updatedAt'>): Promise<Workflow | null> {
+    this.lastError = null;
     try {
+      const uid = await getCurrentUserId();
+      const triggers = deriveTriggers(workflow.steps, workflow.triggers);
       const { data, error } = await supabase
         .from('deal_workflows')
         .insert({
@@ -41,7 +74,8 @@ export class EnhancedWorkflowService {
           description: workflow.description,
           category: workflow.category,
           stages: workflow.steps, // Store steps in stages field for now
-          triggers: workflow.triggers,
+          triggers,
+          ...(isUuid(uid) ? { created_by: uid, user_id: uid } : {}),
           settings: workflow.settings,
           metadata: workflow.metadata,
           version: workflow.metadata.version,
@@ -54,6 +88,7 @@ export class EnhancedWorkflowService {
 
       const newWorkflow: Workflow = {
         ...workflow,
+        triggers,
         id: data.id,
         createdAt: new Date(data.created_at),
         updatedAt: new Date(data.updated_at)
@@ -65,6 +100,7 @@ export class EnhancedWorkflowService {
       return newWorkflow;
     } catch (error) {
       console.error('Error creating workflow:', error);
+      this.lastError = workflowErrorMessage(error, 'create');
       return null;
     }
   }
@@ -186,6 +222,7 @@ export class EnhancedWorkflowService {
    * Update workflow
    */
   async updateWorkflow(id: string, updates: Partial<Workflow>): Promise<boolean> {
+    this.lastError = null;
     try {
       const updateData: any = {
         updated_at: new Date().toISOString()
@@ -195,7 +232,9 @@ export class EnhancedWorkflowService {
       if (updates.description !== undefined) updateData.description = updates.description;
       if (updates.category) updateData.category = updates.category;
       if (updates.steps) updateData.stages = updates.steps;
-      if (updates.triggers) updateData.triggers = updates.triggers;
+      if (updates.steps || updates.triggers) {
+        updateData.triggers = deriveTriggers(updates.steps ?? this.activeWorkflows.get(id)?.steps, updates.triggers ?? this.activeWorkflows.get(id)?.triggers);
+      }
       if (updates.settings) {
         updateData.settings = updates.settings;
         updateData.is_active = updates.settings.isActive;
@@ -205,12 +244,14 @@ export class EnhancedWorkflowService {
         updateData.version = updates.metadata.version;
       }
 
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('deal_workflows')
         .update(updateData)
-        .eq('id', id);
+        .eq('id', id)
+        .select('id');
 
       if (error) throw error;
+      assertRowsAffected(data); // RLS filters UPDATEs silently
 
       // Update cache
       const existing = this.activeWorkflows.get(id);
@@ -222,6 +263,7 @@ export class EnhancedWorkflowService {
       return true;
     } catch (error) {
       console.error('Error updating workflow:', error);
+      this.lastError = workflowErrorMessage(error, 'edit');
       return false;
     }
   }
@@ -230,13 +272,16 @@ export class EnhancedWorkflowService {
    * Delete workflow
    */
   async deleteWorkflow(id: string): Promise<boolean> {
+    this.lastError = null;
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('deal_workflows')
         .delete()
-        .eq('id', id);
+        .eq('id', id)
+        .select('id');
 
       if (error) throw error;
+      assertRowsAffected(data); // RLS filters DELETEs silently
 
       // Remove from cache
       this.activeWorkflows.delete(id);
@@ -244,6 +289,7 @@ export class EnhancedWorkflowService {
       return true;
     } catch (error) {
       console.error('Error deleting workflow:', error);
+      this.lastError = workflowErrorMessage(error, 'delete');
       return false;
     }
   }

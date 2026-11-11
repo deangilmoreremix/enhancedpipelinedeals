@@ -217,6 +217,28 @@ export default async function ({ t, openai, supa, loadFunction }) {
     assert.equal(JSON.parse(rpc.query_embedding).length, 1536);
     assert.equal((await callV2(embed, { body: { action: 'search_contacts', query: '  ' } })).status, 400);
   });
+  await t('ai-embed: anon key rejected by default; reads (contacts, match_contacts) run as the caller (anon apikey + user JWT); embeddings write uses the service role', async () => {
+    openai.reset();
+    supa.reset({ contacts: [{ id: 'c1', name: 'Ada' }], contact_embeddings: [{ contact_id: 'c1', content: 'x' }, { contact_id: 'hidden', content: 'secret' }] });
+    assert.equal((await callV2(embed, { body: { action: 'search_contacts', query: 'x' }, token: 'anon-key' })).status, 401);
+    const n0 = supa.log.length;
+    const r = await callV2(embed, { body: { action: 'search_contacts', query: 'x' } });
+    const j = await jsonOf(r);
+    assert.equal(r.status, 200);
+    assert.deepEqual(j.results.map((h) => h.contact_id), ['c1'], 'hits for contacts the caller cannot see (RLS) are dropped');
+    for (const l of supa.log.slice(n0).filter((l) => /rpc\/match_contacts|\/rest\/v1\/contacts/.test(l.path))) {
+      assert.equal(l.headers.authorization, 'Bearer good-jwt'); assert.equal(l.headers.apikey, 'anon-key');
+    }
+    const n1 = supa.log.length;
+    await callV2(embed, { body: { action: 'index_contact', contactId: 'c1' } });
+    const l1 = supa.log.slice(n1);
+    assert.equal(l1.find((l) => l.method === 'GET' && /contacts/.test(l.path)).headers.authorization, 'Bearer good-jwt');
+    assert.equal(l1.find((l) => l.method === 'POST' && /contact_embeddings/.test(l.path)).headers.authorization, 'Bearer service-role-key');
+    // contact invisible to the caller -> 404 (nothing embedded, nothing written)
+    supa.reset({ contacts: [] }); openai.reset();
+    assert.equal((await callV2(embed, { body: { action: 'index_contact', contactId: 'c1' } })).status, 404);
+    assert.equal(openai.requests('/v1/embeddings').length, 0);
+  });
   await t('search_contacts: min_similarity 0 is treated as 0.2 default (cannot request "everything")', async () => {
     await callV2(embed, { body: { action: 'search_contacts', query: 'x', minSimilarity: 0 } });
     const rpc = supa.requests({ path: '/rest/v1/rpc/match_contacts' }).at(-1).body;

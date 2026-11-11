@@ -42,7 +42,7 @@ select e2e.eq('legacy: re-run does not duplicate', (select count(*) from public.
 
 -- ---- storage buckets --------------------------------------------------------
 select e2e.eq('bucket ' || b, (select count(*) from storage.buckets where id = b), 1::bigint) from unnest(array['deal-files','ai-images','ai-audio','deal-images']) b;
-select e2e.ok('bucket deal-files public + 50MB limit', (select public and file_size_limit = 52428800 from storage.buckets where id='deal-files'));
+select e2e.ok('bucket deal-files private (signed URLs) + 50MB limit', (select not public and file_size_limit = 52428800 from storage.buckets where id='deal-files'));
 select e2e.ok('storage policies exist for every bucket', (select count(distinct (regexp_match(policyname, '(deal-files|ai-images|ai-audio|deal-images)'))[1]) = 4 from pg_policies where schemaname='storage' and tablename='objects'));
 -- open mode public read / service role manage
 select e2e.as_user('anon') \g /dev/null

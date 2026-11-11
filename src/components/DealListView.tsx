@@ -1,3 +1,5 @@
+import { useDealStore } from '../store/dealStore';
+import { toastFailure } from '../utils/permissionToast';
 import React, { useMemo } from 'react';
 import { Deal } from '../types';
 import {
@@ -188,7 +190,7 @@ export const DealListView: React.FC<DealListViewProps> = ({ deals, onDealClick, 
 
                   <div className="flex flex-col items-end space-y-2 flex-shrink-0">
                     <button
-                      onClick={(e) => { e.stopPropagation(); void onDealUpdate(deal.id, { isFavorite: !deal.isFavorite }); }}
+                      onClick={(e) => { e.stopPropagation(); void useDealStore.getState().toggleFavorite(deal.id).catch(err => toastFailure(err, 'edit', 'deal', 'Could not update favorite')); }}
                       aria-label={deal.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
                       disabled={!perms.allowed('edit', 'deal', deal)}
                       className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"

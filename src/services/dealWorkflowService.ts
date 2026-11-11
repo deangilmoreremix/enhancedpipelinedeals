@@ -1,4 +1,28 @@
 import { supabase } from './supabaseService';
+import { assertRowsAffected } from '../utils/rlsError';
+import { workflowErrorMessage } from './enhancedWorkflowService';
+
+/** Columns that really exist on public.deal_workflows (anything else would fail with PGRST204). */
+const WORKFLOW_COLUMNS = [
+  'name', 'description', 'stages', 'triggers', 'is_active', 'created_by', 'user_id',
+  'category', 'settings', 'metadata', 'version',
+] as const;
+
+/** Whitelist a payload down to real deal_workflows columns. */
+export function toWorkflowRow(input: Record<string, unknown>): Record<string, unknown> {
+  const row: Record<string, unknown> = {};
+  for (const k of WORKFLOW_COLUMNS) if (input[k] !== undefined) row[k] = input[k];
+  return row;
+}
+
+/** Triggers are derived from `trigger`-type stage entries (plus any explicit ones). */
+export function deriveStageTriggers(stages: any[] | undefined, explicit: any[] | undefined): any[] {
+  const out = new Map<string, any>();
+  (explicit ?? []).forEach((t, i) => out.set(String(t?.id ?? `t${i}`), t));
+  (stages ?? []).forEach(st => { if (st?.type === 'trigger' && st.trigger) out.set(String(st.trigger.id ?? st.id), st.trigger); });
+  return [...out.values()];
+}
+
 
 export interface DealWorkflow {
   id: string;
@@ -8,6 +32,10 @@ export interface DealWorkflow {
   triggers: any[]; // JSON array of trigger conditions
   is_active: boolean;
   created_by?: string;
+  category?: string;
+  settings?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+  version?: number;
   created_at: string;
   updated_at: string;
 }
@@ -16,6 +44,10 @@ export interface DealWorkflow {
  * Service for managing deal workflows
  */
 export class DealWorkflowService {
+  /** Message for the most recent failed write (null after a success). */
+  static lastError: string | null = null;
+  static getLastError(): string | null { return DealWorkflowService.lastError; }
+
   /**
    * Get all active deal workflows
    */
@@ -58,10 +90,11 @@ export class DealWorkflowService {
    * Create a new deal workflow
    */
   static async createWorkflow(workflow: Omit<DealWorkflow, 'id' | 'created_at' | 'updated_at'>): Promise<DealWorkflow | null> {
+    DealWorkflowService.lastError = null;
     try {
       const { data, error } = await supabase
         .from('deal_workflows')
-        .insert(workflow)
+        .insert(toWorkflowRow({ ...workflow, triggers: deriveStageTriggers(workflow.stages, workflow.triggers) }))
         .select()
         .single();
 
@@ -69,6 +102,7 @@ export class DealWorkflowService {
       return data;
     } catch (error) {
       console.error('Error creating deal workflow:', error);
+      DealWorkflowService.lastError = workflowErrorMessage(error, 'create');
       return null;
     }
   }
@@ -77,19 +111,22 @@ export class DealWorkflowService {
    * Update an existing workflow
    */
   static async updateWorkflow(id: string, updates: Partial<DealWorkflow>): Promise<boolean> {
+    DealWorkflowService.lastError = null;
     try {
-      const { error } = await supabase
+      const patch = toWorkflowRow(updates as Record<string, unknown>);
+      if (updates.stages) patch.triggers = deriveStageTriggers(updates.stages, updates.triggers);
+      const { data, error } = await supabase
         .from('deal_workflows')
-        .update({
-          ...updates,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', id);
+        .update({ ...patch, updated_at: new Date().toISOString() })
+        .eq('id', id)
+        .select('id');
 
       if (error) throw error;
+      assertRowsAffected(data);
       return true;
     } catch (error) {
       console.error('Error updating deal workflow:', error);
+      DealWorkflowService.lastError = workflowErrorMessage(error, 'edit');
       return false;
     }
   }
@@ -98,16 +135,20 @@ export class DealWorkflowService {
    * Delete a workflow
    */
   static async deleteWorkflow(id: string): Promise<boolean> {
+    DealWorkflowService.lastError = null;
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('deal_workflows')
         .delete()
-        .eq('id', id);
+        .eq('id', id)
+        .select('id');
 
       if (error) throw error;
+      assertRowsAffected(data);
       return true;
     } catch (error) {
       console.error('Error deleting deal workflow:', error);
+      DealWorkflowService.lastError = workflowErrorMessage(error, 'delete');
       return false;
     }
   }

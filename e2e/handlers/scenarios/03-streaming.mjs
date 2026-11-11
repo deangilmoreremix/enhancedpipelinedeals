@@ -83,6 +83,18 @@ export default async function ({ t, openai, supa, loadFunction }) {
     for (let i = 0; i < 61; i++) r = await callV2(compose, { body: { contactId: 'c1' }, ip });
     assert.equal(r.status, 429);
   });
+  await t('composeEmail: reads run as the caller (anon apikey + user JWT); unknown/invisible contact -> 404; anon key rejected by default', async () => {
+    seed(); openai.reset();
+    assert.equal((await callV2(compose, { body: { contactId: 'c1' }, token: 'anon-key' })).status, 401);
+    const n0 = supa.log.length;
+    openai.script(() => ({ text: 'ok' }));
+    const r = await callV2(compose, { body: { contactId: 'c1', dealId: 'd1', personaId: 'p1' } });
+    assert.equal(r.status, 200); await r.text();
+    const reads = supa.log.slice(n0).filter((l) => /\/rest\/v1\//.test(l.path));
+    assert.ok(reads.length >= 3);
+    for (const l of reads) { assert.equal(l.headers.authorization, 'Bearer good-jwt'); assert.equal(l.headers.apikey, 'anon-key'); }
+    assert.equal((await callV2(compose, { body: { contactId: 'nope' } })).status, 404);
+  });
   await t('composeEmail loads contact/deal/persona from Supabase into instructions and streams {"content"} frames', async () => {
     seed();
     openai.script(() => ({ text: 'Dear Grace, let us talk.' }));

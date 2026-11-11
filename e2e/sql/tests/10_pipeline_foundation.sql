@@ -52,6 +52,8 @@ select e2e.eq('hard delete removed row', (select count(*) from public.deals wher
 -- backfills: reset to the pre-migration shape then re-apply the migration file
 update public.deals set position = 0, amount_micros = null, tsv = null;
 \i :migdir/20260801000000_pipeline_foundation.sql
+-- the foundation migration re-creates the 2-arg merge_deals; the contract-fixes migration (always applied after) replaces it
+\i :migdir/20260811000005_contract_fixes.sql
 select e2e.eq('backfill: qualification positions ordered by created_at',
   (select string_agg(id::text, ',' order by position) from public.deals where stage='qualification'),
   '00000000-0000-0000-0000-0000000000a2,00000000-0000-0000-0000-0000000000a3');

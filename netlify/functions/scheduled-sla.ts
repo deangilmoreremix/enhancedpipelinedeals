@@ -133,7 +133,22 @@ async function sweepStaleDeals(db: DbLike, now: Date, s: SweepSummary): Promise<
     .not('stage', 'in', `(${closed.map(k => `"${k}"`).join(',')})`)
     .limit(500);
   if (error) { s.errors.push(`deals: ${error.message}`); return; }
-  const deals = (data ?? []) as any[];
+  let deals = (data ?? []) as any[];
+  if (!deals.length) return;
+
+  // Prefer the last REAL activity (notes, tasks, emails, stage moves, ...) over `updated_at`, which any trivial edit bumps.
+  // Uses the optional `deal_last_activity(deal_id, last_activity_at)` view; when it is absent the sweep falls back to updated_at.
+  const lastActivity = new Map<string, string>();
+  const { data: acts, error: actErr } = await db
+    .from('deal_last_activity')
+    .select('deal_id, last_activity_at')
+    .in('deal_id', deals.map(d => d.id));
+  if (!actErr) for (const a of (acts ?? []) as any[]) if (a.last_activity_at) lastActivity.set(a.deal_id, a.last_activity_at);
+  const lastSeen = (d: any): string => {
+    const act = lastActivity.get(d.id);
+    return act && new Date(act).getTime() > new Date(d.updated_at).getTime() ? act : d.updated_at;
+  };
+  deals = deals.filter(d => lastSeen(d) < cutoff);
   if (!deals.length) return;
 
   const since = new Date(now.getTime() - STALE_REEMIT_DAYS * DAY_MS).toISOString();
@@ -147,7 +162,7 @@ async function sweepStaleDeals(db: DbLike, now: Date, s: SweepSummary): Promise<
 
   for (const d of deals) {
     if (recentlyFlagged.has(d.id)) continue;
-    const idle = Math.floor((now.getTime() - new Date(d.updated_at).getTime()) / DAY_MS);
+    const idle = Math.floor((now.getTime() - new Date(lastSeen(d)).getTime()) / DAY_MS);
     const { error: evErr } = await db.from('workflow_events').insert({
       event_type: 'deal.stale', entity_type: 'deal', entity_id: d.id,
       payload: { slaType: 'stale', stage: d.stage, idleDays: idle, thresholdDays: staleDays }

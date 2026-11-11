@@ -33,6 +33,8 @@ export interface Deal {
   notes?: string;
   createdAt: Date;
   updatedAt: Date;
+  createdBy?: string; // auth user that created the row (read-only, set by the DB)
+  workspaceId?: string; // tenant of the row (read-only, set by the DB)
   contactAvatar?: string;
   companyAvatar?: string;
   lastActivity?: string;

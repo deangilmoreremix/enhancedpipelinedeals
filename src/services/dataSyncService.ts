@@ -1,5 +1,5 @@
 import { Contact } from '../types/contact';
-import { isPermissionDenied } from '../utils/rlsError';
+import { isPermissionDenied, PermissionDeniedError, permissionMessage } from '../utils/rlsError';
 import { Deal } from '../types';
 import { getSupabaseService } from './supabaseService';
 import { mockContacts } from '../data/mockContacts';
@@ -255,7 +255,7 @@ class DataSyncService {
   }
 
   /**
-   * Create deal - tries database first, falls back to local storage
+   * Create deal - database in connected mode (errors propagate); local storage only in demo/unconfigured mode
    */
   async createDeal(deal: Omit<Deal, 'id' | 'createdAt' | 'updatedAt'>): Promise<Deal> {
     const supabase = getSupabaseService();
@@ -271,15 +271,15 @@ class DataSyncService {
     };
 
     if (isConnected) {
+      // Connected mode: the database is the source of truth. Never fake a local deal on failure.
       try {
-        // Try to save to database
         const dbDeal = await supabase.createDeal(deal);
-        console.log('✅ Deal saved to database:', dbDeal.title);
         this.updateSyncStatus({ dealsCount: this.syncStatus.dealsCount + 1 });
         return dbDeal;
       } catch (dbError) {
-        console.warn('⚠️ Database save failed, storing locally:', dbError);
-        // Fall through to local storage
+        console.warn('Database deal create failed:', dbError);
+        if (isPermissionDenied(dbError)) throw new PermissionDeniedError(permissionMessage('create', 'deal'));
+        throw dbError instanceof Error ? dbError : new Error('Failed to create deal in database');
       }
     }
 
@@ -319,8 +319,8 @@ class DataSyncService {
         return updatedDeal;
       } catch (dbError) {
         console.warn('⚠️ Database update failed:', dbError);
-        if (isPermissionDenied(dbError)) throw dbError; // keep the RLS code for the store's permission toast
-        throw new Error('Failed to update deal in database');
+        if (isPermissionDenied(dbError)) throw new PermissionDeniedError(permissionMessage('edit', 'deal'));
+        throw dbError instanceof Error ? dbError : new Error('Failed to update deal in database');
       }
     }
 

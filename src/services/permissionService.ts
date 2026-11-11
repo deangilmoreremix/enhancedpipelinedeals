@@ -75,8 +75,15 @@ export function normalizeRole(role: unknown): RoleName {
 }
 
 /** True when the record is owned by / assigned to / created by `userId`. */
-export function isOwnRecord(userId: string | null | undefined, record?: PermissionRecord | null): boolean {
+export function isOwnRecord(
+  userId: string | null | undefined,
+  record?: PermissionRecord | null,
+  userWorkspaceId?: string | null,
+): boolean {
   if (!userId || !record) return false;
+  // A record from another workspace is never "own", whatever its owner fields say (mirrors RLS)
+  const recWs = record.workspaceId ?? record.workspace_id;
+  if (userWorkspaceId && recWs && recWs !== userWorkspaceId) return false;
   const ids = [
     record.ownerId, record.owner_id, record.assignedToId, record.assigned_to_id,
     record.createdBy, record.created_by, record.user_id,
@@ -124,7 +131,7 @@ export function can(
 
   // Ownership required
   if (!record) return ALLOW(`${user.role} can ${action} own ${kind}s`); // no record context: UI-level optimistic allow (RLS decides)
-  if (isOwnRecord(user.id, record)) return ALLOW(`You own this ${kind}`);
+  if (isOwnRecord(user.id, record, user.workspaceId)) return ALLOW(`You own this ${kind}`);
   return DENY(`You can only ${action} ${kind}s you own or are assigned to`);
 }
 

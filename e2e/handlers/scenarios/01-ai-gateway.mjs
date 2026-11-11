@@ -1,4 +1,4 @@
-import { assert, callV1, freshIp, readSSE } from '../lib/util.mjs';
+import { assert, callV1, freshIp, readSSE, withEnv } from '../lib/util.mjs';
 import { lintStrictSchema } from '../lib/schemaLint.mjs';
 
 export const label = 'ai-gateway (v1)';
@@ -23,7 +23,21 @@ export default async function ({ t, openai, supa, loadFunction }) {
     const r = await call({ task: 'chat' }, { token: 'nope' });
     assert.equal(r.statusCode, 401);
   });
-  await t('anon key accepted', async () => assert.equal((await call({ task: 'chat', input: 'hi' }, { token: 'anon-key' })).statusCode, 200));
+  await t('anon key REJECTED by default (it is public, not a credential)', async () => {
+    const r = await call({ task: 'chat', input: 'hi' }, { token: 'anon-key' });
+    assert.equal(r.statusCode, 401);
+  });
+  await t('anon key accepted only with ALLOW_ANON_FUNCTIONS=true; legacy AI_GATEWAY_ALLOW_UNAUTHENTICATED=true still works (and also lets token-less calls in)', async () => {
+    await withEnv({ ALLOW_ANON_FUNCTIONS: 'true' }, async () => {
+      assert.equal((await call({ task: 'chat', input: 'hi' }, { token: 'anon-key' })).statusCode, 200);
+      assert.equal((await call({ task: 'chat', input: 'hi' }, { token: null })).statusCode, 401, 'token-less is not covered by the new switch');
+      assert.equal((await call({ task: 'chat', input: 'hi' }, { token: 'bad' })).statusCode, 401);
+    });
+    await withEnv({ AI_GATEWAY_ALLOW_UNAUTHENTICATED: 'true' }, async () => {
+      assert.equal((await call({ task: 'chat', input: 'hi' }, { token: 'anon-key' })).statusCode, 200);
+      assert.equal((await call({ task: 'chat', input: 'hi' }, { token: null })).statusCode, 200);
+    });
+  });
   await t('valid user JWT accepted', async () => assert.equal((await call({ task: 'chat', input: 'hi' }, { token: 'good-jwt' })).statusCode, 200));
   await t('rate limit -> 429 after 60 requests per ip', async () => {
     const ip = freshIp();
@@ -157,6 +171,17 @@ export default async function ({ t, openai, supa, loadFunction }) {
     const input = String(lastResp().input);
     assert.ok(input.includes('Compiler deal') && input.includes('Grace Hopper'), 'deal+contact in prompt');
     assert.ok(input.includes('call 11') && !input.includes('"call 0"'), 'newest 10 activities only');
+  });
+  await t('CRM context reads run AS THE CALLER (anon apikey + user JWT, never the service-role key)', async () => {
+    supa.reset({ contacts: [{ id: 'c1', name: 'Grace Hopper' }], deals: [{ id: 'd1', title: 'X', contact_id: 'c1' }] });
+    const n0 = supa.log.length;
+    await call({ task: 'chat', dealId: 'd1', input: 'x' });
+    const reads = supa.log.slice(n0).filter((l) => /\/rest\/v1\/(deals|contacts|activities)/.test(l.path));
+    assert.ok(reads.length >= 2);
+    for (const l of reads) {
+      assert.equal(l.headers.authorization, 'Bearer good-jwt');
+      assert.equal(l.headers.apikey, 'anon-key');
+    }
   });
   await t('CRM lookup failure is non-fatal (still 200)', async () => {
     supa.failNext('GET', '/rest/v1/deals', 500);

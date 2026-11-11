@@ -51,5 +51,9 @@ for t in "$HERE"/tests/*.sql; do
   tot=$((tot+p+f)); bad=$((bad+f))
   if [ $rc -ne 0 ]; then echo "  SCRIPT ERROR:"; echo "$out" | grep -v -E "^(PASS|FAIL|UNTESTED)" | tail -8 | sed 's/^/    /'; bad=$((bad+1)); fi
 done
+# contract schema for the strict fake Supabase / endpoint audit (tables->columns, RPC signatures, policies per role/op)
+if "${PSQL[@]}" -d "$DB" -At -f "$HERE/emit-schema.sql" > "$PGHOME/tmp/schema.json" 2>"$PGHOME/tmp/schema.err" && [ -s "$PGHOME/tmp/schema.json" ]; then
+  mkdir -p "$ROOT/e2e/lib"; cp "$PGHOME/tmp/schema.json" "$ROOT/e2e/lib/schema.json"; echo "schema: wrote e2e/lib/schema.json"
+else echo "schema: FAILED to emit"; cat "$PGHOME/tmp/schema.err"; bad=$((bad+1)); fi
 echo "== summary: $tot assertions, $bad failures =="
 [ $bad -eq 0 ]

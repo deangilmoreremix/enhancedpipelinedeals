@@ -112,8 +112,8 @@ export interface MergeRequest {
 export const canMergeRemote = (ids: string[]): boolean => ids.length > 0 && ids.every(canUseRemote);
 
 /**
- * Calls the `merge_deals` RPC (re-points notes/files/tasks/activities/favorites and soft-deletes the
- * merged deals), then applies the chosen field values to the survivor.
+ * Calls the `merge_deals` RPC (re-points notes/files/tasks/activities/favorites, soft-deletes the
+ * merged deals and applies the chosen survivor field values atomically via `p_fields`).
  */
 export async function mergeDeals({ keepId, mergeIds, updates }: MergeRequest): Promise<void> {
   const others = mergeIds.filter(id => id !== keepId);
@@ -121,13 +121,13 @@ export async function mergeDeals({ keepId, mergeIds, updates }: MergeRequest): P
   if (total < MIN_MERGE || total > MAX_MERGE) {
     throw new Error(`Select between ${MIN_MERGE} and ${MAX_MERGE} deals to merge`);
   }
-  const { error } = await supabase.rpc('merge_deals', { keep: keepId, merge_ids: others });
+  // Survivor field updates ride along in the same RPC so the merge is atomic server-side.
+  const hasUpdates = !!updates && Object.keys(updates).length > 0;
+  const fields = hasUpdates
+    ? dealToRow({ ...updates, updatedAt: new Date() }, { partial: true })
+    : null;
+  const { error } = await supabase.rpc('merge_deals', { keep: keepId, merge_ids: others, p_fields: fields });
   if (error) throw error;
-  if (updates && Object.keys(updates).length > 0) {
-    const row = dealToRow({ ...updates, updatedAt: new Date() }, { partial: true });
-    const { error: upErr } = await supabase.from('deals').update(row).eq('id', keepId);
-    if (upErr) throw upErr;
-  }
 }
 
 export const DealMergeService = { findDuplicateGroups, findDuplicatesOf, getConflicts, resolveMergeUpdates, mergeDeals, canMergeRemote };

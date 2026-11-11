@@ -4,7 +4,7 @@ import { ChevronLeft, ChevronRight, MoreHorizontal, Star, Trash2, GitMerge, Arch
 import type { Deal } from '../../types';
 import { useDealStore } from '../../store/dealStore';
 import { orderDealIds, neighbours } from './dealOrder';
-import { setFavorite } from '../../services/favoritesService';
+import { toggleFavorite } from '../../services/favoritesService';
 import { errorMessage } from '../../services/dealRecordShared';
 import { pushToast } from '../../store/dealRecordStore';
 import { usePermissions } from '../../hooks/usePermissions';
@@ -41,10 +41,8 @@ export const DealRecordHeader: React.FC<DealRecordHeaderProps> = ({ deal, onFind
   }, [menu]);
 
   const toggleStar = async () => {
-    const next = !deal.isFavorite;
     try {
-      await useDealStore.getState().updateDeal(deal.id, { isFavorite: next }); // optimistic + persists deals.is_favorite
-      await setFavorite('deal', deal.id, next);
+      await toggleFavorite('deal', deal.id); // single path: deals.is_favorite + favorites row
     } catch (e) {
       toastFailure(e, 'edit', 'deal', `Could not update favorite: ${errorMessage(e)}`);
     }

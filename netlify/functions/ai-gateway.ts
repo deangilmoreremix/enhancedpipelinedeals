@@ -10,8 +10,7 @@
  *        or (stream: true) buffered text/event-stream of output_text deltas.
  */
 import type { Handler } from '@netlify/functions';
-import { createClient } from '@supabase/supabase-js';
-import { CORS_HEADERS, json, respond, respondStream, RespondOptions, authorize, rateLimited } from './_openai';
+import { CORS_HEADERS, json, respond, respondStream, RespondOptions, authorize, userClient, rateLimited } from './_openai';
 
 type Obj = Record<string, unknown>;
 const str = { type: 'string' };
@@ -227,12 +226,11 @@ function clientTools(tools: unknown): any[] | undefined {
 }
 
 // Optional server-side CRM context: callers may send contactId / dealId and the gateway loads the rows
-// (service role) so prompts are grounded in real data.
-async function loadCrmContext(body: Obj): Promise<Obj | undefined> {
-  const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
-  if (!url || !key || (!body.contactId && !body.dealId)) return undefined;
-  const db = createClient(url, key);
+// AS THE CALLER (anon key + the caller's JWT, so RLS applies) so prompts are grounded in rows the caller may see.
+async function loadCrmContext(body: Obj, authHeader: string | undefined): Promise<Obj | undefined> {
+  if (!body.contactId && !body.dealId) return undefined;
+  const db = userClient(authHeader);
+  if (!db) throw new Error('SUPABASE_URL / SUPABASE_ANON_KEY are not configured; CRM context skipped');
   const out: Obj = {};
   let contactId = body.contactId as string | undefined;
   if (body.dealId) {
@@ -280,7 +278,7 @@ export const handler: Handler = async (event) => {
   if (!def) return json(400, { ok: false, error: `Unknown task: ${requested}`, tasks: Object.keys(TASKS) });
 
   try {
-    const crm = await loadCrmContext(body);
+    const crm = await loadCrmContext(body, event.headers.authorization || event.headers.Authorization);
     if (crm) body.context = { ...(body.context as Obj | undefined), ...crm };
   } catch (e) {
     console.warn('[ai-gateway] CRM context load failed:', (e as Error).message);

@@ -86,7 +86,7 @@ export const EnhancedWorkflowPanel: React.FC = () => {
       setDirty(false);
       setNotice({ ok: true, text: 'Workflow saved.' });
     } else {
-      setNotice({ ok: false, text: 'Could not save the workflow. Please try again.' });
+      setNotice({ ok: false, text: enhancedWorkflowService.getLastError() ?? 'Could not save the workflow. Please try again.' });
     }
   };
 
@@ -113,12 +113,15 @@ export const EnhancedWorkflowPanel: React.FC = () => {
     if (await enhancedWorkflowService.deleteWorkflow(id)) {
       await loadWorkflows();
       if (selectedWorkflow?.id === id) { setSelectedWorkflow(null); setShowBuilder(false); }
+    } else {
+      setNotice({ ok: false, text: enhancedWorkflowService.getLastError() ?? 'Could not delete the workflow.' });
     }
   };
 
   const toggleWorkflowStatus = async (wf: Workflow) => {
     const updated = { ...wf, settings: { ...wf.settings, isActive: !wf.settings.isActive } };
     if (await enhancedWorkflowService.updateWorkflow(wf.id, updated)) await loadWorkflows();
+    else setNotice({ ok: false, text: enhancedWorkflowService.getLastError() ?? 'Could not update the workflow.' });
   };
 
   if (loading) {
@@ -183,6 +186,9 @@ export const EnhancedWorkflowPanel: React.FC = () => {
 
   return (
     <div className="flex flex-col">
+      {notice && (
+        <p role="alert" className={`mb-3 text-sm rounded-lg px-3 py-2 ${notice.ok ? 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-300' : 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300'}`}>{notice.text}</p>
+      )}
       <div className="flex flex-wrap justify-between items-center gap-3 mb-4">
         <div className="flex flex-wrap gap-1" role="tablist" aria-label="Workflow sections">
           {tabs.map(tab => (

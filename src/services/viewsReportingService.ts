@@ -1,4 +1,8 @@
 import { supabase } from './supabaseService';
+import { AdvancedFilteringService } from './advancedFilteringService';
+import { CustomMetricsService } from './customMetricsService';
+import { dealFromRow } from './dealMapper';
+import { assertRowsAffected } from '../utils/rlsError';
 import {
   SavedPipelineView,
   SavedPipelineViewService,
@@ -20,6 +24,61 @@ import {
   ReportConfig
 } from '../types';
 
+// ---- client-side report / query helpers (no server RPCs exist for these) ------
+type AnyRecord = Record<string, any>;
+
+const applyAdvancedFilters = (rows: AnyRecord[], filters: ViewFilter[]): AnyRecord[] =>
+  !filters || filters.length === 0 ? rows : AdvancedFilteringService.filterContacts(rows as any, filters) as AnyRecord[];
+
+/**
+ * Group + aggregate `records` per `ReportConfig.dataSource`. Pure so it can be unit tested.
+ * Returns the filtered rows, the grouped rows (one per group key) and overall totals.
+ */
+export function buildReport(config: ReportConfig, records: AnyRecord[]) {
+  const ds = config.dataSource;
+  const rows = applyAdvancedFilters(records, ds.filters ?? []);
+  const aggs = ds.aggregations?.length ? ds.aggregations : [{ field: '*', function: 'count' as const, alias: 'count' }];
+  const compute = (list: AnyRecord[]) => {
+    const out: Record<string, number> = {};
+    for (const a of aggs) {
+      const alias = a.alias || `${a.function}_${a.field}`;
+      const nums = list.map(r => Number(r[a.field])).filter(n => Number.isFinite(n));
+      switch (a.function) {
+        case 'count': out[alias] = list.length; break;
+        case 'sum': out[alias] = nums.reduce((x, y) => x + y, 0); break;
+        case 'avg': out[alias] = nums.length ? nums.reduce((x, y) => x + y, 0) / nums.length : 0; break;
+        case 'min': out[alias] = nums.length ? Math.min(...nums) : 0; break;
+        case 'max': out[alias] = nums.length ? Math.max(...nums) : 0; break;
+      }
+    }
+    return out;
+  };
+  const groupBy = ds.groupBy ?? [];
+  let groups: Array<{ key: Record<string, unknown>; count: number; values: Record<string, number> }> = [];
+  if (groupBy.length) {
+    const map = new Map<string, { key: Record<string, unknown>; list: AnyRecord[] }>();
+    for (const r of rows) {
+      const key: Record<string, unknown> = {};
+      groupBy.forEach(g => { key[g] = r[g] ?? null; });
+      const id = JSON.stringify(key);
+      const slot = map.get(id) ?? { key, list: [] };
+      slot.list.push(r);
+      map.set(id, slot);
+    }
+    groups = [...map.values()].map(g => ({ key: g.key, count: g.list.length, values: compute(g.list) }));
+  }
+  return {
+    reportId: config.id,
+    name: config.name,
+    type: config.type,
+    entity: ds.entity,
+    generatedAt: new Date().toISOString(),
+    totalRecords: rows.length,
+    totals: compute(rows),
+    groups,
+    rows: config.type === 'detailed' || !groupBy.length ? rows : [],
+  };
+}
 
 // ---- saved view <-> saved_pipeline_views row mapping ------------------------
 const toRowViewType = (t: SavedView['viewType'] | undefined): SavedViewType => (t === 'kanban' || !t ? 'board' : t);
@@ -160,15 +219,34 @@ export class ViewsReportingService {
     }
   }
 
+  /**
+   * Client-side metric evaluation (there is no `calculate_custom_metric` RPC): loads the metric
+   * definition, the live (non-deleted) deals, applies the filters and runs the formula engine.
+   */
   static async calculateMetricValue(metricId: string, filters?: ViewFilter[]): Promise<number | null> {
     try {
-      const { data, error } = await supabase.rpc('calculate_custom_metric', {
-        metric_id: metricId,
-        filters: filters || []
-      });
-
+      const { data: row, error } = await supabase.from('custom_metrics').select('*').eq('id', metricId).maybeSingle();
       if (error) throw error;
-      return data;
+      if (!row) return null;
+      const { data: dealRows, error: dErr } = await supabase.from('deals').select('*').is('deleted_at', null);
+      if (dErr) throw dErr;
+      let deals = (dealRows ?? []).map(dealFromRow);
+      if (filters?.length) deals = AdvancedFilteringService.filterDeals(deals, filters);
+      const metric: CustomMetric = {
+        id: row.id,
+        name: row.name ?? '',
+        description: row.description ?? '',
+        formula: row.formula ?? '',
+        parameters: row.parameters ?? {},
+        dataType: row.data_type ?? 'number',
+        category: row.category ?? 'custom',
+        visualization: row.visualization ?? 'number',
+        isActive: row.is_active ?? true,
+        createdBy: row.created_by ?? '',
+        createdAt: new Date(row.created_at ?? Date.now()),
+        updatedAt: new Date(row.updated_at ?? Date.now()),
+      };
+      return await CustomMetricsService.calculateMetric(metric, deals);
     } catch (error) {
       console.error('Error calculating metric value:', error);
       return null;
@@ -253,18 +331,31 @@ export class ViewsReportingService {
     }
   }
 
+  /**
+   * Plain updates (there is no `update_widget_position` RPC): widgets live in `dashboards.widgets`
+   * (jsonb) or, for analytics dashboards, as `dashboard_widgets` rows. Both paths verify a row changed.
+   */
   static async updateWidgetPosition(dashboardId: string, widgetId: string, position: DashboardWidget['position']): Promise<boolean> {
     try {
-      const { error } = await supabase.rpc('update_widget_position', {
-        dashboard_id: dashboardId,
-        widget_id: widgetId,
-        x: position.x,
-        y: position.y,
-        width: position.width,
-        height: position.height
-      });
-
+      const { data: dash, error: gErr } = await supabase.from('dashboards').select('id,widgets').eq('id', dashboardId).maybeSingle();
+      if (gErr) throw gErr;
+      const widgets = Array.isArray(dash?.widgets) ? (dash!.widgets as DashboardWidget[]) : null;
+      if (widgets && widgets.some(w => w.id === widgetId)) {
+        const next = widgets.map(w => (w.id === widgetId ? { ...w, position } : w));
+        const { data, error } = await supabase
+          .from('dashboards').update({ widgets: next, updated_at: new Date().toISOString() }).eq('id', dashboardId).select('id');
+        if (error) throw error;
+        assertRowsAffected(data);
+        return true;
+      }
+      const { data, error } = await supabase
+        .from('dashboard_widgets')
+        .update({ position, updated_at: new Date().toISOString() })
+        .eq('id', widgetId)
+        .eq('dashboard_id', dashboardId)
+        .select('id');
       if (error) throw error;
+      assertRowsAffected(data);
       return true;
     } catch (error) {
       console.error('Error updating widget position:', error);
@@ -315,6 +406,7 @@ export class ViewsReportingService {
   }
 
   // Advanced Filtering and Querying
+  /** Client-side filter/sort/page over the live table (there is no `execute_advanced_query` RPC). */
   static async executeAdvancedQuery(
     entityType: 'deals' | 'contacts',
     filters: ViewFilter[],
@@ -323,16 +415,33 @@ export class ViewsReportingService {
     offset?: number
   ): Promise<any[]> {
     try {
-      const { data, error } = await supabase.rpc('execute_advanced_query', {
-        entity_type: entityType,
-        filters,
-        sorting,
-        limit_param: limit,
-        offset_param: offset
-      });
-
+      let q = supabase.from(entityType).select('*');
+      if (entityType === 'deals') q = q.is('deleted_at', null);
+      const { data, error } = await q;
       if (error) throw error;
-      return data || [];
+      let rows: any[] = entityType === 'deals' ? (data ?? []).map(dealFromRow) : (data ?? []);
+      if (filters?.length) {
+        rows = entityType === 'deals'
+          ? AdvancedFilteringService.filterDeals(rows, filters)
+          : AdvancedFilteringService.filterContacts(rows, filters);
+      }
+      if (sorting?.length) {
+        if (entityType === 'deals') rows = AdvancedFilteringService.sortDeals(rows, sorting);
+        else {
+          const sorts = [...sorting].sort((a, b) => a.priority - b.priority);
+          rows = [...rows].sort((a, b) => {
+            for (const s of sorts) {
+              const av = a[s.field]; const bv = b[s.field];
+              if (av === bv) continue;
+              const cmp = av == null ? -1 : bv == null ? 1 : av < bv ? -1 : 1;
+              return s.direction === 'desc' ? -cmp : cmp;
+            }
+            return 0;
+          });
+        }
+      }
+      const start = offset ?? 0;
+      return limit != null ? rows.slice(start, start + limit) : rows.slice(start);
     } catch (error) {
       console.error('Error executing advanced query:', error);
       return [];
@@ -340,14 +449,20 @@ export class ViewsReportingService {
   }
 
   // Reporting
+  /** Client-side report (there is no `generate_report` RPC); the run is logged to `report_history`. */
   static async generateReport(config: ReportConfig): Promise<any> {
     try {
-      const { data, error } = await supabase.rpc('generate_report', {
-        report_config: config
-      });
-
+      const table = config.dataSource.entity;
+      let q = supabase.from(table).select('*');
+      if (table === 'deals') q = q.is('deleted_at', null);
+      const { data, error } = await q;
       if (error) throw error;
-      return data;
+      const records = table === 'deals' ? (data ?? []).map(dealFromRow) : (data ?? []);
+      const result = buildReport(config, records as AnyRecord[]);
+      try {
+        await supabase.from('report_history').insert({ report_id: String(config.id), parameters: config as unknown as AnyRecord, result: { ...result, rows: undefined } });
+      } catch { /* history is best effort */ }
+      return result;
     } catch (error) {
       console.error('Error generating report:', error);
       return null;

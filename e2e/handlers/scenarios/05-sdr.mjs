@@ -140,6 +140,7 @@ export default async function ({ t, openai, supa, loadFunction }) {
     assert.equal(r.json.result.status, 'approval_required');
     assert.equal(r.json.result.approvals[0].tool, 'send_sdr_message');
     assert.equal(r.json.result.approvals[0].callId, 'call_send');
+    assert.match(r.json.result.state, /^v1\.\d+\.[0-9a-f]{64}\./, 'state is HMAC-signed for the caller');
     assert.equal(r.json.result.approvals[0].arguments.subject, 'Hello');
     assert.ok(typeof r.json.result.state === 'string' && r.json.result.state.length > 20);
     assert.equal(supa.table('outbound_messages').length, 0);
@@ -253,10 +254,64 @@ export default async function ({ t, openai, supa, loadFunction }) {
     assert.equal(supa.table('outbound_messages').length, 0);
     assert.ok(frames.some((f) => f !== '[DONE]' && (f.type === 'final' || f.type === 'approval_required')), JSON.stringify(frames).slice(0, 400));
   });
-  await t('sdr-agent resume with garbage state -> error frame (not a crash)', async () => {
-    const { frames } = await readSSE(await callV2(sdr, { body: { agentId: 'sdr-cold-email', leadId: 'c1', resume: { state: 'not-a-state', decisions: [] } } }));
-    assert.ok(frames.some((f) => f !== '[DONE]' && f.type === 'error'), JSON.stringify(frames));
-    assert.equal(frames.at(-1), '[DONE]');
+  await t('sdr-agent resume with garbage / unsigned state -> 400 (rejected before any run)', async () => {
+    for (const state of ['not-a-state', '', 123, null]) {
+      const r = await callV2(sdr, { body: { agentId: 'sdr-cold-email', leadId: 'c1', resume: { state, decisions: [] } } });
+      assert.equal(r.status, 400, String(state)); assert.match((await jsonOf(r)).error, /resume state/i);
+    }
+  });
+  await t('sdr-agent: approval state is signed (v1.<ts>.<hmac>.<state>); the RAW state, a modified state, another user, another lead/agent and an expired state are all rejected and queue nothing', async () => {
+    seed(supa); openai.reset();
+    openai.script(() => ({ toolCall: { call_id: 'call_sig', ...sendCall() } }));
+    const first = await readSSE(await callV2(sdr, { body: { agentId: 'sdr-cold-email', leadId: 'c1' } }));
+    const ap = first.frames.find((f) => f !== '[DONE]' && f.type === 'approval_required');
+    assert.ok(ap && /^v1\.\d{10,16}\.[0-9a-f]{64}\./.test(ap.state), ap?.state?.slice(0, 40));
+    const raw = ap.state.split('.').slice(3).join('.');
+    const decisions = [{ callId: 'call_sig', approve: true }];
+    const attempt = async (state, over = {}, token = 'good-jwt') => callV2(sdr, { token, body: { agentId: 'sdr-cold-email', leadId: 'c1', ...over, resume: { state, decisions } } });
+    const parts = ap.state.split('.');
+    const forged = [
+      ['raw (unsigned) RunState', attempt(raw)],
+      ['modified payload', attempt(ap.state.slice(0, -3) + (ap.state.endsWith('abc') ? 'xyz' : 'abc'))],
+      ['modified mac', attempt(['v1', parts[1], '0'.repeat(64), ...parts.slice(3)].join('.'))],
+      ['re-dated (older ts, same mac)', attempt(['v1', String(Number(parts[1]) - 7_200_000), ...parts.slice(2)].join('.'))],
+      ['different user', attempt(ap.state, {}, 'admin-jwt')],
+      ['different agent', attempt(ap.state, { agentId: 'sdr-follow-up' })],
+    ];
+    for (const [what, p] of forged) { const r = await p; assert.equal(r.status, 400, what); assert.match((await jsonOf(r)).error, /resume state/i, what); }
+    seed(supa);
+    const other = await attempt(ap.state, { leadId: 'c2' });
+    assert.ok([400, 404].includes(other.status), 'different lead: ' + other.status);
+    assert.equal(supa.table('outbound_messages').length, 0, 'nothing was sent by any forged resume');
+    // and the genuine signed state still works for its owner
+    const ok = await readSSE(await attempt(ap.state));
+    assert.ok(ok.frames.some((f) => f !== '[DONE]' && f.type === 'final'), JSON.stringify(ok.frames).slice(0, 300));
+    assert.equal(supa.table('outbound_messages').length, 1);
+  });
+  await t('sdr-agent signing secret: SDR_STATE_SECRET overrides the service-key-derived default (state signed with the old secret is rejected after rotation)', async () => {
+    seed(supa); openai.reset();
+    openai.script(() => ({ toolCall: { call_id: 'call_rot', ...sendCall() } }));
+    const first = await readSSE(await callV2(sdr, { body: { agentId: 'sdr-cold-email', leadId: 'c1' } }));
+    const ap = first.frames.find((f) => f !== '[DONE]' && f.type === 'approval_required');
+    process.env.SDR_STATE_SECRET = 'rotated-secret';
+    try {
+      const r = await callV2(sdr, { body: { agentId: 'sdr-cold-email', leadId: 'c1', resume: { state: ap.state, decisions: [{ callId: 'call_rot', approve: true }] } } });
+      assert.equal(r.status, 400);
+    } finally { delete process.env.SDR_STATE_SECRET; }
+  });
+  await t('sdr-agent / sdr-run: the caller must be able to see the lead under RLS (user client read of contacts) -> 404 and no run otherwise; anon key rejected by default', async () => {
+    seed(supa); openai.reset();
+    const r = await callV2(sdr, { body: { agentId: 'sdr-cold-email', leadId: 'nope' } });
+    assert.equal(r.status, 404);
+    const r2 = await callV1(run.handler, { body: { action: 'run', agentId: 'sdr-cold-email', contactId: 'nope' } });
+    assert.equal(r2.statusCode, 404);
+    assert.equal(openai.requests('/v1/responses').length, 0, 'no model call for an invisible lead');
+    const n0 = supa.log.length;
+    await callV2(sdr, { body: { agentId: 'sdr-cold-email', leadId: 'c1' } });
+    const check = supa.log.slice(n0).find((l) => /\/rest\/v1\/contacts/.test(l.path));
+    assert.equal(check.headers.authorization, 'Bearer good-jwt'); assert.equal(check.headers.apikey, 'anon-key');
+    assert.equal((await callV2(sdr, { body: { agentId: 'sdr-cold-email', leadId: 'c1' }, token: 'anon-key' })).status, 401);
+    assert.equal((await callV1(run.handler, { body: { action: 'metadata' }, token: 'anon-key' })).statusCode, 401);
   });
   await t('sdr-agent: handoff event emitted for orchestrator -> specialist', async () => {
     seed(supa); openai.reset();

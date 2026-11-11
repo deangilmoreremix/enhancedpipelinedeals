@@ -71,13 +71,13 @@ describe('MergeDealsModal', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /Merge 2 deals/ }));
 
-    await waitFor(() => expect(mockRpc).toHaveBeenCalledWith('merge_deals', { keep: 'a', merge_ids: ['b'] }));
-    await waitFor(() => expect(mockUpdate).toHaveBeenCalled());
-    const row = mockUpdate.mock.calls[0][0] as Record<string, unknown>;
+    await waitFor(() => expect(mockRpc).toHaveBeenCalledWith('merge_deals', expect.objectContaining({ keep: 'a', merge_ids: ['b'] })));
+    // Survivor fields travel inside the RPC (atomic) - no separate deals.update
+    expect(mockUpdate).not.toHaveBeenCalled();
+    const row = (mockRpc.mock.calls[0][1] as { p_fields: Record<string, unknown> }).p_fields;
     expect(row).toMatchObject({ value: 5000, amount_micros: 5_000_000_000, priority: 'high' });
     expect(row.notes).toBe('note A\n\n---\n\nnote B');
     expect(row).not.toHaveProperty('stage'); // survivor's stage kept (no choice made)
-    expect(mockEq).toHaveBeenCalledWith('id', 'a');
     await waitFor(() => expect(mockFetchDeals).toHaveBeenCalled());
     expect(onMerged).toHaveBeenCalledWith('a');
     expect(onClose).toHaveBeenCalled();
@@ -88,10 +88,8 @@ describe('MergeDealsModal', () => {
     fireEvent.click(screen.getByLabelText('Keep ACME renewal'));
     fireEvent.click(screen.getByLabelText('Value: $1,000'));
     fireEvent.click(screen.getByRole('button', { name: /Merge 2 deals/ }));
-    await waitFor(() => expect(mockRpc).toHaveBeenCalledWith('merge_deals', { keep: 'b', merge_ids: ['a'] }));
-    await waitFor(() => expect(mockUpdate).toHaveBeenCalled());
-    expect(mockUpdate.mock.calls[0][0]).toMatchObject({ value: 1000, amount_micros: 1_000_000_000 });
-    expect(mockEq).toHaveBeenCalledWith('id', 'b');
+    await waitFor(() => expect(mockRpc).toHaveBeenCalledWith('merge_deals', expect.objectContaining({ keep: 'b', merge_ids: ['a'] })));
+    expect((mockRpc.mock.calls[0][1] as { p_fields: unknown }).p_fields).toMatchObject({ value: 1000, amount_micros: 1_000_000_000 });
   });
 
   it('shows an error and stays open when the RPC fails', async () => {

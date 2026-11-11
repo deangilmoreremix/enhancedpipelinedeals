@@ -228,50 +228,89 @@ export function json(statusCode: number, body: unknown) {
   return { statusCode, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS }, body: JSON.stringify(body) };
 }
 
-// --- auth: a valid Supabase user JWT, or the project's anon key (app supports anon access) ---
-export async function authorize(header: string | undefined): Promise<boolean> {
-  if (process.env.AI_GATEWAY_ALLOW_UNAUTHENTICATED === 'true') return true;
-  const token = (header || '').replace(/^Bearer\s+/i, '').trim();
-  if (!token) return false;
-  const anon = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
-  if (anon && token === anon) return true;
-  const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || anon;
-  if (!url || !key) return false;
-  try {
-    const { data, error } = await createClient(url, key).auth.getUser(token);
-    return !error && Boolean(data.user);
-  } catch {
-    return false;
-  }
-}
+// --- auth ---------------------------------------------------------------------------------------------------------
+// Default: a verified Supabase USER JWT is required. The public anon key (which ships in the browser bundle and so is
+// not a credential) is only accepted when ALLOW_ANON_FUNCTIONS=true (demo deployments). AI_GATEWAY_ALLOW_UNAUTHENTICATED=true
+// is the legacy alias of that switch and additionally lets callers with no token at all through (mapped to the demo user).
 
-/** uuid-shaped placeholder for unauthenticated demo / anon-key callers (calendar_events.created_by is a uuid column). */
+const envUrl = () => process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+const envAnon = () => process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+const envService = () => process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
+const bearer = (header: string | undefined) => (header || '').replace(/^Bearer\s+/i, '').trim();
+
+/** Anon-key callers allowed? (`ALLOW_ANON_FUNCTIONS=true`, or the legacy `AI_GATEWAY_ALLOW_UNAUTHENTICATED=true`). */
+export const anonAllowed = () => process.env.ALLOW_ANON_FUNCTIONS === 'true' || process.env.AI_GATEWAY_ALLOW_UNAUTHENTICATED === 'true';
+
+/** Token-less callers allowed? Only the legacy `AI_GATEWAY_ALLOW_UNAUTHENTICATED=true` escape hatch. */
+const tokenlessAllowed = () => process.env.AI_GATEWAY_ALLOW_UNAUTHENTICATED === 'true';
+
+/** uuid-shaped placeholder for anon-key / token-less demo callers (calendar_events.created_by is a uuid column). */
 export const DEMO_USER_ID = '00000000-0000-0000-0000-000000000000';
 
+export interface AuthedUser {
+  id: string;
+  /** Anon-key / token-less caller (only possible when anon access is enabled). */
+  demo?: boolean;
+  /** Called with the service-role key (server-to-server). */
+  service?: boolean;
+}
+
 /**
- * Who is calling? Resolves the verified Supabase user from the Authorization header ({ id } of the JWT's user).
- * The project's anon key (or AI_GATEWAY_ALLOW_UNAUTHENTICATED=true) maps to the shared demo user {@link DEMO_USER_ID}.
- * Returns null when the caller cannot be identified. Never trust a user id sent in a request body: use this instead.
+ * Who is calling? Resolves the verified Supabase user from the Authorization header. Returns null when the caller cannot
+ * be identified. Never trust a user id sent in a request body: use this instead.
  */
-export async function authUser(header: string | undefined): Promise<{ id: string; demo?: boolean } | null> {
-  const token = (header || '').replace(/^Bearer\s+/i, '').trim();
-  const anon = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
-  if (token && anon && token === anon) return { id: DEMO_USER_ID, demo: true };
+export async function authUser(header: string | undefined): Promise<AuthedUser | null> {
+  const token = bearer(header);
+  const anon = envAnon();
+  const service = envService();
+  if (token && service && token === service) return { id: DEMO_USER_ID, service: true };
+  if (token && anon && token === anon) return anonAllowed() ? { id: DEMO_USER_ID, demo: true } : null;
   if (token) {
-    const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-    const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || anon;
+    const url = envUrl();
+    const key = service || anon;
     if (url && key) {
       try {
-        const { data, error } = await createClient(url, key).auth.getUser(token);
+        const { data, error } = await createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } }).auth.getUser(token);
         if (!error && data.user?.id) return { id: data.user.id };
       } catch {
         /* fall through */
       }
     }
   }
-  if (process.env.AI_GATEWAY_ALLOW_UNAUTHENTICATED === 'true') return { id: DEMO_USER_ID, demo: true };
+  if (tokenlessAllowed()) return { id: DEMO_USER_ID, demo: true };
   return null;
+}
+
+export async function authorize(header: string | undefined): Promise<boolean> {
+  return Boolean(await authUser(header));
+}
+
+/**
+ * Supabase client that acts AS THE CALLER: anon key + the caller's own Authorization header, so Postgres RLS applies.
+ * Use it for every user-scoped read (contacts, deals, ...). Returns null when SUPABASE_URL / SUPABASE_ANON_KEY are missing
+ * (callers must treat that as a configuration error, NOT fall back to the service role).
+ */
+export function userClient(header: string | undefined) {
+  const url = envUrl();
+  const anon = envAnon();
+  const token = bearer(header);
+  if (!url || !anon) return null;
+  return createClient(url, anon, {
+    auth: { persistSession: false, autoRefreshToken: false },
+    global: { headers: token ? { Authorization: `Bearer ${token}` } : {} },
+  });
+}
+
+/** CRM role of the caller (`admin` | `manager` | `member` | `viewer`) via the RLS helper `current_role_name()`; null if unknown. */
+export async function callerRole(header: string | undefined): Promise<string | null> {
+  const db = userClient(header);
+  if (!db) return null;
+  try {
+    const { data, error } = await db.rpc('current_role_name');
+    return !error && typeof data === 'string' ? data : null;
+  } catch {
+    return null;
+  }
 }
 
 // --- tiny in-memory rate limit (per warm instance) ---

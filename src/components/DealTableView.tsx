@@ -1,3 +1,5 @@
+import { useDealStore } from '../store/dealStore';
+import { toastFailure } from '../utils/permissionToast';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Deal } from '../types';
 import {
@@ -202,7 +204,7 @@ export const DealTableView: React.FC<DealTableViewProps> = ({ deals, onDealClick
 
   const toggleFavorite = (e: React.MouseEvent, deal: Deal) => {
     e.stopPropagation();
-    void onDealUpdate(deal.id, { isFavorite: !deal.isFavorite });
+    void useDealStore.getState().toggleFavorite(deal.id).catch(err => toastFailure(err, 'edit', 'deal', 'Could not update favorite'));
   };
 
   // ---- aggregates ------------------------------------------------------------

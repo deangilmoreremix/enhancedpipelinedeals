@@ -14,6 +14,13 @@ import http from 'node:http';
 import { randomUUID } from 'node:crypto';
 
 export const GOOD_JWT = 'good-jwt';
+/** extra signed-in users: token -> { id, role } (role is what the RLS helper current_role_name() returns for that caller) */
+export const USERS = {
+  'good-jwt': { id: 'user-1', role: 'member' },
+  'viewer-jwt': { id: 'user-v', role: 'viewer' },
+  'manager-jwt': { id: 'user-m', role: 'manager' },
+  'admin-jwt': { id: 'user-a', role: 'admin' },
+};
 export const SERVICE_KEY = 'service-role-key';
 export const ANON_KEY = 'anon-key';
 
@@ -181,7 +188,8 @@ export function createStubSupabase({ port = 54402 } = {}) {
       // -------- auth
       if (u.pathname === '/auth/v1/user') {
         const tok = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
-        if (tok === GOOD_JWT) return send(res, 200, { id: 'user-1', aud: 'authenticated', role: 'authenticated', email: 'rep@example.com', app_metadata: {}, user_metadata: {}, created_at: new Date().toISOString() });
+        const u1 = USERS[tok];
+        if (u1) return send(res, 200, { id: u1.id, aud: 'authenticated', role: 'authenticated', email: 'rep@example.com', app_metadata: {}, user_metadata: {}, created_at: new Date().toISOString() });
         return send(res, 401, { code: 401, error_code: 'bad_jwt', msg: 'invalid JWT' });
       }
 
@@ -228,6 +236,11 @@ export function createStubSupabase({ port = 54402 } = {}) {
       if (u.pathname.startsWith('/rest/v1/rpc/')) {
         const fn = u.pathname.slice('/rest/v1/rpc/'.length);
         if (stub.rpc[fn]) return send(res, 200, await stub.rpc[fn](body ?? {}, stub));
+        if (fn === 'current_role_name') {
+          // RLS helper: role of the caller identified by the forwarded user JWT (anon key / no token -> null)
+          const tok = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+          return send(res, 200, USERS[tok]?.role ?? null);
+        }
         if (fn === 'claim_workflow_events') {
           const limit = body?.p_limit ?? 25, max = body?.p_max_attempts ?? 5;
           const rows = stub.table('workflow_events')

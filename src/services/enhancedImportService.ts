@@ -533,7 +533,7 @@ class EnhancedImportService {
           } catch (error) {
             errors.push({
               row: batch.indexOf(deal) + 1,
-              message: 'Database save failed',
+              message: error instanceof Error && error.message ? `Database save failed: ${error.message}` : 'Database save failed',
               data: deal
             });
           }

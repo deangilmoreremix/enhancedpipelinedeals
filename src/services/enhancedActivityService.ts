@@ -1,6 +1,8 @@
 import { supabase, isSupabaseConfigured } from './supabaseService';
 import { Deal } from '../types';
 import { Contact } from '../types/contact';
+import { assertRowsAffected } from '../utils/rlsError';
+import { getCurrentUserId, isUuid } from './dealRecordShared';
 
 export interface EnhancedActivity {
   id: string;
@@ -57,30 +59,69 @@ export interface ActivitySubscription {
 
 class EnhancedActivityService {
   // Activity CRUD operations
+  /**
+   * Deal-scoped activities are written to `deal_activities` (clients have RLS write access there; the
+   * richer fields ride in `metadata`). Activities without a deal go to `enhanced_activities`.
+   */
   async createActivity(activity: Omit<EnhancedActivity, 'id' | 'createdAt' | 'updatedAt'>): Promise<EnhancedActivity> {
+    if (activity.dealId) {
+      const uid = await getCurrentUserId();
+      const { data, error } = await supabase
+        .from('deal_activities')
+        .insert(this.toDealActivityRow(activity, uid))
+        .select()
+        .single();
+      if (error) throw error;
+      return this.transformDealActivity(data);
+    }
     const { data, error } = await supabase
       .from('enhanced_activities')
-      .insert([{
-        deal_id: activity.dealId,
-        contact_id: activity.contactId,
-        user_id: activity.userId,
-        activity_type: activity.activityType,
-        title: activity.title,
-        description: activity.description,
-        metadata: activity.metadata || {},
-        tags: activity.tags || [],
-        priority: activity.priority || 'medium',
-        status: activity.status || 'completed',
-        duration_minutes: activity.durationMinutes,
-        related_records: activity.relatedRecords || [],
-        ai_insights: activity.aiInsights || {}
-      }])
+      .insert([this.toEnhancedRow(activity)])
       .select()
       .single();
 
     if (error) throw error;
 
     return this.transformActivity(data);
+  }
+
+  private toEnhancedRow(activity: Partial<EnhancedActivity>) {
+    return {
+      deal_id: activity.dealId,
+      contact_id: activity.contactId,
+      user_id: activity.userId,
+      activity_type: activity.activityType,
+      title: activity.title,
+      description: activity.description,
+      metadata: activity.metadata || {},
+      tags: activity.tags || [],
+      priority: activity.priority || 'medium',
+      status: activity.status || 'completed',
+      duration_minutes: activity.durationMinutes,
+      related_records: activity.relatedRecords || [],
+      ai_insights: activity.aiInsights || {}
+    };
+  }
+
+  /** EnhancedActivity -> deal_activities row (only real columns; extras live in metadata). */
+  toDealActivityRow(activity: Partial<EnhancedActivity>, uid?: string | null) {
+    return {
+      deal_id: activity.dealId,
+      type: activity.activityType,
+      title: activity.title,
+      description: activity.description,
+      metadata: {
+        ...(activity.metadata || {}),
+        tags: activity.tags || [],
+        priority: activity.priority || 'medium',
+        status: activity.status || 'completed',
+        durationMinutes: activity.durationMinutes,
+        relatedRecords: activity.relatedRecords || [],
+        aiInsights: activity.aiInsights || {},
+        contactId: activity.contactId
+      },
+      ...(isUuid(uid ?? undefined) ? { created_by: uid } : {})
+    };
   }
 
   async getActivitiesForDeal(dealId: string, filter?: ActivityFilter): Promise<{
@@ -91,97 +132,82 @@ class EnhancedActivityService {
     const limit = filter?.limit || 50;
     const offset = filter?.offset || 0;
 
-    // Check if supabase is available
     if (!isSupabaseConfigured) {
       return { activities: [], totalCount: 0, hasMore: false };
     }
 
-    // Try using the database function for optimized querying
-    try {
-      const { data, error } = await supabase
-        .rpc('get_deal_activities', {
-          p_deal_id: dealId,
-          p_limit: limit,
-          p_offset: offset,
-          p_activity_types: filter?.activityTypes || null,
-          p_date_from: filter?.dateFrom || null,
-          p_date_to: filter?.dateTo || null
-        });
-
-      if (error) {
-        // If the function doesn't exist, fall back to direct query
-        if (error.code === '42883' || error.message.includes('function')) {
-          console.warn('get_deal_activities function not found, using direct query');
-          return this.getActivitiesForDealDirect(dealId, filter);
-        }
-        throw error;
-      }
-
-      // Apply additional client-side filtering if needed
-      let activities = data || [];
-
-      if (filter?.priorities && filter.priorities.length > 0) {
-        activities = activities.filter((a: any) => filter.priorities!.includes(a.priority));
-      }
-
-      if (filter?.statuses && filter.statuses.length > 0) {
-        activities = activities.filter((a: any) => filter.statuses!.includes(a.status));
-      }
-
-      if (filter?.tags && filter.tags.length > 0) {
-        activities = activities.filter((a: any) =>
-          a.tags && a.tags.some((tag: any) => filter.tags!.includes(tag))
-        );
-      }
-
-      return {
-        activities: activities.map(this.transformActivityFromFunction),
-        totalCount: activities.length,
-        hasMore: activities.length === limit
-      };
-    } catch (error) {
-      // Fall back to direct query on any error
-      console.warn('Error calling get_deal_activities, falling back to direct query:', error);
-      return this.getActivitiesForDealDirect(dealId, filter);
-    }
-  }
-
-  private async getActivitiesForDealDirect(dealId: string, filter?: ActivityFilter): Promise<{
-    activities: EnhancedActivity[];
-    totalCount: number;
-    hasMore: boolean;
-  }> {
-    const limit = filter?.limit || 50;
-    const offset = filter?.offset || 0;
-
     try {
       let query = supabase
-        .from('enhanced_activities')
-        .select('*', { count: 'exact' })
+        .from('deal_activities')
+        .select('*')
         .eq('deal_id', dealId)
         .order('created_at', { ascending: false })
-        .range(offset, offset + limit - 1);
+        .limit(offset + limit);
+      if (filter?.activityTypes?.length) query = query.in('type', filter.activityTypes);
+      if (filter?.dateFrom) query = query.gte('created_at', filter.dateFrom);
+      if (filter?.dateTo) query = query.lte('created_at', filter.dateTo);
 
-      if (filter?.activityTypes && filter.activityTypes.length > 0) {
-        query = query.in('activity_type', filter.activityTypes);
-      }
+      // Legacy rows written to enhanced_activities before this change are merged in read-only
+      let legacyQ = supabase
+        .from('enhanced_activities')
+        .select('*')
+        .eq('deal_id', dealId)
+        .order('created_at', { ascending: false })
+        .limit(offset + limit);
+      if (filter?.activityTypes?.length) legacyQ = legacyQ.in('activity_type', filter.activityTypes);
+      if (filter?.dateFrom) legacyQ = legacyQ.gte('created_at', filter.dateFrom);
+      if (filter?.dateTo) legacyQ = legacyQ.lte('created_at', filter.dateTo);
 
-      const { data, error } = await query;
+      const [primary, legacy] = await Promise.all([query, legacyQ]);
+      if (primary.error) throw primary.error;
+      if (legacy.error) console.warn('Legacy enhanced_activities read failed:', legacy.error);
 
-      if (error) throw error;
+      let activities = [
+        ...(primary.data || []).map(r => this.transformDealActivity(r)),
+        ...((legacy.error ? [] : legacy.data) || []).map(r => this.transformActivity(r)),
+      ].sort((x, y) => (y.createdAt || '').localeCompare(x.createdAt || ''));
 
+      if (filter?.priorities?.length) activities = activities.filter(a => filter.priorities!.includes(a.priority as string));
+      if (filter?.statuses?.length) activities = activities.filter(a => filter.statuses!.includes(a.status as string));
+      if (filter?.tags?.length) activities = activities.filter(a => a.tags?.some(t => filter.tags!.includes(t)));
+
+      const page = activities.slice(offset, offset + limit);
       return {
-        activities: (data || []).map(this.transformActivity),
-        totalCount: data?.length || 0,
-        hasMore: (data?.length || 0) === limit
+        activities: page,
+        totalCount: activities.length,
+        hasMore: activities.length > offset + limit
       };
     } catch (error) {
-      console.warn('Direct query also failed, returning empty activities:', error);
+      console.warn('Could not load deal activities:', error);
       return { activities: [], totalCount: 0, hasMore: false };
     }
   }
 
   async updateActivity(id: string, updates: Partial<EnhancedActivity>): Promise<EnhancedActivity> {
+    // Newer rows live in deal_activities; fall back to the legacy table when the id is not there
+    const dealPatch: Record<string, unknown> = {};
+    if (updates.activityType !== undefined) dealPatch.type = updates.activityType;
+    if (updates.title !== undefined) dealPatch.title = updates.title;
+    if (updates.description !== undefined) dealPatch.description = updates.description;
+    const extras: Record<string, unknown> = {
+      ...(updates.metadata || {}),
+      ...(updates.tags !== undefined ? { tags: updates.tags } : {}),
+      ...(updates.priority !== undefined ? { priority: updates.priority } : {}),
+      ...(updates.status !== undefined ? { status: updates.status } : {}),
+      ...(updates.durationMinutes !== undefined ? { durationMinutes: updates.durationMinutes } : {}),
+      ...(updates.relatedRecords !== undefined ? { relatedRecords: updates.relatedRecords } : {}),
+      ...(updates.aiInsights !== undefined ? { aiInsights: updates.aiInsights } : {}),
+    };
+    if (Object.keys(extras).length > 0) {
+      const { data: cur } = await supabase.from('deal_activities').select('metadata').eq('id', id).maybeSingle();
+      dealPatch.metadata = { ...((cur?.metadata as Record<string, unknown>) || {}), ...extras };
+    }
+    if (Object.keys(dealPatch).length > 0) {
+      const { data, error } = await supabase.from('deal_activities').update(dealPatch).eq('id', id).select();
+      if (error) throw error;
+      if (data && data.length > 0) return this.transformDealActivity(data[0]);
+    }
+
     const { data, error } = await supabase
       .from('enhanced_activities')
       .update({
@@ -201,21 +227,21 @@ class EnhancedActivityService {
         updated_at: new Date().toISOString()
       })
       .eq('id', id)
-      .select()
-      .single();
+      .select();
 
     if (error) throw error;
+    assertRowsAffected(data); // RLS filters UPDATEs silently
 
-    return this.transformActivity(data);
+    return this.transformActivity(data![0]);
   }
 
   async deleteActivity(id: string): Promise<void> {
-    const { error } = await supabase
-      .from('enhanced_activities')
-      .delete()
-      .eq('id', id);
-
+    const primary = await supabase.from('deal_activities').delete().eq('id', id).select('id');
+    if (primary.error) throw primary.error;
+    if (primary.data && primary.data.length > 0) return;
+    const { data, error } = await supabase.from('enhanced_activities').delete().eq('id', id).select('id');
     if (error) throw error;
+    assertRowsAffected(data);
   }
 
   // Activity comments
@@ -344,28 +370,27 @@ class EnhancedActivityService {
 
   // Bulk operations
   async createBulkActivities(activities: Array<Omit<EnhancedActivity, 'id' | 'createdAt' | 'updatedAt'>>): Promise<EnhancedActivity[]> {
-    const { data, error } = await supabase
-      .from('enhanced_activities')
-      .insert(activities.map(activity => ({
-        deal_id: activity.dealId,
-        contact_id: activity.contactId,
-        user_id: activity.userId,
-        activity_type: activity.activityType,
-        title: activity.title,
-        description: activity.description,
-        metadata: activity.metadata || {},
-        tags: activity.tags || [],
-        priority: activity.priority || 'medium',
-        status: activity.status || 'completed',
-        duration_minutes: activity.durationMinutes,
-        related_records: activity.relatedRecords || [],
-        ai_insights: activity.aiInsights || {}
-      })))
-      .select();
-
-    if (error) throw error;
-
-    return (data || []).map(this.transformActivity);
+    const dealOnes = activities.filter(a => a.dealId);
+    const others = activities.filter(a => !a.dealId);
+    const out: EnhancedActivity[] = [];
+    if (dealOnes.length) {
+      const uid = await getCurrentUserId();
+      const { data, error } = await supabase
+        .from('deal_activities')
+        .insert(dealOnes.map(a => this.toDealActivityRow(a, uid)))
+        .select();
+      if (error) throw error;
+      out.push(...(data || []).map(r => this.transformDealActivity(r)));
+    }
+    if (others.length) {
+      const { data, error } = await supabase
+        .from('enhanced_activities')
+        .insert(others.map(a => this.toEnhancedRow(a)))
+        .select();
+      if (error) throw error;
+      out.push(...(data || []).map(r => this.transformActivity(r)));
+    }
+    return out;
   }
 
   // Analytics and insights
@@ -377,7 +402,7 @@ class EnhancedActivityService {
     avgActivitiesPerDay: number;
   }> {
     const { data, error } = await supabase
-      .from('enhanced_activities')
+      .from('deal_activities')
       .select('*')
       .eq('deal_id', dealId)
       .gte('created_at', dateRange?.from || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString())
@@ -386,7 +411,7 @@ class EnhancedActivityService {
 
     if (error) throw error;
 
-    const activities = (data || []).map(this.transformActivity);
+    const activities = (data || []).map(r => this.transformDealActivity(r));
     const activitiesByType: Record<string, number> = {};
     const activitiesByPriority: Record<string, number> = {};
 
@@ -430,19 +455,26 @@ class EnhancedActivityService {
     };
   }
 
-  private transformActivityFromFunction(data: any): EnhancedActivity {
+  /** deal_activities row -> EnhancedActivity (extras are stored in metadata). */
+  private transformDealActivity(data: any): EnhancedActivity {
+    const m = (data.metadata || {}) as Record<string, any>;
     return {
       id: data.id,
-      activityType: data.activity_type,
-      title: data.title,
-      description: data.description,
-      metadata: data.metadata,
-      tags: data.tags,
-      priority: data.priority,
-      status: data.status,
+      dealId: data.deal_id,
+      contactId: m.contactId,
+      userId: data.created_by ?? undefined,
+      activityType: data.type,
+      title: data.title ?? data.type,
+      description: data.description ?? undefined,
+      metadata: m,
+      tags: m.tags,
+      priority: m.priority,
+      status: m.status,
+      durationMinutes: m.durationMinutes,
+      relatedRecords: m.relatedRecords,
+      aiInsights: m.aiInsights,
       createdAt: data.created_at,
-      updatedAt: data.updated_at,
-      userId: data.user_name // This comes from the function
+      updatedAt: data.updated_at ?? data.created_at
     };
   }
 

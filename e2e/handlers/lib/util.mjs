@@ -58,3 +58,10 @@ export async function readSSE(res) {
 }
 
 export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/** Runs `fn` with env vars temporarily set (value undefined/null deletes), restoring them afterwards. */
+export async function withEnv(vars, fn) {
+  const prev = {};
+  for (const [k, v] of Object.entries(vars)) { prev[k] = process.env[k]; if (v == null) delete process.env[k]; else process.env[k] = v; }
+  try { return await fn(); } finally { for (const [k, v] of Object.entries(prev)) { if (v === undefined) delete process.env[k]; else process.env[k] = v; } }
+}

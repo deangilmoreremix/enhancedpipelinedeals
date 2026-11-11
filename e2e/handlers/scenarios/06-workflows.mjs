@@ -1,4 +1,4 @@
-import { assert, callV2, jsonOf, freshIp } from '../lib/util.mjs';
+import { assert, callV2, jsonOf, freshIp, withEnv } from '../lib/util.mjs';
 
 export const label = 'workflow-runner / workflow-run-now / _workflowSteps / scheduled-sla';
 
@@ -284,23 +284,43 @@ export default async function ({ t, openai, supa, loadFunction }) {
   });
 
   // ======================= workflow-run-now
-  await t('workflow-run-now: OPTIONS/405/401/429', async () => {
+  // run-now is admin/manager only (or the service key); its rate limit is per user (in-memory, per warm instance: 6/min)
+  const asAdmin = (o = {}) => callV2(runNow, { token: 'admin-jwt', ...o });
+  await t('workflow-run-now: OPTIONS/405/401; per-user rate limit 429 after 6 runs', async () => {
     assert.equal((await callV2(runNow, { method: 'OPTIONS' })).status, 204);
     assert.equal((await callV2(runNow, { method: 'GET' })).status, 405);
     assert.equal((await callV2(runNow, { body: {}, token: null })).status, 401);
-    const ip = freshIp(); let r;
-    for (let i = 0; i < 7; i++) r = await callV2(runNow, { body: {}, ip });
+    let r;
+    for (let i = 0; i < 7; i++) r = await callV2(runNow, { body: {}, token: 'manager-jwt' });
     assert.equal(r.status, 429);
+    // a different IP does not reset the per-user counter
+    assert.equal((await callV2(runNow, { body: {}, token: 'manager-jwt', ip: freshIp() })).status, 429);
+  });
+  await t('workflow-run-now role gate: member / viewer -> 403; anon key -> 401 (or 403 when anon is allowed); manager / admin / service key -> 200; nothing executes for rejected callers', async () => {
+    supa.reset(baseSeed({ workflow_events: [event()] }));
+    const n0 = supa.log.length;
+    for (const token of ['good-jwt', 'viewer-jwt']) {
+      const r = await callV2(runNow, { body: {}, token });
+      assert.equal(r.status, 403, token); assert.match((await jsonOf(r)).error, /admin or manager/i);
+    }
+    assert.equal((await callV2(runNow, { body: {}, token: 'anon-key' })).status, 401);
+    await withEnv({ ALLOW_ANON_FUNCTIONS: 'true' }, async () => assert.equal((await callV2(runNow, { body: {}, token: 'anon-key' })).status, 403));
+    assert.ok(!supa.log.slice(n0).some((l) => /claim_workflow_events/.test(l.path)), 'runner never started for rejected callers');
+    for (const action of ['rerun', 'resume']) assert.equal((await callV2(runNow, { body: { action, executionId: 'evt:e1:w1' }, token: 'good-jwt' })).status, 403, action);
+    const ok = await asAdmin({ body: {} });
+    assert.equal(ok.status, 200, JSON.stringify(await jsonOf(ok)));
+    const svc = await callV2(runNow, { body: {}, token: 'service-role-key' });
+    assert.equal(svc.status, 200);
   });
   await t('workflow-run-now: plain POST runs a batch and returns summary', async () => {
     supa.reset(baseSeed({ workflow_events: [event()] }));
-    const r = await callV2(runNow, { body: {} });
+    const r = await asAdmin({ body: {} });
     const j = await jsonOf(r);
     assert.equal(r.status, 200); assert.equal(j.executions, 1);
   });
   await t('workflow-run-now rerun: unknown run 422; existing run -> new rerun:<id>:<ts> execution with attempt+1 and same record', async () => {
-    assert.equal((await callV2(runNow, { body: { action: 'rerun', executionId: 'nope' } })).status, 422);
-    const r = await callV2(runNow, { body: { action: 'rerun', executionId: 'evt:e1:w1' } });
+    assert.equal((await asAdmin({ body: { action: 'rerun', executionId: 'nope' } })).status, 422);
+    const r = await asAdmin({ body: { action: 'rerun', executionId: 'evt:e1:w1' } });
     const j = await jsonOf(r);
     assert.equal(r.status, 200, JSON.stringify(j));
     assert.match(j.executionId, /^rerun:evt:e1:w1:\d+$/);
@@ -310,18 +330,18 @@ export default async function ({ t, openai, supa, loadFunction }) {
   });
   await t('rerun of a run whose workflow was deleted -> 422 "no longer exists"', async () => {
     supa.table('deal_workflows').length = 0;
-    const r = await callV2(runNow, { body: { action: 'rerun', executionId: 'evt:e1:w1' } });
+    const r = await asAdmin({ body: { action: 'rerun', executionId: 'evt:e1:w1' } });
     assert.equal(r.status, 422); assert.match((await jsonOf(r)).error, /no longer exists/);
   });
   await t('workflow-run-now resume: no pending delays -> 422; pending delay -> made due and executed', async () => {
     supa.reset(baseSeed({ workflow_events: [event()] }));
     await runner.runWorkflowBatch({ db: db() });
-    assert.equal((await callV2(runNow, { body: { action: 'resume', executionId: 'evt:nonexistent:w1' } })).status, 422);
-    const r = await callV2(runNow, { body: { action: 'resume', executionId: 'evt:e1:w1' } });
+    assert.equal((await callV2(runNow, { body: { action: 'resume', executionId: 'evt:nonexistent:w1' }, token: 'service-role-key' })).status, 422);
+    const r = await callV2(runNow, { body: { action: 'resume', executionId: 'evt:e1:w1' }, token: 'service-role-key' });
     const j = await jsonOf(r);
     assert.equal(r.status, 200, JSON.stringify(j)); assert.equal(j.resumed, 1);
     assert.ok(notifs().some((m) => m.startsWith('RESUMED')));
-    assert.equal((await callV2(runNow, { body: { action: 'resume', executionId: 'evt:e1:w1' } })).status, 422, 'cannot resume twice');
+    assert.equal((await callV2(runNow, { body: { action: 'resume', executionId: 'evt:e1:w1' }, token: 'service-role-key' })).status, 422, 'cannot resume twice');
   });
 
   // ======================= scheduled-sla
@@ -404,6 +424,24 @@ export default async function ({ t, openai, supa, loadFunction }) {
     supa.table('workflow_events')[0].created_at = iso(8 * D);
     s = await sla.runSlaSweep(db());
     assert.equal(s.staleDeals, 1, 're-emit after 7 days');
+  });
+  await t('stale deals: last REAL activity (deal_last_activity view) beats updated_at; missing view falls back to updated_at', async () => {
+    supa.reset({
+      deals: [
+        { id: 'a1', title: 'Edited long ago, active yesterday', stage: 'proposal', updated_at: iso(60 * D) },
+        { id: 'a2', title: 'Silent', stage: 'proposal', updated_at: iso(60 * D) },
+        { id: 'a3', title: 'Old activity', stage: 'proposal', updated_at: iso(60 * D) },
+      ],
+      deal_last_activity: [{ deal_id: 'a1', last_activity_at: iso(D) }, { deal_id: 'a3', last_activity_at: iso(45 * D) }],
+    });
+    const s = await sla.runSlaSweep(db());
+    assert.equal(s.staleDeals, 2, JSON.stringify(s));
+    const ev = supa.table('workflow_events').map((e) => [e.entity_id, e.payload.idleDays]).sort();
+    assert.deepEqual(ev, [['a2', 60], ['a3', 45]]);
+    supa.reset({ deals: [{ id: 'b1', title: 'x', stage: 'proposal', updated_at: iso(50 * D) }] });
+    supa.failNext('GET', '/rest/v1/deal_last_activity', 404, { code: '42P01', message: 'relation "deal_last_activity" does not exist' });
+    const s2 = await sla.runSlaSweep(db());
+    assert.equal(s2.staleDeals, 1); assert.deepEqual(s2.errors, []);
   });
   await t('stale deals threshold comes from active stage_duration deal policy (10 days)', async () => {
     supa.reset({ sla_policies: [{ id: 'p', record_type: 'deal', is_active: true, metrics: { type: 'stage_duration', target: 10, unit: 'days' } }], deals: [{ id: 's1', title: 'x', stage: 'proposal', updated_at: iso(12 * D) }] });

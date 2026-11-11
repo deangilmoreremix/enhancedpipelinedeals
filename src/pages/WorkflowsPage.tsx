@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { DealWorkflowsPanel } from '../components/deals/DealWorkflowsPanel';
-import { WorkflowRunHistory } from '../components/workflows/WorkflowRunHistory';
 import { PageContainer, PageHeader } from './PageHeader';
 import { useDeals } from './hooks';
 
@@ -12,7 +11,7 @@ const WorkflowsPage: React.FC = () => {
     <PageContainer>
       <PageHeader
         title="Workflows"
-        subtitle="Automated deal progression"
+        subtitle="Design workflows on the canvas and review every run"
         actions={
           <select
             aria-label="Assign to deal"
@@ -28,7 +27,6 @@ const WorkflowsPage: React.FC = () => {
         }
       />
       <DealWorkflowsPanel dealId={dealId || undefined} />
-      <WorkflowRunHistory />
     </PageContainer>
   );
 };

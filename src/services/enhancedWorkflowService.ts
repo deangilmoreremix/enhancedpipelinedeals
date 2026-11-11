@@ -191,7 +191,7 @@ export class EnhancedWorkflowService {
       };
 
       if (updates.name) updateData.name = updates.name;
-      if (updates.description) updateData.description = updates.description;
+      if (updates.description !== undefined) updateData.description = updates.description;
       if (updates.category) updateData.category = updates.category;
       if (updates.steps) updateData.stages = updates.steps;
       if (updates.triggers) updateData.triggers = updates.triggers;

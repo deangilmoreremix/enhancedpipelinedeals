@@ -349,7 +349,11 @@ export const useDealStore = create<DealStore>((set, get) => ({
     }
   },
 
-  updateStage: async (key, updates) => {
+  updateStage: async (key, rawUpdates) => {
+    // Won and lost are mutually exclusive: setting one clears the other
+    const updates: typeof rawUpdates = { ...rawUpdates };
+    if (updates.isWon === true) updates.isLost = false;
+    else if (updates.isLost === true) updates.isWon = false;
     const state = get();
     const original = state.stages.find(s => s.key === key);
     if (!original) return false;

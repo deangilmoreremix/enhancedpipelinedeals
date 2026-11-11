@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { AdvancedFilterGroup, Deal, ViewFilter } from '../types';
+import type { AdvancedFilterGroup, Deal, PipelineStage, ViewFilter, ViewSort } from '../types';
 import { AdvancedFilteringService, FilterGroupNode } from '../services/advancedFilteringService';
 import { searchDeals } from '../services/dealSearchService';
 import { BoardGroupBy, presetForSorting, useBoardViewStore } from '../store/boardViewStore';
 import type { BoardSortKey } from '../components/pipeline/kanban/kanbanUtils';
 import type { BoardGrouping } from '../components/pipeline/KanbanBoard';
+import { DEFAULT_STAGES } from '../services/pipelineStageService';
+import { sortViewDeals } from '../utils/viewDeals';
 
 export const SEARCH_DEBOUNCE_MS = 200;
 
@@ -33,6 +35,16 @@ export function applyBoardFilters(deals: Deal[], input: BoardFilterInput): Deal[
   return result;
 }
 
+/** Pure: the single filtered AND sorted list every pipeline view renders (kanban sorts per column on top of it). */
+export function computeViewDeals(
+  deals: Deal[],
+  input: BoardFilterInput,
+  sorting: ViewSort[],
+  stages: PipelineStage[]
+): Deal[] {
+  return sortViewDeals(applyBoardFilters(deals, input), sorting, stages);
+}
+
 /** Debounced copy of `value`. */
 export function useDebounced<T>(value: T, ms: number): T {
   const [v, setV] = useState(value);
@@ -46,6 +58,8 @@ export function useDebounced<T>(value: T, ms: number): T {
 export interface UseBoardFiltersResult {
   /** Deals passing search + all filters (unsorted; the board sorts per column). */
   deals: Deal[];
+  /** `deals` after the active sort rules: the one list passed to every view (table/list/calendar/timeline/dashboard). */
+  viewDeals: Deal[];
   totalCount: number;
   /** Quick-sort preset for KanbanBoard (`manual` when a custom multi-key sort is active). */
   sortBy: BoardSortKey;
@@ -60,7 +74,7 @@ export interface UseBoardFiltersResult {
  * Derives the board's deals from the raw store deals + boardViewStore (search, favorites, filters, groups, sort, group-by).
  * Search is debounced (200ms) and runs through dealSearchService (Postgres FTS RPC, Fuse.js fallback).
  */
-export function useBoardFilters(dealsMap: Record<string, Deal>): UseBoardFiltersResult {
+export function useBoardFilters(dealsMap: Record<string, Deal>, stages: PipelineStage[] = DEFAULT_STAGES): UseBoardFiltersResult {
   const search = useBoardViewStore(s => s.search);
   const favoritesOnly = useBoardViewStore(s => s.favoritesOnly);
   const filters = useBoardViewStore(s => s.filters);
@@ -92,6 +106,8 @@ export function useBoardFilters(dealsMap: Record<string, Deal>): UseBoardFilters
     [all, filters, groups, favoritesOnly, matchIds]
   );
 
+  const viewDeals = useMemo(() => sortViewDeals(filtered, sorting, stages), [filtered, sorting, stages]);
+
   const preset = presetForSorting(sorting);
   const grouping = useMemo<BoardGrouping>(
     () => ({
@@ -104,6 +120,7 @@ export function useBoardFilters(dealsMap: Record<string, Deal>): UseBoardFilters
   const groupConditions = groups.reduce((n, g) => n + g.filters.length, 0);
   return {
     deals: filtered,
+    viewDeals,
     totalCount: all.length,
     sortBy: preset === 'custom' ? 'manual' : preset,
     grouping,

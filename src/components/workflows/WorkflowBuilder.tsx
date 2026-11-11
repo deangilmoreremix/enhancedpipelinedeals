@@ -6,7 +6,7 @@ import {
 import '@xyflow/react/dist/style.css';
 import { AlertTriangle, Copy, LayoutTemplate, PanelLeft, Play, Redo2, RotateCcw, Save, Settings, Trash2, Undo2 } from 'lucide-react';
 import type { Workflow, WorkflowStep } from '../../types/workflow';
-import { ALL_ENTRIES, type ConfigFieldOption, type RegistryEntry } from '../../services/workflowActionRegistry';
+import { findEntryByRef, type ConfigFieldOption, type RegistryEntry } from '../../services/workflowActionRegistry';
 import { StepPicker, STEP_DRAG_MIME } from './StepPicker';
 import { StepConfigForm } from './StepConfigForm';
 import { InsertEdge, WorkflowNode, type InsertEdgeData, type StepNode, type StepNodeData } from './WorkflowNode';
@@ -286,7 +286,7 @@ const BuilderInner: React.FC<WorkflowBuilderProps> = ({
     const key = e.dataTransfer.getData(STEP_DRAG_MIME);
     if (!key || readOnly) return;
     e.preventDefault();
-    const entry = ALL_ENTRIES.find(x => x.key === key);
+    const entry = findEntryByRef(key);
     if (!entry) return;
     const p = rf.screenToFlowPosition({ x: e.clientX, y: e.clientY });
     addEntry(entry, { x: snap(p.x - 130), y: snap(p.y - 30) });

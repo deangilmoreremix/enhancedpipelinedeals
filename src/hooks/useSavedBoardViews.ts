@@ -55,7 +55,7 @@ export function useSavedBoardViews() {
       if (!defaultChecked.current) {
         defaultChecked.current = true;
         const pristine = !s.activeViewId && s.filters.length === 0 && s.groups.length === 0 && s.sorting.length === 0
-          && s.groupBy === 'stage' && !s.favoritesOnly;
+          && s.groupBy === 'stage' && !s.favoritesOnly && s.currentView === 'kanban';
         const def = rows.find(v => v.is_default);
         if (pristine && def) s.applyView(def);
       }
@@ -74,7 +74,7 @@ export function useSavedBoardViews() {
     const trimmed = name.trim();
     if (!trimmed) { flash('error', 'Enter a name for the view'); return false; }
     const payload = useBoardViewStore.getState().getPayload();
-    const created = await SavedPipelineViewService.saveCurrentView(trimmed, 'board', payload.filters, payload.sorting, [], {
+    const created = await SavedPipelineViewService.saveCurrentView(trimmed, payload.view_type, payload.filters, payload.sorting, payload.columns, {
       groupBy: payload.group_by,
       isPublic
     });
@@ -90,7 +90,13 @@ export function useSavedBoardViews() {
     const id = useBoardViewStore.getState().activeViewId;
     if (!id) return false;
     const payload = useBoardViewStore.getState().getPayload();
-    const ok = await SavedPipelineViewService.updateView(id, { filters: payload.filters, sorting: payload.sorting, group_by: payload.group_by });
+    const ok = await SavedPipelineViewService.updateView(id, {
+      filters: payload.filters,
+      sorting: payload.sorting,
+      group_by: payload.group_by,
+      view_type: payload.view_type,
+      columns: payload.columns
+    });
     if (!ok) { flash('error', 'Could not update the view (you may not own it)'); return false; }
     markSaved(id);
     await reload();

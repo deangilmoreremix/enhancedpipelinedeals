@@ -318,6 +318,10 @@ export const CONDITION_OPERATORS: ConfigFieldOption[] = [
   { value: 'matches_regex', label: 'matches regex' }
 ];
 
+/** Trigger and action keys can collide (`webhook`), so catalog entries are addressed by `kind:key`. */
+export const entryRef = (e: RegistryEntry): string => `${e.category === 'Triggers' ? 'trigger' : 'action'}:${e.key}`;
+export const findEntryByRef = (ref: string): RegistryEntry | undefined => ALL_ENTRIES.find(e => entryRef(e) === ref);
+
 export const getTriggerEntry = (key: string | undefined): RegistryEntry | undefined =>
   TRIGGER_ENTRIES.find(e => e.key === key);
 export const getActionEntry = (key: string | undefined): RegistryEntry | undefined =>

@@ -8,6 +8,19 @@ export interface BoardHotkeyColumn {
   ids: string[];
 }
 
+/** Documented shortcuts (rendered by the hotkeys help). */
+export const BOARD_HOTKEYS: Array<{ keys: string; description: string }> = [
+  { keys: '↑ ↓ ← →', description: 'Move focus between cards' },
+  { keys: 'Enter', description: 'Open the focused deal' },
+  { keys: 'Space', description: 'Select / deselect the focused card' },
+  { keys: 'Alt + ← / →', description: 'Move the focused card (or the selection) to the previous / next stage' },
+  { keys: 'Ctrl/Cmd + A', description: 'Select every card in the focused column (all visible deals in list views)' },
+  { keys: 'Esc', description: 'Clear the selection, then the focus' },
+  { keys: 'n', description: 'Quick-create a deal in the focused column' },
+  { keys: '/', description: 'Focus search' },
+  { keys: '?', description: 'Show this help' }
+];
+
 export interface UseBoardHotkeysOptions {
   enabled?: boolean;
   /** Current columns in display order (read lazily on every key press). */
@@ -15,13 +28,16 @@ export interface UseBoardHotkeysOptions {
   onOpen: (dealId: string) => void;
   /** Opens the quick-create row in the given column. */
   onQuickCreate?: (columnKey: string) => void;
+  /** Alt+ArrowLeft/Right: move `ids` (the selection, else the focused card) to the previous/next visible stage. */
+  onMoveStage?: (direction: -1 | 1, ids: string[]) => void;
 }
 
 /**
  * Keyboard navigation for the kanban board.
  * Arrows move focus (Left/Right keep the nearest index), Enter opens, Space toggles
  * selection, Escape clears selection then focus, "/" focuses search, "n" quick-creates
- * in the focused column and Cmd/Ctrl+A selects the focused column.
+ * in the focused column, Cmd/Ctrl+A selects the focused column and Alt+Left/Right moves the focused
+ * card (or the selection) to the previous/next stage.
  */
 export function useBoardHotkeys(options: UseBoardHotkeysOptions): void {
   const ref = useRef(options);
@@ -29,9 +45,19 @@ export function useBoardHotkeys(options: UseBoardHotkeysOptions): void {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      const { enabled = true, getColumns, onOpen, onQuickCreate } = ref.current;
+      const { enabled = true, getColumns, onOpen, onQuickCreate, onMoveStage } = ref.current;
       if (!enabled || event.defaultPrevented) return;
       if (isEditableTarget(event.target)) return;
+      // Alt+Arrow: keyboard stage move (works on the selection or the focused card)
+      if (event.altKey && !event.metaKey && !event.ctrlKey && (event.key === 'ArrowLeft' || event.key === 'ArrowRight')) {
+        if (!onMoveStage) return;
+        const st = useBoardSelectionStore.getState();
+        const ids = st.selectedIds.length > 0 ? st.selectedIds : st.focusedId ? [st.focusedId] : [];
+        if (ids.length === 0) return;
+        event.preventDefault();
+        onMoveStage(event.key === 'ArrowRight' ? 1 : -1, ids);
+        return;
+      }
       // Leave modifier chords alone except Select All
       const mod = event.metaKey || event.ctrlKey;
       if ((event.altKey || (mod && event.key.toLowerCase() !== 'a')) ) return;

@@ -121,16 +121,23 @@ export async function deleteStage(key: string, moveToKey: string): Promise<void>
   if (error) throw error;
 }
 
-/** Create-or-update stages keyed by `key` (used by the legacy column manager). */
-export async function upsertStages(stages: Array<Omit<PipelineStage, 'id'>>): Promise<void> {
-  const rows: StageRow[] = stages.map(s => ({ ...stageToRow(s), pipeline_id: null, updated_at: new Date().toISOString() }));
-  for (const row of rows) {
+/**
+ * Create-or-update stages keyed by `key`. Existing rows only receive the fields that were actually provided
+ * (undefined fields are never written, so probability / isWon / isLost are not zeroed by partial edits).
+ * New rows get safe defaults for the omitted flags.
+ */
+export async function upsertStages(stages: Array<Partial<Omit<PipelineStage, 'id'>> & { key: string }>): Promise<void> {
+  const now = new Date().toISOString();
+  for (const stage of stages) {
+    const patch = stageToRow(stage);
     const { data: existing, error: selErr } = await supabase
-      .from('pipeline_stages').select('id').eq('key', row.key).is('pipeline_id', null).maybeSingle();
+      .from('pipeline_stages').select('id').eq('key', stage.key).is('pipeline_id', null).maybeSingle();
     if (selErr) throw selErr;
     const res = existing
-      ? await supabase.from('pipeline_stages').update(row).eq('id', existing.id)
-      : await supabase.from('pipeline_stages').insert(row);
+      ? await supabase.from('pipeline_stages').update({ ...patch, updated_at: now }).eq('id', existing.id)
+      : await supabase.from('pipeline_stages').insert({
+          probability: 0, is_won: false, is_lost: false, visible: true, name: stage.key, ...patch, pipeline_id: null, updated_at: now
+        });
     if (res.error) throw res.error;
   }
 }

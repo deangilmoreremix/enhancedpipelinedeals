@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Search, X } from 'lucide-react';
-import { ALL_ENTRIES, CATEGORY_ORDER, type RegistryEntry } from '../../services/workflowActionRegistry';
+import { ALL_ENTRIES, CATEGORY_ORDER, entryRef, type RegistryEntry } from '../../services/workflowActionRegistry';
 import { iconFor } from './workflowIcons';
 
 export const STEP_DRAG_MIME = 'application/x-workflow-step';
@@ -76,13 +76,13 @@ export const StepPicker: React.FC<StepPickerProps> = ({ onSelect, onClose, varia
                 const Icon = iconFor(entry.icon);
                 const reason = disabledReason(entry, hasTrigger, triggerBlockedReason);
                 return (
-                  <li key={entry.key}>
+                  <li key={entryRef(entry)}>
                     <button
                       type="button"
                       disabled={Boolean(reason)}
                       title={reason ?? entry.description}
                       draggable={!reason && variant === 'panel'}
-                      onDragStart={e => { e.dataTransfer.setData(STEP_DRAG_MIME, entry.key); e.dataTransfer.effectAllowed = 'move'; }}
+                      onDragStart={e => { e.dataTransfer.setData(STEP_DRAG_MIME, entryRef(entry)); e.dataTransfer.effectAllowed = 'move'; }}
                       onClick={() => onSelect(entry)}
                       className="w-full flex items-start gap-2 px-2 py-1.5 rounded-lg text-left border border-transparent hover:border-blue-300 hover:bg-blue-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:border-transparent"
                     >

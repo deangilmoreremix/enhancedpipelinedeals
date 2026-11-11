@@ -1,1 +1,0 @@
-{"compilerOptions":{"target":"ES2022","module":"ESNext","moduleResolution":"bundler","lib":["ES2023","DOM"],"strict":true,"skipLibCheck":true,"noEmit":true,"esModuleInterop":true,"types":[]},"include":["netlify/functions/_workflowSteps.ts","netlify/functions/workflow-runner.ts","netlify/functions/workflow-run-now.ts"]}

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { MoreHorizontal, EyeOff, ArrowLeft, ArrowRight, Trash2 } from 'lucide-react';
+import { MoreHorizontal, EyeOff, ArrowLeft, ArrowRight, Trash2, Settings2 } from 'lucide-react';
 import { PipelineStage } from '../../types';
 import { STAGE_COLOR_OPTIONS, getStageDotClass } from './kanban/kanbanUtils';
 
@@ -13,6 +13,12 @@ interface StageMenuProps {
   onRename: (name: string) => void;
   onColor: (color: string) => void;
   onWipLimit: (limit: number | null) => void;
+  /** Win probability (0-100) for deals in this stage. */
+  onProbability?: (probability: number) => void;
+  /** Won/lost flag; 'open' clears both (they are mutually exclusive). */
+  onOutcome?: (outcome: 'open' | 'won' | 'lost') => void;
+  /** Opens the full stage manager. */
+  onEditAll?: () => void;
   onHide: () => void;
   onMove: (direction: -1 | 1) => void;
   onDelete: (moveToKey: string) => void;
@@ -21,17 +27,19 @@ interface StageMenuProps {
 /** Per-column manage menu: rename, colour, WIP limit, hide, reorder, delete (with move-to). */
 export const StageMenu: React.FC<StageMenuProps> = ({
   stage, otherStages, canMoveLeft, canMoveRight, dealCount,
-  onRename, onColor, onWipLimit, onHide, onMove, onDelete
+  onRename, onColor, onWipLimit, onProbability, onOutcome, onEditAll, onHide, onMove, onDelete
 }) => {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState(stage.name);
   const [wip, setWip] = useState(stage.wipLimit ? String(stage.wipLimit) : '');
+  const [prob, setProb] = useState(String(stage.probability ?? 0));
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [moveTo, setMoveTo] = useState(otherStages[0]?.key ?? '');
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => { setName(stage.name); }, [stage.name]);
   useEffect(() => { setWip(stage.wipLimit ? String(stage.wipLimit) : ''); }, [stage.wipLimit]);
+  useEffect(() => { setProb(String(stage.probability ?? 0)); }, [stage.probability]);
   useEffect(() => { if (!otherStages.some(s => s.key === moveTo)) setMoveTo(otherStages[0]?.key ?? ''); }, [otherStages, moveTo]);
 
   useEffect(() => {
@@ -53,6 +61,14 @@ export const StageMenu: React.FC<StageMenuProps> = ({
     const next = n && Number.isFinite(n) ? n : null;
     if (next !== (stage.wipLimit || null)) onWipLimit(next);
   };
+
+  const commitProb = () => {
+    const n = Math.min(100, Math.max(0, Math.round(Number(prob))));
+    if (prob.trim() === '' || !Number.isFinite(n)) { setProb(String(stage.probability ?? 0)); return; }
+    setProb(String(n));
+    if (n !== stage.probability) onProbability?.(n);
+  };
+  const outcome: 'open' | 'won' | 'lost' = stage.isWon ? 'won' : stage.isLost ? 'lost' : 'open';
 
   const itemClass =
     'w-full flex items-center space-x-2 px-3 py-2 text-sm text-left text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-40 disabled:hover:bg-transparent';
@@ -95,6 +111,35 @@ export const StageMenu: React.FC<StageMenuProps> = ({
                 className={`${inputClass} mt-1`}
               />
             </label>
+            {onProbability && (
+              <label className="block text-xs text-gray-500 dark:text-gray-400">
+                Win probability %
+                <input
+                  value={prob}
+                  onChange={(e) => setProb(e.target.value.replace(/[^0-9]/g, ''))}
+                  onBlur={commitProb}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); commitProb(); } }}
+                  inputMode="numeric"
+                  aria-label="Win probability"
+                  className={`${inputClass} mt-1`}
+                />
+              </label>
+            )}
+            {onOutcome && (
+              <label className="block text-xs text-gray-500 dark:text-gray-400">
+                Outcome
+                <select
+                  value={outcome}
+                  onChange={(e) => onOutcome(e.target.value as 'open' | 'won' | 'lost')}
+                  aria-label="Stage outcome"
+                  className={`${inputClass} mt-1`}
+                >
+                  <option value="open">Open</option>
+                  <option value="won">Won</option>
+                  <option value="lost">Lost</option>
+                </select>
+              </label>
+            )}
             <div>
               <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Colour</div>
               <div className="flex flex-wrap gap-1.5">
@@ -119,6 +164,11 @@ export const StageMenu: React.FC<StageMenuProps> = ({
             <button type="button" className={itemClass} disabled={!canMoveRight} onClick={() => onMove(1)}>
               <ArrowRight className="w-4 h-4" /><span>Move right</span>
             </button>
+            {onEditAll && (
+              <button type="button" className={itemClass} onClick={() => { setOpen(false); onEditAll(); }}>
+                <Settings2 className="w-4 h-4" /><span>Edit all stages…</span>
+              </button>
+            )}
             <button type="button" className={itemClass} onClick={() => { setOpen(false); onHide(); }}>
               <EyeOff className="w-4 h-4" /><span>Hide column</span>
             </button>

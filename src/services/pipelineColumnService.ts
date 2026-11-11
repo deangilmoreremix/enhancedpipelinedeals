@@ -27,22 +27,23 @@ export class PipelineColumnService {
   }
 
   /**
-   * Save custom columns (global or user-specific)
+   * @deprecated The stage manager (CustomColumnManager) now edits stages through dealStore.
+   * Kept as a compatibility writer: it never zeroes probabilities or drops won/lost flags.
    */
   static async saveCustomColumns(columns: CustomPipelineColumn[], userId?: string): Promise<boolean> {
     try {
+      // Preserve probability / won / lost of existing stages: the legacy column shape does not carry them
+      const existing = await getStages();
       await upsertStages(columns.map((c, i) => {
-        const def = DEFAULT_STAGES.find(d => d.key === c.id);
+        const prev = existing.find(s => s.key === c.id) ?? DEFAULT_STAGES.find(d => d.key === c.id);
         return {
           key: c.id,
           name: c.name,
-          color: c.config.color?.replace(/^border-/, '').replace(/-\d+$/, '') || def?.color || 'gray',
-          position: c.position ?? i,
+          color: c.config.color?.replace(/^border-/, '').replace(/-\d+$/, '') || prev?.color || 'gray',
+          position: c.position != null ? c.position - 1 : i,
           visible: c.is_active,
-          probability: def?.probability ?? 0,
-          isWon: def?.isWon ?? false,
-          isLost: def?.isLost ?? false,
-          wipLimit: c.config.wipLimit ?? null
+          wipLimit: c.config.wipLimit ? c.config.wipLimit : null,
+          ...(prev ? {} : { probability: 0, isWon: false, isLost: false })
         };
       }));
       return true;

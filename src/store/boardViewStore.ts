@@ -47,10 +47,70 @@ export const presetForSorting = (sorting: ViewSort[]): BoardSortKey | 'custom' =
   return 'custom';
 };
 
+/** Layout the pipeline is rendered in (persisted; saved views carry it). */
+export type BoardViewType = 'kanban' | 'list' | 'table' | 'calendar' | 'dashboard' | 'timeline';
+export const BOARD_VIEW_TYPES: BoardViewType[] = ['kanban', 'list', 'table', 'calendar', 'dashboard', 'timeline'];
+export const isBoardViewType = (v: unknown): v is BoardViewType => BOARD_VIEW_TYPES.includes(v as BoardViewType);
+
+/** Table / list column keys, in the default order. */
+export type TableColumnKey =
+  | 'title' | 'company' | 'contact' | 'owner' | 'value' | 'stage' | 'priority'
+  | 'probability' | 'closeDate' | 'dueDate' | 'updated' | 'aiScore';
+
+export interface TableColumnConfig {
+  key: TableColumnKey;
+  visible: boolean;
+  /** Pixel width (table only); undefined = auto. */
+  width?: number;
+}
+
+export const TABLE_COLUMN_LABELS: Record<TableColumnKey, string> = {
+  title: 'Deal Title', company: 'Company', contact: 'Contact', owner: 'Owner', value: 'Value', stage: 'Stage',
+  priority: 'Priority', probability: 'Win %', closeDate: 'Close date', dueDate: 'Due date', updated: 'Updated', aiScore: 'AI Score'
+};
+
+export const DEFAULT_TABLE_COLUMNS: TableColumnConfig[] = [
+  { key: 'title', visible: true },
+  { key: 'company', visible: true },
+  { key: 'contact', visible: true },
+  { key: 'owner', visible: false },
+  { key: 'value', visible: true },
+  { key: 'stage', visible: true },
+  { key: 'priority', visible: false },
+  { key: 'probability', visible: true },
+  { key: 'closeDate', visible: false },
+  { key: 'dueDate', visible: false },
+  { key: 'updated', visible: true },
+  { key: 'aiScore', visible: true }
+];
+
+const COLUMN_KEYS = Object.keys(TABLE_COLUMN_LABELS) as TableColumnKey[];
+
+/** Coerce stored columns (saved view / persisted state) into a complete, ordered, de-duplicated list. */
+export function normalizeTableColumns(raw: unknown): TableColumnConfig[] {
+  if (!Array.isArray(raw) || raw.length === 0) return DEFAULT_TABLE_COLUMNS.map(c => ({ ...c }));
+  const seen = new Set<string>();
+  const out: TableColumnConfig[] = [];
+  raw.forEach(c => {
+    const key = (c && typeof c === 'object' ? (c as any).key : c) as TableColumnKey;
+    if (!COLUMN_KEYS.includes(key) || seen.has(key)) return;
+    seen.add(key);
+    const width = typeof (c as any)?.width === 'number' && (c as any).width > 0 ? Math.round((c as any).width) : undefined;
+    out.push({ key, visible: typeof c === 'object' ? (c as any).visible !== false : true, ...(width ? { width } : {}) });
+  });
+  // Keys missing from the stored list are appended hidden (so new columns stay opt-in)
+  DEFAULT_TABLE_COLUMNS.forEach(d => { if (!seen.has(d.key)) out.push({ key: d.key, visible: false }); });
+  return out;
+}
+
 export interface BoardViewPayload {
   filters: SavedViewFilters;
   sorting: ViewSort[];
   group_by: BoardGroupBy;
+  /** Layout: saved as saved_pipeline_views.view_type. */
+  view_type: BoardViewType;
+  /** Table/list column keys, order and widths: saved as saved_pipeline_views.columns. */
+  columns: TableColumnConfig[];
 }
 
 interface BoardViewState {
@@ -60,6 +120,10 @@ interface BoardViewState {
   groups: AdvancedFilterGroup[];
   sorting: ViewSort[];
   groupBy: BoardGroupBy;
+  /** Current layout (kanban | list | table | calendar | dashboard | timeline). */
+  currentView: BoardViewType;
+  /** Table/list column configuration (order, visibility, widths). */
+  tableColumns: TableColumnConfig[];
   activeViewId: string | null;
   /** JSON of the payload when the active view was applied/saved (detects unsaved changes). */
   appliedSnapshot: string | null;
@@ -77,6 +141,13 @@ interface BoardViewState {
   setSorting: (sorting: ViewSort[]) => void;
   setSortPreset: (key: BoardSortKey) => void;
   setGroupBy: (g: BoardGroupBy) => void;
+  setCurrentView: (v: BoardViewType) => void;
+  setTableColumns: (cols: TableColumnConfig[]) => void;
+  toggleTableColumn: (key: TableColumnKey) => void;
+  moveTableColumn: (key: TableColumnKey, dir: -1 | 1) => void;
+  setTableColumnWidth: (key: TableColumnKey, width: number | undefined) => void;
+  /** Click-to-sort on a column header: asc -> desc -> asc on the same field; replaces the sort rules. */
+  toggleSortField: (field: string, defaultDirection?: 'asc' | 'desc') => void;
   applyView: (view: SavedPipelineView) => void;
   /** Mark the current configuration as the saved state of `viewId` (after save / save-as). */
   markSaved: (viewId: string | null) => void;
@@ -112,6 +183,8 @@ const initial = {
   groups: [] as AdvancedFilterGroup[],
   sorting: [] as ViewSort[],
   groupBy: 'stage' as BoardGroupBy,
+  currentView: 'kanban' as BoardViewType,
+  tableColumns: DEFAULT_TABLE_COLUMNS.map(c => ({ ...c })) as TableColumnConfig[],
   activeViewId: null as string | null,
   appliedSnapshot: null as string | null,
   pendingAction: null as BoardActionRequest | null
@@ -135,12 +208,43 @@ export const useBoardViewStore = create<BoardViewState>()(
       setSorting: (sorting) => set({ sorting: withPriorities(sorting) }),
       setSortPreset: (key) => set({ sorting: sortingForPreset(key) }),
       setGroupBy: (groupBy) => set({ groupBy }),
+      setCurrentView: (currentView) => set({ currentView }),
+      setTableColumns: (cols) => set({ tableColumns: normalizeTableColumns(cols) }),
+      toggleTableColumn: (key) => set(s => {
+        const cols = s.tableColumns.map(c => (c.key === key ? { ...c, visible: !c.visible } : c));
+        // Never hide the last visible column
+        return cols.some(c => c.visible) ? { tableColumns: cols } : {};
+      }),
+      moveTableColumn: (key, dir) => set(s => {
+        const cols = [...s.tableColumns];
+        const i = cols.findIndex(c => c.key === key);
+        const j = i + dir;
+        if (i < 0 || j < 0 || j >= cols.length) return {};
+        [cols[i], cols[j]] = [cols[j], cols[i]];
+        return { tableColumns: cols };
+      }),
+      setTableColumnWidth: (key, width) => set(s => ({
+        tableColumns: s.tableColumns.map(c => {
+          if (c.key !== key) return c;
+          const { width: _w, ...rest } = c;
+          return width && width > 0 ? { ...rest, width: Math.round(width) } : rest;
+        })
+      })),
+      toggleSortField: (field, defaultDirection = 'desc') => set(s => {
+        const cur = s.sorting[0];
+        const direction = cur && cur.field === field && s.sorting.length === 1
+          ? (cur.direction === 'asc' ? 'desc' : 'asc')
+          : defaultDirection;
+        return { sorting: withPriorities([{ field, direction, priority: 0 }]) };
+      }),
 
       applyView: (view) => {
         const f = normalizeSavedFilters(view.filters);
         const sorting = withPriorities(normalizeSavedSorting(view.sorting));
         const groupBy = isBoardGroupBy(view.group_by) ? view.group_by : 'stage';
-        const payload: BoardViewPayload = { filters: f, sorting, group_by: groupBy };
+        // Legacy 'board' rows (and anything unknown) mean the kanban layout
+        const currentView: BoardViewType = isBoardViewType(view.view_type) ? view.view_type : 'kanban';
+        const tableColumns = normalizeTableColumns(view.columns);
         set({
           filters: f.conditions,
           groups: f.groups,
@@ -148,9 +252,11 @@ export const useBoardViewStore = create<BoardViewState>()(
           favoritesOnly: f.favoritesOnly,
           sorting,
           groupBy,
-          activeViewId: view.id,
-          appliedSnapshot: JSON.stringify(payload)
+          currentView,
+          tableColumns,
+          activeViewId: view.id
         });
+        set({ appliedSnapshot: JSON.stringify(get().getPayload()) });
       },
 
       markSaved: (viewId) => set({ activeViewId: viewId, appliedSnapshot: viewId ? JSON.stringify(get().getPayload()) : null }),
@@ -161,7 +267,9 @@ export const useBoardViewStore = create<BoardViewState>()(
         return {
           filters: { conditions: s.filters, groups: s.groups, search: s.search, favoritesOnly: s.favoritesOnly },
           sorting: s.sorting,
-          group_by: s.groupBy
+          group_by: s.groupBy,
+          view_type: s.currentView,
+          columns: s.tableColumns
         };
       },
 
@@ -176,7 +284,9 @@ export const useBoardViewStore = create<BoardViewState>()(
     }),
     {
       name: BOARD_VIEW_STORAGE_KEY,
-      version: 1,
+      version: 2,
+      // v1 -> v2 only adds currentView/tableColumns (defaults come from the initial state)
+      migrate: (persisted) => persisted as unknown as BoardViewState,
       storage: createJSONStorage(() => safeStorage),
       // Search text and one-shot actions are session-only
       partialize: (s) => ({
@@ -185,6 +295,8 @@ export const useBoardViewStore = create<BoardViewState>()(
         groups: s.groups,
         sorting: s.sorting,
         groupBy: s.groupBy,
+        currentView: s.currentView,
+        tableColumns: s.tableColumns,
         activeViewId: s.activeViewId,
         appliedSnapshot: s.appliedSnapshot
       }) as unknown as BoardViewState

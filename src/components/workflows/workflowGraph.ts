@@ -1,5 +1,5 @@
 import type { ConnectionLabel, StepType, Workflow, WorkflowStep, WorkflowTrigger } from '../../types/workflow';
-import { ACTION_ENTRIES, CONDITION_ENTRY, TRIGGER_ENTRIES, getActionEntry, getConfigValue, getTriggerEntry, type RegistryEntry } from '../../services/workflowActionRegistry';
+import { ACTION_ENTRIES, CONDITION_ENTRY, getActionEntry, getConfigValue, getTriggerEntry, type RegistryEntry } from '../../services/workflowActionRegistry';
 
 /** Source handle ids used by the node component. */
 export type SourceHandle = 'out' | 'true' | 'false' | 'item' | 'done';
@@ -39,7 +39,7 @@ export const snap = (n: number): number => Math.round(n / GRID) * GRID;
 
 export function createStepFromEntry(entry: RegistryEntry, position: { x: number; y: number }): WorkflowStep {
   const base = { id: newId('step'), description: entry.description, position, connections: [] as string[], isActive: true };
-  if (TRIGGER_ENTRIES.some(e => e.key === entry.key)) {
+  if (entry.category === 'Triggers') {
     const config: Record<string, any> = {};
     for (const f of entry.fields) if (f.defaultValue !== undefined && !f.key.includes('.')) config[f.key] = f.defaultValue;
     if (entry.key === 'scheduled') config.schedule = { frequency: 'daily', time: '09:00' };

@@ -489,6 +489,19 @@ export async function logManualActivity(
   return row;
 }
 
+/**
+ * Demo / local deals have no audit trigger: record stage changes in memory so the Timeline still shows them.
+ * No-op for remote deals (the database trigger writes deal_activities).
+ */
+export function recordLocalStageChange(dealId: string, fromName: string, toName: string): void {
+  if (canUseRemote(dealId) || fromName === toName) return;
+  const row: RawActivityRow = {
+    id: `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, type: 'stage_changed', title: 'Stage changed',
+    description: `Stage: ${fromName} \u2192 ${toName}`, metadata: { from: fromName, to: toName, local: true }, created_at: new Date().toISOString(),
+  };
+  localActivities.set(dealId, [row, ...(localActivities.get(dealId) ?? [])]);
+}
+
 /** Activity rows of several deals + communication records of a contact, as timeline events (newest first). */
 export async function getContactTimeline(contactId: string, dealIds: string[], limit = 100): Promise<TimelineEvent[]> {
   const safe = async <T,>(p: PromiseLike<T>, fallback: T): Promise<T> => {

@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { Deal } from '../../types';
 import { useStageMeta } from '../../utils/stageUtils';
+import { winRatePercent } from '../../utils/winRate';
 import { stageKeysWhere } from '../../utils/stageMeta';
 import {
   DollarSign, TrendingUp, Target, Award, BarChart3, PieChart,
@@ -57,7 +58,7 @@ export const KPIWidgets: React.FC<KPIWidgetsProps> = ({
     );
 
     const wonValue = wonDeals.reduce((sum, d) => sum + d.value, 0);
-    const winRate = periodDeals.length > 0 ? (wonDeals.length / periodDeals.length) * 100 : 0;
+    const winRate = winRatePercent(wonDeals.length, lostDeals.length);
     const conversionRate = activeDeals.length > 0 ? (wonDeals.length / activeDeals.length) * 100 : 0;
 
     const avgDealSize = periodDeals.length > 0 ? totalValue / periodDeals.length : 0;

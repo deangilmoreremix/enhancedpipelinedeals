@@ -74,6 +74,15 @@ interface DealStore {
 /** Whether writes should hit the database (connected and not in demo mode). */
 const shouldPersist = (connected: boolean) => connected && !isDemoMode();
 
+/** Demo/local mode: keep a timeline entry for stage changes (no DB audit trigger to write one). */
+const logLocalStageChange = async (stages: PipelineStage[], id: string, from: string, to: string): Promise<void> => {
+  try {
+    const name = (k: string) => stages.find(s => s.key === k)?.name ?? k;
+    const { recordLocalStageChange } = await import('../services/dealTimelineService');
+    recordLocalStageChange(id, name(from), name(to));
+  } catch { /* timeline is best effort */ }
+};
+
 const newLocalId = () => `deal-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
 
 /**
@@ -233,6 +242,7 @@ export const useDealStore = create<DealStore>((set, get) => ({
         return merged;
       }
       emitDealEvent({ type: 'updated', id, before: originalDeal ?? {}, after: sanitizedUpdates });
+      if (originalDeal && sanitizedUpdates.stage && sanitizedUpdates.stage !== originalDeal.stage) void logLocalStageChange(get().stages, id, originalDeal.stage, sanitizedUpdates.stage);
       return optimisticDeal;
     } catch (error) {
       // Revert optimistic update on error
@@ -259,6 +269,8 @@ export const useDealStore = create<DealStore>((set, get) => ({
     try {
       if (shouldPersist(state.isConnectedToDatabase)) {
         await getDataSyncService().updateDeal(id, { stage: stageKey, position });
+      } else if (original.stage !== stageKey) {
+        void logLocalStageChange(get().stages, id, original.stage, stageKey);
       }
     } catch (error) {
       console.error('Failed to move deal, rolling back:', error);

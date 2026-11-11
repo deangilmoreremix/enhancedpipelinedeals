@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import type { Contact } from '../types/contact';
 import { useStageMeta } from '../utils/stageUtils';
+import { winRatePercent } from '../utils/winRate';
 import { sortedStages, stageHex, stageKeysWhere } from '../utils/stageMeta';
 import {
   BarChart, Bar, PieChart as RePieChart, Pie, Cell, LineChart, Line,
@@ -36,7 +37,7 @@ export const DealDashboardView: React.FC<DealDashboardViewProps> = ({ deals, con
     const activeDeals = allDeals.filter(isOpen);
 
     const wonValue = wonDeals.reduce((sum, deal) => sum + deal.value, 0);
-    const winRate = totalDeals > 0 ? (wonDeals.length / totalDeals) * 100 : 0;
+    const winRate = winRatePercent(wonDeals.length, lostDeals.length);
     const averageProbability = totalDeals > 0
       ? allDeals.reduce((sum, deal) => sum + deal.probability, 0) / totalDeals
       : 0;

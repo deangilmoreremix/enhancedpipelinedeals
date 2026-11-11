@@ -54,6 +54,8 @@ export const BoardColumn: React.FC<BoardColumnProps> = ({
   dropDisabled = false, hideAddDeal = false, color, emptyText
 }) => {
   const perms = usePermissions();
+  // Viewers (workspace RLS mode) cannot create deals: hide the per-column add affordances
+  const addDealHidden = hideAddDeal || !perms.allowed('create', 'deal');
   const [operation, setOperation] = useState<AggregateOperation>('sum');
   const [field, setField] = useState<AggregateField>('value');
   const sentinelRef = useRef<HTMLDivElement>(null);
@@ -120,7 +122,7 @@ export const BoardColumn: React.FC<BoardColumnProps> = ({
               snapshot.isDraggingOver ? 'bg-blue-50 dark:bg-blue-900/20' : ''
             }`}
           >
-            {quickCreateOpen && !isUncategorized && !hideAddDeal && (
+            {quickCreateOpen && !isUncategorized && !addDealHidden && (
               <QuickCreateDeal
                 stageName={title}
                 onCreate={onQuickCreate}
@@ -174,7 +176,7 @@ export const BoardColumn: React.FC<BoardColumnProps> = ({
               </div>
             )}
 
-            {!isUncategorized && !quickCreateOpen && !hideAddDeal && (
+            {!isUncategorized && !quickCreateOpen && !addDealHidden && (
               <button
                 type="button"
                 onClick={() => onQuickCreateOpenChange(true)}

@@ -41,7 +41,7 @@ for (const m of modes) {
       page: (opts = {}) => newPage(browser, { baseURL: m.url, name: `${sc.id}-${m.id}`, ...opts }),
       // soft check: records failures but continues
       check(cond, msg) { checks.push({ ok: !!cond, msg }); if (!cond) notes.push('FAIL: ' + msg); return !!cond; },
-      async step(name, fn) { try { await fn(); } catch (e) { checks.push({ ok: false, msg: name }); notes.push(`FAIL: ${name} -> ${String(e.message || e).split('\n')[0].slice(0, 220)}`); } },
+      async step(name, fn) { try { await fn(); } catch (e) { checks.push({ ok: false, msg: name }); notes.push(`FAIL: ${name} -> ${String(e.message || e).split('\n').slice(0, 4).join(' ').slice(0, 420)}`); } },
       skip(msg) { checks.push({ ok: true, skip: true, msg }); notes.push('SKIP: ' + msg); },
       errs: (log) => errorsOf(log),
     };

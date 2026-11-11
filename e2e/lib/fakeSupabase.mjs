@@ -156,7 +156,8 @@ export class FakeSupabase {
       return this.json(route, 403, { code: '42501', message: `new row violates row-level security policy for table "${table}"`, details: null, hint: null });
     }
 
-    const rows = this.table(table);
+    // views emulated from base tables (defined in supabase/migrations)
+    const rows = table === 'workflow_run_history' ? this.runHistoryView() : this.table(table);
     const filters = [...q.entries()].filter(([k]) => !['select', 'order', 'limit', 'offset', 'columns', 'on_conflict'].includes(k));
     const applyFilters = (list) => list.filter(r => filters.every(([k, v]) => {
       if (k === 'or') return evalOrExpr(r, v.replace(/^\(|\)$/g, ''));
@@ -219,6 +220,14 @@ export class FakeSupabase {
     return this.json(route, status, out, extra);
   }
 
+  runHistoryView() {
+    return this.table('workflow_executions').map(e => {
+      const w = this.table('deal_workflows').find(x => x.id === e.workflow_id);
+      const steps = Array.isArray(e.steps) ? e.steps : [];
+      return { ...e, workflow_name: w?.name ?? null, source: e.source ?? 'client', record_id: e.record_id ?? e.context?.recordId ?? null,
+        duration_ms: e.duration ?? (e.completed_at ? new Date(e.completed_at) - new Date(e.started_at) : null), steps_total: steps.length, steps_failed: steps.filter(s => s.status === 'failed').length };
+    });
+  }
   project(r, sel) {
     if (!sel || sel === '*') return { ...r };
     if (sel.includes('(')) return { ...r }; // embeds: return whole row
@@ -271,5 +280,6 @@ export function defaultSeed() {
   const contacts = [{ id: 'c0000000-0000-4000-8000-000000000001', name: 'Sarah Johnson', first_name: 'Sarah', last_name: 'Johnson', email: 'sarah@techcorp.com', company: 'TechCorp Inc.', title: 'CTO', status: 'prospect', created_at: iso(-20), updated_at: iso(-2) }];
   const companies = [{ id: 'co000000-0000-4000-8000-000000000001', name: 'TechCorp Inc.', created_at: iso(-20), updated_at: iso(-2) }];
   deals[0].company_id = companies[0].id;
-  return { pipeline_stages: stages, deals, contacts, companies, notes: [], tasks: [], deal_files: [], deal_activities: [], saved_pipeline_views: [], favorites: [], deal_workflows: [], workflow_executions: [], app_settings: [], feature_flags: [] };
+  const profiles = [{ id: 'a0000000-0000-4000-8000-000000000001', name: 'Alex Rivera', avatar: null }, { id: 'a0000000-0000-4000-8000-000000000002', name: 'Sam Rep', avatar: null }];
+  return { profiles, user_roles: [], roles: [], pipeline_stages: stages, deals, contacts, companies, notes: [], tasks: [], deal_files: [], deal_activities: [], saved_pipeline_views: [], favorites: [], deal_workflows: [], workflow_executions: [], app_settings: [], feature_flags: [] };
 }

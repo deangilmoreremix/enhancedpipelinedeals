@@ -14,7 +14,7 @@ export const selState = (page) => page.evaluate(() => ({ selected: window.__e2e.
 
 export async function openBoard(page, ctx) {
   await page.goto('/');
-  await page.waitForSelector('[data-column-key]', { timeout: 15000 });
+  await page.waitForSelector('[data-deal-id]', { timeout: 15000 });
   await page.waitForFunction(() => !!window.__e2e, null, { timeout: 10000 });
   await page.waitForSelector('[data-deal-id]');
   await page.waitForTimeout(300);

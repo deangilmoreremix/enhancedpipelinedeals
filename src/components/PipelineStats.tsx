@@ -54,7 +54,7 @@ const PipelineStats: React.FC<PipelineStatsProps> = ({
     },
     {
       name: 'Win Rate',
-      value: `${conversionRate}%`,
+      value: `${Number(conversionRate.toFixed(1))}%`,
       icon: Target,
       change: '+2.1%',
       changeType: 'positive' as const,

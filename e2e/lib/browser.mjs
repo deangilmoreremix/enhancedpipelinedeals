@@ -27,6 +27,7 @@ export async function newPage(browser, { baseURL, name, fake, viewport, acceptDo
   else await context.route(/^https?:\/\/(?!localhost|127\.0\.0\.1)/, r => r.abort()); // block external
   if (init) await context.addInitScript(init);
   const page = await context.newPage();
+  page.on('dialog', d => { log.dialogs = (log.dialogs || []); log.dialogs.push(d.message()); d.accept().catch(() => {}); });
   page.on('console', m => {
     if (m.type() !== 'error') return;
     const t = m.text();

@@ -34,7 +34,7 @@ import { StageManagerModal } from './pipeline/kanban/CustomColumnManager';
 import DealToasts from './deals/DealToasts';
 import { HotkeysHelp } from './pipeline/HotkeysHelp';
 import { useContactStore } from '../store/contactStore';
-import { stageKeysWhere } from '../utils/stageUtils';
+import { winRate } from '../services/analyticsService';
 import { BOARD_SORT_OPTIONS, BoardSortKey } from './pipeline/kanban/kanbanUtils';
 import { KanbanBoard } from './pipeline/KanbanBoard';
 import PipelineSummaryBar from './pipeline/PipelineSummaryBar';
@@ -201,12 +201,11 @@ const Pipeline: React.FC = () => {
   const pipelineStats = useMemo(() => {
     // Computed from the filtered deals so the stats always match what the views show
     const allDeals = filteredDeals;
-    const wonKeys = new Set(stageKeysWhere(stages, 'won'));
     const totalValue = allDeals.reduce((sum, deal) => sum + deal.value, 0);
     const totalDeals = allDeals.length;
     const averageDealSize = totalDeals > 0 ? totalValue / totalDeals : 0;
-    const wonDeals = allDeals.filter(deal => wonKeys.has(deal.stage)).length;
-    const conversionRate = totalDeals > 0 ? (wonDeals / totalDeals) * 100 : 0;
+    // Same definition as the summary bar / analytics: won / (won + lost)
+    const conversionRate = winRate(allDeals, stages).rate * 100;
 
     return {
       totalValue,

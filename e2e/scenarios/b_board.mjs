@@ -193,6 +193,20 @@ export default [{
       await context.close();
     });
 
+    await ctx.step('multi-card drag moves the whole selection', async () => {
+      const { page, context, fake, shot } = await open();
+      const ids = await B.stageCardsText(page, 'qualification');
+      ctx.check(ids.length >= 2, 'need 2 cards in qualification');
+      for (const id of ids.slice(0, 2)) await B.card(page, id).click({ modifiers: ['Control'], position: { x: 150, y: 8 } });
+      ctx.check((await B.selState(page)).selected.length === 2, 'two cards selected');
+      await B.dragTo(page, B.card(page, ids[0]), B.column(page, 'closed-won'), { toOffset: 300 });
+      await shot('multi-drag');
+      const st = await B.dealsState(page);
+      ctx.check(ids.slice(0, 2).every(id => st.find(d => d.id === id).stage === 'closed-won'), 'both selected cards moved to closed-won: ' + ids.slice(0, 2).map(id => st.find(d => d.id === id).stage).join(','));
+      if (fake) { await page.waitForTimeout(800); ctx.check(ids.slice(0, 2).every(id => fake.table('deals').find(d => d.id === id).stage === 'closed-won'), 'fake DB persisted both moves'); }
+      await context.close();
+    });
+
     await ctx.step('marquee selection', async () => {
       const { page, context, shot } = await open();
       const a = await B.column(page, 'qualification').boundingBox();

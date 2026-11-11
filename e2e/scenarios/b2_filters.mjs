@@ -127,7 +127,7 @@ export default [{
       await page.getByLabel('Search deals').fill('Cloud'); await page.waitForTimeout(600);
       await page.getByRole('button', { name: /^save view$/i }).click();
       await page.getByLabel('View name').fill('E2E Cloud View');
-      await page.getByRole('dialog').getByRole('button', { name: /^save$/i }).click();
+      await page.getByRole('dialog').getByRole('button', { name: 'Save view' }).click();
       await page.waitForTimeout(800);
       await shot('view-saved');
       ctx.check(await page.getByText('E2E Cloud View').count() > 0, 'saved view appears in the picker');
@@ -136,13 +136,28 @@ export default [{
       await page.getByLabel('Search deals').fill(''); await page.waitForTimeout(500);
       ctx.check((await visibleIds(page)).length === all, 'filters cleared');
       await page.getByRole('button', { name: /E2E Cloud View|Select View/ }).first().click();
-      await page.getByRole('menuitem', { name: /E2E Cloud View/ }).or(page.getByText('E2E Cloud View').last()).first().click();
+      await page.getByText('E2E Cloud View', { exact: true }).last().click();
       await page.waitForTimeout(700);
       ctx.check((await visibleIds(page)).length === 1, 'applying the saved view restores the search filter');
-      // reload persists the view
+      // manage panel: set default, share, rename
+      if (!await page.getByText('Manage views...').isVisible().catch(() => false)) await page.getByRole('button', { name: /E2E Cloud View|Select View/ }).first().click();
+      await page.getByText('Manage views...').click();
+      const panel = page.getByRole('dialog');
+      await panel.getByRole('button', { name: 'Set default' }).click(); await page.waitForTimeout(500);
+      await panel.getByRole('button', { name: 'Share', exact: true }).click(); await page.waitForTimeout(500);
+      ctx.check(await panel.getByLabel('Default view').count() === 1 && await panel.getByLabel('Shared').count() === 1, 'default + shared indicators shown');
+      await panel.getByRole('button', { name: 'Rename' }).click();
+      await panel.getByLabel('View name').first().fill('E2E Renamed');
+      await panel.getByRole('button', { name: 'Save', exact: true }).click(); await page.waitForTimeout(600);
+      ctx.check(await panel.getByText('E2E Renamed').count() > 0, 'rename applied in list');
+      if (fake) { const r = fake.table('saved_pipeline_views')[0]; ctx.check(r.name === 'E2E Renamed' && r.is_default === true && r.is_public === true, 'fake DB: renamed/default/public persisted ' + JSON.stringify({ n: r.name, d: r.is_default, p: r.is_public })); }
+      await page.keyboard.press('Escape');
+      await page.evaluate(() => { for (const k of Object.keys(localStorage)) if (/board.?view/i.test(k)) localStorage.removeItem(k); });
       await page.reload(); await B.openBoard(page);
-      await page.getByRole('button', { name: /E2E Cloud View|Select View/ }).first().click();
-      ctx.check(await page.getByText('E2E Cloud View').count() > 0, 'saved view survives reload');
+      await page.waitForTimeout(1000);
+      ctx.check((await visibleIds(page)).length === 1, 'default view auto-applies on a pristine board after reload (search Cloud => 1 card)');
+      // reload persists the view
+      ctx.check(await page.getByText('E2E Renamed').count() > 0, 'renamed saved view survives reload');
       await context.close();
     });
   }

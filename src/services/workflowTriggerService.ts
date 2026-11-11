@@ -5,6 +5,7 @@ import {
   Workflow
 } from '../types/workflow';
 import { enhancedWorkflowService } from './enhancedWorkflowService';
+import { isDemoMode } from '../config/demoMode';
 import { subscribeDealEvents, type DealEvent } from './dealEvents';
 
 /**
@@ -82,6 +83,9 @@ export class WorkflowTriggerService {
    */
   startRealtimeEvents(): void {
     if (this.realtimeChannel) return;
+    // Connected mode: the server runner (workflow-runner) executes workflows off workflow_events.
+    // Running them in every open browser tab too would duplicate each run, so only demo/local mode does.
+    if (!isDemoMode()) return;
     try {
       const channel = supabase
         .channel('workflow-events-client')

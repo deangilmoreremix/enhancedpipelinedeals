@@ -4,6 +4,7 @@ import { AIEmailComposer } from '../components/AIEmailComposer';
 
 jest.mock('../services/aiClient', () => ({
   authHeader: async () => ({ Authorization: 'Bearer t' }),
+  authedFetch: (...a: any[]) => (global as any).fetch(...a),
   callAI: jest.fn(),
 }));
 jest.mock('../components/ui/PersonaSelector', () => ({ PersonaSelector: () => null }));

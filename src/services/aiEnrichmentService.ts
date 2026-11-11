@@ -278,32 +278,6 @@ class AIEnrichmentService {
     }
   }
 
-  async enrichDeal(dealData: Partial<DealEnrichmentData>): Promise<DealEnrichmentData> {
-    console.log('🔍 Enriching deal data...');
-    try {
-      // Enrich via the server-side Responses API gateway
-      const result = await callAI('enrichment', {
-        context: { entityType: 'deal', entity: dealData },
-        input: 'Enrich this deal record. Return JSON only.',
-      });
-      if (!result.data) throw new Error('Invalid response format');
-      const enrichmentResult: any = result.data;
-
-      return {
-        ...dealData,
-        ...enrichmentResult
-      };
-    } catch (error) {
-      console.error('❌ Deal enrichment failed:', error);
-      return {
-        ...dealData,
-        confidence: 0,
-        aiProvider: '❌ Enrichment Failed',
-        notes: 'Failed to enrich deal data. Please try again later.'
-      };
-    }
-  }
-
   async findContactImage(name: string, company?: string): Promise<string> {
     // For demonstration, generate an avatar URL
     // In a real implementation, this could use profile photo search APIs

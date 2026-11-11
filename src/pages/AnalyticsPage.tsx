@@ -8,6 +8,7 @@ import {
 import { PageContainer, PageHeader } from './PageHeader';
 import { useDeals } from './hooks';
 import { useDealStore } from '../store/dealStore';
+import { isLostStage } from '../utils/stageMeta';
 import {
   DateRangeKey, HistoryRow, atRiskDeals, conversionFunnel, cycleTime, fetchDealHistory, fetchPipelineAggregates,
   filterDealsByRange, forecastByMonth, isOpenDeal, pipelineVelocity, rangeStart, timeInStage, weightedForecast, winRate
@@ -54,10 +55,10 @@ const AnalyticsPage: React.FC = () => {
     if (!connected) { setServerTotal(null); return; }
     let cancelled = false;
     void fetchPipelineAggregates('sum', 'value').then(rows => {
-      if (!cancelled) setServerTotal(rows ? rows.reduce((s, r) => s + r.agg, 0) : null);
+      if (!cancelled) setServerTotal(rows ? rows.filter(r => !isLostStage(stages, r.stage)).reduce((s, r) => s + r.agg, 0) : null);
     });
     return () => { cancelled = true; };
-  }, [connected, allDeals.length]);
+  }, [connected, allDeals.length, stages]);
 
   const analytics = useMemo(() => {
     const forecast = weightedForecast(dealList, stages);
@@ -75,7 +76,9 @@ const AnalyticsPage: React.FC = () => {
     };
   }, [dealList, stages, history]);
 
-  const totalValue = dealList.reduce((s, d) => s + (d.value || 0), 0);
+  // Headline pipeline value excludes deals sitting in lost stages
+  const headlineDeals = dealList.filter(d => !isLostStage(stages, d.stage));
+  const totalValue = headlineDeals.reduce((s, d) => s + (d.value || 0), 0);
   const headlineTotal = range === 'all' && serverTotal !== null ? serverTotal : totalValue;
 
   // SLA derived from each open deal's own created -> due window
@@ -114,7 +117,7 @@ const AnalyticsPage: React.FC = () => {
       {isLoading && allDeals.length === 0 && <p className="text-sm text-gray-500 mb-4">Loading deals…</p>}
       <div className="space-y-8">
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <Stat label="Pipeline value" value={formatCurrency(headlineTotal)} hint={`${dealList.length} deals`} />
+          <Stat label="Pipeline value" value={formatCurrency(headlineTotal)} hint={`${headlineDeals.length} deals`} />
           <Stat label="Weighted forecast" value={formatCurrency(analytics.forecast.weighted)} hint={`${analytics.forecast.count} open deals`} />
           <Stat label="Avg. sales cycle" value={analytics.cycle.samples ? `${analytics.cycle.avgDays} days` : '—'} hint={`${analytics.cycle.samples} won deals`} />
           <Stat label="Pipeline velocity" value={analytics.velocity ? `${formatCurrency(analytics.velocity)}/day` : '—'} hint="open × avg size × win rate ÷ cycle" />

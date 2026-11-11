@@ -52,6 +52,50 @@ export interface KPIDashboard {
   overallHealth: number; // 0-100
 }
 
+/**
+ * Won deals whose WON date falls in [start, end]. The won date is `close_date`; deals without one fall
+ * back to the latest stage change into a won stage in `deal_history`. Soft-deleted deals are excluded and
+ * won stages come from `pipeline_stages` (never hard-coded keys, never `updated_at`).
+ */
+export async function fetchWonDealsInPeriod(
+  supabase: any,
+  wonKeys: string[],
+  start: Date,
+  end: Date,
+  select = 'id, value, stage, close_date, created_at'
+): Promise<Array<Record<string, any> & { wonAt: string }>> {
+  if (wonKeys.length === 0) return [];
+  const { data, error } = await supabase
+    .from('deals')
+    .select(select)
+    .is('deleted_at', null)
+    .in('stage', wonKeys);
+  if (error) throw error;
+  const deals: Array<Record<string, any>> = data || [];
+  const noClose = deals.filter(d => !d.close_date);
+  const wonAtFromHistory = new Map<string, string>();
+  if (noClose.length > 0) {
+    const { data: hist, error: hErr } = await supabase
+      .from('deal_history')
+      .select('deal_id, new_value, changed_at')
+      .in('deal_id', noClose.map(d => d.id))
+      .eq('field', 'stage')
+      .in('new_value', wonKeys)
+      .order('changed_at', { ascending: false });
+    if (hErr) throw hErr;
+    for (const h of hist || []) if (!wonAtFromHistory.has(h.deal_id)) wonAtFromHistory.set(h.deal_id, h.changed_at);
+  }
+  const s = start.getTime();
+  const e = end.getTime();
+  return deals
+    .map(d => ({ ...d, wonAt: d.close_date || wonAtFromHistory.get(d.id) || '' }))
+    .filter(d => {
+      if (!d.wonAt) return false;
+      const t = new Date(d.wonAt).getTime();
+      return t >= s && t <= e;
+    });
+}
+
 class KPIService {
   private supabaseService = getSupabaseService();
   private analyticsService = getPipelineAnalyticsService();
@@ -183,7 +227,8 @@ class KPIService {
           period_end: periodEnd.toISOString().split('T')[0],
           value,
           target_value: kpi.targetValue,
-          status
+          status,
+          calculated_at: new Date().toISOString()
         })
         .select()
         .single();
@@ -441,14 +486,7 @@ class KPIService {
     const supabase = (this.supabaseService as any).supabase;
 
     const wonKeys = await loadStageKeys('won');
-    const { data, error } = await supabase
-      .from('deals')
-      .select('value')
-      .in('stage', wonKeys)
-      .gte('updated_at', periodStart.toISOString())
-      .lte('updated_at', periodEnd.toISOString());
-
-    if (error) throw error;
+    const data = await fetchWonDealsInPeriod(supabase, wonKeys, periodStart, periodEnd);
 
     return (data || []).reduce((sum: number, deal: any) => sum + (deal.value || 0), 0);
   }
@@ -459,6 +497,7 @@ class KPIService {
     const { data, error } = await supabase
       .from('deals')
       .select('stage')
+      .is('deleted_at', null)
       .gte('created_at', periodStart.toISOString())
       .lte('created_at', periodEnd.toISOString());
 
@@ -475,14 +514,7 @@ class KPIService {
     const supabase = (this.supabaseService as any).supabase;
 
     const wonKeys = await loadStageKeys('won');
-    const { data, error } = await supabase
-      .from('deals')
-      .select('value')
-      .in('stage', wonKeys)
-      .gte('updated_at', periodStart.toISOString())
-      .lte('updated_at', periodEnd.toISOString());
-
-    if (error) throw error;
+    const data = await fetchWonDealsInPeriod(supabase, wonKeys, periodStart, periodEnd);
 
     const values = (data || []).map((d: any) => d.value).filter((v: any) => v > 0);
     return values.length > 0 ? values.reduce((sum: number, v: any) => sum + v, 0) / values.length : 0;

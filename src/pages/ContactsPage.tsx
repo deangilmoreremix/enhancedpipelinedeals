@@ -7,6 +7,7 @@ import { ContactForm } from '../components/contacts/ContactForm';
 import { AIInsightsPanel } from '../components/contacts/AIInsightsPanel';
 import { AutomationPanel } from '../components/contacts/AutomationPanel';
 import { getAIEnrichmentService, PublicContactResearch } from '../services/aiEnrichmentService';
+import { isDemoMode } from '../config/demoMode';
 import { searchContacts, SemanticContactMatch } from '../services/semanticSearchService';
 import { PageContainer, PageHeader } from './PageHeader';
 
@@ -69,7 +70,7 @@ const ContactsPage: React.FC = () => {
 
   const runSemanticSearch = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!semanticQuery.trim()) return;
+    if (!semanticQuery.trim() || isDemoMode()) return; // no gateway/embeddings in demo mode
     setSemanticBusy(true);
     setSemanticError(null);
     try {
@@ -125,7 +126,7 @@ const ContactsPage: React.FC = () => {
           placeholder="Filter by name, email, company..."
           className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 bg-white dark:bg-gray-800"
         />
-        <form onSubmit={runSemanticSearch} className="flex gap-2">
+        {!isDemoMode() && <form onSubmit={runSemanticSearch} className="flex gap-2">
           <input
             type="search"
             aria-label="Semantic search"
@@ -137,7 +138,7 @@ const ContactsPage: React.FC = () => {
           <button type="submit" disabled={semanticBusy} className="px-4 py-2 rounded-lg bg-gray-800 dark:bg-gray-200 text-white dark:text-gray-900 text-sm disabled:opacity-50">
             {semanticBusy ? 'Searching...' : 'Search'}
           </button>
-        </form>
+        </form>}
       </div>
 
       {semanticError && <p role="alert" className="mb-4 text-sm text-red-600">{semanticError}</p>}

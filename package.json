@@ -23,7 +23,8 @@
     "type-check": "tsc -p tsconfig.app.json --noEmit",
     "type-check:backend": "tsc --noEmit --project backend/tsconfig.json",
     "clean": "rm -rf dist node_modules/.vite",
-    "deploy:check": "npm run type-check && npm run lint && npm run test && npm run build"
+    "deploy:check": "npm run type-check && npm run lint && npm run test && npm run build",
+    "audit:endpoints": "node scripts/audit-endpoints.mjs"
   },
   "dependencies": {
     "@graphql-tools/resolvers-composition": "^7.0.31",

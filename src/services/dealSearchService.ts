@@ -29,28 +29,40 @@ export function fuzzySearchDeals(q: string, deals: Deal[], limit = 200): Deal[] 
 
 const remoteEnabled = (): boolean => Boolean(isSupabaseConfigured) && !isDemoMode();
 
+/** Union of RPC hits (first, in rank order) and Fuse hits, de-duplicated by id, capped at `limit`. */
+export function unionDeals(primary: Deal[], secondary: Deal[], limit: number): Deal[] {
+  const seen = new Set<string>();
+  const out: Deal[] = [];
+  for (const d of [...primary, ...secondary]) {
+    if (seen.has(d.id) || d.deletedAt) continue;
+    seen.add(d.id);
+    out.push(d);
+    if (out.length >= limit) break;
+  }
+  return out;
+}
+
 /**
- * Search deals. With a live database this calls the `search_deals(q, lim)` RPC (Postgres full-text on `tsv`);
- * when that is unavailable, errors or finds nothing (full-text has no prefix/typo matching) it falls back to
- * Fuse.js over the deals in the store (or the `deals` passed in).
+ * Search deals. With a live database the `search_deals(q, lim)` RPC (Postgres full-text on `tsv`) hits are
+ * UNIONED with Fuse.js hits over the deals in the store (or the `deals` passed in): full-text has no
+ * prefix/typo matching, so Fuse adds fuzzy matches rather than only running when the RPC finds nothing.
  */
 export async function searchDeals(q: string, limit = 20, deals?: Deal[]): Promise<Deal[]> {
   const query = q.trim();
   if (!query) return [];
 
+  let rpcHits: Deal[] = [];
   if (remoteEnabled()) {
     try {
       const { data, error } = await supabase.rpc('search_deals', { q: query, lim: limit });
-      if (!error && Array.isArray(data) && data.length > 0) {
-        return data.map(row => dealFromRow(row));
-      }
+      if (!error && Array.isArray(data)) rpcHits = data.map(row => dealFromRow(row));
     } catch (err) {
       console.warn('search_deals RPC failed, using local fuzzy search:', err);
     }
   }
 
   const pool = deals ?? Object.values(useDealStore.getState().deals);
-  return fuzzySearchDeals(query, pool, limit);
+  return unionDeals(rpcHits, fuzzySearchDeals(query, pool, limit), limit);
 }
 
-export const dealSearchService = { searchDeals, fuzzySearchDeals };
+export const dealSearchService = { searchDeals, fuzzySearchDeals, unionDeals };

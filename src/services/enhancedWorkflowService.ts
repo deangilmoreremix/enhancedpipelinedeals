@@ -15,7 +15,17 @@ import {
 import { workflowExecutionEngine } from './workflowExecutionEngine';
 import { findMatchingTrigger } from './workflowTriggerMatch';
 import { assertRowsAffected, isPermissionDenied, permissionMessage } from '../utils/rlsError';
-import { getCurrentUserId, isUuid } from './dealRecordShared';
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const isUuid = (v: string | null | undefined): v is string => !!v && UUID_RE.test(v);
+async function getCurrentUserId(): Promise<string | null> {
+  try {
+    const { data } = await supabase.auth.getSession();
+    return data?.session?.user?.id ?? null;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Triggers are derived from the workflow's trigger steps (the builder's source of truth) so the

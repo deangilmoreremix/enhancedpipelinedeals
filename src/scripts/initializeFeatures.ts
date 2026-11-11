@@ -43,16 +43,15 @@ export async function initializeAllFeatures(): Promise<void> {
 }
 
 async function initializeFeatureFlags(supabaseService: any): Promise<void> {
-  // Call the database function that seeds all flags
-  const { error } = await supabaseService.supabase
-    .rpc('initialize_all_feature_flags');
-  
+  // Flags are seeded server-side by migrations (initialize_all_feature_flags is service_role only and
+  // never resets existing rows). The client must not write flags: it only verifies they are readable.
+  const { count, error } = await supabaseService.supabase
+    .from('feature_flags')
+    .select('feature_key', { count: 'exact', head: true });
   if (error) {
-    // If function doesn't exist yet, try inserting directly
-    console.warn('⚠️ initialize_all_feature_flags function not found, inserting directly...');
-    await insertFeatureFlagsDirectly(supabaseService);
+    console.warn('⚠️ Could not read feature flags:', error.message ?? error);
   } else {
-    console.log('✅ Feature flags initialized via RPC');
+    console.log(`✅ ${count ?? 0} feature flags available`);
   }
 }
 

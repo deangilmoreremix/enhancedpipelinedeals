@@ -10,7 +10,6 @@ export default async function ({ t, supa, REPO }) {
   await t(`parsed ${tables.size} tables from migrations; audit has ${supa.audit.length} requests`, async () => { assert.ok(tables.size > 20); assert.ok(supa.audit.length > 50); });
   // Gaps owned by the SQL migrations (not fixable from netlify/functions). Remove an entry once a migration creates the table.
   const KNOWN_GAPS = [
-    { match: /deal_last_activity/, reason: 'optional view probed by scheduled-sla (falls back to deals.updated_at when it does not exist)' },
   ];
   const all = checkAudit(supa.audit, tables);
   const problems = [];

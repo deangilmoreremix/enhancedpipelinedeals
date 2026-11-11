@@ -6,6 +6,7 @@
 import { getSupabaseService } from './supabaseService';
 import { getAdvancedAnalyticsService } from './advancedAnalyticsService';
 
+import { fetchWonDealsInPeriod } from './kpiService';
 import { loadStageKeys } from '../utils/stageMeta';
 export interface ForecastModel {
   id: string;
@@ -209,20 +210,20 @@ class ForecastingService {
     }
 
     const wonKeys = await loadStageKeys('won');
-    const { data } = await supabase
-      .from('deals')
-      .select('value, created_at, stage')
-      .gte('created_at', startDate.toISOString())
-      .lte('created_at', endDate.toISOString())
-      .in('stage', wonKeys);
-
-    if (!data) return [];
+    // Won revenue is bucketed by WON date (close_date, else deal_history), live deals only
+    let data: Array<Record<string, any> & { wonAt: string }>;
+    try {
+      data = await fetchWonDealsInPeriod(supabase, wonKeys, startDate, endDate, 'id, value, stage, close_date, created_at');
+    } catch (e) {
+      console.warn('Historical won deals unavailable:', e);
+      return [];
+    }
 
     // Group by month
     const monthlyData: Record<string, { value: number; deals: number }> = {};
 
     data.forEach((deal: any) => {
-      const month = new Date(deal.created_at).toISOString().substring(0, 7); // YYYY-MM
+      const month = new Date(deal.wonAt).toISOString().substring(0, 7); // YYYY-MM
       if (!monthlyData[month]) {
         monthlyData[month] = { value: 0, deals: 0 };
       }

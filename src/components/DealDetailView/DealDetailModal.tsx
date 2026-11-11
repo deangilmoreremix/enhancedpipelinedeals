@@ -20,6 +20,7 @@ import DealTasks from '../deals/DealTasks';
 import DealFiles from '../deals/DealFiles';
 import DealTimeline from '../deals/DealTimeline';
 import DealActivityPanel from '../deals/DealActivityPanel';
+import { AIEmailComposer } from '../AIEmailComposer';
 import DealCalendarPanel from '../deals/DealCalendarPanel';
 import DealToasts from '../deals/DealToasts';
 import { pushToast } from '../../store/dealRecordStore';
@@ -422,7 +423,10 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
             )}
 
             {state.activeTab === 'email' && state.linkedContact && (
-              <div className="p-6">
+              <div className="p-6 space-y-6">
+                <section aria-label="AI email draft">
+                  <AIEmailComposer contactId={state.linkedContact.id} dealId={state.editedDeal.id} />
+                </section>
                 <EmailComposer
                   contact={state.linkedContact}
                   deal={state.editedDeal}

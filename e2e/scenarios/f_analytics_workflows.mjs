@@ -25,7 +25,9 @@ export default [{
       const fake = ctx.fake(); const { page, context, log, shot } = await ctx.page({ fake, viewport: VP });
       await B.openBoard(page);
       const st = await B.dealsState(page);
-      const total = st.reduce((s, d) => s + d.value, 0);
+      const lostKeys = new Set((await B.stagesState(page)).filter(x => x.isLost).map(x => x.key));
+      const open = st.filter(d => !lostKeys.has(d.stage)); // headline excludes lost stages
+      const total = open.reduce((s, d) => s + d.value, 0);
       await page.goto('/analytics'); await page.waitForTimeout(2500);
       await shot('analytics');
       for (const t of ['value-by-stage-chart', 'funnel-chart', 'forecast-chart', 'win-rate-gauge', 'time-in-stage-chart', 'group-aggregate-chart']) {
@@ -41,7 +43,7 @@ export default [{
         ctx.check(Math.abs(v - total) / total < 0.01, `analytics pipeline value ${v} ~= board total ${total}`);
       }
       const dealsM = txt.match(/Pipeline value[\s\S]{0,40}?(\d+) deals/);
-      ctx.check(dealsM && Number(dealsM[1]) === st.length, `analytics deal count ${dealsM && dealsM[1]} = board ${st.length}`);
+      ctx.check(dealsM && Number(dealsM[1]) === open.length, `analytics deal count ${dealsM && dealsM[1]} = board non-lost ${open.length}`);
       await page.getByLabel('Date range').selectOption({ index: 0 }); await page.waitForTimeout(600);
       ctx.check(await page.getByText(/Component Error|Something went wrong/).count() === 0, 'date range change does not crash');
       ctx.check(ctx.errs(log).filter(e => !/Failed to fetch/.test(e)).length === 0, 'no errors on analytics: ' + ctx.errs(log).find(e => !/Failed to fetch/.test(e)));

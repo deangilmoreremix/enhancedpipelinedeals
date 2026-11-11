@@ -3,6 +3,7 @@
  * (netlify/functions/ai-gateway.ts). No OpenAI key ever reaches the browser.
  */
 import { supabase } from '../lib/core/supabaseClient';
+import { isDemoMode } from '../config/demoMode';
 
 export type AITask =
   | 'chat'
@@ -91,7 +92,8 @@ export async function authHeader(): Promise<Record<string, string>> {
   } catch {
     /* not signed in */
   }
-  token = token || (import.meta as any).env?.VITE_SUPABASE_ANON_KEY;
+  // Connected mode: functions require a real user JWT. The anon key is only a demo/unconfigured fallback.
+  if (!token && isDemoMode()) token = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY;
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 

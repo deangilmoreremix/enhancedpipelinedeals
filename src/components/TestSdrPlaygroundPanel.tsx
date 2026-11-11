@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { authedFetch } from "../services/aiClient";
 
 export const TestSdrPlaygroundPanel: React.FC = () => {
   const [agentId, setAgentId] = useState("cold_email_sdr");
@@ -23,7 +24,7 @@ export const TestSdrPlaygroundPanel: React.FC = () => {
     setError(null);
 
     try {
-      const res = await fetch("/.netlify/functions/test-sdr-agent", {
+      const res = await authedFetch("/.netlify/functions/test-sdr-agent", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

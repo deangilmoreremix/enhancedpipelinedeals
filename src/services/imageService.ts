@@ -2,7 +2,7 @@
  * Image generation/editing with OpenAI GPT Image 2.6 via the server-side gateway
  * (netlify/functions/ai-image.ts). Results are stored in Supabase Storage.
  */
-import { authHeader, AIGatewayError } from './aiClient';
+import { authedFetch, AIGatewayError } from './aiClient';
 import { initialsAvatar } from '../utils/avatar';
 
 export interface GeneratedImage {
@@ -13,9 +13,9 @@ export interface GeneratedImage {
 }
 
 async function post(body: Record<string, unknown>): Promise<GeneratedImage> {
-  const res = await fetch('/api/ai/image', {
+  const res = await authedFetch('/api/ai/image', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
   const data: any = await res.json().catch(() => ({}));

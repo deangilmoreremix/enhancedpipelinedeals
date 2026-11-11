@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { ModernButton } from './ui/ModernButton';
 import { PersonaSelector } from './ui/PersonaSelector';
 import { Sparkles, Wand2, Zap, Target, FileText, Send, Loader2 } from 'lucide-react';
-import { authHeader, callAI } from '../services/aiClient';
+import { authedFetch, callAI } from '../services/aiClient';
 
 interface AIEmailComposerProps {
   contactId: string;
@@ -33,12 +33,9 @@ export function AIEmailComposer({ contactId, dealId, onSend, initialContent = ''
     setIsStreaming(true);
 
     try {
-      const response = await fetch('/api/ai/compose-email', {
+      const response = await authedFetch('/api/ai/compose-email', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(await authHeader()),
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contactId,
           dealId,

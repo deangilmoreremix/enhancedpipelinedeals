@@ -20,10 +20,11 @@ with cols as (
          (select jsonb_object_agg(r, ops) from (
             select r, jsonb_object_agg(op, names) as ops from (
               select r, op, jsonb_agg(pn order by pn) as names from (
-                select unnest(case when 'public' = any(pp.roles) then array['anon','authenticated'] else pp.roles::text[] end) as r,
-                       unnest(case pp.cmd when 'ALL' then array['SELECT','INSERT','UPDATE','DELETE'] else array[pp.cmd] end) as op,
-                       pp.policyname as pn
-                from pg_policies pp where pp.schemaname = p.schemaname and pp.tablename = p.tablename
+                select rr as r, oo as op, pp.policyname as pn
+                from pg_policies pp
+                cross join lateral unnest(case when 'public' = any(pp.roles) then array['anon','authenticated'] else pp.roles::text[] end) as rr
+                cross join lateral unnest(case pp.cmd when 'ALL' then array['SELECT','INSERT','UPDATE','DELETE'] else array[pp.cmd] end) as oo
+                where pp.schemaname = p.schemaname and pp.tablename = p.tablename
               ) x group by r, op
             ) y group by r
          ) z) as by_role

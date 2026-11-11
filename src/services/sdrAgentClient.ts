@@ -2,7 +2,7 @@
  * Client for the server-side SDR agents (OpenAI Agents SDK, netlify/functions/sdr-agent.ts).
  * Consumes the server-sent event stream: text deltas, tool calls, handoffs, approval requests, final output.
  */
-import { authHeader, AIGatewayError } from './aiClient';
+import { authedFetch, AIGatewayError } from './aiClient';
 
 export type SdrEvent =
   | { type: 'agent'; name: string }
@@ -46,9 +46,9 @@ export async function runSdrAgent(
   onEvent?: (e: SdrEvent) => void,
 ): Promise<SdrEvent> {
   const { signal, ...body } = req;
-  const res = await fetch(SDR_RUN_URL, {
+  const res = await authedFetch(SDR_RUN_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...(await authHeader()) },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ ...body, stream: true }),
     signal,
   });

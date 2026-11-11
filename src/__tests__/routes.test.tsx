@@ -29,8 +29,14 @@ import App from '../App';
 const LABELS = ['Pipeline', 'Contacts', 'Agents', 'Calendar', 'Email', 'Views', 'Workflows', 'Analytics', 'Apps'];
 
 describe('app routes', () => {
-  it('renders all nav links', () => {
+  it('hides the top app bar on the Pipeline page', () => {
     render(<MemoryRouter initialEntries={['/']}><App /></MemoryRouter>);
+    expect(screen.queryByRole('navigation', { name: 'Primary' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Smart CRM')).not.toBeInTheDocument();
+  });
+
+  it('renders all nav links on other pages', () => {
+    render(<MemoryRouter initialEntries={['/contacts']}><App /></MemoryRouter>);
     const nav = screen.getByRole('navigation', { name: 'Primary' });
     for (const l of LABELS) expect(within(nav).getByRole('link', { name: l })).toBeInTheDocument();
   });

@@ -22,6 +22,8 @@ import { getOpenAIFunctionService } from '../services/openaiFunctionCallingServi
 import { Contact } from '../types/contact';
 import { Deal } from '../types';
 import { Tooltip } from './ui/Tooltip';
+import { DarkModeToggle } from './ui/DarkModeToggle';
+import { openSettings } from './settingsEvents';
 import {
   Search, Upload, Download, Brain, Sparkles, Plus, Filter, BarChart3,
   Settings, Grid, List, Target, Zap, TrendingUp, Users, Calendar,
@@ -544,8 +546,10 @@ const Pipeline: React.FC = () => {
             </Tooltip>
           </div>
 
+          <DarkModeToggle />
+
           {/* Pipeline Settings - Twenty Features */}
-          {canManageStages && <Tooltip content="Manage pipeline stages (add, rename, colour, reorder, probability, won/lost)" position="bottom">
+          {canManageStages &&<Tooltip content="Manage pipeline stages (add, rename, colour, reorder, probability, won/lost)" position="bottom">
             <button
               type="button"
               aria-label="Manage pipeline stages"
@@ -700,7 +704,7 @@ const Pipeline: React.FC = () => {
             </button>
           </Tooltip>
           <Tooltip content="Settings - Configure pipeline preferences, notifications, and integrations" position="left">
-            <button className="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
+            <button type="button" aria-label="Settings" onClick={openSettings} className="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
               <Settings className="w-4 h-4" />
             </button>
           </Tooltip>

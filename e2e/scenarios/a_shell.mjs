@@ -27,6 +27,13 @@ export default [{
       ctx.check(errs.length === 0, `route ${r} no console/page errors: ${errs[0] || ''}`.slice(0, 300));
       await shot('route' + r.replace(/\//g, '_'));
     }
+    // Pipeline page: no top app bar; theme toggle sits beside the stage-manager gear
+    await page.goto('/'); await page.waitForSelector('text=Sales Pipeline');
+    ctx.check(await page.getByRole('navigation', { name: 'Primary' }).count() === 0, 'no top nav bar on /');
+    ctx.check(await page.getByText('Smart CRM', { exact: true }).count() === 0, 'no "Smart CRM" title on /');
+    ctx.check(await page.getByRole('button', { name: /switch to (dark|light) mode/i }).count() === 1, 'single theme toggle on /');
+    await page.goto('/contacts'); await page.waitForTimeout(800);
+    ctx.check(await page.getByRole('navigation', { name: 'Primary' }).count() === 1, 'nav bar still on /contacts');
     // dark mode toggle
     await page.goto('/'); await page.waitForSelector('text=Sales Pipeline');
     const dark0 = await page.evaluate(() => document.documentElement.classList.contains('dark'));

@@ -1,10 +1,16 @@
 import './_serverEnv';
 import type { Handler } from "@netlify/functions";
 import { EmailThreadingService } from "../../src/services/emailThreadingService";
+import { authUser, json } from "./_openai";
 
 export const handler: Handler = async (event) => {
   const path = event.path.replace('/.netlify/functions/email-api/', '');
   const method = event.httpMethod;
+
+  if (method === 'OPTIONS') return { ...json(204, {}), body: '' };
+  // Callers must be identified from the verified JWT (anon key = shared demo user); nothing in the body is trusted for identity.
+  const user = await authUser(event.headers?.authorization || event.headers?.Authorization);
+  if (!user) return json(401, { error: 'Unauthorized' });
 
   try {
     // Process incoming email

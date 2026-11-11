@@ -117,6 +117,19 @@ export default async function ({ t, openai, loadFunction }) {
     assert.equal(await o.authorize(undefined), true);
     delete process.env.AI_GATEWAY_ALLOW_UNAUTHENTICATED;
   });
+  await t('authUser: JWT -> its user id; anon key -> demo user; garbage/none -> null; AI_GATEWAY_ALLOW_UNAUTHENTICATED -> demo user', async () => {
+    assert.deepEqual(await o.authUser('Bearer good-jwt'), { id: 'user-1' });
+    assert.deepEqual(await o.authUser('bearer  good-jwt '), { id: 'user-1' });
+    assert.deepEqual(await o.authUser('Bearer anon-key'), { id: o.DEMO_USER_ID, demo: true });
+    assert.match(o.DEMO_USER_ID, /^[0-9a-f-]{36}$/);
+    assert.equal(await o.authUser('Bearer wrong'), null);
+    assert.equal(await o.authUser(undefined), null);
+    assert.equal(await o.authUser(''), null);
+    process.env.AI_GATEWAY_ALLOW_UNAUTHENTICATED = 'true';
+    assert.deepEqual(await o.authUser(undefined), { id: o.DEMO_USER_ID, demo: true });
+    assert.deepEqual(await o.authUser('Bearer good-jwt'), { id: 'user-1' }, 'a real JWT still wins over the demo user');
+    delete process.env.AI_GATEWAY_ALLOW_UNAUTHENTICATED;
+  });
   await t('rateLimited sliding window', async () => {
     const id = 'rl-' + Math.random();
     for (let i = 0; i < 3; i++) assert.equal(o.rateLimited(id, 3, 60000), false);

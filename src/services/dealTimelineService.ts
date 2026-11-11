@@ -125,6 +125,7 @@ export class DealTimelineService {
    * Log common deal events automatically
    */
   static async logDealCreated(dealId: string, dealData: any, createdBy?: string): Promise<void> {
+    if (canUseRemote(dealId)) return; // deal_audit() trigger writes the 'created' row
     await this.addActivity(
       dealId,
       'created',
@@ -136,6 +137,7 @@ export class DealTimelineService {
   }
 
   static async logDealUpdated(dealId: string, oldData: any, newData: any, updatedBy?: string): Promise<void> {
+    if (canUseRemote(dealId)) return; // deal_audit() trigger writes the 'updated' / 'stage_changed' rows
     const changes: string[] = [];
 
     if (oldData.stage !== newData.stage) {
@@ -164,6 +166,7 @@ export class DealTimelineService {
   }
 
   static async logStageChanged(dealId: string, oldStage: string, newStage: string, changedBy?: string): Promise<void> {
+    if (canUseRemote(dealId)) return; // deal_audit() trigger writes the 'stage_changed' row
     await this.addActivity(
       dealId,
       'stage_changed',

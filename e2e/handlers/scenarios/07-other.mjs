@@ -12,9 +12,28 @@ export default async function ({ t, openai, supa, loadFunction, REPO }) {
 
   // ===================== calendar-api
   const cal = await load('calendar-api');
-  const calCall = (method, p, body, qs) => callV1(cal, { method, path: `/.netlify/functions/calendar-api/${p}`, body, qs, token: null });
+  const calCall = (method, p, body, qs, token = 'good-jwt') => callV1(cal, { method, path: `/.netlify/functions/calendar-api/${p}`, body, qs, token });
   await t('calendar-api: unknown route 404', async () => assert.equal((await calCall('GET', 'nope')).statusCode, 404));
-  await t('calendar-api POST events: userId required (400); title/startTime/endTime required (400)', async () => {
+  await t('calendar-api: no / invalid token -> 401 on every route (no DB access); OPTIONS 204', async () => {
+    supa.reset(); const n0 = supa.log.length;
+    for (const [m, p] of [['GET', 'events'], ['POST', 'events'], ['PUT', 'events/e1'], ['DELETE', 'events/e1'], ['POST', 'schedule-meeting'], ['POST', 'deadlines'], ['GET', 'deadlines']]) {
+      assert.equal((await calCall(m, p, { title: 'x' }, undefined, null)).statusCode, 401, `${m} ${p} without token`);
+      assert.equal((await calCall(m, p, { title: 'x' }, undefined, 'bad-token')).statusCode, 401, `${m} ${p} with bad token`);
+    }
+    assert.equal(supa.table('calendar_events').length, 0);
+    assert.equal((await calCall('OPTIONS', 'events', undefined, undefined, null)).statusCode, 204);
+    assert.ok(!supa.log.slice(n0).some((l) => /\/rest\/v1\//.test(l.path ?? l.url ?? '')), 'no PostgREST call was made for unauthenticated requests');
+  });
+  await t('calendar-api: acting user = verified JWT user (user-1), body.userId is ignored (cannot be spoofed); anon key -> demo user', async () => {
+    supa.reset();
+    const r = await calCall('POST', 'events', { userId: 'attacker', title: 'Mine', startTime: FUTURE, endTime: '2027-03-01T16:00:00.000Z' });
+    assert.equal(r.statusCode, 201, r.body);
+    assert.equal(supa.table('calendar_events')[0].created_by, 'user-1');
+    const demo = await calCall('POST', 'events', { title: 'Anon', startTime: FUTURE, endTime: '2027-03-01T16:00:00.000Z' }, undefined, 'anon-key');
+    assert.equal(demo.statusCode, 201, demo.body);
+    assert.equal(supa.table('calendar_events')[1].created_by, '00000000-0000-0000-0000-000000000000');
+  });
+  await t('calendar-api POST events: title/startTime/endTime required (400)', async () => {
     assert.equal((await calCall('POST', 'events', { title: 'x' })).statusCode, 400);
     assert.equal((await calCall('POST', 'events', { userId: 'u1', title: 'x' })).statusCode, 400);
   });
@@ -24,7 +43,7 @@ export default async function ({ t, openai, supa, loadFunction, REPO }) {
     assert.equal(r.statusCode, 201, r.body);
     assert.equal(r.json.event.title, 'Kickoff');
     const row = supa.table('calendar_events')[0];
-    assert.deepEqual([row.start_time, row.end_time, row.created_by, row.deal_id, row.attendees[0].status], [FUTURE, '2027-03-01T16:00:00.000Z', 'u1', 'd1', 'pending']);
+    assert.deepEqual([row.start_time, row.end_time, row.created_by, row.deal_id, row.attendees[0].status], [FUTURE, '2027-03-01T16:00:00.000Z', 'user-1', 'd1', 'pending']);
     const bad = await calCall('POST', 'events', { userId: 'u1', title: 'x', startTime: 'garbage', endTime: FUTURE });
     assert.equal(bad.statusCode, 400, bad.body);
   });
@@ -41,17 +60,15 @@ export default async function ({ t, openai, supa, loadFunction, REPO }) {
     r = await calCall('GET', 'events', undefined, { startDate: '2027-03-02T00:00:00Z', endDate: '2027-03-02T23:59:59Z' }); assert.deepEqual(r.json.events.map((e) => e.id), ['e1']);
     r = await calCall('GET', 'events', undefined, { startDate: 'nonsense' }); assert.equal(r.statusCode, 400);
   });
-  await t('calendar-api PUT/DELETE events: need userId; update converts dates; delete removes row', async () => {
+  await t('calendar-api PUT/DELETE events: update converts dates; delete removes row (user from JWT, no userId in body)', async () => {
     supa.reset({ calendar_events: [{ id: 'e1', title: 'Old', start_time: FUTURE, end_time: FUTURE }] });
-    assert.equal((await calCall('PUT', 'events/e1', { title: 'x' })).statusCode, 400);
-    const u = await calCall('PUT', 'events/e1', { userId: 'u1', title: 'New', startTime: '2027-04-01T09:00:00.000Z' });
+    const u = await calCall('PUT', 'events/e1', { title: 'New', startTime: '2027-04-01T09:00:00.000Z' });
     assert.equal(u.statusCode, 200, u.body);
     assert.deepEqual([supa.table('calendar_events')[0].title, supa.table('calendar_events')[0].start_time], ['New', '2027-04-01T09:00:00.000Z']);
-    assert.equal((await calCall('DELETE', 'events/e1', {})).statusCode, 400);
-    assert.equal((await calCall('DELETE', 'events/e1', { userId: 'u1' })).statusCode, 200);
+    assert.equal((await calCall('DELETE', 'events/e1', {})).statusCode, 200);
     assert.equal(supa.table('calendar_events').length, 0);
   });
-  await t('calendar-api schedule-meeting: dealId+userId+startTime required; creates meeting event from deal', async () => {
+  await t('calendar-api schedule-meeting: dealId+startTime required; creates meeting event from deal', async () => {
     supa.reset({ deals: [{ id: 'd1', value: 1000, stage: 'proposal' }] });
     assert.equal((await calCall('POST', 'schedule-meeting', { userId: 'u1' })).statusCode, 400);
     assert.equal((await calCall('POST', 'schedule-meeting', { userId: 'u1', dealId: 'd1' })).statusCode, 400);
@@ -80,7 +97,17 @@ export default async function ({ t, openai, supa, loadFunction, REPO }) {
 
   // ===================== email-api
   const mail = await load('email-api');
-  const mailCall = (method, p, body, qs) => callV1(mail, { method, path: `/.netlify/functions/email-api/${p}`, body, qs, token: null });
+  const mailCall = (method, p, body, qs, token = 'good-jwt') => callV1(mail, { method, path: `/.netlify/functions/email-api/${p}`, body, qs, token });
+  await t('email-api: no / invalid token -> 401 (nothing stored); anon key and user JWT are accepted', async () => {
+    supa.reset({ contacts: [] });
+    const body = { messageId: 'm0', fromEmail: 'x@y.co', subject: 's', sentAt: '2027-01-01T10:00:00Z' };
+    assert.equal((await mailCall('POST', 'process', body, undefined, null)).statusCode, 401);
+    assert.equal((await mailCall('POST', 'process', body, undefined, 'nope')).statusCode, 401);
+    assert.equal((await mailCall('GET', 'threads', undefined, undefined, null)).statusCode, 401);
+    assert.equal(supa.table('emails').length, 0);
+    assert.equal((await mailCall('GET', 'threads', undefined, undefined, 'anon-key')).statusCode, 200);
+    assert.equal((await mailCall('OPTIONS', 'process', undefined, undefined, null)).statusCode, 204);
+  });
   await t('email-api: unknown route 404; process requires fields (400)', async () => {
     assert.equal((await mailCall('GET', 'zzz')).statusCode, 404);
     assert.equal((await mailCall('POST', 'process', { subject: 'x' })).statusCode, 400);
@@ -247,67 +274,142 @@ export default async function ({ t, openai, supa, loadFunction, REPO }) {
     const r = await callV1(gas, { body: { contactId: 'c1' }, token: null });
     assert.equal(r.json.contact.lead_status ?? r.json.contact.status, 'prospect', JSON.stringify(r.json.contact));
   });
-  await t('trigger-autopilot: disabled -> skipped+log; enabled -> logs prepared step and increments current_step', async () => {
+  const draftJson = JSON.stringify({ strategy: 'warm intro', outreach: { channel: 'email', subject: 'Hello Ada', body: 'Hi Ada, quick note about pipelines.', call_to_action: 'Book 15 minutes?' }, key_points: ['k'], crm_updates: [], confidence: 70 });
+  await t('trigger-autopilot: 401 without / with a bad token (nothing logged); OPTIONS 200; 405 on GET', async () => {
+    aSeed(true);
+    assert.equal((await callV1(ta, { body: { contactId: 'c1' }, token: null })).statusCode, 401);
+    assert.equal((await callV1(ta, { body: { contactId: 'c1' }, token: 'bad' })).statusCode, 401);
+    assert.equal(supa.table('agent_logs').length, 0);
+    assert.equal((await callV1(ta, { method: 'GET' })).statusCode, 405);
+    assert.equal((await callV1(ta, { method: 'OPTIONS', token: null })).statusCode, 200);
+  });
+  await t('trigger-autopilot: disabled -> skipped + log; unknown contact 404; missing settings 400; missing contactId 400', async () => {
     aSeed(false);
-    assert.equal((await callV1(ta, { body: { contactId: 'c1' }, token: null })).json.skipped, true);
-    aSeed(true);
-    const r = await callV1(ta, { body: { contactId: 'c1' }, token: null });
-    assert.equal(r.statusCode, 200, r.body); assert.equal(supa.table('contact_agent_settings')[0].current_step, 1);
-    assert.equal((await callV1(ta, { body: { contactId: 'nope' }, token: null })).statusCode, 404);
+    const r = await callV1(ta, { body: { contactId: 'c1' } });
+    assert.equal(r.json.skipped, true); assert.equal(supa.table('agent_logs').length, 1);
+    assert.equal((await callV1(ta, { body: { contactId: 'nope' } })).statusCode, 404);
+    assert.equal((await callV1(ta, { body: {} })).statusCode, 400);
+    supa.reset({ contacts: [{ id: 'c2', name: 'B', status: 'lead' }] });
+    assert.equal((await callV1(ta, { body: { contactId: 'c2' } })).statusCode, 400);
   });
-  await t('autopilot-run forwards to trigger-autopilot over HTTP (${URL}/.netlify/functions/...) and wraps result', async () => {
-    aSeed(true);
-    const r = await callV1(apr, { body: { contactId: 'c1' }, token: null });
-    assert.equal(r.statusCode, 200, r.body); assert.equal(r.json.contactId, 'c1'); assert.ok(r.json.result);
-    assert.equal((await callV1(apr, { body: {}, token: null })).statusCode, 400);
-    assert.equal((await callV1(apr, { method: 'GET', token: null })).statusCode, 405);
+  await t('trigger-autopilot: enabled + lead -> runs the real SDR specialist, stores the DRAFT in agent_logs (metadata), advances current_step, queues NOTHING', async () => {
+    aSeed(true, 'lead');
+    supa.table('contact_agent_settings')[0].agent_id = 'sdr-cold-email';
+    openai.reset(); openai.script(() => ({ toolCall: { call_id: 'c_ctx', name: 'get_lead_context', arguments: { lead_id: 'c1' } } }));
+    openai.script(() => ({ text: draftJson }));
+    const r = await callV1(ta, { body: { contactId: 'c1' } });
+    assert.equal(r.statusCode, 200, r.body);
+    assert.equal(r.json.status, 'lead', 'reads contacts.status (not the non-existent lead_status)');
+    assert.equal(r.json.result.success, true); assert.equal(r.json.result.step, 1);
+    assert.equal(r.json.result.draft.outreach.subject, 'Hello Ada');
+    const log = supa.table('agent_logs').at(-1);
+    assert.match(log.message, /draft prepared \(not sent/); assert.equal(log.contact_id, 'c1');
+    assert.equal(log.metadata.requires_approval, true); assert.equal(log.metadata.draft.outreach.body, 'Hi Ada, quick note about pipelines.');
+    assert.equal(supa.table('contact_agent_settings')[0].current_step, 1);
+    assert.equal(supa.table('outbound_messages').length, 0, 'nothing queued for sending');
+    const prompt = JSON.stringify(openai.requests('/v1/responses')[0].body.input);
+    assert.match(prompt, /step 1 of 5/i); assert.match(prompt, /Do not send anything/);
   });
-
-  // ===================== test-webhook (target function agentmail-webhook no longer exists)
-  const tw = await load('test-webhook');
-  await t('test-webhook: forwards a canned AgentMail payload to /.netlify/functions/agentmail-webhook (function must exist)', async () => {
-    const { existsSync } = await import('node:fs');
-    if (!(existsSync(path.join(REPO, 'netlify/functions/agentmail-webhook.ts')) || existsSync(path.join(REPO, 'netlify/functions/agentmail-webhook.js')))) {
-      t.skip('test-webhook target agentmail-webhook', 'DEAD CODE: netlify/functions/agentmail-webhook.* does not exist (AgentMail was removed); test-webhook.js can only ever return 500 - candidate for deletion');
-    }
+  await t('trigger-autopilot: unknown agent_id falls back to the orchestrator; churned contact is handled, customer is skipped with a log', async () => {
+    aSeed(true, 'churned'); // settings.agent_id unset -> "auto"
+    openai.reset(); openai.script(() => ({ text: draftJson }));
+    const r = await callV1(ta, { body: { contactId: 'c1' } });
+    assert.equal(r.statusCode, 200, r.body); assert.ok(r.json.result.success || r.json.result.error, JSON.stringify(r.json));
+    aSeed(true, 'customer');
+    const c = await callV1(ta, { body: { contactId: 'c1' } });
+    assert.equal(c.json.result.skipped, true); assert.match(c.json.result.reason, /customer/);
+    assert.equal(supa.table('contact_agent_settings')[0].current_step, 0);
+  });
+  await t('trigger-autopilot: send_sdr_message needs approval -> logged as awaiting approval, step NOT advanced, nothing queued', async () => {
+    aSeed(true, 'prospect');
+    supa.table('contact_agent_settings')[0].agent_id = 'sdr-cold-email';
+    openai.reset(); openai.script(() => ({ toolCall: { call_id: 'c_send', name: 'send_sdr_message', arguments: { lead_id: 'c1', channel: 'email', subject: 'Hi', body: 'Hello Ada' } } }));
+    const r = await callV1(ta, { body: { contactId: 'c1' } });
+    assert.equal(r.statusCode, 200, r.body); assert.equal(r.json.result.awaitingApproval, true);
+    assert.equal(supa.table('contact_agent_settings')[0].current_step, 0);
+    assert.equal(supa.table('outbound_messages').length, 0);
+    assert.equal(supa.table('agent_logs').at(-1).metadata.requires_approval, true);
+  });
+  await t('trigger-autopilot: model failure -> error logged (level error), step not advanced, request still 200 with result.error', async () => {
+    aSeed(true, 'lead'); supa.table('contact_agent_settings')[0].agent_id = 'sdr-cold-email';
+    openai.reset(); openai.script(() => ({ http: { status: 500, message: 'model down' } }));
+    const r = await callV1(ta, { body: { contactId: 'c1' } });
+    assert.equal(r.statusCode, 200, r.body); assert.match(r.json.result.error, /./);
+    assert.equal(supa.table('agent_logs').at(-1).level, 'error'); assert.equal(supa.table('contact_agent_settings')[0].current_step, 0);
+  });
+  await t('trigger-autopilot: sequence already complete -> logged, no model call', async () => {
+    aSeed(true, 'lead'); supa.table('contact_agent_settings')[0].current_step = 5; openai.reset();
+    const r = await callV1(ta, { body: { contactId: 'c1' } });
+    assert.equal(r.json.result.done, true); assert.equal(openai.requests('/v1/responses').length, 0);
+  });
+  await t('trigger-autopilot: AI SDR unavailable (no OPENAI_API_KEY) -> honest skip + warn log, no step advance', async () => {
+    aSeed(true, 'lead'); const key = process.env.OPENAI_API_KEY; delete process.env.OPENAI_API_KEY; openai.reset();
+    try {
+      const r = await callV1(ta, { body: { contactId: 'c1' } });
+      assert.equal(r.json.result.skipped, true); assert.match(r.json.result.reason, /not available/);
+      assert.equal(supa.table('agent_logs').at(-1).level, 'warn'); assert.equal(supa.table('contact_agent_settings')[0].current_step, 0);
+      assert.equal(openai.requests('/v1/responses').length, 0);
+    } finally { process.env.OPENAI_API_KEY = key; }
+  });
+  await t('autopilot-run: 401 without token; forwards the caller\'s Authorization to trigger-autopilot over HTTP and wraps the result', async () => {
+    aSeed(true, 'lead'); supa.table('contact_agent_settings')[0].agent_id = 'sdr-cold-email';
+    assert.equal((await callV1(apr, { body: { contactId: 'c1' }, token: null })).statusCode, 401);
+    assert.equal((await callV1(apr, { body: { contactId: 'c1' }, token: 'bad' })).statusCode, 401);
+    openai.reset(); openai.script(() => ({ text: draftJson }));
+    const r = await callV1(apr, { body: { contactId: 'c1' } });
+    assert.equal(r.statusCode, 200, r.body); assert.equal(r.json.contactId, 'c1'); assert.ok(r.json.result.result.draft || r.json.result.result.success);
+    const viaAnon = await callV1(apr, { body: { contactId: 'c1' }, token: 'anon-key' });
+    assert.equal(viaAnon.statusCode, 200, viaAnon.body);
+    assert.equal((await callV1(apr, { body: {} })).statusCode, 400);
+    assert.equal((await callV1(apr, { method: 'GET' })).statusCode, 405);
+    assert.equal((await callV1(apr, { method: 'OPTIONS', token: null })).statusCode, 204);
   });
 
   // ===================== selectPersona
   const sp = await load('selectPersona');
+  const mg = await load('memory-get'), mp = await load('mood-preview');
+  await t('selectPersona / memory-get / mood-preview: 401 without or with a bad token (no DB access)', async () => {
+    supa.reset({ contacts: [{ id: 'c1' }] }); const n0 = supa.log.length;
+    for (const [h, o] of [[sp, { body: { agent_id: 'a', persona_id: 'p' } }], [mg, { method: 'GET', qs: { contactId: 'c1' } }], [mp, { method: 'GET', qs: { contactId: 'c1' } }]]) {
+      assert.equal((await callV1(h, { ...o, token: null })).statusCode, 401);
+      assert.equal((await callV1(h, { ...o, token: 'bad' })).statusCode, 401);
+      assert.equal((await callV1(h, { ...o, token: 'anon-key' })).statusCode !== 401, true, 'anon key accepted');
+    }
+    assert.equal(supa.table('agent_persona_selection').length, 1, 'only the anon-key call wrote');
+  });
   await t('selectPersona: 405 / 400 missing ids / bad JSON 400 / upsert on agent_id / DB error -> 500 (not a fake success)', async () => {
-    assert.equal((await callV1(sp, { method: 'GET', token: null })).statusCode, 405);
-    assert.equal((await callV1(sp, { body: { agent_id: 'a' }, token: null })).statusCode, 400);
+    assert.equal((await callV1(sp, { method: 'GET' })).statusCode, 405);
+    assert.equal((await callV1(sp, { body: { agent_id: 'a' } })).statusCode, 400);
     supa.reset();
-    assert.equal((await callV1(sp, { body: { agent_id: 'a', persona_id: 'p1' }, token: null })).statusCode, 200);
-    await callV1(sp, { body: { agent_id: 'a', persona_id: 'p2' }, token: null });
+    assert.equal((await callV1(sp, { body: { agent_id: 'a', persona_id: 'p1' } })).statusCode, 200);
+    await callV1(sp, { body: { agent_id: 'a', persona_id: 'p2' } });
     assert.deepEqual(supa.table('agent_persona_selection').map((r) => r.persona_id), ['p2']);
-    assert.equal((await callV1(sp, { body: '{bad', token: null })).statusCode, 400);
+    assert.equal((await callV1(sp, { body: '{bad' })).statusCode, 400);
     supa.failNext('POST', '/rest/v1/agent_persona_selection', 403, { code: '42501', message: 'rls denied' });
-    const denied = await callV1(sp, { body: { agent_id: 'a', persona_id: 'p3' }, token: null });
+    const denied = await callV1(sp, { body: { agent_id: 'a', persona_id: 'p3' } });
     assert.equal(denied.statusCode, 500); assert.match(denied.json.error, /rls denied/);
   });
 
   // ===================== memory-get / mood-preview
-  const mg = await load('memory-get'), mp = await load('mood-preview');
   await t('memory-get: 405 / 400 / groups agent_memory by memory_type', async () => {
-    assert.equal((await callV1(mg, { method: 'POST', token: null })).statusCode, 405);
-    assert.equal((await callV1(mg, { method: 'GET', token: null })).statusCode, 400);
+    assert.equal((await callV1(mg, { method: 'POST' })).statusCode, 405);
+    assert.equal((await callV1(mg, { method: 'GET' })).statusCode, 400);
     supa.reset({ agent_memory: [{ id: 'm1', contact_id: 'c1', memory_type: 'short', data: {}, updated_at: '2026-01-01' }, { id: 'm2', contact_id: 'c1', memory_type: 'long', data: {}, updated_at: '2026-01-02' }] });
-    const r = await callV1(mg, { method: 'GET', qs: { contactId: 'c1' }, token: null });
+    const r = await callV1(mg, { method: 'GET', qs: { contactId: 'c1' } });
     assert.equal(r.statusCode, 200, r.body); assert.deepEqual([r.json.memory.short.length, r.json.memory.mid.length, r.json.memory.long.length], [1, 0, 1]);
   });
   await t('mood-preview: contact+deal -> mood (negotiation => precision); unknown contact -> 500 error JSON', async () => {
     supa.reset({ contacts: [{ id: 'c1', name: 'A', status: 'lead' }], deals: [{ id: 'd1', contact_id: 'c1', stage: 'negotiation' }] });
-    const r = await callV1(mp, { method: 'GET', qs: { contactId: 'c1' }, token: null });
+    const r = await callV1(mp, { method: 'GET', qs: { contactId: 'c1' } });
     assert.equal(r.statusCode, 200, r.body); assert.equal(r.json.mood, 'precision');
-    assert.equal((await callV1(mp, { method: 'GET', token: null })).statusCode, 400);
+    assert.equal((await callV1(mp, { method: 'GET' })).statusCode, 400);
   });
 
   // ===================== env fallback of the shared src client (hand-back item)
   await t('src Supabase client used by calendar-api/email-api/memory-get/mood-preview works when only server-side SUPABASE_URL/SUPABASE_ANON_KEY are set (no VITE_*)', async () => {
     supa.reset({ agent_memory: [{ id: 'm1', contact_id: 'c1', memory_type: 'short', data: {}, updated_at: '2026-01-01' }] });
     const n0 = supa.log.length;
-    const script = `process.env.SUPABASE_URL=${JSON.stringify(process.env.SUPABASE_URL)};process.env.SUPABASE_ANON_KEY='anon-key';delete process.env.VITE_SUPABASE_URL;delete process.env.VITE_SUPABASE_ANON_KEY;const m=await import(${JSON.stringify(path.join(OUT, 'memory-get.mjs'))});const r=await m.handler({httpMethod:'GET',headers:{},queryStringParameters:{contactId:'c1'}},{});console.log(r.body)`;
+    const script = `process.env.SUPABASE_URL=${JSON.stringify(process.env.SUPABASE_URL)};process.env.SUPABASE_ANON_KEY='anon-key';delete process.env.VITE_SUPABASE_URL;delete process.env.VITE_SUPABASE_ANON_KEY;const m=await import(${JSON.stringify(path.join(OUT, 'memory-get.mjs'))});const r=await m.handler({httpMethod:'GET',headers:{authorization:'Bearer anon-key'},queryStringParameters:{contactId:'c1'}},{});console.log(r.body)`;
     // async spawn: the stub servers live in THIS process, so the event loop must stay free
     const out = await new Promise((resolve) => {
       const child = spawn(process.execPath, ['--input-type=module', '-e', script], { env: { ...process.env, VITE_SUPABASE_URL: '', VITE_SUPABASE_ANON_KEY: '' }, cwd: REPO });

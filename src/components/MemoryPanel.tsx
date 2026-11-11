@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { authedFetch } from "../services/aiClient";
 
 interface MemoryLayer {
   id?: string;
@@ -33,7 +34,7 @@ export const MemoryPanel: React.FC = () => {
 
     setLoading(true);
     try {
-      const res = await fetch(
+      const res = await authedFetch(
         `/.netlify/functions/memory-get?contactId=${encodeURIComponent(contactId)}`
       );
       if (!res.ok) {

@@ -246,6 +246,34 @@ export async function authorize(header: string | undefined): Promise<boolean> {
   }
 }
 
+/** uuid-shaped placeholder for unauthenticated demo / anon-key callers (calendar_events.created_by is a uuid column). */
+export const DEMO_USER_ID = '00000000-0000-0000-0000-000000000000';
+
+/**
+ * Who is calling? Resolves the verified Supabase user from the Authorization header ({ id } of the JWT's user).
+ * The project's anon key (or AI_GATEWAY_ALLOW_UNAUTHENTICATED=true) maps to the shared demo user {@link DEMO_USER_ID}.
+ * Returns null when the caller cannot be identified. Never trust a user id sent in a request body: use this instead.
+ */
+export async function authUser(header: string | undefined): Promise<{ id: string; demo?: boolean } | null> {
+  const token = (header || '').replace(/^Bearer\s+/i, '').trim();
+  const anon = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+  if (token && anon && token === anon) return { id: DEMO_USER_ID, demo: true };
+  if (token) {
+    const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || anon;
+    if (url && key) {
+      try {
+        const { data, error } = await createClient(url, key).auth.getUser(token);
+        if (!error && data.user?.id) return { id: data.user.id };
+      } catch {
+        /* fall through */
+      }
+    }
+  }
+  if (process.env.AI_GATEWAY_ALLOW_UNAUTHENTICATED === 'true') return { id: DEMO_USER_ID, demo: true };
+  return null;
+}
+
 // --- tiny in-memory rate limit (per warm instance) ---
 const hits = new Map<string, number[]>();
 export function rateLimited(id: string, limit = 60, windowMs = 60_000) {

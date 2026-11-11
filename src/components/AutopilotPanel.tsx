@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { authedFetch } from "../services/aiClient";
 
 interface AutopilotResponse {
   contactId: string;
@@ -22,7 +23,7 @@ export const AutopilotPanel: React.FC = () => {
 
     setLoading(true);
     try {
-      const res = await fetch("/.netlify/functions/autopilot-run", {
+      const res = await authedFetch("/.netlify/functions/autopilot-run", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ contactId })

@@ -3,12 +3,19 @@ import type { Handler } from "@netlify/functions";
 import { CalendarEventService } from "../../src/services/calendarEventService";
 import { DealDeadlineService } from "../../src/services/dealDeadlineService";
 import { BadRequest, reviveDates } from "./_dates";
+import { authUser, json } from "./_openai";
 
 const EVENT_DATE_KEYS = ['startTime', 'endTime'];
 
 export const handler: Handler = async (event) => {
   const path = event.path.replace('/.netlify/functions/calendar-api/', '');
   const method = event.httpMethod;
+
+  if (method === 'OPTIONS') return { ...json(204, {}), body: '' };
+  // The acting user comes from the verified JWT, never from the request body.
+  const user = await authUser(event.headers?.authorization || event.headers?.Authorization);
+  if (!user) return json(401, { error: 'Unauthorized' });
+  event.authUserId = user.id;
 
   try {
     // Calendar events
@@ -73,14 +80,9 @@ export const handler: Handler = async (event) => {
 
 async function handleCreateEvent(event: any) {
   const body = event.body ? JSON.parse(event.body) : {};
-  const { userId, ...eventData } = body;
+  const { userId: _ignored, ...eventData } = body;
+  const userId: string = event.authUserId;
 
-  if (!userId) {
-    return {
-      statusCode: 400,
-      body: JSON.stringify({ error: "userId is required" })
-    };
-  }
 
   if (!eventData.title || !eventData.startTime || !eventData.endTime) {
     return { statusCode: 400, body: JSON.stringify({ error: "title, startTime and endTime are required" }) };
@@ -95,14 +97,9 @@ async function handleCreateEvent(event: any) {
 
 async function handleUpdateEvent(eventId: string, event: any) {
   const body = event.body ? JSON.parse(event.body) : {};
-  const { userId, ...updates } = body;
+  const { userId: _ignored, ...updates } = body;
+  const userId: string = event.authUserId;
 
-  if (!userId) {
-    return {
-      statusCode: 400,
-      body: JSON.stringify({ error: "userId is required" })
-    };
-  }
 
   const calendarEvent = await CalendarEventService.updateEvent(eventId, userId, reviveDates(updates, EVENT_DATE_KEYS) as any);
 
@@ -114,14 +111,8 @@ async function handleUpdateEvent(eventId: string, event: any) {
 
 async function handleDeleteEvent(eventId: string, event: any) {
   const body = event.body ? JSON.parse(event.body) : {};
-  const { userId } = body;
+  const userId: string = event.authUserId;
 
-  if (!userId) {
-    return {
-      statusCode: 400,
-      body: JSON.stringify({ error: "userId is required" })
-    };
-  }
 
   await CalendarEventService.deleteEvent(eventId, userId);
 
@@ -132,7 +123,7 @@ async function handleDeleteEvent(eventId: string, event: any) {
 }
 
 async function handleGetEvents(event: any) {
-  const { userId, dealId, contactId, startDate, endDate, status, limit } = event.queryStringParameters || {};
+  const { dealId, contactId, startDate, endDate, status, limit } = event.queryStringParameters || {};
 
   const filters: any = {};
   if (dealId) filters.dealId = dealId;
@@ -152,12 +143,13 @@ async function handleGetEvents(event: any) {
 
 async function handleScheduleMeeting(event: any) {
   const body = event.body ? JSON.parse(event.body) : {};
-  const { dealId, userId, ...options } = body;
+  const { dealId, userId: _ignored, ...options } = body;
+  const userId: string = event.authUserId;
 
-  if (!dealId || !userId) {
+  if (!dealId) {
     return {
       statusCode: 400,
-      body: JSON.stringify({ error: "dealId and userId are required" })
+      body: JSON.stringify({ error: "dealId is required" })
     };
   }
 
@@ -174,14 +166,9 @@ async function handleScheduleMeeting(event: any) {
 
 async function handleCreateDeadline(event: any) {
   const body = event.body ? JSON.parse(event.body) : {};
-  const { userId, ...deadlineData } = body;
+  const { userId: _ignored, ...deadlineData } = body;
+  const userId: string = event.authUserId;
 
-  if (!userId) {
-    return {
-      statusCode: 400,
-      body: JSON.stringify({ error: "userId is required" })
-    };
-  }
 
   if (!deadlineData.dealId || !deadlineData.title || !deadlineData.deadlineAt) {
     return { statusCode: 400, body: JSON.stringify({ error: "dealId, title and deadlineAt are required" }) };
@@ -195,7 +182,7 @@ async function handleCreateDeadline(event: any) {
 }
 
 async function handleGetDeadlines(event: any) {
-  const { dealId, userId, status, priority, upcomingOnly, limit } = event.queryStringParameters || {};
+  const { dealId, status, priority, upcomingOnly, limit } = event.queryStringParameters || {};
 
   const filters: any = {};
   if (dealId) filters.dealId = dealId;
@@ -214,14 +201,9 @@ async function handleGetDeadlines(event: any) {
 
 async function handleUpdateDeadline(deadlineId: string, event: any) {
   const body = event.body ? JSON.parse(event.body) : {};
-  const { userId, ...updates } = body;
+  const { userId: _ignored, ...updates } = body;
+  const userId: string = event.authUserId;
 
-  if (!userId) {
-    return {
-      statusCode: 400,
-      body: JSON.stringify({ error: "userId is required" })
-    };
-  }
 
   const deadline = await DealDeadlineService.updateDeadline(deadlineId, userId, reviveDates(updates, ['deadlineAt']) as any);
 
@@ -233,14 +215,8 @@ async function handleUpdateDeadline(deadlineId: string, event: any) {
 
 async function handleCompleteDeadline(deadlineId: string, event: any) {
   const body = event.body ? JSON.parse(event.body) : {};
-  const { userId } = body;
+  const userId: string = event.authUserId;
 
-  if (!userId) {
-    return {
-      statusCode: 400,
-      body: JSON.stringify({ error: "userId is required" })
-    };
-  }
 
   const deadline = await DealDeadlineService.completeDeadline(deadlineId, userId);
 

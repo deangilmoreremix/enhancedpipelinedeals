@@ -9,9 +9,7 @@ export default async function ({ t, supa, REPO }) {
   const tables = loadSchema(path.join(REPO, 'supabase/migrations'));
   await t(`parsed ${tables.size} tables from migrations; audit has ${supa.audit.length} requests`, async () => { assert.ok(tables.size > 20); assert.ok(supa.audit.length > 50); });
   // Gaps owned by the SQL migrations (not fixable from netlify/functions). Remove an entry once a migration creates the table.
-  const KNOWN_GAPS = [
-    { match: /^table "(contact_agent_settings|agent_logs)"/, reason: 'run-agent / trigger-autopilot / get-autopilot-status / update-autopilot-settings use this table but no migration creates it (netlify/functions/db_migration.sql only ALTERs it) -> hand back to the SQL owner' },
-  ];
+  const KNOWN_GAPS = [];
   const all = checkAudit(supa.audit, tables);
   const problems = [];
   for (const p of all) {

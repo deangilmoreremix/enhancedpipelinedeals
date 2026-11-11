@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { ModernButton } from "./ModernButton";
 import { Dropdown } from "./Dropdown";
+import { listPersonas, savePersonaSelection as persistPersonaSelection } from "../../services/agentControlService";
 
 interface SDRPersona {
   id: string;
@@ -28,9 +29,7 @@ export function PersonaSelector({ agentId, onPersonaSelected }: PersonaSelectorP
 
   const loadPersonas = async () => {
     try {
-      const response = await fetch('/api/personas');
-      const data = await response.json();
-      setPersonas(data);
+      setPersonas(await listPersonas());
     } catch (error) {
       console.error('Failed to load personas:', error);
     }
@@ -47,24 +46,10 @@ export function PersonaSelector({ agentId, onPersonaSelected }: PersonaSelectorP
 
     setIsLoading(true);
     try {
-      const response = await fetch('/.netlify/functions/selectPersona', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          agent_id: agentId,
-          persona_id: selectedPersonaId
-        })
-      });
-
-      if (response.ok) {
-        console.log('✅ Persona selection saved');
-        if (selectedPersona && onPersonaSelected) {
-          onPersonaSelected(selectedPersona);
-        }
-      } else {
-        console.error('❌ Failed to save persona selection');
+      await persistPersonaSelection(agentId, selectedPersonaId);
+      console.log('✅ Persona selection saved');
+      if (selectedPersona && onPersonaSelected) {
+        onPersonaSelected(selectedPersona);
       }
     } catch (error) {
       console.error('❌ Error saving persona selection:', error);

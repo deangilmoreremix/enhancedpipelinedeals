@@ -1,5 +1,6 @@
 import { Handler } from '@netlify/functions';
 import { createClient } from '@supabase/supabase-js';
+import { authorize, json } from './_openai';
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -7,12 +8,15 @@ const supabase = createClient(
 );
 
 export const handler: Handler = async (event) => {
+  if (event.httpMethod === 'OPTIONS') return { ...json(204, {}), body: '' };
   if (event.httpMethod !== 'POST') {
     return {
       statusCode: 405,
       body: JSON.stringify({ error: 'Method not allowed' })
     };
   }
+
+  if (!(await authorize(event.headers.authorization || event.headers.Authorization))) return json(401, { error: 'Unauthorized' });
 
   let parsed: { agent_id?: string; persona_id?: string };
   try {

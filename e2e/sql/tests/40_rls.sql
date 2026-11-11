@@ -34,6 +34,16 @@ insert into public.notes(id, deal_id, title, created_by) values
  ('00000000-0000-0000-0000-00000000e003','00000000-0000-0000-0000-00000000d001','n-by-m2-on-m1-deal',:'m2');
 insert into public.tasks(id, deal_id, title, user_id) values ('00000000-0000-0000-0000-00000000e101','00000000-0000-0000-0000-00000000d002','task-m2',:'m2');
 insert into public.favorites(user_id, entity_type, entity_id) values (:'m1','deal','00000000-0000-0000-0000-00000000d001'),(:'m2','deal','00000000-0000-0000-0000-00000000d002');
+insert into public.contacts(id, name, workspace_id, owner_id, created_by) values
+ ('00000000-0000-0000-0000-00000000c0a1','C-own',   :'ws1', :'m1', :'m1'),
+ ('00000000-0000-0000-0000-00000000c0a2','C-other', :'ws1', :'m2', :'m2'),
+ ('00000000-0000-0000-0000-00000000c0a3','C-ws2',   :'ws2', :'b2', :'b2');
+insert into public.contact_agent_settings(contact_id, agent_id, autopilot_enabled) values
+ ('00000000-0000-0000-0000-00000000c0a1','cold_email_sdr', true),
+ ('00000000-0000-0000-0000-00000000c0a3','cold_email_sdr', false);
+insert into public.agent_logs(contact_id, level, message) values
+ ('00000000-0000-0000-0000-00000000c0a1','info','log-own'),
+ ('00000000-0000-0000-0000-00000000c0a3','info','log-ws2');
 insert into storage.buckets(id,name,public) values ('deal-files','deal-files',true) on conflict do nothing;
 
 -- =============================== OPEN MODE ===================================
@@ -44,6 +54,11 @@ select e2e.eq('open/anon: insert deal allowed', e2e.dml($$insert into public.dea
 select e2e.eq('open/anon: update deal allowed', e2e.dml($$update public.deals set value = 11 where title='T-own'$$), 1::bigint);
 select e2e.eq('open/anon: delete deal -> 0 rows (no delete policy, as before)', e2e.dml($$delete from public.deals where title='OPEN-anon'$$), 0::bigint);
 select e2e.eq('open/anon: insert contact allowed', e2e.dml($$insert into public.contacts(name) values ('anon contact')$$), 1::bigint);
+select e2e.eq('open/anon: read contacts (unchanged)', e2e.cnt($$select 1 from public.contacts where name like 'C-%'$$), 3::bigint);
+select e2e.eq('open/anon: read contact_agent_settings + agent_logs (crm pattern)', e2e.cnt($$select 1 from public.contact_agent_settings$$) + e2e.cnt($$select 1 from public.agent_logs$$), 4::bigint);
+select e2e.eq('open/anon: insert agent_log allowed', e2e.dml($$insert into public.agent_logs(contact_id, message) values ('00000000-0000-0000-0000-00000000c0a1','anon log')$$), 1::bigint);
+select e2e.eq('open/anon: update contact -> 0 rows (no anon update policy, as before)', e2e.dml($$update public.contacts set title='x' where name='C-own'$$), 0::bigint);
+select e2e.eq('open/anon: delete contact -> 0 rows', e2e.dml($$delete from public.contacts where name='C-own'$$), 0::bigint);
 select e2e.eq('open/anon: read companies', e2e.cnt($$select 1 from public.companies$$) >= 0, true);
 select e2e.eq('open/anon: read pipeline_stages', e2e.cnt($$select 1 from public.pipeline_stages$$), 5::bigint);
 select e2e.raises('open/anon: insert user_roles denied', format($$insert into public.user_roles(user_id, role_id, workspace_id) values (%L, gen_random_uuid(), %L)$$, :'x1', :'ws1'), '42501');
@@ -51,6 +66,9 @@ select e2e.eq('open/anon: user_roles invisible', e2e.cnt($$select 1 from public.
 select e2e.eq('open/anon: notes insert allowed', e2e.dml($$insert into public.notes(title) values ('anon note')$$), 1::bigint);
 reset role;
 select e2e.as_user('authenticated', :'m1') \g /dev/null
+select e2e.eq('open/auth: contacts have no authenticated select policy in open mode (as before)', e2e.cnt($$select 1 from public.contacts where name like 'C-%'$$), 0::bigint);
+select e2e.eq('open/auth: agent_logs full access', e2e.cnt($$select 1 from public.agent_logs$$), 3::bigint);
+select e2e.eq('open/auth: update contact_agent_settings', e2e.dml($$update public.contact_agent_settings set current_step = 1 where contact_id='00000000-0000-0000-0000-00000000c0a3'$$), 1::bigint);
 select e2e.eq('open/auth: sees all workspaces', e2e.cnt($$select 1 from public.deals where title like 'T-%'$$), 4::bigint);
 select e2e.eq('open/auth: update other user''s deal', e2e.dml($$update public.deals set value = 21 where title='T-other'$$), 1::bigint);
 select e2e.eq('open/auth: insert leaves workspace_id/owner null (defaults only in workspace mode)', e2e.dml($$insert into public.deals(id, title) values ('00000000-0000-0000-0000-00000000d0f1','OPEN-auth')$$), 1::bigint);
@@ -85,7 +103,10 @@ select e2e.eq('ws/anon: select deals denied', e2e.cnt($$select 1 from public.dea
 select e2e.raises('ws/anon: insert deal denied', $$insert into public.deals(title) values ('x')$$, '42501');
 select e2e.eq('ws/anon: update -> 0 rows', e2e.dml($$update public.deals set value = 1$$), 0::bigint);
 select e2e.eq('ws/anon: pipeline_stages hidden', e2e.cnt($$select 1 from public.pipeline_stages$$), 0::bigint);
-select e2e.eq('ws/anon: KNOWN GAP - contacts keep legacy anon read policy in workspace mode (migration leaves contacts out of scope)', e2e.cnt($$select 1 from public.contacts$$) > 0, true);
+select e2e.eq('ws/anon: contacts hidden', e2e.cnt($$select 1 from public.contacts$$), 0::bigint);
+select e2e.raises('ws/anon: contact insert denied', $$insert into public.contacts(name) values ('anon-ws')$$, '42501');
+select e2e.eq('ws/anon: agent tables hidden', e2e.cnt($$select 1 from public.agent_logs$$) + e2e.cnt($$select 1 from public.contact_agent_settings$$), 0::bigint);
+select e2e.raises('ws/anon: agent_log insert denied', $$insert into public.agent_logs(message) values ('x')$$, '42501');
 select e2e.eq('ws/anon: rpc search_deals returns nothing', e2e.cnt($$select * from public.search_deals('T')$$), 0::bigint);
 reset role;
 
@@ -106,6 +127,21 @@ select e2e.ok('ws/member: defaults workspace_id/created_by/owner_id', (select wo
 select e2e.eq('ws/member: insert w/ explicit other owner keeps it', e2e.dml(format($$insert into public.deals(id, title, owner_id) values ('00000000-0000-0000-0000-00000000d0a2','T-new2', %L)$$, :'m2')), 1::bigint);
 select e2e.eq('ws/member: can edit deal it created even though owner differs', e2e.dml($$update public.deals set value = 2 where id='00000000-0000-0000-0000-00000000d0a2'$$), 1::bigint);
 select e2e.eq('ws/member: delete own deal', e2e.dml($$delete from public.deals where id='00000000-0000-0000-0000-00000000d0a1'$$), 1::bigint);
+select e2e.eq('ws/member: sees own workspace contacts only', e2e.cnt($$select 1 from public.contacts where name like 'C-%'$$), 2::bigint);
+select e2e.eq('ws/member: update own contact', e2e.dml($$update public.contacts set title='t' where name='C-own'$$), 1::bigint);
+select e2e.eq('ws/member: update other''s contact -> 0 rows', e2e.dml($$update public.contacts set title='t' where name='C-other'$$), 0::bigint);
+select e2e.eq('ws/member: delete other''s contact -> 0 rows', e2e.dml($$delete from public.contacts where name='C-other'$$), 0::bigint);
+select e2e.eq('ws/member: ws2 contact invisible', e2e.cnt($$select 1 from public.contacts where name='C-ws2'$$), 0::bigint);
+select e2e.eq('ws/member: insert contact', e2e.dml($$insert into public.contacts(id, name) values ('00000000-0000-0000-0000-00000000c0f1','C-new')$$), 1::bigint);
+select e2e.ok('ws/member: contact defaults stamped', (select workspace_id = :'ws1'::uuid and created_by = :'m1'::uuid and owner_id = :'m1'::uuid from public.contacts where id='00000000-0000-0000-0000-00000000c0f1'));
+select e2e.raises('ws/member: contact insert into other workspace denied', format($$insert into public.contacts(name, workspace_id) values ('X', %L)$$, :'ws2'), '42501');
+select e2e.raises('ws/member: cannot move contact to another workspace', format($$update public.contacts set workspace_id = %L where name='C-own'$$, :'ws2'), '42501');
+select e2e.eq('ws/member: delete own contact', e2e.dml($$delete from public.contacts where id='00000000-0000-0000-0000-00000000c0f1'$$), 1::bigint);
+select e2e.eq('ws/member: agent_logs scoped to visible contacts', e2e.cnt($$select 1 from public.agent_logs$$), 2::bigint);
+select e2e.eq('ws/member: contact_agent_settings scoped', e2e.cnt($$select 1 from public.contact_agent_settings$$), 1::bigint);
+select e2e.eq('ws/member: update settings of own contact', e2e.dml($$update public.contact_agent_settings set current_step = 2 where contact_id='00000000-0000-0000-0000-00000000c0a1'$$), 1::bigint);
+select e2e.eq('ws/member: insert agent_log for visible contact', e2e.dml($$insert into public.agent_logs(contact_id, message) values ('00000000-0000-0000-0000-00000000c0a1','m1 log')$$), 1::bigint);
+select e2e.raises('ws/member: insert agent_log for other workspace contact denied', $$insert into public.agent_logs(contact_id, message) values ('00000000-0000-0000-0000-00000000c0a3','nope')$$, '42501');
 select e2e.eq('ws/member: pipeline_stages readable (member)', e2e.cnt($$select 1 from public.pipeline_stages$$) > 0, true);
 select e2e.raises('ws/member: pipeline_stages write denied', $$insert into public.pipeline_stages(key,name) values ('zz','ZZ')$$, '42501');
 select e2e.eq('ws/member: stage update -> 0 rows', e2e.dml($$update public.pipeline_stages set name='hax'$$), 0::bigint);
@@ -141,6 +177,10 @@ reset role;
 -- viewer
 select e2e.as_user('authenticated', :'v1') \g /dev/null
 select e2e.eq('ws/viewer: can read workspace deals', e2e.cnt($$select 1 from public.deals where title like 'T-%'$$), 4::bigint);
+select e2e.eq('ws/viewer: reads workspace contacts', e2e.cnt($$select 1 from public.contacts where name like 'C-%'$$), 2::bigint);
+select e2e.raises('ws/viewer: contact insert denied', $$insert into public.contacts(name) values ('v')$$, '42501');
+select e2e.eq('ws/viewer: contact update -> 0 rows', e2e.dml($$update public.contacts set title='v'$$), 0::bigint);
+select e2e.eq('ws/viewer: contact delete -> 0 rows', e2e.dml($$delete from public.contacts$$), 0::bigint);
 select e2e.raises('ws/viewer: insert denied', $$insert into public.deals(title) values ('v')$$, '42501');
 select e2e.eq('ws/viewer: update -> 0 rows', e2e.dml($$update public.deals set value = 1$$), 0::bigint);
 select e2e.eq('ws/viewer: delete -> 0 rows', e2e.dml($$delete from public.deals$$), 0::bigint);
@@ -153,6 +193,8 @@ reset role;
 select e2e.as_user('authenticated', :'mg') \g /dev/null
 select e2e.eq('ws/manager: edits any deal in workspace', e2e.dml($$update public.deals set value = 3 where title in ('T-own','T-other','T-assigned')$$), 3::bigint);
 select e2e.eq('ws/manager: not other workspace', e2e.dml($$update public.deals set value = 3 where title='T-ws2'$$), 0::bigint);
+select e2e.eq('ws/manager: edits any contact in workspace', e2e.dml($$update public.contacts set title='m' where name in ('C-own','C-other')$$), 2::bigint);
+select e2e.eq('ws/manager: not other workspace contact', e2e.dml($$update public.contacts set title='m' where name='C-ws2'$$), 0::bigint);
 select e2e.passes('ws/manager: manages pipeline stages', $$insert into public.pipeline_stages(key,name) values ('mgr-stage','Mgr')$$);
 select e2e.raises('ws/manager: cannot manage user_roles', format($$insert into public.user_roles(user_id, role_id, workspace_id) select %L, id, workspace_id from public.roles where lower(name)='admin' and workspace_id=%L$$, :'mg', :'ws1'), '42501');
 reset role;
@@ -163,6 +205,8 @@ select e2e.eq('ws/admin: edits all deals in workspace', e2e.dml($$update public.
 select e2e.eq('ws/admin: cannot touch other workspace deal', e2e.dml($$update public.deals set value = 9 where title='T-ws2'$$), 0::bigint);
 select e2e.eq('ws/admin: cannot see other workspace', e2e.cnt($$select 1 from public.deals where title='T-ws2'$$), 0::bigint);
 select e2e.eq('ws/admin: sees null-workspace rows (repair)', e2e.cnt($$select 1 from public.deals where workspace_id is null$$) > 0, true);
+select e2e.eq('ws/admin: deletes any contact in own workspace', e2e.dml($$delete from public.contacts where name = 'C-other'$$), 1::bigint);
+select e2e.eq('ws/admin: cannot see other workspace contact', e2e.cnt($$select 1 from public.contacts where name='C-ws2'$$), 0::bigint);
 select e2e.passes('ws/admin: can assign roles in own workspace', format($$insert into public.user_roles(user_id, role_id, workspace_id) select %L, id, workspace_id from public.roles where lower(name)='member' and workspace_id=%L$$, :'x1', :'ws1'));
 select e2e.passes('ws/admin: set_rls_mode allowed (no-op to workspace)', $$select public.set_rls_mode('workspace')$$);
 select e2e.eq('ws/admin: deletes other''s deal', e2e.dml($$delete from public.deals where title='T-other'$$), 1::bigint);
@@ -179,11 +223,25 @@ select e2e.as_user('authenticated', :'b2') \g /dev/null
 select e2e.eq('ws/ws2-member: edits own ws2 deal', e2e.dml($$update public.deals set value = 2 where title='T-ws2'$$), 1::bigint);
 reset role;
 
--- authenticated without membership (new signup)
+-- authenticated with a profile but WITHOUT a user_roles row (new signup): plain member of the default workspace
 delete from public.user_roles where user_id = :'x1';
+select e2e.ok('fixture: x1 has a profile and no role row', exists (select 1 from public.profiles where id = :'x1') and not exists (select 1 from public.user_roles where user_id = :'x1'));
 select e2e.as_user('authenticated', :'x1') \g /dev/null
-select e2e.eq('ws/no-membership: sees nothing', e2e.cnt($$select 1 from public.deals$$), 0::bigint);
-select e2e.raises('ws/no-membership: cannot insert', $$insert into public.deals(title) values ('x')$$, '42501');
+select e2e.eq('ws/no-role-row: current_role_name defaults to member', public.current_role_name(), 'member');
+select e2e.eq('ws/no-role-row: current_workspace_id is the default workspace', public.current_workspace_id(), :'ws1'::uuid);
+select e2e.eq('ws/no-role-row: sees default-workspace deals', e2e.cnt($$select 1 from public.deals where title in ('T-own','T-assigned')$$), 2::bigint);
+select e2e.eq('ws/no-role-row: does not see other workspace deals', e2e.cnt($$select 1 from public.deals where title='T-ws2'$$), 0::bigint);
+select e2e.eq('ws/no-role-row: sees default-workspace contacts', e2e.cnt($$select 1 from public.contacts where name = 'C-own'$$), 1::bigint);
+select e2e.eq('ws/no-role-row: can insert (member)', e2e.dml($$insert into public.deals(title) values ('x1-deal')$$), 1::bigint);
+select e2e.eq('ws/no-role-row: cannot edit others'' records', e2e.dml($$update public.deals set value = 1 where title='T-own'$$), 0::bigint);
+select e2e.raises('ws/no-role-row: cannot self-promote', format($$insert into public.user_roles(user_id, role_id, workspace_id) select %L, id, workspace_id from public.roles where lower(name)='admin' and workspace_id=%L$$, :'x1', :'ws1'), '42501');
+reset role;
+-- no profile at all (e.g. profile sync failed): sees nothing
+delete from public.profiles where id = :'x1';
+select e2e.as_user('authenticated', :'x1') \g /dev/null
+select e2e.eq('ws/no-profile: sees nothing', e2e.cnt($$select 1 from public.deals$$), 0::bigint);
+select e2e.eq('ws/no-profile: contacts hidden', e2e.cnt($$select 1 from public.contacts$$), 0::bigint);
+select e2e.raises('ws/no-profile: cannot insert', $$insert into public.deals(title) values ('x')$$, '42501');
 reset role;
 
 -- service_role bypass

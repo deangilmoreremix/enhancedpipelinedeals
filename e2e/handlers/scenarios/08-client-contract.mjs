@@ -45,5 +45,16 @@ export default async function ({ t, REPO }) {
     });
   }
   await t(`scanned client code: ${v1.size} v1 functions, ${paths.size} v2/redirect paths`, async () => assert.ok(v1.size > 10 && paths.size >= 5));
-  for (const m of missing) t.skip(`client calls ${m.url} (${m.where})`, 'MISSING ENDPOINT: no function file / config.path / redirect serves it (a v1 copy may exist only under netlify/functions/backup or temp_functions)');
+  // Every endpoint the client calls must exist (the dead ones were converted to direct Supabase queries / removed).
+  await t(`all client endpoint literals are served (${seen.size} unresolved)`, async () => assert.deepEqual(missing.map((m) => `${m.url} (${m.where})`), []));
+  // Calls to protected functions must carry the Supabase bearer token (authedFetch / authHeader), not a bare fetch().
+  const PROTECTED = ['selectPersona', 'autopilot-run', 'memory-get', 'mood-preview', 'calendar-api', 'email-api'];
+  const bare = [];
+  for (const file of walk(path.join(REPO, 'src'))) {
+    const src = fs.readFileSync(file, 'utf8');
+    for (const m of src.matchAll(/\bfetch\(\s*[`'"]\/\.netlify\/functions\/([\w-]+)/g)) {
+      if (PROTECTED.includes(m[1])) bare.push(`${m[1]} @ ${path.relative(REPO, file)}`);
+    }
+  }
+  await t('protected functions are called through authedFetch (no bare fetch)', async () => assert.deepEqual(bare, []));
 }

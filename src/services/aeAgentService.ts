@@ -2,6 +2,10 @@
  * Account Executive (AE) Agent Service
  * Advanced deal management and closing automation
  */
+import { supabase, isSupabaseConfigured } from '../lib/core/supabaseClient';
+import { isDemoMode } from '../config/demoMode';
+import { dealFromRow } from './dealMapper';
+import { mockDeals } from '../data/mockDeals';
 
 interface DealContext {
   id: string;
@@ -124,14 +128,30 @@ class AEAgentService {
     }
   ];
 
+  /** deals + contacts straight from Supabase; demo / unconfigured mode reads the bundled mock deals (no network). */
+  private async loadDealAndContact(dealId: string): Promise<{ deal: any; contact: any }> {
+    if (!isSupabaseConfigured || isDemoMode()) {
+      const deal: any = mockDeals[dealId];
+      if (!deal) throw new Error('Deal not found');
+      return { deal, contact: { id: deal.contactId, name: deal.contact, title: '', company: deal.company } };
+    }
+    const { data: row, error } = await supabase.from('deals').select('*').eq('id', dealId).maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!row) throw new Error('Deal not found');
+    const deal: any = dealFromRow(row as any);
+    let contact: any = { id: deal.contactId, name: deal.contact, title: '', company: deal.company };
+    if (deal.contactId) {
+      const { data: c, error: cErr } = await supabase.from('contacts').select('id,name,title,company').eq('id', deal.contactId).maybeSingle();
+      if (cErr) throw new Error(cErr.message);
+      if (c) contact = c;
+    }
+    return { deal, contact };
+  }
+
   async analyzeDeal(dealId: string): Promise<DealContext> {
     try {
       // Fetch comprehensive deal data
-      const dealResponse = await fetch(`/api/deals/${dealId}`);
-      const deal = await dealResponse.json();
-
-      const contactResponse = await fetch(`/api/contacts/${deal.contactId}`);
-      const contact = await contactResponse.json();
+      const { deal, contact } = await this.loadDealAndContact(dealId);
 
       // Analyze deal requirements and objections
       const requirements = await this.extractRequirements(deal);

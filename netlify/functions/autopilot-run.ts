@@ -1,12 +1,17 @@
 import type { Handler } from "@netlify/functions";
+import { authorize, json } from "./_openai";
 
 export const handler: Handler = async (event) => {
+  if (event.httpMethod === "OPTIONS") return { ...json(204, {}), body: "" };
   if (event.httpMethod !== "POST") {
     return {
       statusCode: 405,
       body: JSON.stringify({ error: "Method Not Allowed" })
     };
   }
+
+  const authHeader = event.headers.authorization || event.headers.Authorization;
+  if (!(await authorize(authHeader))) return json(401, { error: "Unauthorized" });
 
   try {
     const body = event.body ? JSON.parse(event.body) : {};
@@ -23,7 +28,8 @@ export const handler: Handler = async (event) => {
     const triggerResponse = await fetch(`${process.env.URL || 'http://localhost:8888'}/.netlify/functions/trigger-autopilot`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        ...(authHeader ? { Authorization: authHeader } : {})
       },
       body: JSON.stringify({ contactId })
     });

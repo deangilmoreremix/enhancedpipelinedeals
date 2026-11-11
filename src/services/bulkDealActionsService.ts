@@ -2,6 +2,20 @@ import { supabase } from './supabaseService';
 import { BulkDealAction, BulkActionResult, Deal } from '../types';
 
 import { getActiveStages } from '../utils/stageMeta';
+import { canUseRemote } from './dealRecordShared';
+
+/** deals columns whose changes the deal_audit() trigger already records in deal_activities (created/stage_changed/updated). */
+export const AUDITED_DEAL_COLUMNS = ['stage', 'value', 'title', 'company', 'priority', 'probability', 'close_date', 'owner_id', 'deleted_at'];
+
+/**
+ * Should the client add its own 'bulk_action' timeline row?
+ * Not when the deal is remote and the action only touched columns the audit trigger records (it would duplicate the
+ * stage_changed / updated entry). Local/demo deals have no trigger, so the client entry is kept there.
+ */
+export function shouldLogBulkActivity(dealId: string, changedColumns: string[]): boolean {
+  if (!canUseRemote(dealId)) return true;
+  return changedColumns.some(c => !AUDITED_DEAL_COLUMNS.includes(c));
+}
 /**
  * Service for performing bulk operations on multiple deals
  */
@@ -207,15 +221,7 @@ export class BulkDealActionsService {
 
           if (deleteError) throw deleteError;
 
-          // Log the deletion activity
-          await supabase.from('deal_activities').insert({
-            deal_id: dealId,
-            type: 'bulk_action',
-            title: 'Deal Deleted',
-            description: 'Deal permanently deleted via bulk action',
-            metadata: { actionName: action.name, bulkAction: true },
-            created_by: performedBy
-          });
+          // No activity row: the deal is hard-deleted (its deal_activities cascade away with it).
 
           return {
             dealId,
@@ -238,8 +244,9 @@ export class BulkDealActionsService {
 
       if (updateError) throw updateError;
 
-      // Log the bulk action activity
-      await supabase.from('deal_activities').insert({
+      // Log the bulk action activity (skipped when the audit trigger already recorded the same change)
+      const changedColumns = Object.keys(updateData).filter(k => k !== 'updated_at');
+      if (shouldLogBulkActivity(dealId, changedColumns)) await supabase.from('deal_activities').insert({
         deal_id: dealId,
         type: 'bulk_action',
         title: action.name,

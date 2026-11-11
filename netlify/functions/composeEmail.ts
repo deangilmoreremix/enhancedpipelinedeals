@@ -4,6 +4,7 @@
  */
 import { createClient } from '@supabase/supabase-js';
 import { authorize, rateLimited, respondStream, CORS_HEADERS } from './_openai';
+import { describeContact } from './_prompts';
 
 let _supabase: ReturnType<typeof createClient> | null = null;
 function db() {
@@ -14,13 +15,6 @@ function db() {
     _supabase = createClient(url, key);
   }
   return _supabase;
-}
-
-/** Contact line for the system prompt; never prints "undefined" for missing fields. Exported for tests. */
-export function describeContact(contact: { name?: string | null; company?: string | null } | null | undefined): string {
-  if (!contact) return 'Contact: (unknown contact; do not invent details)';
-  const name = contact.name || 'the contact';
-  return contact.company ? `Contact: ${name} at ${contact.company}` : `Contact: ${name}`;
 }
 
 const err = (status: number, error: string) =>

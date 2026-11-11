@@ -14,8 +14,15 @@ export const handler: Handler = async (event) => {
     };
   }
 
+  let parsed: { agent_id?: string; persona_id?: string };
   try {
-    const { agent_id, persona_id } = JSON.parse(event.body);
+    parsed = JSON.parse(event.body || '{}');
+  } catch {
+    return { statusCode: 400, body: JSON.stringify({ error: 'Invalid JSON body' }) };
+  }
+
+  try {
+    const { agent_id, persona_id } = parsed;
 
     if (!agent_id || !persona_id) {
       return {
@@ -24,7 +31,7 @@ export const handler: Handler = async (event) => {
       };
     }
 
-    await supabase
+    const { error } = await supabase
       .from('agent_persona_selection')
       .upsert({
         agent_id,
@@ -33,6 +40,10 @@ export const handler: Handler = async (event) => {
       }, {
         onConflict: 'agent_id'
       });
+
+    if (error) {
+      return { statusCode: 500, body: JSON.stringify({ error: `Could not save persona selection: ${error.message}` }) };
+    }
 
     return {
       statusCode: 200,

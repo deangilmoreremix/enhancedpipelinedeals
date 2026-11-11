@@ -44,7 +44,9 @@ const CompanyPage: React.FC = () => {
     let alive = true;
     getById(id).then(c => { if (alive) setStatus(c ? 'ready' : 'missing'); }).catch(() => { if (alive) setStatus('missing'); });
     return () => { alive = false; };
-  }, [id, getById]);
+    // Re-resolve when deals/contacts arrive: demo-mode (`local-co-*`) companies are derived from them,
+    // so a deep link / reload resolved against empty stores would otherwise stay "not found".
+  }, [id, getById, Object.keys(dealsMap).length, contactList.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!company) return;

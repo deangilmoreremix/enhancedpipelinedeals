@@ -37,8 +37,9 @@ export const handler: Handler = async (event) => {
       if (!agentId) return json(400, { error: 'agentId is required' });
       if (agentId !== 'auto' && !SPECIALISTS.some((s) => s.id === agentId)) return json(404, { error: `Unknown SDR agent: ${agentId}` });
       try {
-        const result = await runSpecialistOnce(agentId, contactId, body.goal);
-        return json(200, { agentId, contactId, result, timestamp: new Date().toISOString() });
+        const dealId = typeof body.dealId === 'string' && body.dealId ? body.dealId : null;
+        const result = await runSpecialistOnce(agentId, contactId, body.goal, dealId);
+        return json(200, { agentId, contactId, dealId, result, timestamp: new Date().toISOString() });
       } catch (e) {
         return json(422, { agentId, contactId, error: explain(e) });
       }
@@ -51,7 +52,7 @@ export const handler: Handler = async (event) => {
       const errors: unknown[] = [];
       for (const agentId of agentIds.slice(0, 5)) {
         try {
-          results.push({ agentId, contactId, result: await runSpecialistOnce(agentId, contactId, body.goal), success: true });
+          results.push({ agentId, contactId, result: await runSpecialistOnce(agentId, contactId, body.goal, typeof body.dealId === 'string' ? body.dealId : null), success: true });
         } catch (e) {
           errors.push({ agentId, error: explain(e) });
         }

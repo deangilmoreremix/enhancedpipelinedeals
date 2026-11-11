@@ -128,6 +128,7 @@ export class EnhancedWorkflowService {
    * Get all workflows
    */
   async getAllWorkflows(category?: string): Promise<Workflow[]> {
+    if (!isSupabaseConfigured) return []; // demo mode: no workflow store, avoid querying the placeholder URL
     try {
       let query = supabase
         .from('deal_workflows')

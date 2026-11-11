@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { respond } from './_openai';
+import { respond, authorize } from './_openai';
 
 // Initialize clients
 const supabase = createClient(
@@ -181,9 +181,14 @@ export const handler = async (event: any) => {
     return { statusCode: 200, headers, body: '' };
   }
 
+  // Spends OpenAI credits and reads deals with a privileged key: requires a Supabase session (or the anon key).
+  if (!(await authorize(event.headers?.authorization || event.headers?.Authorization))) {
+    return { statusCode: 401, headers, body: JSON.stringify({ error: 'Unauthorized' }) };
+  }
+
   try {
     // Rate limiting
-    const clientIP = event.headers['x-forwarded-for'] || event.headers['client-ip'] || 'unknown';
+    const clientIP = event.headers?.['x-nf-client-connection-ip'] || event.headers?.['x-forwarded-for'] || event.headers?.['client-ip'] || 'unknown';
     if (!rateLimiter.isAllowed(clientIP)) {
       return {
         statusCode: 429,
@@ -195,6 +200,9 @@ export const handler = async (event: any) => {
     if (event.httpMethod === 'POST') {
       const body = JSON.parse(event.body || '{}');
       const { action, data } = body;
+      if (!data || typeof data !== 'object') {
+        return { statusCode: 400, headers, body: JSON.stringify({ error: 'data is required' }) };
+      }
 
       switch (action) {
         case 'import_deals_with_ai':
@@ -218,7 +226,7 @@ export const handler = async (event: any) => {
 
           // AI enrichment
           const enrichedDeals = await Promise.all(
-            deals.map(deal => enrichDealWithAI(deal, data.enrichmentOptions))
+            deals.map(deal => enrichDealWithAI(deal, data.enrichmentOptions ?? {}))
           );
 
           return {

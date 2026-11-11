@@ -13,6 +13,7 @@ import { toFile } from 'openai';
 import { createClient } from '@supabase/supabase-js';
 import { authorize, rateLimited, getClient, CORS_HEADERS } from './_openai';
 import { assertSafeUrl } from './_workflowSteps';
+import { storageFolder } from './_storagePath';
 
 const BUCKET = 'ai-images';
 const GENERATE_MODEL = process.env.OPENAI_IMAGE_MODEL || 'gpt-image-2.6-flare';
@@ -110,8 +111,7 @@ export default async (req: Request): Promise<Response> => {
 
     await ensureBucket();
     // sanitise per segment so the returned path is exactly the stored path (no empty segments)
-    const folder = [body.entityType, body.entityId].map((x) => String(x ?? '').replace(/[^a-zA-Z0-9_-]/g, '')).filter(Boolean).join('/') || 'misc';
-    const path = `${folder}/${Date.now()}.png`;
+    const path = `${storageFolder(body.entityType, body.entityId)}/${Date.now()}.png`;
     const { error: upErr } = await db().storage.from(BUCKET).upload(path, Buffer.from(item.b64_json, 'base64'), {
       contentType: 'image/png',
       upsert: false,

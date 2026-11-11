@@ -239,15 +239,14 @@ const Pipeline: React.FC = () => {
     }
   };
 
-  const handleDealClick = async (dealId: string) => {
+  const handleDealClick = async (dealId: string): Promise<void> => {
     const deal = deals[dealId];
     if (!deal) return;
 
-    // Trigger OpenAI function calling for deal analysis
-    await handleOpenAIFunctionCall(deal, 'card-click');
-
-    // Open deal detail modal
+    // Open the deal detail modal immediately; the AI enhancement runs in the background
+    // (awaiting it first made opening a deal wait for a network round trip, or hang when the gateway is down).
     setSelectedDealId(dealId);
+    void handleOpenAIFunctionCall(deal, 'card-click');
   };
 
   const handleAIResearch = async (deal: Deal): Promise<boolean> => {

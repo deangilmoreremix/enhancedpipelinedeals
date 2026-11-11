@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useShiftOverride } from '../../hooks/useShiftOverride';
 import {
   DragDropContext,
   Draggable,
@@ -105,16 +106,8 @@ const StageBoard: React.FC<KanbanBoardProps> = ({
   const [addingStage, setAddingStage] = useState(false);
   const [newStageName, setNewStageName] = useState('');
   const [hiddenOpen, setHiddenOpen] = useState(false);
-  const shiftRef = useRef(false);
   const toastId = useRef(0);
-
-  // Track Shift so a drop can override a WIP limit
-  useEffect(() => {
-    const track = (e: KeyboardEvent) => { shiftRef.current = e.shiftKey; };
-    window.addEventListener('keydown', track);
-    window.addEventListener('keyup', track);
-    return () => { window.removeEventListener('keydown', track); window.removeEventListener('keyup', track); };
-  }, []);
+  const isShiftHeld = useShiftOverride();
 
   const notify = useCallback((message: string, type: ToastType = 'info') => {
     const id = ++toastId.current;
@@ -228,7 +221,7 @@ const StageBoard: React.FC<KanbanBoardProps> = ({
       }
       if (!sameColumn) {
         void dropSelectionOnStage(group, destStage.key, {
-          stages: visibleStages, deals: allDealsMap, bulkMoveDeals, notify, override: shiftRef.current
+          stages: visibleStages, deals: allDealsMap, bulkMoveDeals, notify, override: isShiftHeld()
         });
         return;
       }
@@ -239,7 +232,7 @@ const StageBoard: React.FC<KanbanBoardProps> = ({
     if (!sameColumn && destStage.wipLimit && destStage.wipLimit > 0) {
       const inDest = Object.values(allDealsMap).filter(d => d.stage === destStage.key && d.id !== deal.id).length;
       if (inDest >= destStage.wipLimit) {
-        if (!shiftRef.current) {
+        if (!isShiftHeld()) {
           notify(`${destStage.name} is at its WIP limit (${destStage.wipLimit}). Hold Shift while dropping to override.`, 'warning');
           return;
         }

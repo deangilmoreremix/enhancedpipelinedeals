@@ -338,12 +338,12 @@ export async function sessionForLead(leadId: string) {
 }
 
 /** Non-streaming run of one specialist (or the orchestrator for agentId "auto"). Returns the structured draft or a pending approval. */
-export async function runSpecialistOnce(agentId: string, leadId: string, goal?: string) {
+export async function runSpecialistOnce(agentId: string, leadId: string, goal?: string, dealId?: string | null) {
   const { orchestrator, specialists } = buildAgents();
   const agent = agentId === 'auto' ? orchestrator : specialists[agentId];
   if (!agent) throw new Error(`Unknown SDR agent: ${agentId}`);
   const session = await sessionForLead(leadId);
-  const result: any = await run(agent as any, `Lead id: ${leadId}\nGoal: ${goal || 'Advance this lead toward a meeting.'}`, {
+  const result: any = await run(agent as any, `Lead id: ${leadId}\n${dealId ? `Deal id: ${dealId}\n` : ''}Goal: ${goal || 'Advance this lead toward a meeting.'}`, {
     session,
     maxTurns: 12,
   } as any);

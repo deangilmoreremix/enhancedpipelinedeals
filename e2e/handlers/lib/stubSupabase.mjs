@@ -91,11 +91,14 @@ const RESERVED = new Set(['select', 'order', 'limit', 'offset', 'on_conflict', '
 
 export function createStubSupabase({ port = 54402 } = {}) {
   const state = { tables: {}, buckets: new Map(), objects: new Map(), log: [], rpc: {}, failNext: [] };
+  /** Never cleared by reset(): every table/column touched by any request, for the migration-contract check. */
+  const audit = [];
   const stub = {
     port,
     url: `http://127.0.0.1:${port}`,
     state,
     get log() { return state.log; },
+    audit,
     /** custom rpc: stub.rpc.name = (args, ctx) => result */
     rpc: state.rpc,
     table(name) { return (state.tables[name] ??= []); },
@@ -228,7 +231,7 @@ export function createStubSupabase({ port = 54402 } = {}) {
         if (fn === 'claim_workflow_events') {
           const limit = body?.p_limit ?? 25, max = body?.p_max_attempts ?? 5;
           const rows = stub.table('workflow_events')
-            .filter((e) => !e.processed && !e.claimed_at && (e.attempts ?? 0) < max)
+            .filter((e) => !e.processed && (e.attempts ?? 0) < max && (!e.claimed_at || new Date(e.claimed_at).getTime() < Date.now() - 10 * 60_000))
             .sort((a, b) => cmp(a.created_at, b.created_at))
             .slice(0, limit);
           for (const e of rows) { e.claimed_at = new Date().toISOString(); e.attempts = (e.attempts ?? 0) + 1; }
@@ -246,6 +249,19 @@ export function createStubSupabase({ port = 54402 } = {}) {
       if (u.pathname.startsWith('/rest/v1/')) {
         const name = u.pathname.slice('/rest/v1/'.length);
         const rows = stub.table(name);
+        {
+          const cols = new Set();
+          const bodyRows = Array.isArray(body) ? body : body && typeof body === 'object' ? [body] : [];
+          for (const r of bodyRows) for (const k of Object.keys(r)) cols.add(k);
+          for (const [k] of u.searchParams) if (!RESERVED.has(k)) cols.add(k.split('->')[0]);
+          const sel = u.searchParams.get('select');
+          if (sel && sel !== '*') for (const c of splitTop(sel)) { const x = c.trim(); if (x && !x.includes('(') && !x.includes('*')) cols.add((x.includes(':') ? x.split(':')[1] : x).split('->')[0]); }
+          const ord = u.searchParams.get('order');
+          if (ord) for (const o of ord.split(',')) cols.add(o.split('.')[0]);
+          const oc = u.searchParams.get('on_conflict');
+          if (oc) for (const c of oc.split(',')) cols.add(c);
+          audit.push({ method: req.method, table: name, cols: [...cols], rowKeys: req.method === 'POST' ? bodyRows.map((r) => Object.keys(r)) : [], upsert: /resolution=/.test(String(req.headers.prefer || '')), url: req.url.slice(0, 200) });
+        }
         const prefer = String(req.headers.prefer || '');
         const wantRep = /return=representation/.test(prefer);
         const accept = String(req.headers.accept || '');

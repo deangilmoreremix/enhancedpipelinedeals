@@ -1,3 +1,4 @@
+import './_serverEnv';
 import type { Handler } from "@netlify/functions";
 import { EmailThreadingService } from "../../src/services/emailThreadingService";
 

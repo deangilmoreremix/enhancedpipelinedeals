@@ -29,7 +29,7 @@ export async function buildHandlers() {
     entryPoints: functionEntries(),
     outdir: OUT_DIR,
     bundle: true,
-    splitting: true,
+    splitting: false, // per-function bundles like Netlify (module evaluation order = source import order)
     format: 'esm',
     platform: 'node',
     target: 'node22',

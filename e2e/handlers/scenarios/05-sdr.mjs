@@ -102,6 +102,15 @@ export default async function ({ t, openai, supa, loadFunction }) {
     assert.equal(supa.table('agent_threads').length, 1, 'agent_threads upsert, no duplicate');
     assert.ok(JSON.stringify(reqs().at(-1).input).includes('book a demo'), 'second run replays the stored conversation history');
   });
+  await t('sdr-run: dealId (sent by SDRAgentsPanel/useSDRAgents) is echoed and reaches the agent prompt', async () => {
+    seed(supa); openai.reset();
+    const r = await callV1(run.handler, { body: { action: 'run', agentId: 'sdr-cold-email', contactId: 'c1', dealId: 'd1' } });
+    assert.equal(r.statusCode, 200, r.body);
+    assert.equal(r.json.dealId, 'd1');
+    assert.ok(JSON.stringify(reqs()[0].input).includes('Deal id: d1'));
+    const none = await callV1(run.handler, { body: { agentId: 'sdr-cold-email', contactId: 'c1' } });
+    assert.equal(none.json.dealId, null);
+  });
   await t('sdr-run: opt-out input guardrail trips on "unsubscribe" BEFORE any model call -> 422', async () => {
     seed(supa); openai.reset();
     const r = await callV1(run.handler, { body: { action: 'run', agentId: 'sdr-cold-email', contactId: 'c1', goal: 'They replied: please unsubscribe me' } });

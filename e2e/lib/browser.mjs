@@ -51,4 +51,6 @@ export async function newPage(browser, { baseURL, name, fake, viewport, acceptDo
 }
 
 export const sleep = ms => new Promise(r => setTimeout(r, ms));
-export function errorsOf(log) { return [...log.pageErrors.map(e => 'PAGEERROR ' + e), ...log.console.map(e => 'CONSOLE ' + e), ...log.failedRequests.map(e => 'REQ ' + e)]; }
+// AI gateway (Netlify function) is absent in the sandbox: handled 404s are expected, not app bugs.
+const TOLERATED = [/AIGatewayError/, /OpenAI Function Calling failed/];
+export function errorsOf(log) { return [...log.pageErrors.map(e => 'PAGEERROR ' + e), ...log.console.map(e => 'CONSOLE ' + e), ...log.failedRequests.map(e => 'REQ ' + e)].filter(e => !TOLERATED.some(r => r.test(e))); }

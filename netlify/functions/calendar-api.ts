@@ -1,6 +1,10 @@
+import './_serverEnv';
 import type { Handler } from "@netlify/functions";
 import { CalendarEventService } from "../../src/services/calendarEventService";
 import { DealDeadlineService } from "../../src/services/dealDeadlineService";
+import { BadRequest, reviveDates } from "./_dates";
+
+const EVENT_DATE_KEYS = ['startTime', 'endTime'];
 
 export const handler: Handler = async (event) => {
   const path = event.path.replace('/.netlify/functions/calendar-api/', '');
@@ -56,6 +60,9 @@ export const handler: Handler = async (event) => {
     };
 
   } catch (error: any) {
+    if (error instanceof BadRequest) {
+      return { statusCode: 400, body: JSON.stringify({ error: error.message }) };
+    }
     console.error("[calendar-api] Error:", error);
     return {
       statusCode: 500,
@@ -75,7 +82,10 @@ async function handleCreateEvent(event: any) {
     };
   }
 
-  const calendarEvent = await CalendarEventService.createEvent(userId, eventData);
+  if (!eventData.title || !eventData.startTime || !eventData.endTime) {
+    return { statusCode: 400, body: JSON.stringify({ error: "title, startTime and endTime are required" }) };
+  }
+  const calendarEvent = await CalendarEventService.createEvent(userId, reviveDates(eventData, EVENT_DATE_KEYS) as any);
 
   return {
     statusCode: 201,
@@ -94,7 +104,7 @@ async function handleUpdateEvent(eventId: string, event: any) {
     };
   }
 
-  const calendarEvent = await CalendarEventService.updateEvent(eventId, userId, updates);
+  const calendarEvent = await CalendarEventService.updateEvent(eventId, userId, reviveDates(updates, EVENT_DATE_KEYS) as any);
 
   return {
     statusCode: 200,
@@ -127,8 +137,8 @@ async function handleGetEvents(event: any) {
   const filters: any = {};
   if (dealId) filters.dealId = dealId;
   if (contactId) filters.contactId = contactId;
-  if (startDate) filters.startDate = new Date(startDate);
-  if (endDate) filters.endDate = new Date(endDate);
+  Object.assign(filters, reviveDates({ startDate, endDate }, ['startDate', 'endDate']));
+  for (const k of ['startDate', 'endDate']) if (filters[k] === undefined) delete filters[k];
   if (status) filters.status = status;
   if (limit) filters.limit = parseInt(limit);
 
@@ -151,7 +161,10 @@ async function handleScheduleMeeting(event: any) {
     };
   }
 
-  const calendarEvent = await CalendarEventService.scheduleMeetingFromDeal(dealId, userId, options);
+  if (!options.startTime) {
+    return { statusCode: 400, body: JSON.stringify({ error: "startTime is required" }) };
+  }
+  const calendarEvent = await CalendarEventService.scheduleMeetingFromDeal(dealId, userId, reviveDates(options, ['startTime']) as any);
 
   return {
     statusCode: 201,
@@ -170,7 +183,10 @@ async function handleCreateDeadline(event: any) {
     };
   }
 
-  const deadline = await DealDeadlineService.createDeadline(userId, deadlineData);
+  if (!deadlineData.dealId || !deadlineData.title || !deadlineData.deadlineAt) {
+    return { statusCode: 400, body: JSON.stringify({ error: "dealId, title and deadlineAt are required" }) };
+  }
+  const deadline = await DealDeadlineService.createDeadline(userId, reviveDates(deadlineData, ['deadlineAt']) as any);
 
   return {
     statusCode: 201,
@@ -207,7 +223,7 @@ async function handleUpdateDeadline(deadlineId: string, event: any) {
     };
   }
 
-  const deadline = await DealDeadlineService.updateDeadline(deadlineId, userId, updates);
+  const deadline = await DealDeadlineService.updateDeadline(deadlineId, userId, reviveDates(updates, ['deadlineAt']) as any);
 
   return {
     statusCode: 200,

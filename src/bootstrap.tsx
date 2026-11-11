@@ -38,6 +38,16 @@ function readMockProps() {
 
 initStandalone();
 
+// Dev-only test hook (stripped from production builds): lets the e2e harness (e2e/) read/seed store state.
+if (import.meta.env.DEV) {
+  void Promise.all([
+    import('./store/dealStore'), import('./store/boardViewStore'), import('./store/boardSelectionStore'),
+    import('./store/permissionStore'), import('./store/companyStore'), import('./store/contactStore'),
+  ]).then(([d, v, s, p, c, ct]) => {
+    (window as any).__e2e = { deal: d.useDealStore, view: v.useBoardViewStore, selection: s.useBoardSelectionStore, permission: p.usePermissionStore, company: c.useCompanyStore, contact: ct.useContactStore };
+  });
+}
+
 const props = readMockProps();
 
 createRoot(document.getElementById('root')!).render(

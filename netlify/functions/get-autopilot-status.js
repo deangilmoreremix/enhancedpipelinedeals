@@ -80,7 +80,7 @@ export const handler = async (event, context) => {
           name: contact.name,
           email: contact.email,
           company: contact.company,
-          lead_status: contact.lead_status,
+          lead_status: contact.lead_status ?? contact.status,
         },
         settings,
         lastLog,

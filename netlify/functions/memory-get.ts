@@ -1,3 +1,4 @@
+import './_serverEnv';
 import type { Handler } from "@netlify/functions";
 import { loadAgentMemory } from "../../src/lib/memory/loadMemory";
 

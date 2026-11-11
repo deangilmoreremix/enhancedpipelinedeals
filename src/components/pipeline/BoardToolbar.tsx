@@ -8,6 +8,7 @@ import { ViewPickerDropdown } from '../views/ViewPickerDropdown';
 import { SavedViewsPanel } from './SavedViewsPanel';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
+import { BTN, CONTROL } from '../ui/buttonStyles';
 
 export const SORT_FIELDS: Array<{ id: string; label: string }> = [
   { id: 'value', label: 'Value' },
@@ -23,8 +24,7 @@ export const SORT_FIELDS: Array<{ id: string; label: string }> = [
   { id: 'healthScore', label: 'Health score' }
 ];
 
-const CONTROL_CLASS =
-  'px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white';
+const CONTROL_CLASS = CONTROL;
 
 /** Multi-key sort editor (popover). */
 const SortRules: React.FC = () => {
@@ -149,15 +149,15 @@ export const BoardToolbar: React.FC<{ showGroupBy?: boolean }> = ({ showGroupBy 
       />
 
       {saved.activeView && saved.dirty && (
-        <Button size="sm" variant="outline" type="button" onClick={() => void saved.saveChanges()}>
-          <Save className="w-4 h-4 mr-1" />
+        <button type="button" className={BTN} onClick={() => void saved.saveChanges()}>
+          <Save className="w-4 h-4" />
           Save changes
-        </Button>
+        </button>
       )}
-      <Button size="sm" variant="outline" type="button" onClick={() => { setName(saved.activeView ? `${saved.activeView.name} copy` : ''); setSaveOpen(true); }}>
-        <SaveAll className="w-4 h-4 mr-1" />
+      <button type="button" className={BTN} onClick={() => { setName(saved.activeView ? `${saved.activeView.name} copy` : ''); setSaveOpen(true); }}>
+        <SaveAll className="w-4 h-4" />
         {saved.activeView ? 'Save as...' : 'Save view'}
-      </Button>
+      </button>
 
       {showGroupBy && (
       <label className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-300">

@@ -9,6 +9,7 @@ import { errorMessage } from '../../services/dealRecordShared';
 import { pushToast } from '../../store/dealRecordStore';
 import { usePermissions } from '../../hooks/usePermissions';
 import { toastFailure } from '../../utils/permissionToast';
+import { BTN_ICON } from '../ui/buttonStyles';
 
 interface DealRecordHeaderProps {
   deal: Deal;
@@ -61,7 +62,7 @@ export const DealRecordHeader: React.FC<DealRecordHeaderProps> = ({ deal, onFind
     }
   };
 
-  const iconBtn = 'rounded-lg p-2 text-gray-600 hover:bg-gray-100 disabled:opacity-40 disabled:hover:bg-transparent dark:text-gray-300 dark:hover:bg-gray-700';
+  const iconBtn = BTN_ICON;
 
   return (
     <div className="mb-4 flex items-center justify-between gap-3">
@@ -71,10 +72,10 @@ export const DealRecordHeader: React.FC<DealRecordHeaderProps> = ({ deal, onFind
         <span aria-current="page" className="truncate font-medium text-gray-900 dark:text-white">{deal.title ?? deal.company}</span>
       </nav>
 
-      <div className="flex flex-shrink-0 items-center gap-1">
+      <div className="flex flex-shrink-0 items-center gap-2">
         {nav.index >= 0 && <span className="mr-1 hidden text-xs text-gray-500 dark:text-gray-400 sm:inline">{nav.index + 1} of {nav.total}</span>}
-        <button type="button" aria-label="Previous deal" disabled={!nav.prev} onClick={() => nav.prev && navigate(`/deals/${nav.prev}`)} className={iconBtn}><ChevronLeft className="h-5 w-5" /></button>
-        <button type="button" aria-label="Next deal" disabled={!nav.next} onClick={() => nav.next && navigate(`/deals/${nav.next}`)} className={iconBtn}><ChevronRight className="h-5 w-5" /></button>
+        <button type="button" aria-label="Previous deal" disabled={!nav.prev} onClick={() => nav.prev && navigate(`/deals/${nav.prev}`)} className={iconBtn}><ChevronLeft className="h-4 w-4" /></button>
+        <button type="button" aria-label="Next deal" disabled={!nav.next} onClick={() => nav.next && navigate(`/deals/${nav.next}`)} className={iconBtn}><ChevronRight className="h-4 w-4" /></button>
         <button
           type="button"
           aria-label={deal.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
@@ -84,11 +85,11 @@ export const DealRecordHeader: React.FC<DealRecordHeaderProps> = ({ deal, onFind
           title={canEdit ? undefined : perms.can('edit', 'deal', deal).reason}
           className={iconBtn}
         >
-          <Star className={`h-5 w-5 ${deal.isFavorite ? 'fill-yellow-400 text-yellow-500' : ''}`} />
+          <Star className={`h-4 w-4 ${deal.isFavorite ? 'fill-yellow-400 text-yellow-500' : ''}`} />
         </button>
         <div className="relative" ref={menuRef}>
           <button type="button" aria-label="More actions" aria-haspopup="menu" aria-expanded={menu} onClick={() => setMenu(m => !m)} className={iconBtn}>
-            <MoreHorizontal className="h-5 w-5" />
+            <MoreHorizontal className="h-4 w-4" />
           </button>
           {menu && (
             <div role="menu" className="absolute right-0 z-30 mt-1 w-56 overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-800">

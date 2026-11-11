@@ -10,6 +10,7 @@ import {
   loadExportColumns,
   saveExportColumns
 } from './exportDeals';
+import { BTN } from '../ui/buttonStyles';
 
 interface BoardToolbarExportProps {
   /** Deals in the current view (search + filters applied). */
@@ -65,11 +66,11 @@ export const BoardToolbarExport: React.FC<BoardToolbarExportProps> = ({ viewDeal
         onClick={() => setOpen(o => !o)}
         aria-haspopup="true"
         aria-expanded={open}
-        className="flex items-center space-x-2 px-4 py-2 bg-indigo-50 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-700 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-800/60 transition-colors font-medium"
+        className={BTN}
       >
         <Download className="w-4 h-4" />
         <span>Export</span>
-        <ChevronDown className="w-3 h-3" />
+        <ChevronDown className="w-4 h-4" />
       </button>
       {open && (
         <div role="menu" className="absolute left-0 top-full mt-1 z-30 w-60 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1">

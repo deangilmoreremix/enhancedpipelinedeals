@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { SavedPipelineView as BaseSavedPipelineView, normalizeSavedFilters } from '../../services/savedPipelineViewService';
 import { ChevronDown, Check, Star, Filter, BarChart3, Globe, Pencil, X } from 'lucide-react';
+import { BTN } from '../ui/buttonStyles';
 
 // Views may carry an optional description that the service type does not declare yet.
 type SavedPipelineView = BaseSavedPipelineView & { description?: string };
@@ -57,7 +58,7 @@ export const ViewPickerDropdown: React.FC<ViewPickerDropdownProps> = ({
         onClick={() => setIsOpen(!isOpen)}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
-        className="flex items-center space-x-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors min-w-[200px]"
+        className={`${BTN} justify-between min-w-[200px]`}
       >
         <span className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">
           {currentView?.name || 'Select View'}{dirty ? ' (modified)' : ''}

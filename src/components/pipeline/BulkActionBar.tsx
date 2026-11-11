@@ -6,6 +6,7 @@ import { Deal } from '../../types';
 import { BoardExportFormat, downloadDeals } from './exportDeals';
 import { OwnerPicker } from '../deals/fields/OwnerPicker';
 import { usePermissions } from '../../hooks/usePermissions';
+import { BTN, BTN_ICON, BTN_DANGER, CONTROL } from '../ui/buttonStyles';
 
 interface BulkActionBarProps {
   onNotify?: (message: string, type?: 'info' | 'success' | 'warning' | 'error') => void;
@@ -137,10 +138,8 @@ export const BulkActionBar: React.FC<BulkActionBarProps> = ({ onNotify }) => {
     }
   };
 
-  const selectClass =
-    'px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500';
-  const btnClass =
-    'flex items-center space-x-1 px-3 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 transition-colors';
+  const selectClass = CONTROL;
+  const btnClass = BTN;
 
   return (
     <div
@@ -250,7 +249,7 @@ export const BulkActionBar: React.FC<BulkActionBarProps> = ({ onNotify }) => {
           <button
             type="button"
             onClick={() => void handleDelete()}
-            className="px-3 py-1.5 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700"
+            className={BTN_DANGER}
           >
             Delete
           </button>
@@ -261,7 +260,7 @@ export const BulkActionBar: React.FC<BulkActionBarProps> = ({ onNotify }) => {
           title={canDelete ? undefined : `${deleteCheck.reason} (applies to all selected deals)`}
           disabled={busy || !canDelete}
           onClick={() => setConfirmDelete(true)}
-          className="flex items-center space-x-1 px-3 py-1.5 text-sm rounded-lg border border-red-200 dark:border-red-700 text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/30 disabled:opacity-50 transition-colors"
+          className={BTN}
         >
           <Trash2 className="w-4 h-4" /><span>Delete</span>
         </button>
@@ -270,7 +269,7 @@ export const BulkActionBar: React.FC<BulkActionBarProps> = ({ onNotify }) => {
       <button
         type="button"
         onClick={clearSelection}
-        className="p-1.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+        className={BTN_ICON}
         aria-label="Clear selection"
       >
         <X className="w-4 h-4" />

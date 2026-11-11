@@ -7,6 +7,7 @@ import { Modal } from '../ui/Modal';
 import ComplexFilterBuilder from '../deals/ComplexFilterBuilder';
 import { FilterBarEditor } from './FilterBarEditor';
 import { describeFilter } from './filterFieldConfig';
+import { BTN } from '../ui/buttonStyles';
 
 interface FilterBarProps {
   stages: PipelineStage[];
@@ -99,9 +100,9 @@ export const FilterBar: React.FC<FilterBarProps> = ({ stages, matchCount, totalC
             onClick={() => setPopover(p => (p?.mode === 'add' ? null : { mode: 'add' }))}
             aria-haspopup="dialog"
             aria-expanded={popover?.mode === 'add'}
-            className="inline-flex items-center space-x-1 px-3 py-1 text-sm rounded-full border border-dashed border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            className={`${BTN} border-dashed`}
           >
-            <Plus className="w-3.5 h-3.5" />
+            <Plus className="w-4 h-4" />
             <span>Add filter</span>
           </button>
           {popover && (
@@ -124,9 +125,9 @@ export const FilterBar: React.FC<FilterBarProps> = ({ stages, matchCount, totalC
         <button
           type="button"
           onClick={() => setAdvancedOpen(true)}
-          className="inline-flex items-center space-x-1 px-3 py-1 text-sm rounded-full border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+          className={BTN}
         >
-          <SlidersHorizontal className="w-3.5 h-3.5" />
+          <SlidersHorizontal className="w-4 h-4" />
           <span>Advanced</span>
         </button>
 

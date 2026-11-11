@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Keyboard } from 'lucide-react';
 import { BOARD_HOTKEYS } from '../../hooks/useBoardHotkeys';
 import { isEditableTarget } from '../../hooks/useKeyboardShortcuts';
+import { BTN_ICON } from '../ui/buttonStyles';
 
 /** Keyboard shortcut help popover (button, or press "?"). */
 export const HotkeysHelp: React.FC = () => {
@@ -26,7 +27,7 @@ export const HotkeysHelp: React.FC = () => {
         onClick={() => setOpen(o => !o)}
         aria-label="Keyboard shortcuts"
         aria-expanded={open}
-        className="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+        className={BTN_ICON}
       >
         <Keyboard className="w-4 h-4" />
       </button>

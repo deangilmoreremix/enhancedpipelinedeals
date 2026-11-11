@@ -52,6 +52,7 @@ import { useBoardFilters } from '../hooks/useBoardFilters';
 import { BoardViewType, presetForSorting, useBoardViewStore } from '../store/boardViewStore';
 import { isFeatureEnabled } from '../services/featureFlagService';
 import { initialsAvatar } from '../utils/avatar';
+import { BTN, BTN_ICON, CONTROL } from './ui/buttonStyles';
 
 type DealViewType = BoardViewType;
 
@@ -554,9 +555,9 @@ const Pipeline: React.FC = () => {
               type="button"
               aria-label="Manage pipeline stages"
               onClick={() => setShowColumnManager(true)}
-              className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+              className={BTN_ICON}
             >
-              <Settings className="w-5 h-5" />
+              <Settings className="w-4 h-4" />
             </button>
           </Tooltip>}
 
@@ -595,7 +596,7 @@ const Pipeline: React.FC = () => {
                 aria-label="Search deals"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all w-64 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                className={`${CONTROL} pl-10 pr-4 w-64`}
               />
             </div>
           </Tooltip>
@@ -606,7 +607,7 @@ const Pipeline: React.FC = () => {
               value={stageFilterValue}
               aria-label="Filter by stage"
               onChange={(e) => handleStageFilter(e.target.value)}
-              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+              className={CONTROL}
             >
               <option value="all">All Stages</option>
               {stages.map(st => (
@@ -621,7 +622,7 @@ const Pipeline: React.FC = () => {
               value={sortPreset}
               onChange={(e) => { if (e.target.value !== 'custom') setSortPreset(e.target.value as BoardSortKey); }}
               aria-label="Sort cards"
-              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+              className={CONTROL}
             >
               {BOARD_SORT_OPTIONS.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
               {sortPreset === 'custom' && <option value="custom">Custom ({sorting.length} rules)</option>}
@@ -633,11 +634,7 @@ const Pipeline: React.FC = () => {
             type="button"
             onClick={() => setFavoritesOnly(!favoritesOnly)}
             aria-pressed={favoritesOnly}
-            className={`flex items-center space-x-1 px-3 py-2 rounded-full border text-sm font-medium transition-colors ${
-              favoritesOnly
-                ? 'bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 border-red-300 dark:border-red-700'
-                : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
-            }`}
+            className={`${BTN} ${favoritesOnly ? '!bg-red-50 dark:!bg-red-900/30 !text-red-700 dark:!text-red-300 !border-red-300 dark:!border-red-700' : ''}`}
           >
             <Heart className={`w-4 h-4 ${favoritesOnly ? 'fill-current' : ''}`} />
             <span>Favorites only</span>
@@ -648,7 +645,7 @@ const Pipeline: React.FC = () => {
             <button
               type="button"
               onClick={() => setShowImport(true)}
-              className="flex items-center space-x-2 px-4 py-2 bg-emerald-50 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-700 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-800/60 transition-colors font-medium"
+              className={BTN}
             >
               <Upload className="w-4 h-4" />
               <span>Import</span>
@@ -672,8 +669,9 @@ const Pipeline: React.FC = () => {
 
           <Tooltip content="Clear All Data - Delete all contacts, deals, and achievements from the database" position="bottom">
             <button
+              type="button"
               onClick={() => setShowClearDataModal(true)}
-              className="flex items-center space-x-2 px-4 py-2 bg-red-50 dark:bg-red-900/50 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-700 rounded-lg hover:bg-red-100 dark:hover:bg-red-800/60 transition-colors font-medium"
+              className={BTN}
             >
               <X className="w-4 h-4" />
               <span>Clear All Data</span>
@@ -682,12 +680,13 @@ const Pipeline: React.FC = () => {
           
           <Tooltip content="AI Score All - Analyze all visible deals with AI to generate win probability scores based on multiple factors" position="bottom">
             <button
+              type="button"
               onClick={handleAIScoreAll}
-              className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-lg transition-colors font-medium shadow-sm"
+              className={BTN}
             >
               <Brain className="w-4 h-4" />
               <span>AI Score All</span>
-              <Sparkles className="w-3 h-3 text-yellow-300" />
+              <Sparkles className="w-4 h-4" />
             </button>
           </Tooltip>
 
@@ -697,14 +696,16 @@ const Pipeline: React.FC = () => {
           <HotkeysHelp />
           <Tooltip content="Toggle Statistics - Show or hide pipeline metrics and KPIs" position="left">
             <button
+              type="button"
+              aria-label="Toggle statistics"
               onClick={() => setShowStats(!showStats)}
-              className="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              className={BTN_ICON}
             >
               <BarChart3 className="w-4 h-4" />
             </button>
           </Tooltip>
           <Tooltip content="Settings - Configure pipeline preferences, notifications, and integrations" position="left">
-            <button type="button" aria-label="Settings" onClick={openSettings} className="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
+            <button type="button" aria-label="Settings" onClick={openSettings} className={BTN_ICON}>
               <Settings className="w-4 h-4" />
             </button>
           </Tooltip>

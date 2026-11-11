@@ -14,6 +14,7 @@ jest.mock('../config/demoMode', () => ({ isDemoMode: () => true }));
 import { BulkActionBar } from '../components/pipeline/BulkActionBar';
 import { useBoardSelectionStore } from '../store/boardSelectionStore';
 import { useDealStore } from '../store/dealStore';
+import { useUserDirectoryStore } from '../store/userDirectoryStore';
 import type { Deal, PipelineStage } from '../types';
 
 const mk = (id: string, stage: string): Deal => ({
@@ -69,6 +70,18 @@ describe('BulkActionBar', () => {
     expect(bulkSoftDelete).not.toHaveBeenCalled();
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Delete' })); });
     expect(bulkSoftDelete).toHaveBeenCalledWith(['a', 'b']);
+  });
+
+  it('sets the owner for the selected deals, and can unassign', async () => {
+    useUserDirectoryStore.setState({ users: [{ id: 'u1', name: 'Ann' }, { id: 'u2', name: 'Bob' }], loadedAt: Date.now() });
+    render(<BulkActionBar />);
+    fireEvent.click(screen.getByRole('button', { name: /set owner/i }));
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Ann' })); });
+    expect(bulkUpdateDeals).toHaveBeenCalledWith(['a', 'b'], { ownerId: 'u1', assignedToId: 'u1', assignedTo: 'Ann' });
+
+    fireEvent.click(screen.getByRole('button', { name: /set owner/i }));
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Unassigned' })); });
+    expect(bulkUpdateDeals).toHaveBeenLastCalledWith(['a', 'b'], { ownerId: null, assignedToId: null, assignedTo: null });
   });
 
   it('clears the selection', () => {

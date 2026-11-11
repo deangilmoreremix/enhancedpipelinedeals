@@ -23,6 +23,8 @@ const WorkflowsPage = React.lazy(() => import('./pages/WorkflowsPage'));
 const AnalyticsPage = React.lazy(() => import('./pages/AnalyticsPage'));
 const AppsPage = React.lazy(() => import('./pages/AppsPage'));
 const DealRecordPage = React.lazy(() => import('./pages/DealRecordPage'));
+const CompanyPage = React.lazy(() => import('./pages/CompanyPage'));
+const ContactPage = React.lazy(() => import('./pages/ContactPage'));
 
 const CommandPalette = React.lazy(() => import('./components/CommandPalette'));
 
@@ -108,6 +110,8 @@ function AppContent() {
             <Route path="/analytics" element={routeElement(<AnalyticsPage />)} />
             <Route path="/apps" element={routeElement(<AppsPage />)} />
             <Route path="/deals/:id" element={routeElement(<DealRecordPage />)} />
+            <Route path="/companies/:id" element={routeElement(<CompanyPage />)} />
+            <Route path="/contacts/:id" element={routeElement(<ContactPage />)} />
             <Route path="*" element={routeElement(<NotFound />)} />
           </Routes>
         </Suspense>

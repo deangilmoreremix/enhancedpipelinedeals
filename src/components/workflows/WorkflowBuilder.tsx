@@ -1,535 +1,508 @@
-import React, { useState, useCallback, useRef } from 'react';
-import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Workflow,
-  WorkflowStep,
-  WorkflowTrigger,
-  WorkflowAction,
-  TriggerType,
-  ActionType
-} from '../../types/workflow';
+  Background, BackgroundVariant, Controls, MarkerType, MiniMap, ReactFlow, ReactFlowProvider, applyNodeChanges, useReactFlow,
+  type Connection, type Edge, type EdgeChange, type NodeChange, type OnConnectEnd
+} from '@xyflow/react';
+import '@xyflow/react/dist/style.css';
+import { AlertTriangle, Copy, LayoutTemplate, PanelLeft, Play, Redo2, RotateCcw, Save, Settings, Trash2, Undo2 } from 'lucide-react';
+import type { Workflow, WorkflowStep } from '../../types/workflow';
+import { ALL_ENTRIES, type ConfigFieldOption, type RegistryEntry } from '../../services/workflowActionRegistry';
+import { StepPicker, STEP_DRAG_MIME } from './StepPicker';
+import { StepConfigForm } from './StepConfigForm';
+import { InsertEdge, WorkflowNode, type InsertEdgeData, type StepNode, type StepNodeData } from './WorkflowNode';
+import { validateWorkflow } from './workflowValidation';
+import { autoLayout } from './autoLayout';
 import {
-  Play,
-  Pause,
-  Settings,
-  Plus,
-  Trash2,
-  Copy,
-  Save,
-  Zap,
-  Clock,
-  Mail,
-  Code,
-  Globe,
-  Bot,
-  Filter,
-  RotateCcw,
-  AlertTriangle,
-  CheckCircle,
-  XCircle,
-  Timer
-} from 'lucide-react';
+  GRID, appendAfter, connectSteps, createStepFromEntry, disconnectSteps, handleForConnection, insertOnEdge, newId, nextPosition,
+  removeSteps, snap, withDerivedTriggers, type RunStatus
+} from './workflowGraph';
+import { useIsDark } from './useIsDark';
+import type { StepRunInfo } from './workflowRunUtils';
 
-interface WorkflowBuilderProps {
+export interface WorkflowBuilderProps {
   workflow: Workflow;
   onWorkflowChange: (workflow: Workflow) => void;
   onSave: () => void;
   onExecute: () => void;
   isExecuting?: boolean;
+  /** Read-only diagram (run detail): no palette, properties are view-only, no editing. */
+  readOnly?: boolean;
+  /** Per-step run overlay (completed/failed/skipped/waiting/running) keyed by step id. */
+  statusByStep?: Record<string, StepRunInfo>;
+  /** Controlled selection (e.g. synced with a timeline list). */
+  selectedStepId?: string | null;
+  onSelectStep?: (id: string | null) => void;
+  /** Hide the toolbar header (embedding). */
+  hideHeader?: boolean;
+  /** Hide the right-hand properties panel even when a step is selected. */
+  hideProperties?: boolean;
+  /** Pipeline stages for stage pickers; loaded automatically when omitted. */
+  stageOptions?: ConfigFieldOption[];
 }
 
-export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
-  workflow,
-  onWorkflowChange,
-  onSave,
-  onExecute,
-  isExecuting = false
+const nodeTypes = { step: WorkflowNode };
+const edgeTypes = { insertable: InsertEdge };
+
+type PickerState =
+  | { kind: 'append'; x: number; y: number }
+  | { kind: 'edge'; source: string; target: string; x: number; y: number }
+  | { kind: 'handle'; source: string; handle: string | null; flow: { x: number; y: number }; x: number; y: number };
+
+const BRANCH_TEXT: Record<string, string> = { true: 'True', false: 'False', item: 'Item', done: 'Done' };
+const MINIMAP_COLOR: Record<string, string> = { trigger: '#f59e0b', action: '#2563eb', condition: '#a855f7', delay: '#6b7280' };
+
+const HISTORY_LIMIT = 100;
+
+const BuilderInner: React.FC<WorkflowBuilderProps> = ({
+  workflow, onWorkflowChange, onSave, onExecute, isExecuting = false, readOnly = false, statusByStep, selectedStepId, onSelectStep,
+  hideHeader = false, hideProperties = false, stageOptions: stageOptionsProp
 }) => {
-  const [selectedStep, setSelectedStep] = useState<WorkflowStep | null>(null);
-  const [draggedItem, setDraggedItem] = useState<any>(null);
-  const canvasRef = useRef<HTMLDivElement | null>(null);
+  const rf = useReactFlow();
+  const isDark = useIsDark();
+  const steps = workflow.steps;
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  const handleDragEnd = useCallback((result: DropResult) => {
-    const { source, destination, draggableId } = result;
+  const [localSelected, setLocalSelected] = useState<string | null>(null);
+  const selectedId = selectedStepId !== undefined ? selectedStepId : localSelected;
+  const select = useCallback((id: string | null) => { setLocalSelected(id); onSelectStep?.(id); }, [onSelectStep]);
+  const [selectedEdges, setSelectedEdges] = useState<Set<string>>(new Set());
+  const [picker, setPicker] = useState<PickerState | null>(null);
+  const [showPalette, setShowPalette] = useState(true);
+  const [stages, setStages] = useState<ConfigFieldOption[] | undefined>(stageOptionsProp);
 
-    if (!destination) return;
+  useEffect(() => {
+    if (stageOptionsProp || readOnly) return;
+    let cancelled = false;
+    void import('../../services/pipelineStageService')
+      .then(m => m.getStages())
+      .then(list => { if (!cancelled) setStages(list.map(s => ({ value: s.key, label: s.name }))); })
+      .catch(() => { /* free-text stage input is the fallback */ });
+    return () => { cancelled = true; };
+  }, [stageOptionsProp, readOnly]);
 
-    // Handle dropping new items onto canvas
-    if (source.droppableId === 'toolbar' && destination.droppableId === 'canvas') {
-      const itemType = draggableId;
-      const rect = canvasRef.current?.getBoundingClientRect();
-      // Droppable locations carry no pointer coordinates; default to the canvas origin.
-      const dropLocation = destination as typeof destination & { x?: number; y?: number };
-      const x = (dropLocation.x ?? 0) - (rect?.left || 0);
-      const y = (dropLocation.y ?? 0) - (rect?.top || 0);
+  // ---- history (local undo/redo) ------------------------------------------------------------------
+  const stepsRef = useRef(steps);
+  stepsRef.current = steps;
+  const workflowRef = useRef(workflow);
+  workflowRef.current = workflow;
+  const past = useRef<WorkflowStep[][]>([]);
+  const future = useRef<WorkflowStep[][]>([]);
+  const lastCoalesce = useRef<{ key: string; t: number } | null>(null);
+  const [, bump] = useState(0);
 
-      addStepToCanvas(itemType, x, y);
+  const emit = useCallback((next: WorkflowStep[]) => {
+    onWorkflowChange(withDerivedTriggers(workflowRef.current, next));
+  }, [onWorkflowChange]);
+
+  /** Applies a change. `coalesceKey` merges rapid edits (typing) into one undo step. */
+  const commit = useCallback((next: WorkflowStep[], coalesceKey?: string) => {
+    if (readOnly) return;
+    const now = Date.now();
+    const lc = lastCoalesce.current;
+    const merge = coalesceKey && lc && lc.key === coalesceKey && now - lc.t < 800;
+    if (!merge) {
+      past.current = [...past.current, stepsRef.current].slice(-HISTORY_LIMIT);
     }
+    lastCoalesce.current = coalesceKey ? { key: coalesceKey, t: now } : null;
+    future.current = [];
+    emit(next);
+    bump(n => n + 1);
+  }, [emit, readOnly]);
 
-    // Handle reordering steps (if needed)
-    // This would be implemented for rearranging existing steps
-  }, [workflow.steps]);
+  const undo = useCallback(() => {
+    const prev = past.current[past.current.length - 1];
+    if (!prev) return;
+    past.current = past.current.slice(0, -1);
+    future.current = [...future.current, stepsRef.current];
+    lastCoalesce.current = null;
+    emit(prev);
+    bump(n => n + 1);
+  }, [emit]);
 
-  const addStepToCanvas = (itemType: string, x: number, y: number) => {
-    const newStep: WorkflowStep = {
-      id: `step_${Date.now()}`,
-      name: getDefaultStepName(itemType),
-      type: itemType as any,
-      position: { x, y },
-      connections: [],
-      isActive: true
-    };
+  const redo = useCallback(() => {
+    const nxt = future.current[future.current.length - 1];
+    if (!nxt) return;
+    future.current = future.current.slice(0, -1);
+    past.current = [...past.current, stepsRef.current];
+    lastCoalesce.current = null;
+    emit(nxt);
+    bump(n => n + 1);
+  }, [emit]);
 
-    // Initialize step-specific properties
-    switch (itemType) {
-      case 'trigger':
-        newStep.trigger = {
-          id: `trigger_${Date.now()}`,
-          type: 'record_created',
-          name: 'New Record Created',
-          description: 'Triggers when a new record is created',
-          config: {},
-          isActive: true
-        };
-        break;
-      case 'action':
-        newStep.action = {
-          id: `action_${Date.now()}`,
-          type: 'send_email',
-          name: 'Send Email',
-          description: 'Send an email notification',
-          config: {}
-        };
-        break;
-      case 'condition':
-        // Conditions are handled differently
-        newStep.type = 'condition';
-        break;
-      case 'delay':
-        newStep.delay = 60; // 1 hour default
-        break;
-    }
+  // ---- validation ----------------------------------------------------------------------------------
+  const validation = useMemo(
+    () => validateWorkflow(steps, { legacyTriggers: (workflow.triggers?.length ?? 0) > 0 }),
+    [steps, workflow.triggers]
+  );
 
-    const updatedWorkflow = {
-      ...workflow,
-      steps: [...workflow.steps, newStep]
-    };
+  // ---- nodes & edges -------------------------------------------------------------------------------
+  const toggleActive = useCallback((id: string, active: boolean) => {
+    commit(stepsRef.current.map(s => (s.id === id ? { ...s, isActive: active } : s)));
+  }, [commit]);
 
-    onWorkflowChange(updatedWorkflow);
-  };
-
-  const getDefaultStepName = (type: string): string => {
-    switch (type) {
-      case 'trigger': return 'New Trigger';
-      case 'action': return 'New Action';
-      case 'condition': return 'Condition';
-      case 'delay': return 'Delay';
-      default: return 'Step';
-    }
-  };
-
-  const updateStep = (stepId: string, updates: Partial<WorkflowStep>) => {
-    const updatedSteps = workflow.steps.map(step =>
-      step.id === stepId ? { ...step, ...updates } : step
-    );
-
-    onWorkflowChange({
-      ...workflow,
-      steps: updatedSteps
-    });
-  };
-
-  const deleteStep = (stepId: string) => {
-    const updatedSteps = workflow.steps.filter(step => step.id !== stepId);
-
-    // Remove connections to deleted step
-    const stepsWithRemovedConnections = updatedSteps.map(step => ({
-      ...step,
-      connections: step.connections.filter(conn => conn !== stepId)
+  const [nodes, setNodes] = useState<StepNode[]>([]);
+  useEffect(() => {
+    setNodes(prev => steps.map(step => {
+      const existing = prev.find(n => n.id === step.id);
+      const info = statusByStep?.[step.id];
+      const data: StepNodeData = {
+        step,
+        issues: readOnly ? [] : validation.byStep[step.id] ?? [],
+        readOnly,
+        status: info?.status as RunStatus | undefined,
+        durationMs: info?.durationMs,
+        output: info?.output,
+        error: info?.error,
+        onToggleActive: toggleActive
+      };
+      return {
+        ...(existing ?? {}),
+        id: step.id,
+        type: 'step' as const,
+        position: existing?.dragging ? existing.position : step.position,
+        data,
+        selected: step.id === selectedId,
+        draggable: !readOnly,
+        deletable: !readOnly,
+        connectable: !readOnly
+      } as StepNode;
     }));
+  }, [steps, selectedId, statusByStep, validation, readOnly, toggleActive]);
 
-    onWorkflowChange({
-      ...workflow,
-      steps: stepsWithRemovedConnections
-    });
+  const onNodesChange = useCallback((changes: NodeChange<StepNode>[]) => {
+    setNodes(ns => applyNodeChanges(changes, ns));
+  }, []);
 
-    if (selectedStep?.id === stepId) {
-      setSelectedStep(null);
-    }
-  };
+  const onNodeDragStop = useCallback((_: unknown, __: unknown, dragged: StepNode[]) => {
+    const moved = new Map(dragged.map(n => [n.id, n.position]));
+    commit(stepsRef.current.map(s => {
+      const p = moved.get(s.id);
+      return p ? { ...s, position: { x: snap(p.x), y: snap(p.y) } } : s;
+    }));
+  }, [commit]);
 
-  const duplicateStep = (step: WorkflowStep) => {
-    const newStep: WorkflowStep = {
-      ...step,
-      id: `step_${Date.now()}`,
-      name: `${step.name} (Copy)`,
-      position: {
-        x: step.position.x + 20,
-        y: step.position.y + 20
-      },
-      connections: []
-    };
-
-    onWorkflowChange({
-      ...workflow,
-      steps: [...workflow.steps, newStep]
-    });
-  };
-
-  const connectSteps = (fromStepId: string, toStepId: string) => {
-    const updatedSteps = workflow.steps.map(step => {
-      if (step.id === fromStepId) {
-        return {
-          ...step,
-          connections: step.connections.includes(toStepId)
-            ? step.connections.filter(id => id !== toStepId)
-            : [...step.connections, toStepId]
+  const edges = useMemo<Edge[]>(() => {
+    const list: Edge[] = [];
+    for (const s of steps) {
+      for (const t of s.connections ?? []) {
+        if (!steps.some(x => x.id === t)) continue;
+        const handle = handleForConnection(s, t);
+        const id = `${s.id}:${handle}->${t}`;
+        const data: InsertEdgeData = {
+          label: BRANCH_TEXT[handle],
+          readOnly,
+          onInsert: (source, target, client) => openPickerAt({ kind: 'edge', source, target }, client),
+          onRemove: (source, target) => commit(disconnectSteps(stepsRef.current, source, target))
         };
+        const ran = statusByStep?.[s.id]?.status === 'completed' && statusByStep?.[t] && statusByStep[t].status !== 'pending';
+        list.push({
+          id, source: s.id, target: t, sourceHandle: handle, targetHandle: 'in', type: 'insertable', data,
+          selected: selectedEdges.has(id), deletable: !readOnly,
+          markerEnd: { type: MarkerType.ArrowClosed, color: ran ? '#16a34a' : '#9ca3af' },
+          style: ran ? { stroke: '#16a34a' } : undefined
+        });
       }
-      return step;
-    });
-
-    onWorkflowChange({
-      ...workflow,
-      steps: updatedSteps
-    });
-  };
-
-  const renderStepIcon = (step: WorkflowStep) => {
-    switch (step.type) {
-      case 'trigger':
-        return <Zap className="w-4 h-4" />;
-      case 'action':
-        switch (step.action?.type) {
-          case 'send_email':
-            return <Mail className="w-4 h-4" />;
-          case 'code':
-            return <Code className="w-4 h-4" />;
-          case 'http_request':
-            return <Globe className="w-4 h-4" />;
-          case 'ai_agent':
-            return <Bot className="w-4 h-4" />;
-          case 'delay':
-            return <Clock className="w-4 h-4" />;
-          default:
-            return <Play className="w-4 h-4" />;
-        }
-      case 'condition':
-        return <Filter className="w-4 h-4" />;
-      case 'delay':
-        return <Timer className="w-4 h-4" />;
-      default:
-        return <Settings className="w-4 h-4" />;
     }
-  };
+    return list;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [steps, selectedEdges, readOnly, statusByStep, commit]);
 
-  const renderToolbarItem = (type: string, icon: React.ReactNode, label: string) => (
-    <Draggable key={type} draggableId={type} index={0}>
-      {(provided, snapshot) => (
-        <div
-          ref={provided.innerRef}
-          {...provided.draggableProps}
-          {...provided.dragHandleProps}
-          className={`flex flex-col items-center p-3 bg-white border border-gray-200 rounded-lg cursor-grab hover:border-blue-300 hover:shadow-md transition-all ${
-            snapshot.isDragging ? 'shadow-lg rotate-2' : ''
-          }`}
-        >
-          <div className="text-gray-600 mb-1">{icon}</div>
-          <span className="text-xs text-gray-600 text-center">{label}</span>
-        </div>
-      )}
-    </Draggable>
-  );
+  const onEdgesChange = useCallback((changes: EdgeChange[]) => {
+    setSelectedEdges(prev => {
+      const next = new Set(prev);
+      for (const c of changes) if (c.type === 'select') { if (c.selected) next.add(c.id); else next.delete(c.id); }
+      return next;
+    });
+  }, []);
 
-  const renderCanvasStep = (step: WorkflowStep, index: number) => (
-    <div
-      key={step.id}
-      className={`absolute border-2 rounded-lg p-3 cursor-pointer transition-all ${
-        selectedStep?.id === step.id
-          ? 'border-blue-500 bg-blue-50 shadow-lg'
-          : 'border-gray-300 bg-white hover:border-gray-400 hover:shadow-md'
-      } ${step.isActive ? '' : 'opacity-50'}`}
-      style={{
-        left: step.position.x,
-        top: step.position.y,
-        minWidth: '120px'
-      }}
-      onClick={() => setSelectedStep(step)}
-    >
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center space-x-2">
-          {renderStepIcon(step)}
-          <span className="text-sm font-medium text-gray-900 truncate max-w-20">
-            {step.name}
-          </span>
-        </div>
-        <div className="flex space-x-1">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              duplicateStep(step);
-            }}
-            className="p-1 text-gray-400 hover:text-gray-600"
-          >
-            <Copy className="w-3 h-3" />
-          </button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              deleteStep(step.id);
-            }}
-            className="p-1 text-gray-400 hover:text-red-600"
-          >
-            <Trash2 className="w-3 h-3" />
-          </button>
-        </div>
-      </div>
+  const onEdgesDelete = useCallback((deleted: Edge[]) => {
+    let next = stepsRef.current;
+    for (const e of deleted) next = disconnectSteps(next, e.source, e.target);
+    commit(next);
+  }, [commit]);
 
-      {/* Connection points */}
-      <div className="absolute -top-2 left-1/2 transform -translate-x-1/2">
-        <div className="w-3 h-3 bg-gray-400 rounded-full border-2 border-white"></div>
-      </div>
-      <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2">
-        <div className="w-3 h-3 bg-gray-400 rounded-full border-2 border-white"></div>
-      </div>
-    </div>
-  );
+  const onNodesDelete = useCallback((deleted: StepNode[]) => {
+    const ids = deleted.map(n => n.id);
+    commit(removeSteps(stepsRef.current, ids));
+    if (selectedId && ids.includes(selectedId)) select(null);
+  }, [commit, select, selectedId]);
+
+  const onConnect = useCallback((c: Connection) => {
+    if (!c.source || !c.target) return;
+    commit(connectSteps(stepsRef.current, c.source, c.target, c.sourceHandle));
+  }, [commit]);
+
+  const isValidConnection = useCallback((c: Connection | Edge) => {
+    if (c.source === c.target) return false;
+    const tgt = stepsRef.current.find(s => s.id === c.target);
+    return Boolean(tgt && tgt.type !== 'trigger');
+  }, []);
+
+  // ---- picker --------------------------------------------------------------------------------------
+  function openPickerAt(base: { kind: 'edge'; source: string; target: string } | { kind: 'handle'; source: string; handle: string | null; flow: { x: number; y: number } } | { kind: 'append' }, client: { x: number; y: number }) {
+    const rect = containerRef.current?.getBoundingClientRect();
+    const width = rect?.width ?? 800;
+    const height = rect?.height ?? 600;
+    const x = Math.max(8, Math.min((client.x - (rect?.left ?? 0)) - 20, width - 330));
+    const y = Math.max(8, Math.min((client.y - (rect?.top ?? 0)) - 10, height - 420));
+    setPicker({ ...base, x, y } as PickerState);
+  }
+
+  const onConnectEnd = useCallback<OnConnectEnd>((event, state) => {
+    if (readOnly || state.isValid || !state.fromNode || state.fromHandle?.type !== 'source') return;
+    const pt = 'changedTouches' in event ? event.changedTouches[0] : event;
+    const flow = rf.screenToFlowPosition({ x: pt.clientX, y: pt.clientY });
+    openPickerAt({ kind: 'handle', source: state.fromNode.id, handle: state.fromHandle.id ?? null, flow }, { x: pt.clientX, y: pt.clientY });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [readOnly, rf]);
+
+  const addEntry = useCallback((entry: RegistryEntry, position?: { x: number; y: number }, mode?: PickerState | null) => {
+    const current = stepsRef.current;
+    const anchor = mode?.kind === 'append' || !mode ? current.find(s => s.id === selectedId) : undefined;
+    let newStep = createStepFromEntry(entry, position ?? nextPosition(current, anchor));
+    let next: WorkflowStep[];
+    if (mode?.kind === 'edge') {
+      const src = current.find(s => s.id === mode.source);
+      const tgt = current.find(s => s.id === mode.target);
+      if (src && tgt) newStep = { ...newStep, position: { x: snap((src.position.x + tgt.position.x) / 2), y: snap((src.position.y + tgt.position.y) / 2) } };
+      next = insertOnEdge(current, mode.source, mode.target, newStep);
+    } else if (mode?.kind === 'handle') {
+      newStep = { ...newStep, position: { x: snap(mode.flow.x - 130), y: snap(mode.flow.y) } };
+      next = appendAfter(current, mode.source, mode.handle, newStep);
+    } else if (!position && anchor && anchor.type !== 'condition' && !(anchor.type === 'action' && anchor.action?.type === 'iterator') && entry.category !== 'Triggers') {
+      // click-to-add after the selected step
+      next = appendAfter(current, anchor.id, 'out', newStep);
+    } else {
+      next = [...current, newStep];
+    }
+    commit(next);
+    select(newStep.id);
+    setPicker(null);
+    // a freshly added step may be off-screen
+    setTimeout(() => { try { void rf.fitView({ duration: 200, padding: 0.3, maxZoom: 1 }); } catch { /* not mounted */ } }, 60);
+  }, [commit, rf, select, selectedId]);
+
+  const onDrop = useCallback((e: React.DragEvent) => {
+    const key = e.dataTransfer.getData(STEP_DRAG_MIME);
+    if (!key || readOnly) return;
+    e.preventDefault();
+    const entry = ALL_ENTRIES.find(x => x.key === key);
+    if (!entry) return;
+    const p = rf.screenToFlowPosition({ x: e.clientX, y: e.clientY });
+    addEntry(entry, { x: snap(p.x - 130), y: snap(p.y - 30) });
+  }, [addEntry, readOnly, rf]);
+
+  // ---- actions -------------------------------------------------------------------------------------
+  const selectedStep = steps.find(s => s.id === selectedId) ?? null;
+
+  const updateStep = useCallback((step: WorkflowStep) => {
+    commit(stepsRef.current.map(s => (s.id === step.id ? step : s)), `edit:${step.id}`);
+  }, [commit]);
+
+  const deleteSelected = useCallback(() => {
+    if (!selectedId) return;
+    commit(removeSteps(stepsRef.current, [selectedId]));
+    select(null);
+  }, [commit, select, selectedId]);
+
+  const duplicateSelected = useCallback(() => {
+    if (!selectedStep || selectedStep.type === 'trigger') return;
+    const copy: WorkflowStep = {
+      ...JSON.parse(JSON.stringify(selectedStep)) as WorkflowStep,
+      id: newId('step'), name: `${selectedStep.name} (copy)`,
+      position: { x: selectedStep.position.x + GRID * 2, y: selectedStep.position.y + GRID * 2 },
+      connections: [], connectionLabels: undefined
+    };
+    commit([...stepsRef.current, copy]);
+    select(copy.id);
+  }, [commit, select, selectedStep]);
+
+  const runAutoLayout = useCallback(() => {
+    commit(autoLayout(stepsRef.current));
+    setTimeout(() => { try { void rf.fitView({ duration: 250, padding: 0.2, maxZoom: 1 }); } catch { /* not mounted */ } }, 60);
+  }, [commit, rf]);
+
+  const onKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (readOnly) return;
+    const t = e.target as HTMLElement;
+    if (t.closest('input, textarea, select, [contenteditable="true"]')) return;
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); if (e.shiftKey) redo(); else undo(); }
+    else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') { e.preventDefault(); redo(); }
+  }, [readOnly, redo, undo]);
+
+  const hasTrigger = steps.some(s => s.type === 'trigger');
+  const canUndo = past.current.length > 0;
+  const canRedo = future.current.length > 0;
+  const blocked = validation.hasErrors;
+  const issueSteps = new Map(steps.map(s => [s.id, s.name]));
+
+  const btn = 'inline-flex items-center gap-1.5 px-2.5 py-1.5 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed';
 
   return (
-    <div className="flex h-full bg-gray-50">
-      {/* Toolbar */}
-      <div className="w-64 bg-white border-r border-gray-200 p-4">
-        <h3 className="text-lg font-semibold mb-4">Workflow Elements</h3>
-
-        <DragDropContext onDragEnd={handleDragEnd}>
-          <Droppable droppableId="toolbar" isDropDisabled={true}>
-            {(provided) => (
-              <div ref={provided.innerRef} {...provided.droppableProps} className="space-y-3">
-                {/* Triggers */}
-                <div>
-                  <h4 className="text-sm font-medium text-gray-700 mb-2">Triggers</h4>
-                  {renderToolbarItem('trigger', <Zap className="w-5 h-5" />, 'Trigger')}
-                </div>
-
-                {/* Actions */}
-                <div>
-                  <h4 className="text-sm font-medium text-gray-700 mb-2">Actions</h4>
-                  <div className="grid grid-cols-2 gap-2">
-                    {renderToolbarItem('send_email', <Mail className="w-4 h-4" />, 'Send Email')}
-                    {renderToolbarItem('create_record', <Plus className="w-4 h-4" />, 'Create Record')}
-                    {renderToolbarItem('update_record', <Settings className="w-4 h-4" />, 'Update Record')}
-                    {renderToolbarItem('code', <Code className="w-4 h-4" />, 'Run Code')}
-                    {renderToolbarItem('http_request', <Globe className="w-4 h-4" />, 'HTTP Request')}
-                    {renderToolbarItem('ai_agent', <Bot className="w-4 h-4" />, 'AI Agent')}
-                    {renderToolbarItem('delay', <Clock className="w-4 h-4" />, 'Delay')}
-                  </div>
-                </div>
-
-                {/* Logic */}
-                <div>
-                  <h4 className="text-sm font-medium text-gray-700 mb-2">Logic</h4>
-                  {renderToolbarItem('condition', <Filter className="w-5 h-5" />, 'Condition')}
-                </div>
-              </div>
-            )}
-          </Droppable>
-        </DragDropContext>
-      </div>
-
-      {/* Canvas */}
-      <div className="flex-1 flex flex-col">
-        {/* Header */}
-        <div className="bg-white border-b border-gray-200 p-4 flex justify-between items-center">
-          <div>
-            <h2 className="text-xl font-semibold text-gray-900">{workflow.name}</h2>
-            <p className="text-sm text-gray-600">{workflow.description}</p>
+    <div
+      ref={containerRef}
+      onKeyDown={onKeyDown}
+      className="relative flex flex-col h-full min-h-[560px] bg-gray-50 dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden"
+    >
+      {!hideHeader && !readOnly && (
+        <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3 flex flex-wrap items-center justify-between gap-2">
+          <div className="min-w-0">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white truncate">{workflow.name}</h2>
+            {workflow.description && <p className="text-sm text-gray-600 dark:text-gray-400 truncate">{workflow.description}</p>}
           </div>
-          <div className="flex space-x-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="button" className={`${btn} lg:hidden`} onClick={() => setShowPalette(v => !v)} aria-pressed={showPalette}><PanelLeft className="w-4 h-4" /> Steps</button>
+            <button type="button" className={btn} onClick={undo} disabled={!canUndo} aria-label="Undo" title="Undo (Ctrl+Z)"><Undo2 className="w-4 h-4" /></button>
+            <button type="button" className={btn} onClick={redo} disabled={!canRedo} aria-label="Redo" title="Redo (Ctrl+Shift+Z)"><Redo2 className="w-4 h-4" /></button>
+            <button type="button" className={btn} onClick={runAutoLayout} disabled={steps.length === 0} title="Auto layout"><LayoutTemplate className="w-4 h-4" /> Auto layout</button>
             <button
+              type="button"
               onClick={onSave}
-              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 flex items-center space-x-2"
+              disabled={blocked}
+              title={blocked ? 'Fix the errors before saving' : 'Save workflow'}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <Save className="w-4 h-4" />
-              <span>Save</span>
+              <Save className="w-4 h-4" /> Save
             </button>
             <button
+              type="button"
               onClick={onExecute}
-              disabled={isExecuting}
-              className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50 flex items-center space-x-2"
+              disabled={isExecuting || steps.length === 0}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
             >
-              {isExecuting ? (
-                <RotateCcw className="w-4 h-4 animate-spin" />
-              ) : (
-                <Play className="w-4 h-4" />
-              )}
-              <span>{isExecuting ? 'Running...' : 'Execute'}</span>
+              {isExecuting ? <RotateCcw className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
+              {isExecuting ? 'Running…' : 'Execute'}
             </button>
           </div>
         </div>
+      )}
 
-        {/* Canvas Area */}
-        <div className="flex-1 relative overflow-auto">
-          <Droppable droppableId="canvas">
-            {(provided, snapshot) => (
-              <div
-                ref={(el) => {
-                  provided.innerRef(el);
-                  canvasRef.current = el;
-                }}
-                {...provided.droppableProps}
-                className={`w-full h-full min-h-screen relative ${
-                  snapshot.isDraggingOver ? 'bg-blue-50' : ''
-                }`}
-                style={{
-                  backgroundImage: 'radial-gradient(circle, #e5e7eb 1px, transparent 1px)',
-                  backgroundSize: '20px 20px'
-                }}
-              >
-                {workflow.steps.map((step, index) => renderCanvasStep(step, index))}
-
-                {/* Connection Lines */}
-                <svg className="absolute inset-0 pointer-events-none" style={{ zIndex: 1 }}>
-                  {workflow.steps.map(step =>
-                    step.connections.map(targetId => {
-                      const targetStep = workflow.steps.find(s => s.id === targetId);
-                      if (!targetStep) return null;
-
-                      const startX = step.position.x + 60; // Center of step
-                      const startY = step.position.y + 60; // Bottom of step
-                      const endX = targetStep.position.x + 60; // Center of target
-                      const endY = targetStep.position.y; // Top of target
-
-                      return (
-                        <line
-                          key={`${step.id}-${targetId}`}
-                          x1={startX}
-                          y1={startY}
-                          x2={endX}
-                          y2={endY}
-                          stroke="#6b7280"
-                          strokeWidth="2"
-                          markerEnd="url(#arrowhead)"
-                        />
-                      );
-                    })
-                  )}
-
-                  <defs>
-                    <marker
-                      id="arrowhead"
-                      markerWidth="10"
-                      markerHeight="7"
-                      refX="9"
-                      refY="3.5"
-                      orient="auto"
-                    >
-                      <polygon
-                        points="0 0, 10 3.5, 0 7"
-                        fill="#6b7280"
-                      />
-                    </marker>
-                  </defs>
-                </svg>
-
-                {provided.placeholder}
-              </div>
-            )}
-          </Droppable>
+      {!readOnly && validation.issues.length > 0 && (
+        <div role="status" aria-label="Validation" className={`px-4 py-2 text-xs border-b ${blocked ? 'bg-red-50 border-red-200 text-red-700 dark:bg-red-900/20 dark:border-red-900/40 dark:text-red-300' : 'bg-amber-50 border-amber-200 text-amber-700 dark:bg-amber-900/20 dark:border-amber-900/40 dark:text-amber-300'}`}>
+          <div className="flex items-center gap-1.5 font-medium">
+            <AlertTriangle className="w-3.5 h-3.5" />
+            {validation.errors.length > 0 && `${validation.errors.length} error${validation.errors.length > 1 ? 's' : ''}`}
+            {validation.errors.length > 0 && validation.warnings.length > 0 && ', '}
+            {validation.warnings.length > 0 && `${validation.warnings.length} warning${validation.warnings.length > 1 ? 's' : ''}`}
+            {blocked && ' (Save is disabled until errors are fixed)'}
+          </div>
+          <ul className="mt-1 space-y-0.5 max-h-16 overflow-y-auto">
+            {validation.issues.slice(0, 6).map((i, idx) => (
+              <li key={idx}>
+                {i.stepId ? <button type="button" className="underline" onClick={() => select(i.stepId as string)}>{issueSteps.get(i.stepId) || i.stepId}</button> : null}
+                {i.stepId ? ': ' : ''}{i.message}
+              </li>
+            ))}
+          </ul>
         </div>
-      </div>
+      )}
 
-      {/* Properties Panel */}
-      <div className="w-80 bg-white border-l border-gray-200 p-4">
-        {selectedStep ? (
-          <div>
-            <h3 className="text-lg font-semibold mb-4">Step Properties</h3>
+      <div className="flex-1 min-h-0 flex flex-col lg:flex-row">
+        {!readOnly && showPalette && (
+          <aside className="lg:w-64 w-full max-h-64 lg:max-h-none shrink-0 bg-white dark:bg-gray-800 border-b lg:border-b-0 lg:border-r border-gray-200 dark:border-gray-700 min-h-0">
+            <StepPicker variant="panel" title="Workflow steps" hasTrigger={hasTrigger} onSelect={entry => addEntry(entry)} />
+          </aside>
+        )}
 
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Name
-                </label>
-                <input
-                  type="text"
-                  value={selectedStep.name}
-                  onChange={(e) => updateStep(selectedStep.id, { name: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-
-              {selectedStep.trigger && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Trigger Type
-                  </label>
-                  <select
-                    value={selectedStep.trigger.type}
-                    onChange={(e) => updateStep(selectedStep.id, {
-                      trigger: {
-                        ...(selectedStep.trigger as WorkflowTrigger),
-                        type: e.target.value as TriggerType
-                      }
-                    })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="record_created">Record Created</option>
-                    <option value="record_updated">Record Updated</option>
-                    <option value="record_deleted">Record Deleted</option>
-                    <option value="stage_changed">Stage Changed</option>
-                    <option value="scheduled">Scheduled</option>
-                    <option value="manual">Manual</option>
-                    <option value="webhook">Webhook</option>
-                  </select>
-                </div>
-              )}
-
-              {selectedStep.action && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Action Type
-                  </label>
-                  <select
-                    value={selectedStep.action.type}
-                    onChange={(e) => updateStep(selectedStep.id, {
-                      action: {
-                        ...(selectedStep.action as WorkflowAction),
-                        type: e.target.value as ActionType
-                      }
-                    })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="send_email">Send Email</option>
-                    <option value="create_record">Create Record</option>
-                    <option value="update_record">Update Record</option>
-                    <option value="delete_record">Delete Record</option>
-                    <option value="search_records">Search Records</option>
-                    <option value="code">Run Code</option>
-                    <option value="http_request">HTTP Request</option>
-                    <option value="ai_agent">AI Agent</option>
-                  </select>
-                </div>
-              )}
-
-              <div>
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={selectedStep.isActive}
-                    onChange={(e) => updateStep(selectedStep.id, { isActive: e.target.checked })}
-                    className="mr-2"
-                  />
-                  <span className="text-sm text-gray-700">Active</span>
-                </label>
+        <div className="relative flex-1 min-h-[360px]" onDragOver={e => { if (!readOnly) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; } }} onDrop={onDrop}>
+          <ReactFlow<StepNode, Edge>
+            nodes={nodes}
+            edges={edges}
+            nodeTypes={nodeTypes}
+            edgeTypes={edgeTypes}
+            onNodesChange={onNodesChange}
+            onEdgesChange={onEdgesChange}
+            onNodeDragStop={onNodeDragStop}
+            onNodesDelete={onNodesDelete}
+            onEdgesDelete={onEdgesDelete}
+            onConnect={onConnect}
+            onConnectEnd={onConnectEnd}
+            isValidConnection={isValidConnection}
+            onNodeClick={(_, n) => select(n.id)}
+            onPaneClick={() => { select(null); setPicker(null); }}
+            nodesDraggable={!readOnly}
+            nodesConnectable={!readOnly}
+            elementsSelectable
+            deleteKeyCode={readOnly ? null : ['Backspace', 'Delete']}
+            snapToGrid
+            snapGrid={[GRID, GRID]}
+            fitView
+            fitViewOptions={{ padding: 0.25, maxZoom: 1 }}
+            minZoom={0.2}
+            maxZoom={1.75}
+            colorMode={isDark ? 'dark' : 'light'}
+            proOptions={{ hideAttribution: true }}
+          >
+            <Background variant={BackgroundVariant.Dots} gap={GRID} size={1.2} />
+            <Controls showInteractive={!readOnly} aria-label="Canvas controls" />
+            <MiniMap
+              pannable
+              zoomable
+              ariaLabel="Workflow minimap"
+              nodeColor={n => {
+                const d = (n as StepNode).data;
+                return d?.step.type === 'action' && d.step.action?.type === 'iterator' ? '#14b8a6' : MINIMAP_COLOR[d?.step.type ?? 'action'];
+              }}
+              className="!hidden sm:!block"
+            />
+          </ReactFlow>
+          {steps.length === 0 && !readOnly && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div className="text-center text-gray-500 dark:text-gray-400 px-6">
+                <Settings className="w-10 h-10 mx-auto mb-2 opacity-50" />
+                <p className="text-sm font-medium">Start by adding a trigger</p>
+                <p className="text-xs">Pick a step from the list, or drag it onto the canvas.</p>
               </div>
             </div>
-          </div>
-        ) : (
-          <div className="text-center text-gray-500 mt-8">
-            <Settings className="w-12 h-12 mx-auto mb-4 opacity-50" />
-            <p>Select a step to edit its properties</p>
-          </div>
+          )}
+          {picker && (
+            <div className="absolute z-30" style={{ left: picker.x, top: picker.y }}>
+              <StepPicker
+                variant="popover"
+                title={picker.kind === 'edge' ? 'Insert a step' : 'Add a step'}
+                hasTrigger={hasTrigger}
+                triggerBlockedReason={picker.kind === 'append' ? undefined : 'Triggers start a workflow and cannot follow another step.'}
+                onClose={() => setPicker(null)}
+                onSelect={entry => addEntry(entry, undefined, picker)}
+              />
+            </div>
+          )}
+        </div>
+
+        {!hideProperties && selectedStep && (
+          <aside aria-label="Step properties" className="lg:w-80 w-full max-h-[28rem] lg:max-h-none overflow-y-auto shrink-0 bg-white dark:bg-gray-800 border-t lg:border-t-0 lg:border-l border-gray-200 dark:border-gray-700 p-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Step properties</h3>
+              {!readOnly && (
+                <div className="flex items-center gap-1">
+                  {selectedStep.type !== 'trigger' && (
+                    <button type="button" onClick={duplicateSelected} aria-label="Duplicate step" title="Duplicate" className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700"><Copy className="w-4 h-4" /></button>
+                  )}
+                  <button type="button" onClick={deleteSelected} aria-label="Delete step" title="Delete" className="p-1.5 rounded-lg text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"><Trash2 className="w-4 h-4" /></button>
+                </div>
+              )}
+            </div>
+            <StepConfigForm
+              key={selectedStep.id}
+              step={selectedStep}
+              steps={steps}
+              onChange={updateStep}
+              issues={readOnly ? [] : validation.byStep[selectedStep.id]}
+              stageOptions={stages}
+              readOnly={readOnly}
+            />
+          </aside>
         )}
       </div>
     </div>
   );
 };
+
+/** Visual workflow editor (nodes = steps, edges = `connections`). Same JSON as before: `workflow.steps`. */
+export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = props => (
+  <ReactFlowProvider>
+    <BuilderInner {...props} />
+  </ReactFlowProvider>
+);
+
+export default WorkflowBuilder;

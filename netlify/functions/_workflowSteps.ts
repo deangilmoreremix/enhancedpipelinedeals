@@ -4,6 +4,7 @@
  * so everything here is unit-testable.
  */
 import { compareValues, evaluateConditions, getPath, type MatchCondition } from '../../src/services/workflowTriggerMatch';
+import { conditionTargets, iteratorTargets, type BranchLabel } from '../../src/services/workflowBranching';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -21,6 +22,8 @@ export interface StepContext {
   variables: Record<string, any>;
   /** Output of the previously executed step (used by filter/iterator). */
   lastOutput?: any;
+  /** Outputs of executed steps by step id, addressable as `{{steps.<id>.output.<key>}}`. */
+  stepOutputs?: Record<string, { output?: any }>;
   eventId?: string;
   workflowId?: string;
 }
@@ -42,6 +45,8 @@ export interface ServerStep {
   /** minutes, for type 'delay' */
   delay?: number;
   connections?: string[];
+  /** Optional branch label per target step id. */
+  connectionLabels?: Record<string, BranchLabel | string | undefined>;
   isActive?: boolean;
 }
 
@@ -94,10 +99,23 @@ export interface GraphResult {
 // ---------------------------------------------------------------------------
 
 function scope(ctx: StepContext): Record<string, unknown> {
-  return { ...ctx.inputData, ...ctx.variables, recordId: ctx.recordId, recordType: ctx.recordType };
+  return {
+    ...ctx.inputData,
+    ...ctx.variables,
+    recordId: ctx.recordId,
+    recordType: ctx.recordType,
+    /** `{{trigger.<key>}}`: the event payload / record the workflow started from. */
+    trigger: ctx.inputData,
+    /** `{{steps.<stepId>.output.<key>}}`: output of an earlier step. */
+    steps: ctx.stepOutputs ?? {}
+  };
 }
 
-/** Replaces `{{path.to.value}}` using inputData/variables (unresolved placeholders are kept). */
+/**
+ * Replaces `{{path.to.value}}` (unresolved placeholders are kept). Resolvable roots: record fields and
+ * payload keys (`{{title}}`, `{{record.title}}`), `{{trigger.<key>}}`, `{{steps.<stepId>.output.<key>}}`,
+ * `{{recordId}}`, run variables such as `{{aiResult}}` and the iterator item (`{{item.<key>}}`).
+ */
 export function interpolate<T>(value: T, ctx: StepContext): T {
   const s = scope(ctx);
   const walk = (v: unknown): unknown => {
@@ -426,6 +444,44 @@ export async function executeAiAgent(action: ServerAction, ctx: StepContext, dep
   }
 }
 
+export async function executeDeleteRecord(action: ServerAction, ctx: StepContext, deps: StepDeps): Promise<StepResult> {
+  try {
+    const cfg = interpolate(action.config ?? {}, ctx);
+    const table = TABLES[asString(cfg.recordType ?? ctx.recordType ?? 'deal')];
+    if (!table) throw new Error('Unsupported record type');
+    if (!ctx.recordId) throw new Error('No record to delete');
+    const { error } = await deps.db.from(table).delete().eq('id', ctx.recordId);
+    if (error) throw new Error(error.message);
+    return { success: true, output: { recordId: ctx.recordId, deleted: true } };
+  } catch (e) {
+    return fail(e, 'Failed to delete record');
+  }
+}
+
+export async function executeUpsertRecord(action: ServerAction, ctx: StepContext, deps: StepDeps): Promise<StepResult> {
+  try {
+    const cfg = interpolate(action.config ?? {}, ctx);
+    const table = TABLES[asString(cfg.recordType ?? 'deal')];
+    if (!table) throw new Error('Unsupported record type');
+    const fields = sanitizeFields((cfg.fields ?? {}) as Record<string, unknown>);
+    const key = asString(cfg.upsertKey);
+    if (!/^[a-z][a-z0-9_]*$/.test(key)) throw new Error('Upsert key is required');
+    if (fields[key] === undefined) throw new Error(`Upsert key "${key}" is missing from fields`);
+    const { data: existing, error: findError } = await deps.db.from(table).select('id').eq(key, fields[key]).limit(1).maybeSingle();
+    if (findError) throw new Error(findError.message);
+    if (existing?.id) {
+      const { error } = await deps.db.from(table).update({ ...fields, updated_at: (deps.now?.() ?? new Date()).toISOString() }).eq('id', existing.id);
+      if (error) throw new Error(error.message);
+      return { success: true, output: { id: existing.id, created: false } };
+    }
+    const { data, error } = await deps.db.from(table).insert(fields).select().single();
+    if (error) throw new Error(error.message);
+    return { success: true, output: { id: data?.id, created: true, record: data } };
+  } catch (e) {
+    return fail(e, 'Failed to upsert record');
+  }
+}
+
 export function executeFilter(action: ServerAction, ctx: StepContext): StepResult {
   try {
     const criteria = interpolate((action.config?.filterCriteria ?? {}) as Record<string, any>, ctx);
@@ -453,6 +509,17 @@ export function executeDelay(minutesRaw: unknown): StepResult {
   return { success: true, output: { delayMinutes: minutes }, delayMinutes: minutes };
 }
 
+/**
+ * Action types `executeAction` can run. Kept next to the dispatcher and checked against
+ * workflowActionRegistry (`engines.server`) by src/tests/workflowRegistry.test.ts.
+ * (`code` is intentionally absent: it is client-only.)
+ */
+export const HANDLED_ACTION_KEYS: readonly string[] = [
+  'create_task', 'create_note', 'add_comment', 'update_record', 'update_stage', 'assign_owner',
+  'create_record', 'search_records', 'delete_record', 'upsert_record', 'send_email', 'notification',
+  'http_request', 'webhook', 'ai_agent', 'filter', 'delay', 'iterator'
+];
+
 /** Dispatch a single action. Conditions on the action are honoured (unmet => skipped). */
 export async function executeAction(action: ServerAction, ctx: StepContext, deps: StepDeps): Promise<StepResult> {
   if (action.conditions?.length && !evaluateConditions(action.conditions, scope(ctx))) {
@@ -467,6 +534,8 @@ export async function executeAction(action: ServerAction, ctx: StepContext, deps
     case 'assign_owner': return executeUpdateRecord(action, ctx, deps);
     case 'create_record': return executeCreateRecord(action, ctx, deps);
     case 'search_records': return executeSearchRecords(action, ctx, deps);
+    case 'delete_record': return executeDeleteRecord(action, ctx, deps);
+    case 'upsert_record': return executeUpsertRecord(action, ctx, deps);
     case 'send_email': return executeSendEmail(action, ctx, deps);
     case 'notification': return executeNotification(action, ctx, deps);
     case 'http_request':
@@ -538,7 +607,7 @@ async function runBranch(
       if (step.type === 'trigger') result = { success: true };
       else if (step.type === 'condition') {
         const ok = step.condition ? evaluateConditions([step.condition], scope(ctx)) : true;
-        result = { success: true, output: { matched: ok }, halt: !ok };
+        result = { success: true, output: { matched: ok } };
       } else if (step.type === 'delay') result = executeDelay(step.delay);
       else if (step.type === 'action' && step.action) result = await executeAction(step.action, ctx, deps);
       else result = { success: false, error: `Unknown step type: ${step.type}` };
@@ -567,11 +636,18 @@ async function runBranch(
       return;
     }
 
-    if (result.output !== undefined) ctx.lastOutput = result.output;
+    if (result.output !== undefined) {
+      ctx.lastOutput = result.output;
+      ctx.stepOutputs = { ...(ctx.stepOutputs ?? {}), [id]: { output: result.output } };
+    }
     if (step.action?.type === 'ai_agent' && result.output) ctx.variables = { ...ctx.variables, aiResult: (result.output as any).text };
     if (result.halt) continue;
 
-    const next = step.connections ?? [];
+    let next = step.connections ?? [];
+    if (step.type === 'condition') {
+      next = conditionTargets(step, Boolean((result.output as any)?.matched));
+      if (next.length === 0) continue;
+    }
     if (typeof result.delayMinutes === 'number' && result.delayMinutes > 0) {
       if (next.length) state.resumes.push({ stepIds: next, delayMinutes: result.delayMinutes, variables: ctx.variables });
       continue;
@@ -581,11 +657,13 @@ async function runBranch(
     if (isIterator) {
       const items: any[] = (result.output as any)?.items ?? [];
       const varName = step.action?.config?.iteratorVariable || 'currentItem';
+      const { item: perItem, done } = iteratorTargets(step);
       for (const item of items) {
         const sub: StepContext = { ...ctx, variables: { ...ctx.variables, [varName]: item, ...(typeof item === 'object' && item ? { item } : {}) }, lastOutput: { item } };
-        await runBranch(next, stepMap, sub, deps, state);
+        await runBranch(perItem, stepMap, sub, deps, state);
         if (state.error) return;
       }
+      queue.push(...done);
       continue;
     }
 

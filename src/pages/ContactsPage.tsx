@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useContactStore } from '../store/contactStore';
 import { Contact } from '../types/contact';
 import { ContactImportWizard } from '../components/contacts/ContactImportWizard';
@@ -187,7 +188,9 @@ const ContactsPage: React.FC = () => {
             <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
               {filtered.map(c => (
                 <tr key={c.id} onClick={() => openContact(c)} className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                  <td className="px-4 py-2 font-medium">{c.name}</td>
+                  <td className="px-4 py-2 font-medium">
+                    <Link to={`/contacts/${c.id}`} onClick={e => e.stopPropagation()} className="text-blue-600 hover:underline dark:text-blue-400">{c.name}</Link>
+                  </td>
                   <td className="px-4 py-2">{c.company}</td>
                   <td className="px-4 py-2">{c.title}</td>
                   <td className="px-4 py-2">{c.email}</td>
@@ -232,7 +235,9 @@ const ContactsPage: React.FC = () => {
         >
           <div className="flex justify-between items-start">
             <div>
-              <h3 className="text-xl font-bold">{selected.name}</h3>
+              <h3 className="text-xl font-bold">
+                <Link to={`/contacts/${selected.id}`} className="hover:text-blue-600 hover:underline dark:hover:text-blue-400">{selected.name}</Link>
+              </h3>
               <p className="text-sm text-gray-600 dark:text-gray-400">{selected.title}{selected.title && selected.company ? ' at ' : ''}{selected.company}</p>
               <p className="text-sm">{selected.email}</p>
             </div>

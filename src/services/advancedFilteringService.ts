@@ -1,5 +1,6 @@
 import { ViewFilter, ViewSort, Deal } from '../types';
 import { Contact } from '../types/contact';
+import { ownerLabel } from '../utils/ownerLabel';
 
 /** A nested AND/OR group of conditions (conditions may themselves be groups). */
 export interface FilterGroupNode {
@@ -247,9 +248,15 @@ export class AdvancedFilteringService {
    * Get nested object value by dot notation path
    */
   static getNestedValue(obj: any, path: string): any {
-    return (FIELD_ALIASES[path] ?? path).split('.').reduce((current, key) => {
+    const resolved = FIELD_ALIASES[path] ?? path;
+    const value = resolved.split('.').reduce((current, key) => {
       return current && current[key] !== undefined ? current[key] : undefined;
     }, obj);
+    // Owner: assignedTo text is the display fallback; ownerId (via the user directory) is canonical
+    if (resolved === 'assignedTo' && (value === undefined || value === null || value === '') && obj && typeof obj === 'object') {
+      return ownerLabel(obj) || value;
+    }
+    return value;
   }
 
   /**

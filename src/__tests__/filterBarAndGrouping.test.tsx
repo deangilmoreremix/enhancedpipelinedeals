@@ -95,8 +95,8 @@ describe('board grouping helpers', () => {
 
   it('maps a drop onto the field update (company grouping is read-only)', () => {
     expect(updatesForGroupDrop('priority', 'high', deals)).toEqual({ priority: 'high' });
-    expect(updatesForGroupDrop('owner', 'Sam', deals)).toEqual({ assignedTo: 'Sam', assignedToId: 's1' });
-    expect(updatesForGroupDrop('owner', NONE_KEY, deals)).toEqual({ assignedTo: null, assignedToId: null });
+    expect(updatesForGroupDrop('owner', 'Sam', deals)).toEqual({ assignedTo: 'Sam', assignedToId: 's1', ownerId: 's1' });
+    expect(updatesForGroupDrop('owner', NONE_KEY, deals)).toEqual({ assignedTo: null, assignedToId: null, ownerId: null });
     expect(updatesForGroupDrop('company', 'Acme', deals)).toBeNull();
     expect(isGroupingDroppable('company')).toBe(false);
     expect(isGroupingDroppable('priority')).toBe(true);

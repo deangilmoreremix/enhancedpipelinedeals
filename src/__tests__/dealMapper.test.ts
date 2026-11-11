@@ -96,3 +96,29 @@ describe('dealMapper', () => {
     expect(typeof r.updated_at).toBe('string');
   });
 });
+
+describe('dealMapper company & owner', () => {
+  it('maps company_id <-> companyId', () => {
+    const d = dealFromRow({ id: 'x', company: 'Acme', company_id: 'co1' });
+    expect(d.companyId).toBe('co1');
+    expect(dealToRow(d, { partial: true }).company_id).toBe('co1');
+    expect(dealFromRow({ id: 'y' }).companyId).toBeUndefined();
+  });
+
+  it('null companyId clears the column', () => {
+    expect(dealToRow({ companyId: null as unknown as string }, { partial: true })).toEqual({ company_id: null });
+  });
+
+  it('ownerId reads owner_id first, then legacy assigned_to_id', () => {
+    expect(dealFromRow({ id: 'x', owner_id: 'o', assigned_to_id: 'a' }).ownerId).toBe('o');
+    expect(dealFromRow({ id: 'x', assigned_to_id: 'a' }).ownerId).toBe('a');
+    expect(dealFromRow({ id: 'x', assigned_to: 'Ann' }).assignedTo).toBe('Ann');
+  });
+
+  it('writes owner_id plus assigned_to compatibility fields when provided', () => {
+    const r = dealToRow({ ownerId: 'o', assignedTo: 'Ann', assignedToId: 'o' }, { partial: true });
+    expect(r).toEqual({ owner_id: 'o', assigned_to: 'Ann', assigned_to_id: 'o' });
+    expect(dealToRow({ ownerId: null as unknown as string, assignedTo: null as unknown as string }, { partial: true }))
+      .toEqual({ owner_id: null, assigned_to: null });
+  });
+});

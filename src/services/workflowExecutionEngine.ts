@@ -1,6 +1,7 @@
 import { supabase } from './supabaseService';
 import {
   Workflow,
+  WorkflowStep,
   WorkflowExecution,
   WorkflowExecutionStep,
   WorkflowExecutionLog,
@@ -10,6 +11,8 @@ import {
   ActionType,
   WorkflowCondition
 } from '../types/workflow';
+import { conditionTargets, iteratorTargets } from './workflowBranching';
+import { getPath } from './workflowTriggerMatch';
 
 /**
  * Advanced Workflow Execution Engine
@@ -121,74 +124,93 @@ export class WorkflowExecutionEngine {
   }
 
   /**
-   * Execute workflow steps in the correct order
+   * Execute workflow steps following `connections`. Honours `connectionLabels`: a condition follows
+   * 'true'/'false' branches; an iterator runs 'item' branches per item and 'done' branches once.
+   * Unlabelled connections keep the legacy behaviour.
    */
   private async executeWorkflowSteps(
     workflow: Workflow,
     execution: WorkflowExecution
   ): Promise<{ success: boolean; error?: { message: string; stepId?: string; stackTrace?: string } }> {
     const stepMap = new Map(workflow.steps.map(step => [step.id, step]));
-    const executedSteps = new Set<string>();
-    const pendingSteps = new Set(workflow.steps.filter(s => s.type === 'trigger' || s.connections.length === 0).map(s => s.id));
+    const active = workflow.steps.filter(s => s.isActive !== false);
+    const triggers = active.filter(s => s.type === 'trigger');
+    const targets = new Set(active.flatMap(s => s.connections ?? []));
+    const entry = (triggers.length ? triggers : active.filter(s => !targets.has(s.id))).map(s => s.id);
+    const state: { error?: { message: string; stepId?: string }; count: number } = { count: 0 };
+    await this.runBranch(entry, stepMap, execution, state);
+    return state.error ? { success: false, error: state.error } : { success: true };
+  }
 
-    while (pendingSteps.size > 0) {
-      const stepId = pendingSteps.values().next().value as string;
-      pendingSteps.delete(stepId);
+  private async runBranch(
+    startIds: string[],
+    stepMap: Map<string, WorkflowStep>,
+    execution: WorkflowExecution,
+    state: { error?: { message: string; stepId?: string }; count: number }
+  ): Promise<void> {
+    const queue = [...startIds];
+    const visited = new Set<string>();
 
-      if (executedSteps.has(stepId)) continue;
-
+    while (queue.length > 0 && !state.error) {
+      const stepId = queue.shift() as string;
+      if (visited.has(stepId)) continue;
+      visited.add(stepId);
       const step = stepMap.get(stepId);
-      if (!step) continue;
+      if (!step || step.isActive === false) continue;
+      if (++state.count > 200) {
+        state.error = { message: 'Step limit (200) exceeded', stepId };
+        return;
+      }
 
-      // Execute step
+      const startedAt = new Date();
       const result = await this.executeStep(step, execution);
-
-      // Record step execution
+      const completedAt = new Date();
+      const skipped = Boolean(result.output && (result.output as any).skipped);
       const stepExecution: WorkflowExecutionStep = {
         id: crypto.randomUUID(),
         stepId: step.id,
-        status: result.success ? 'completed' : 'failed',
-        startedAt: new Date(),
-        completedAt: new Date(),
+        status: result.success ? (skipped ? 'skipped' : 'completed') : 'failed',
+        startedAt,
+        completedAt,
+        duration: completedAt.getTime() - startedAt.getTime(),
         output: result.output,
         error: result.error
       };
-
-      if (stepExecution.startedAt && stepExecution.completedAt) {
-        stepExecution.duration = stepExecution.completedAt.getTime() - stepExecution.startedAt.getTime();
-      }
-
       execution.steps.push(stepExecution);
 
-      // Log step execution
       await this.logExecution(execution.id, result.success ? 'info' : 'error',
         `Step ${step.name} ${result.success ? 'completed' : 'failed'}`,
         { stepId, output: result.output, error: result.error });
 
       if (!result.success) {
-        // Handle step failure
         if (step.action?.errorHandling?.continueOnError) {
-          // Continue with next steps despite error
-          executedSteps.add(stepId);
-          this.addConnectedSteps(step, pendingSteps, executedSteps);
+          queue.push(...(step.connections ?? []));
           continue;
-        } else {
-          // Fail the entire workflow
-          return {
-            success: false,
-            error: {
-              message: result.error || 'Step execution failed',
-              stepId: step.id
-            }
-          };
         }
+        state.error = { message: result.error || 'Step execution failed', stepId: step.id };
+        return;
       }
 
-      executedSteps.add(stepId);
-      this.addConnectedSteps(step, pendingSteps, executedSteps);
+      if (step.type === 'condition') {
+        queue.push(...conditionTargets(step, Boolean((result.output as any)?.matched)));
+        continue;
+      }
+      if (step.type === 'action' && step.action?.type === 'iterator') {
+        const items: any[] = (result.output as any)?.items ?? [];
+        const varName = step.action.config.iteratorVariable || 'currentItem';
+        const { item: perItem, done } = iteratorTargets(step);
+        const saved = execution.context.variables;
+        for (const item of items) {
+          execution.context.variables = { ...(saved ?? {}), [varName]: item, ...(item && typeof item === 'object' ? { item } : {}) };
+          await this.runBranch(perItem, stepMap, execution, state);
+          if (state.error) return;
+        }
+        execution.context.variables = saved;
+        queue.push(...done);
+        continue;
+      }
+      queue.push(...(step.connections ?? []));
     }
-
-    return { success: true };
   }
 
   /**
@@ -207,8 +229,12 @@ export class WorkflowExecutionEngine {
         case 'action':
           return await this.executeAction(step.action, execution);
 
-        case 'condition':
-          return await this.evaluateCondition(step.condition, execution);
+        case 'condition': {
+          if (!step.condition) return { success: true, output: { matched: true } };
+          const r = await this.evaluateCondition(step.condition, execution);
+          // a false condition is a branch outcome, not a failure
+          return r.error ? { success: false, error: r.error } : { success: true, output: { matched: r.success } };
+        }
 
         case 'delay':
           await this.delay(step.delay * 60 * 1000); // Convert minutes to milliseconds
@@ -281,8 +307,66 @@ export class WorkflowExecutionEngine {
       case 'webhook':
         return await this.executeWebhookAction(action, execution);
 
+      case 'update_stage':
+        return await this.executeUpdateRecordAction(
+          { ...action, config: { ...action.config, fields: { ...(action.config.fields ?? {}), stage: action.config.newStage } } }, execution);
+
+      case 'assign_owner':
+        return await this.executeUpdateRecordAction(
+          { ...action, config: { ...action.config, fields: { ...(action.config.fields ?? {}), owner_id: action.config.newOwner } } }, execution);
+
+      case 'create_task':
+      case 'create_note':
+      case 'add_comment':
+      case 'notification':
+        return await this.executeLightweightInsert(action, execution);
+
       default:
         return { success: false, error: `Unsupported action type: ${action.type}` };
+    }
+  }
+
+  /**
+   * create_task / create_note / add_comment / notification (same tables as the server runner)
+   */
+  private async executeLightweightInsert(
+    action: WorkflowAction,
+    execution: WorkflowExecution
+  ): Promise<{ success: boolean; output?: any; error?: string }> {
+    try {
+      const cfg = this.interpolateVariables(action.config, execution) as Record<string, any>;
+      const dealId = execution.context.recordType === 'deal' || !execution.context.recordType ? execution.context.recordId ?? null : null;
+      let table: string;
+      let row: Record<string, unknown>;
+      if (action.type === 'create_task') {
+        const f = (cfg.fields ?? {}) as Record<string, any>;
+        table = 'tasks';
+        row = {
+          title: String(f.title ?? cfg.title ?? action.name ?? 'Follow up'),
+          notes: f.notes ?? null,
+          due_date: typeof f.dueInDays === 'number' ? new Date(Date.now() + f.dueInDays * 86_400_000).toISOString() : null,
+          status: 'open',
+          deal_id: dealId,
+          created_by_agent: true
+        };
+      } else if (action.type === 'notification') {
+        table = 'notifications';
+        row = {
+          type: 'workflow',
+          title: action.name || 'Workflow notification',
+          message: String(cfg.notificationMessage ?? ''),
+          metadata: { recordId: execution.context.recordId, recordType: execution.context.recordType, workflowId: execution.workflowId }
+        };
+      } else {
+        if (!dealId) throw new Error(`${action.type} requires a deal record`);
+        table = 'notes';
+        row = { deal_id: dealId, title: String(cfg.subject ?? action.name ?? 'Workflow note'), body_text: String(cfg.body ?? '') };
+      }
+      const { data, error } = await supabase.from(table).insert(row).select().single();
+      if (error) throw error;
+      return { success: true, output: { id: data?.id } };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : `Failed to run ${action.type}` };
     }
   }
 
@@ -737,23 +821,18 @@ export class WorkflowExecutionEngine {
    * Get field value from execution context
    */
   private getFieldValue(field: string, execution: WorkflowExecution): any {
-    // Check variables first
-    if (execution.context.variables?.[field]) {
-      return execution.context.variables[field];
-    }
-
-    // Check input data
-    if (execution.context.inputData?.[field]) {
-      return execution.context.inputData[field];
-    }
-
-    // Check record data
-    if (execution.context.recordId && execution.context.recordType) {
-      // This would need to be implemented to fetch record data
-      // For now, return undefined
-    }
-
-    return undefined;
+    // Same roots as the server runner: record/payload keys, trigger.*, steps.<id>.output.*, variables.
+    const input = execution.context.inputData ?? {};
+    const stepOutputs = Object.fromEntries(execution.steps.map(st => [st.stepId, { output: st.output }]));
+    const scope: Record<string, unknown> = {
+      ...input,
+      ...(execution.context.variables ?? {}),
+      recordId: execution.context.recordId,
+      recordType: execution.context.recordType,
+      trigger: input,
+      steps: stepOutputs
+    };
+    return getPath(scope, field);
   }
 
   /**
@@ -761,8 +840,9 @@ export class WorkflowExecutionEngine {
    */
   private interpolateVariables(value: any, execution: WorkflowExecution): any {
     if (typeof value === 'string') {
-      return value.replace(/\{\{(\w+)\}\}/g, (match, key) => {
-        return this.getFieldValue(key, execution) || match;
+      return value.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (match, key: string) => {
+        const resolved = this.getFieldValue(key, execution);
+        return resolved === undefined || resolved === null || resolved === '' ? match : String(resolved);
       });
     }
 
@@ -796,21 +876,6 @@ export class WorkflowExecutionEngine {
         return 'tasks';
       default:
         return 'deals';
-    }
-  }
-
-  /**
-   * Add connected steps to pending queue
-   */
-  private addConnectedSteps(
-    step: any,
-    pendingSteps: Set<string>,
-    executedSteps: Set<string>
-  ): void {
-    for (const connectionId of step.connections) {
-      if (!executedSteps.has(connectionId)) {
-        pendingSteps.add(connectionId);
-      }
     }
   }
 

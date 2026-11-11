@@ -7,6 +7,7 @@ export interface Contact {
   phone?: string;
   title: string;
   company: string;
+  companyId?: string; // FK -> companies.id (company text stays for display)
   industry?: string;
   avatarSrc?: string;
   status: 'lead' | 'prospect' | 'customer' | 'churned';

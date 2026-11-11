@@ -40,6 +40,7 @@ export function dealFromRow(row: DealRow): Deal {
     id: row.id,
     title: row.title ?? undefined,
     company: row.company ?? '',
+    companyId: row.company_id ?? undefined,
     contact: row.contact ?? '',
     contactId: row.contact_id ?? undefined,
     assignedToId: row.assigned_to_id ?? undefined,
@@ -74,7 +75,8 @@ export function dealFromRow(row: DealRow): Deal {
     lastProbabilityUpdate: toDate(row.last_probability_update),
     position: toNum(row.position),
     deletedAt: toDate(row.deleted_at), // absent => active deal
-    ownerId: row.owner_id ?? undefined,
+    // Canonical owner = owner_id; legacy rows only carried assigned_to_id
+    ownerId: row.owner_id ?? row.assigned_to_id ?? undefined,
     closeDate: toDate(row.close_date),
     currencyCode: row.currency_code ?? undefined,
   };
@@ -93,6 +95,7 @@ const id = (v: unknown) => v;
 const FIELDS: Entry[] = [
   ['title', 'title', id],
   ['company', 'company', id],
+  ['companyId', 'company_id', id],
   ['contact', 'contact', id],
   ['contactId', 'contact_id', id],
   ['assignedToId', 'assigned_to_id', id],

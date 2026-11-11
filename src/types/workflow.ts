@@ -31,6 +31,7 @@ export type ActionType =
   | 'add_comment'
   | 'schedule_followup'
   | 'create_task'
+  | 'create_note'
   | 'update_sla'
   | 'webhook';
 
@@ -153,17 +154,24 @@ export interface WorkflowCondition {
   logicalOperator?: 'AND' | 'OR';
 }
 
+export type StepType = 'trigger' | 'action' | 'condition' | 'delay';
+
+/** Branch label on a connection: condition -> 'true'/'false', iterator -> 'item'/'done'. */
+export type ConnectionLabel = 'true' | 'false' | 'item' | 'done';
+
 export interface WorkflowStep {
   id: string;
   name: string;
   description?: string;
-  type: 'trigger' | 'action' | 'condition' | 'delay';
+  type: StepType;
   trigger?: WorkflowTrigger;
   action?: WorkflowAction;
   condition?: WorkflowCondition;
   delay?: number; // minutes
   position: { x: number; y: number };
   connections: string[]; // IDs of connected steps
+  /** Optional branch label per target step id (unlabelled = legacy behaviour). */
+  connectionLabels?: Record<string, ConnectionLabel>;
   isActive: boolean;
 }
 
@@ -230,7 +238,7 @@ export interface WorkflowExecution {
 export interface WorkflowExecutionStep {
   id: string;
   stepId: string;
-  status: 'pending' | 'running' | 'completed' | 'failed' | 'skipped';
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'skipped' | 'waiting';
   startedAt?: Date;
   completedAt?: Date;
   duration?: number;

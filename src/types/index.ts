@@ -20,6 +20,7 @@ export interface Deal {
   id: string;
   title?: string; // Optional title field for deal naming
   company: string;
+  companyId?: string; // FK -> companies.id (company text stays in sync for display/search)
   contact: string;
   contactId?: string;
   assignedToId?: string; // Links to team member's contact ID
@@ -80,7 +81,7 @@ export interface Deal {
   // Pipeline foundation (Phase A)
   position?: number; // ordering within a stage
   deletedAt?: Date | null; // soft delete
-  ownerId?: string;
+  ownerId?: string; // canonical owner (profiles.id); assignedTo is the display-name fallback
   closeDate?: Date;
   currencyCode?: string;
 }
@@ -1059,4 +1060,28 @@ export interface DataTransformation {
   parameters: Record<string, any>;
   timestamp: Date;
   performedBy: string;
+}
+// Relations & owners (Workstream G)
+export interface Company {
+  id: string;
+  name: string;
+  industry?: string;
+  website?: string;
+  domain?: string;
+  size?: string;
+  revenue?: number;
+  phone?: string;
+  address?: string;
+  logoUrl?: string;
+  notes?: string;
+  ownerId?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/** Person that can own records (profiles row, current user or a name found on existing deals). */
+export interface DirectoryUser {
+  id: string;
+  name: string;
+  avatar?: string;
 }

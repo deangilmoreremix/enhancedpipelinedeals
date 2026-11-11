@@ -1,12 +1,14 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { User, Mail, Phone, Calendar, FileText } from 'lucide-react';
 import { DealDetailOverviewProps } from './types';
 import { daysSince } from '../../utils/dateUtils';
 import { initialsAvatar } from '../../utils/avatar';
 import { formatMoney } from '../../utils/currencyMicros';
 import {
-  ContactRelationField, CurrencyField, DateField, PRIORITY_OPTIONS, SelectField, StageField, TextField,
+  CompanyPicker, ContactRelationField, CurrencyField, DateField, OwnerPicker, PRIORITY_OPTIONS, SelectField, StageField, TextField,
 } from '../deals/fields';
+import { RelatedCompanyCard } from './RelatedRecordCards';
 import { DealAIAssist } from '../deals/DealAIAssist';
 import StaleDealIndicator from '../deals/StaleDealIndicator';
 
@@ -72,7 +74,15 @@ export const DealDetailOverview: React.FC<DealDetailOverviewProps> = ({
             onSave={({ value, currencyCode: code }) => onUpdateDeal({ value, currencyCode: code })}
           />
           <DateField label="Close date" value={editedDeal.closeDate} onSave={d => onUpdateDeal({ closeDate: d ?? undefined })} />
-          <TextField label="Company" value={editedDeal.company} required onSave={company => onUpdateDeal({ company })} />
+          <CompanyPicker
+            fieldLabel="Company"
+            value={editedDeal.companyId}
+            label={editedDeal.company}
+            onChange={(companyId, company) =>
+              // null clears the column (the mapper skips undefined keys); company text stays in sync
+              onUpdateDeal({ companyId: (companyId ?? null) as unknown as string | undefined, company })
+            }
+          />
           <ContactRelationField
             label="Contact"
             contactId={editedDeal.contactId}
@@ -82,12 +92,25 @@ export const DealDetailOverview: React.FC<DealDetailOverviewProps> = ({
               onUpdateDeal({ contactId: (contactId ?? null) as unknown as string | undefined, contact })
             }
           />
-          <TextField label="Owner" value={editedDeal.assignedTo ?? ''} placeholder="Unassigned" onSave={assignedTo => onUpdateDeal({ assignedTo })} />
+          <OwnerPicker
+            fieldLabel="Owner"
+            value={editedDeal.ownerId ?? editedDeal.assignedToId}
+            label={editedDeal.assignedTo}
+            onChange={(ownerId, name) =>
+              onUpdateDeal({
+                ownerId: (ownerId ?? null) as unknown as string | undefined,
+                assignedToId: (ownerId ?? null) as unknown as string | undefined,
+                assignedTo: (name || null) as unknown as string | undefined,
+              })
+            }
+          />
           <DateField label="Due date" value={editedDeal.dueDate} onSave={d => onUpdateDeal({ dueDate: d ?? undefined })} />
         </div>
       </div>
 
       <StaleDealIndicator deal={editedDeal} />
+
+      <RelatedCompanyCard deal={editedDeal} onLinked={c => void onUpdateDeal({ companyId: c.id })} />
 
       {/* Contact Information Card */}
       {linkedContact && (
@@ -105,7 +128,9 @@ export const DealDetailOverview: React.FC<DealDetailOverviewProps> = ({
             />
 
             <div className="flex-1">
-              <h5 className="text-xl font-semibold text-gray-900 dark:text-white mb-1">{linkedContact.name}</h5>
+              <h5 className="text-xl font-semibold mb-1">
+                <Link to={`/contacts/${linkedContact.id}`} className="text-gray-900 hover:text-blue-600 hover:underline dark:text-white dark:hover:text-blue-400">{linkedContact.name}</Link>
+              </h5>
               <p className="text-gray-600 dark:text-gray-300 mb-2">{linkedContact.title} at {linkedContact.company}</p>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

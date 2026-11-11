@@ -4,6 +4,7 @@ import { useBoardSelectionStore } from '../../store/boardSelectionStore';
 import { useDealStore } from '../../store/dealStore';
 import { Deal } from '../../types';
 import { BoardExportFormat, downloadDeals } from './exportDeals';
+import { OwnerPicker } from '../deals/fields/OwnerPicker';
 
 interface BulkActionBarProps {
   onNotify?: (message: string, type?: 'info' | 'success' | 'warning' | 'error') => void;
@@ -75,6 +76,13 @@ export const BulkActionBar: React.FC<BulkActionBarProps> = ({ onNotify }) => {
     await run(`Priority set to ${priority}`, () => bulkUpdateDeals(ids, { priority: priority as Deal['priority'] }));
   };
 
+  const handleOwner = async (ownerId: string | undefined, name: string) => {
+    // null clears the columns (dealMapper writes explicit nulls)
+    const nul = null as unknown as undefined;
+    await run(ownerId ? `Owner set to ${name}` : 'Owner cleared', () =>
+      bulkUpdateDeals(ids, { ownerId: ownerId ?? nul, assignedToId: ownerId ?? nul, assignedTo: name || nul }));
+  };
+
   const handleDelete = async () => {
     setConfirmDelete(false);
     const done = await run('Deleted', () => bulkSoftDelete(ids));
@@ -128,6 +136,15 @@ export const BulkActionBar: React.FC<BulkActionBarProps> = ({ onNotify }) => {
         <option value="">Set priority...</option>
         {PRIORITIES.map(p => <option key={p} value={p}>{p[0].toUpperCase() + p.slice(1)}</option>)}
       </select>
+
+      <OwnerPicker
+        variant="button"
+        buttonLabel="Set owner…"
+        placement="top"
+        disabled={busy}
+        onChange={handleOwner}
+        buttonClassName={btnClass}
+      />
 
       <button type="button" disabled={busy} className={btnClass} onClick={() => void run('Favorited', () => bulkUpdateDeals(ids, { isFavorite: true }))}>
         <Heart className="w-4 h-4" /><span>Favorite</span>

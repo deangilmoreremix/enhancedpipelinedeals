@@ -286,6 +286,58 @@ export async function runWorkflowBatch(deps: StepDeps, opts: { maxEvents?: numbe
   return summary;
 }
 
+export interface RunActionResult { ok: boolean; error?: string; executionId?: string; status?: string; resumed?: number }
+
+/** Re-runs a recorded execution from its original context as a new execution (`rerun:<id>:<ts>`). */
+export async function rerunExecution(deps: StepDeps, executionId: string): Promise<RunActionResult> {
+  const db = deps.db;
+  const { data: prior, error } = await db.from('workflow_executions').select('*').eq('id', executionId).maybeSingle();
+  if (error || !prior) return { ok: false, error: error?.message ?? 'Run not found' };
+  const { data: wf } = await db.from('deal_workflows').select('*').eq('id', prior.workflow_id).maybeSingle();
+  if (!wf) return { ok: false, error: 'Workflow no longer exists' };
+  const c = (prior.context ?? {}) as { recordId?: string; recordType?: string; inputData?: Record<string, unknown> };
+  const recordId = prior.record_id ?? c.recordId;
+  const recordType = prior.record_type ?? c.recordType;
+  const ctx: StepContext = {
+    recordId: recordId ?? undefined,
+    recordType: recordType ?? undefined,
+    inputData: (c.inputData ?? {}) as Record<string, any>,
+    variables: {},
+    eventId: prior.event_id ?? undefined,
+    workflowId: wf.id
+  };
+  const startedAt = new Date();
+  const result = await runWorkflowGraph((wf as WorkflowRow).stages ?? [], ctx, deps);
+  const id = `rerun:${executionId}:${startedAt.getTime()}`;
+  await saveExecution(db, {
+    id, workflowId: wf.id, triggerType: prior.trigger_type ?? 'manual',
+    recordId: recordId ?? undefined, recordType: recordType ?? undefined,
+    startedAt, result, context: ctx, attempt: (prior.attempt ?? 0) + 1
+  });
+  if (result.resumes.length) await scheduleResumes(db, id, wf.id, result, ctx);
+  return { ok: true, executionId: id, status: result.status };
+}
+
+/** Makes the delayed branches of a `waiting` execution due now and runs them. */
+export async function resumeExecution(deps: StepDeps, executionId: string): Promise<RunActionResult> {
+  const db = deps.db;
+  const { data: pending } = await db
+    .from('scheduled_triggers')
+    .select('id')
+    .like('name', `resume:${executionId}:%`)
+    .eq('is_active', true);
+  if (!pending || pending.length === 0) return { ok: false, error: 'Nothing to resume: this run has no pending delayed steps' };
+  const { error } = await db
+    .from('scheduled_triggers')
+    .update({ next_run: new Date(Date.now() - 1000).toISOString() })
+    .like('name', `resume:${executionId}:%`)
+    .eq('is_active', true);
+  if (error) return { ok: false, error: error.message };
+  const { data: wfData } = await db.from('deal_workflows').select('*');
+  const resumed = await resumeDueDelays(db, (wfData ?? []) as WorkflowRow[], deps);
+  return { ok: true, resumed };
+}
+
 export function serviceClient(): DbLike | null {
   const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;

@@ -3,7 +3,6 @@ import { DealDetailSidebar } from './DealDetailSidebar';
 import { DealDetailTabs } from './DealDetailTabs';
 import { DealDetailOverview } from './DealDetailOverview';
 import { DealDetailActions } from './DealDetailActions';
-import { DealJourneyTimeline } from '../DealJourneyTimeline';
 import { DealCommunicationHub } from '../DealCommunicationHub';
 import { DealAnalyticsDashboard } from '../DealAnalyticsDashboard';
 import { DealAutomationPanel } from '../DealAutomationPanel';
@@ -20,6 +19,8 @@ import DealNotes from '../deals/DealNotes';
 import DealTasks from '../deals/DealTasks';
 import DealFiles from '../deals/DealFiles';
 import DealTimeline from '../deals/DealTimeline';
+import DealActivityPanel from '../deals/DealActivityPanel';
+import DealCalendarPanel from '../deals/DealCalendarPanel';
 import DealToasts from '../deals/DealToasts';
 import { pushToast } from '../../store/dealRecordStore';
 
@@ -382,7 +383,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
 
             {state.activeTab === 'journey' && (
               <div className="p-6">
-                <DealJourneyTimeline deal={state.editedDeal} dealId={state.editedDeal.id} />
+                <DealActivityPanel dealId={state.editedDeal.id} refreshKey={`${deal.updatedAt?.getTime?.() ?? ''}`} />
               </div>
             )}
 
@@ -416,14 +417,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
 
             {state.activeTab === 'calendar' && (
               <div className="p-6">
-                <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-                  <div className="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto mb-3">📅</div>
-                  <h4 className="text-lg font-medium text-gray-700 dark:text-gray-300 mb-2">Calendar View</h4>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                    View deal-related dates and scheduled activities.
-                  </p>
-                  <p className="text-xs text-gray-400">Coming soon</p>
-                </div>
+                <DealCalendarPanel deal={state.editedDeal} contact={state.linkedContact} />
               </div>
             )}
 

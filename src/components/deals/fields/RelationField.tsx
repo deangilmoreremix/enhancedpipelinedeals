@@ -106,6 +106,6 @@ export const ContactRelationField: React.FC<ContactRelationFieldProps> = ({
   );
 };
 
-/** Company / owner relations are free text for now (no companies or users table in the app model). */
-export { TextField as CompanyField } from './TextField';
-export { TextField as OwnerField } from './TextField';
+/** Company / owner relations are real pickers now (see CompanyPicker / OwnerPicker); legacy names kept as aliases. */
+export { CompanyPicker as CompanyField } from './CompanyPicker';
+export { OwnerPicker as OwnerField } from './OwnerPicker';

@@ -36,6 +36,7 @@
     "@tiptap/react": "^3.33.1",
     "@tiptap/starter-kit": "^3.33.1",
     "@types/exceljs": "^0.5.3",
+    "@xyflow/react": "^12.12.1",
     "apollo-server-core": "^3.13.0",
     "apollo-server-express": "^3.13.0",
     "axios": "^1.15.2",

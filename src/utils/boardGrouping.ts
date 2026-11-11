@@ -1,5 +1,6 @@
 import type { Deal } from '../types';
 import type { BoardGroupBy } from '../store/boardViewStore';
+import { ownerLabel } from './ownerLabel';
 
 export const NONE_KEY = '__none__';
 
@@ -15,7 +16,8 @@ const PRIORITY_COLUMNS: Array<{ key: Deal['priority']; title: string }> = [
   { key: 'low', title: 'Low priority' }
 ];
 
-export const ownerOf = (d: Deal): string => (d.assignedTo ?? '').trim();
+/** Owner display name: ownerId (via the user directory) is canonical, assignedTo text is the fallback. */
+export const ownerOf = (d: Deal): string => ownerLabel(d);
 export const companyOf = (d: Deal): string => (d.company ?? '').trim();
 
 /** Whether dropping a card in a column of this grouping changes the deal (company grouping is read-only). */
@@ -56,10 +58,15 @@ export function updatesForGroupDrop(
   if (groupBy === 'owner') {
     if (targetKey === NONE_KEY) {
       // null clears the column (dealMapper writes explicit nulls)
-      return { assignedTo: null as unknown as undefined, assignedToId: null as unknown as undefined };
+      return { assignedTo: null as unknown as undefined, assignedToId: null as unknown as undefined, ownerId: null as unknown as undefined };
     }
-    const sample = allDeals.find(d => ownerOf(d).toLowerCase() === targetKey.toLowerCase() && d.assignedToId);
-    return { assignedTo: targetKey, assignedToId: sample?.assignedToId ?? (null as unknown as undefined) };
+    const sample = allDeals.find(d => ownerOf(d).toLowerCase() === targetKey.toLowerCase() && (d.ownerId ?? d.assignedToId));
+    const ownerId = sample?.ownerId ?? sample?.assignedToId;
+    return {
+      assignedTo: targetKey,
+      assignedToId: ownerId ?? (null as unknown as undefined),
+      ownerId: ownerId ?? (null as unknown as undefined),
+    };
   }
   return null;
 }

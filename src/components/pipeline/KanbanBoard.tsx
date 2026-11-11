@@ -23,6 +23,8 @@ import { BulkActionBar } from './BulkActionBar';
 import { DealCardIndicators } from '../AIEnhancedDealCard';
 import type { BoardGroupBy } from '../../store/boardViewStore';
 import { GroupedBoard } from './GroupedBoard';
+import { usePermissions } from '../../hooks/usePermissions';
+import { permissionMessage } from '../../utils/rlsError';
 
 export interface BoardCardContext {
   isSelected: boolean;
@@ -80,6 +82,8 @@ const StageBoard: React.FC<KanbanBoardProps> = ({
     [grouping, sortBy]
   );
   const manualOrder = sortBy === 'manual' && !grouping?.sortFn;
+  const perms = usePermissions();
+  const canManageStages = perms.allowed('manage_stages', 'stage');
   const allDealsMap = useDealStore(s => s.deals);
   const moveDeal = useDealStore(s => s.moveDeal);
   const bulkMoveDeals = useDealStore(s => s.bulkMoveDeals);
@@ -199,6 +203,7 @@ const StageBoard: React.FC<KanbanBoardProps> = ({
 
     if (type === 'COLUMN') {
       if (destination.index === source.index) return;
+      if (!canManageStages) { notify(permissionMessage('manage_stages', 'stage'), 'error'); return; }
       const keys = visibleStages.map(s => s.key);
       const [moved] = keys.splice(source.index, 1);
       keys.splice(destination.index, 0, moved);
@@ -212,10 +217,15 @@ const StageBoard: React.FC<KanbanBoardProps> = ({
     const deal = allDealsMap[draggableId];
     const destStage = visibleStages.find(s => s.key === destination.droppableId);
     if (!deal || !destStage) return;
+    if (!perms.allowed('edit', 'deal', deal)) { notify("You don't have permission to move this deal", 'error'); return; }
 
     // Multi-card drag: dragging a selected card carries the whole selection to the target stage
     const group = dragGroup(draggableId, useBoardSelectionStore.getState().selectedIds, allDealsMap);
     if (group.length > 1) {
+      if (!perms.canAll('edit', 'deal', group.map(id => allDealsMap[id])).allowed) {
+        notify("You don't have permission to move all of these deals", 'error');
+        return;
+      }
       if (!sameColumn) {
         void dropSelectionOnStage(group, destStage.key, {
           stages: visibleStages, deals: allDealsMap, bulkMoveDeals, notify, override: shiftRef.current
@@ -331,7 +341,7 @@ const StageBoard: React.FC<KanbanBoardProps> = ({
               {(boardProvided) => (
                 <div ref={boardProvided.innerRef} {...boardProvided.droppableProps} className="flex items-start gap-4">
                   {columns.map(({ stage, deals: colDeals }, index) => (
-                    <Draggable key={stage.key} draggableId={columnDragId(stage.key)} index={index}>
+                    <Draggable key={stage.key} draggableId={columnDragId(stage.key)} index={index} isDragDisabled={!canManageStages}>
                       {(colProvided) => (
                         <div
                           ref={colProvided.innerRef}
@@ -363,7 +373,7 @@ const StageBoard: React.FC<KanbanBoardProps> = ({
                               notify(`Added "${title}" to ${stage.name}`, 'success');
                             }}
                             renderCard={renderColumnCards(colDeals)}
-                            menu={
+                            menu={!canManageStages ? undefined : (
                               <StageMenu
                                 stage={stage}
                                 otherStages={sortedStages.filter(s => s.key !== stage.key)}
@@ -383,7 +393,7 @@ const StageBoard: React.FC<KanbanBoardProps> = ({
                                   notify(ok ? `Deleted stage "${stage.name}"` : 'Could not delete stage', ok ? 'success' : 'error');
                                 }}
                               />
-                            }
+                            )}
                           />
                         </div>
                       )}
@@ -413,7 +423,7 @@ const StageBoard: React.FC<KanbanBoardProps> = ({
             )}
 
             {/* Add stage */}
-            <div className="w-72 flex-shrink-0">
+            {canManageStages && <div className="w-72 flex-shrink-0">
               {addingStage ? (
                 <div className="p-3 bg-white dark:bg-gray-800 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl space-y-2">
                   <input
@@ -457,7 +467,7 @@ const StageBoard: React.FC<KanbanBoardProps> = ({
                   Add stage
                 </button>
               )}
-            </div>
+            </div>}
           </div>
         </div>
       </DragDropContext>

@@ -10,6 +10,8 @@ import {
 } from '../../services/dealNotesService';
 import { errorMessage } from '../../services/dealRecordShared';
 import { pushToast } from '../../store/dealRecordStore';
+import { useChildRecordPermissions } from '../../hooks/useChildRecordPermissions';
+import { toastFailure } from '../../utils/permissionToast';
 
 export const NOTE_AUTOSAVE_MS = 800;
 
@@ -50,7 +52,7 @@ const NoteEditor: React.FC<NoteEditorProps> = ({ dealId, note, onSaved, onClose 
         if (mounted.current) setSaveState('saved');
       } catch (e) {
         if (mounted.current) setSaveState('error');
-        pushToast('error', `Could not save note: ${errorMessage(e)}`);
+        toastFailure(e, 'edit', 'note', `Could not save note: ${errorMessage(e)}`);
       }
     });
     return inflight.current;
@@ -113,6 +115,7 @@ export interface DealNotesProps {
 }
 
 export const DealNotes: React.FC<DealNotesProps> = ({ dealId }) => {
+  const { canCreate, canModify } = useChildRecordPermissions(dealId, 'note');
   const [notes, setNotes] = useState<DealNote[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -149,7 +152,7 @@ export const DealNotes: React.FC<DealNotesProps> = ({ dealId }) => {
       await deleteNote(dealId, note.id);
     } catch (e) {
       setNotes(before);
-      pushToast('error', `Could not delete note: ${errorMessage(e)}`);
+      toastFailure(e, 'delete', 'note', `Could not delete note: ${errorMessage(e)}`);
     }
   };
 
@@ -159,7 +162,7 @@ export const DealNotes: React.FC<DealNotesProps> = ({ dealId }) => {
         <h4 className="flex items-center text-lg font-semibold text-gray-900 dark:text-white">
           <FileText className="mr-2 h-5 w-5 text-gray-500" />Notes
         </h4>
-        <Button size="sm" onClick={() => setEditing({ key: `new-${Date.now()}`, note: null })} disabled={editing?.note === null && !!editing}>
+        <Button size="sm" onClick={() => setEditing({ key: `new-${Date.now()}`, note: null })} disabled={(editing?.note === null && !!editing) || !canCreate}>
           <Plus className="mr-1 h-4 w-4" />New note
         </Button>
       </div>
@@ -196,8 +199,8 @@ export const DealNotes: React.FC<DealNotesProps> = ({ dealId }) => {
                       {n.updatedAt !== n.createdAt && new Date(n.updatedAt).getTime() - new Date(n.createdAt).getTime() > 1500 && ' (edited)'}
                     </span>
                     <span className="flex items-center gap-1 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
-                      <button type="button" aria-label="Edit note" onClick={() => setEditing({ key: n.id, note: n })} className="rounded p-1 hover:bg-gray-100 dark:hover:bg-gray-700"><Pencil className="h-4 w-4" /></button>
-                      <button type="button" aria-label="Delete note" onClick={() => void remove(n)} className="rounded p-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30"><Trash2 className="h-4 w-4" /></button>
+                      {canModify('edit', { createdBy: n.createdBy }) && <button type="button" aria-label="Edit note" onClick={() => setEditing({ key: n.id, note: n })} className="rounded p-1 hover:bg-gray-100 dark:hover:bg-gray-700"><Pencil className="h-4 w-4" /></button>}
+                      {canModify('delete', { createdBy: n.createdBy }) && <button type="button" aria-label="Delete note" onClick={() => void remove(n)} className="rounded p-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30"><Trash2 className="h-4 w-4" /></button>}
                     </span>
                   </div>
                   <p className="whitespace-pre-line text-sm leading-relaxed text-gray-800 dark:text-gray-200">{n.bodyText || 'Empty note'}</p>

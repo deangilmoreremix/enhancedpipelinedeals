@@ -38,7 +38,8 @@ import {
 } from 'lucide-react';
 import { initialsAvatar } from '../utils/avatar';
 import { useStageMeta } from '../utils/stageUtils';
-import { TextCell, PriorityDotCell } from './pipeline/cells/DealCells';
+import { TextCell, PriorityDotCell, DealEditScope } from './pipeline/cells/DealCells';
+import { usePermissions } from '../hooks/usePermissions';
 import DealHealthIndicator from './deals/DealHealthIndicator';
 import StaleDealIndicator from './deals/StaleDealIndicator';
 import { SLAIndicator } from './deals/SLAIndicator';
@@ -95,6 +96,9 @@ export const AIEnhancedDealCard: React.FC<AIEnhancedDealCardProps> = ({
   onQuickUpdate
 }) => {
   const { meta } = useStageMeta();
+  const perms = usePermissions();
+  const canEditDeal = perms.allowed('edit', 'deal', deal);
+  const canDeleteDeal = perms.allowed('delete', 'deal', deal);
   const [showAIInsights, setShowAIInsights] = useState(false);
   const [localAnalyzing, setLocalAnalyzing] = useState(false);
   const [localEnriching, setLocalEnriching] = useState(false);
@@ -399,6 +403,7 @@ export const AIEnhancedDealCard: React.FC<AIEnhancedDealCardProps> = ({
   const enriching = localEnriching;
 
   return (
+    <DealEditScope deal={deal}>
     <div
       ref={cardRef}
       data-deal-id={deal.id}
@@ -427,9 +432,9 @@ export const AIEnhancedDealCard: React.FC<AIEnhancedDealCardProps> = ({
       <ErrorBoundary fallback={<div className="p-2 text-red-500 text-xs">Header component failed</div>}>
         <DealCardHeader
           deal={deal}
-          onEdit={onEdit}
-          onDelete={onDelete}
-          onToggleFavorite={onToggleFavorite}
+          onEdit={canEditDeal ? onEdit : undefined}
+          onDelete={canDeleteDeal ? onDelete : undefined}
+          onToggleFavorite={canEditDeal ? onToggleFavorite : undefined}
           onFindNewImage={onFindNewImage}
           onAnalyze={showAnalyzeButton ? onAnalyze : undefined}
           isAnalyzing={analyzing}
@@ -763,5 +768,6 @@ export const AIEnhancedDealCard: React.FC<AIEnhancedDealCardProps> = ({
         </div>
       </div>
     </div>
+    </DealEditScope>
   );
 }

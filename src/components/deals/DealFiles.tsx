@@ -8,8 +8,11 @@ import {
 } from '../../services/dealFilesService';
 import { errorMessage } from '../../services/dealRecordShared';
 import { pushToast } from '../../store/dealRecordStore';
+import { useChildRecordPermissions } from '../../hooks/useChildRecordPermissions';
+import { toastFailure } from '../../utils/permissionToast';
 
 export const DealFiles: React.FC<{ dealId: string }> = ({ dealId }) => {
+  const { canCreate, canModify } = useChildRecordPermissions(dealId, 'file');
   const [files, setFiles] = useState<DealFile[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -33,14 +36,14 @@ export const DealFiles: React.FC<{ dealId: string }> = ({ dealId }) => {
         const rec = await uploadFile(dealId, file);
         setFiles(prev => [rec, ...prev]);
       } catch (e) {
-        pushToast('error', `Upload failed for ${file.name}: ${errorMessage(e)}`);
+        toastFailure(e, 'create', 'file', `Upload failed for ${file.name}: ${errorMessage(e)}`);
       } finally {
         setUploading(n => n - 1);
       }
     }
   }, [dealId]);
 
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({ onDrop, maxSize: MAX_DEAL_FILE_BYTES });
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({ onDrop, maxSize: MAX_DEAL_FILE_BYTES, disabled: !canCreate });
 
   const open = async (f: DealFile) => {
     const url = await getFileUrl(f);
@@ -68,7 +71,7 @@ export const DealFiles: React.FC<{ dealId: string }> = ({ dealId }) => {
     if (preview?.file.id === f.id) setPreview(null);
     try { await deleteFile(f); } catch (e) {
       setFiles(before);
-      pushToast('error', `Could not delete file: ${errorMessage(e)}`);
+      toastFailure(e, 'delete', 'file', `Could not delete file: ${errorMessage(e)}`);
     }
   };
 
@@ -87,13 +90,13 @@ export const DealFiles: React.FC<{ dealId: string }> = ({ dealId }) => {
 
       <div
         {...getRootProps()}
-        className={`cursor-pointer rounded-xl border-2 border-dashed px-6 py-8 text-center transition-colors ${
+        className={`${canCreate ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'} rounded-xl border-2 border-dashed px-6 py-8 text-center transition-colors ${
           isDragActive ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-gray-300 bg-white hover:border-blue-400 dark:border-gray-600 dark:bg-gray-800'
         }`}
       >
         <input {...getInputProps()} aria-label="Upload files" />
         <UploadCloud className="mx-auto mb-2 h-8 w-8 text-gray-400" />
-        <p className="text-sm text-gray-700 dark:text-gray-300">{isDragActive ? 'Drop files to upload' : 'Drag files here, or click to browse'}</p>
+        <p className="text-sm text-gray-700 dark:text-gray-300">{!canCreate ? "You don't have permission to upload files" : isDragActive ? 'Drop files to upload' : 'Drag files here, or click to browse'}</p>
         <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Up to 25MB per file{uploading > 0 ? ` - uploading ${uploading}...` : ''}</p>
       </div>
 
@@ -114,7 +117,7 @@ export const DealFiles: React.FC<{ dealId: string }> = ({ dealId }) => {
                 <button type="button" aria-label={`Preview ${f.name}`} onClick={() => void open(f)} className="rounded p-1.5 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700"><Eye className="h-4 w-4" /></button>
               )}
               <button type="button" aria-label={`Download ${f.name}`} onClick={() => void download(f)} className="rounded p-1.5 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700"><Download className="h-4 w-4" /></button>
-              <button type="button" aria-label={`Delete ${f.name}`} onClick={() => void remove(f)} className="rounded p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30"><Trash2 className="h-4 w-4" /></button>
+              {canModify('delete', { createdBy: f.uploadedBy }) && <button type="button" aria-label={`Delete ${f.name}`} onClick={() => void remove(f)} className="rounded p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30"><Trash2 className="h-4 w-4" /></button>}
             </li>
           ))}
         </ul>

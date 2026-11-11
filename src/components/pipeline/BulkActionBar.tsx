@@ -5,6 +5,7 @@ import { useDealStore } from '../../store/dealStore';
 import { Deal } from '../../types';
 import { BoardExportFormat, downloadDeals } from './exportDeals';
 import { OwnerPicker } from '../deals/fields/OwnerPicker';
+import { usePermissions } from '../../hooks/usePermissions';
 
 interface BulkActionBarProps {
   onNotify?: (message: string, type?: 'info' | 'success' | 'warning' | 'error') => void;
@@ -38,6 +39,16 @@ export const BulkActionBar: React.FC<BulkActionBarProps> = ({ onNotify }) => {
 
   // Selected ids that no longer exist (deleted elsewhere) are ignored
   const ids = selectedIds.filter(id => deals[id]);
+  const perms = usePermissions();
+  const selectedDeals = ids.map(id => deals[id]);
+  const editCheck = perms.canAll('edit', 'deal', selectedDeals);
+  const deleteCheck = perms.canAll('delete', 'deal', selectedDeals);
+  const assignCheck = perms.canAll('assign', 'deal', selectedDeals);
+  const exportCheck = perms.can('export', 'deal');
+  const canEdit = editCheck.allowed;
+  const canDelete = deleteCheck.allowed;
+  const canAssign = canEdit && assignCheck.allowed;
+  const editTip = canEdit ? undefined : `${editCheck.reason} (applies to all selected deals)`;
   useEffect(() => {
     if (selectedIds.length > 0 && ids.length === 0) clearSelection();
   }, [selectedIds.length, ids.length, clearSelection]);
@@ -141,8 +152,9 @@ export const BulkActionBar: React.FC<BulkActionBarProps> = ({ onNotify }) => {
 
       <select
         aria-label="Move to stage"
+        title={editTip}
         value=""
-        disabled={busy}
+        disabled={busy || !canEdit}
         onChange={(e) => void handleMove(e.target.value)}
         className={selectClass}
       >
@@ -152,8 +164,9 @@ export const BulkActionBar: React.FC<BulkActionBarProps> = ({ onNotify }) => {
 
       <select
         aria-label="Set priority"
+        title={editTip}
         value=""
-        disabled={busy}
+        disabled={busy || !canEdit}
         onChange={(e) => void handlePriority(e.target.value)}
         className={selectClass}
       >
@@ -165,13 +178,13 @@ export const BulkActionBar: React.FC<BulkActionBarProps> = ({ onNotify }) => {
         variant="button"
         buttonLabel="Set owner…"
         placement="top"
-        disabled={busy}
+        disabled={busy || !canAssign}
         onChange={handleOwner}
         buttonClassName={btnClass}
       />
 
       <div className="relative">
-        <button type="button" disabled={busy} className={btnClass} aria-haspopup="true" aria-expanded={tagsOpen} onClick={() => setTagsOpen(o => !o)}>
+        <button type="button" title={editTip} disabled={busy || !canEdit} className={btnClass} aria-haspopup="true" aria-expanded={tagsOpen} onClick={() => setTagsOpen(o => !o)}>
           <Tag className="w-4 h-4" /><span>Tags</span>
         </button>
         {tagsOpen && (
@@ -196,22 +209,22 @@ export const BulkActionBar: React.FC<BulkActionBarProps> = ({ onNotify }) => {
       <input
         type="date"
         aria-label="Schedule follow-up"
-        title="Schedule follow-up"
-        disabled={busy}
+        title={editTip ?? 'Schedule follow-up'}
+        disabled={busy || !canEdit}
         value=""
         onChange={(e) => void handleFollowUp(e.target.value)}
         className={selectClass}
       />
 
-      <button type="button" disabled={busy} className={btnClass} onClick={() => void run('Favorited', () => bulkUpdateDeals(ids, { isFavorite: true }))}>
+      <button type="button" title={editTip} disabled={busy || !canEdit} className={btnClass} onClick={() => void run('Favorited', () => bulkUpdateDeals(ids, { isFavorite: true }))}>
         <Heart className="w-4 h-4" /><span>Favorite</span>
       </button>
-      <button type="button" disabled={busy} className={btnClass} onClick={() => void run('Unfavorited', () => bulkUpdateDeals(ids, { isFavorite: false }))}>
+      <button type="button" title={editTip} disabled={busy || !canEdit} className={btnClass} onClick={() => void run('Unfavorited', () => bulkUpdateDeals(ids, { isFavorite: false }))}>
         <HeartOff className="w-4 h-4" /><span>Unfavorite</span>
       </button>
 
       <div className="relative">
-        <button type="button" disabled={busy} className={btnClass} aria-haspopup="true" aria-expanded={exportOpen} onClick={() => setExportOpen(o => !o)}>
+        <button type="button" title={exportCheck.allowed ? undefined : exportCheck.reason} disabled={busy || !exportCheck.allowed} className={btnClass} aria-haspopup="true" aria-expanded={exportOpen} onClick={() => setExportOpen(o => !o)}>
           <Download className="w-4 h-4" /><span>Export</span>
         </button>
         {exportOpen && (
@@ -245,7 +258,8 @@ export const BulkActionBar: React.FC<BulkActionBarProps> = ({ onNotify }) => {
       ) : (
         <button
           type="button"
-          disabled={busy}
+          title={canDelete ? undefined : `${deleteCheck.reason} (applies to all selected deals)`}
+          disabled={busy || !canDelete}
           onClick={() => setConfirmDelete(true)}
           className="flex items-center space-x-1 px-3 py-1.5 text-sm rounded-lg border border-red-200 dark:border-red-700 text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/30 disabled:opacity-50 transition-colors"
         >

@@ -63,10 +63,16 @@ describe('dealNotesService (supabase)', () => {
   });
 
   it('soft deletes by setting deleted_at (no hard delete)', async () => {
+    mockResult = { data: [{ id: 'n1' }], error: null }; // the UPDATE ... select('id') returns the affected row
     await deleteNote(DEAL, 'n1');
     const patch = mockCalls.find(c => c[0] === 'update')![1] as Record<string, unknown>;
     expect(typeof patch.deleted_at).toBe('string');
     expect(mockCalls.some(c => c[0] === 'delete')).toBe(false);
+  });
+
+  it('treats a delete that matched zero rows (filtered by RLS) as a permission denial', async () => {
+    mockResult = { data: [], error: null };
+    await expect(deleteNote(DEAL, 'n1')).rejects.toMatchObject({ code: '42501' });
   });
 
   it('propagates supabase errors', async () => {

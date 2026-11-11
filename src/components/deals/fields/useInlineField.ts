@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
-import { pushToast } from '../../../store/dealRecordStore';
+import { toastFailure } from '../../../utils/permissionToast';
 
 /**
  * Click-to-edit state machine shared by the inline field editors.
@@ -34,7 +34,7 @@ export function useInlineField<T>(onSave: (next: T) => Promise<unknown> | unknow
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Failed to save';
       setError(msg);
-      pushToast('error', `${label ? `${label}: ` : ''}${msg}`);
+      toastFailure(e, 'edit', 'deal', `${label ? `${label}: ` : ''}${msg}`);
     } finally {
       setPending(null);
     }

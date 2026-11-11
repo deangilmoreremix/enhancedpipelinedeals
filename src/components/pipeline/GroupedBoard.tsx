@@ -10,6 +10,7 @@ import { buildGroupColumns, isGroupingDroppable, updatesForGroupDrop } from '../
 import { sortDeals } from './kanban/kanbanUtils';
 import { BoardColumn, PAGE_SIZE } from './BoardColumn';
 import { BulkActionBar } from './BulkActionBar';
+import { usePermissions } from '../../hooks/usePermissions';
 import type { BoardCardContext, KanbanBoardProps } from './KanbanBoard';
 
 const sensors = [useMouseSensor, useTouchSensor];
@@ -19,6 +20,7 @@ const PRIORITY_COLORS: Record<string, string> = { high: 'red', medium: 'yellow',
 /** Board grouped by owner / priority / company. Dragging between columns edits that field (company is read-only). */
 export const GroupedBoard: React.FC<KanbanBoardProps> = ({ deals, sortBy, isLoading, indicators, onOpenDeal, renderCard, grouping }) => {
   const groupBy = (grouping?.groupBy ?? 'owner') as 'owner' | 'priority' | 'company';
+  const perms = usePermissions();
   const updateDeal = useDealStore(s => s.updateDeal);
   const allDealsMap = useDealStore(s => s.deals);
 
@@ -75,6 +77,8 @@ export const GroupedBoard: React.FC<KanbanBoardProps> = ({ deals, sortBy, isLoad
       if (destination && destination.index !== source.index) notify('Group by Stage to reorder cards manually.');
       return;
     }
+    const dragged = allDealsMap[draggableId];
+    if (dragged && !perms.allowed('edit', 'deal', dragged)) { notify("You don't have permission to move this deal"); return; }
     const updates = updatesForGroupDrop(groupBy, destination.droppableId, Object.values(allDealsMap));
     if (!updates) return;
     void updateDeal(draggableId, updates).catch(() => notify('Could not update the deal'));

@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { notifyIfPermissionDenied } from '../utils/permissionToast';
 import type { Company, Deal } from '../types';
 import type { Contact } from '../types/contact';
 import * as companyService from '../services/companyService';
@@ -61,6 +62,7 @@ export const useCompanyStore = create<CompanyStore>((set, get) => ({
       return c;
     } catch (e) {
       if (prev) set(s => ({ companies: put(s.companies, [prev]) }));
+      notifyIfPermissionDenied(e, 'edit', 'company');
       throw e;
     }
   },

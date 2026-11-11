@@ -1,4 +1,5 @@
 import { supabase } from '../lib/core/supabaseClient';
+import { assertRowsAffected } from '../utils/rlsError';
 import { canUseRemote, getCurrentUserId, localId } from './dealRecordShared';
 
 export interface DealNote {
@@ -106,8 +107,9 @@ export async function deleteNote(dealId: string, id: string): Promise<void> {
     localNotes.set(dealId, (localNotes.get(dealId) ?? []).filter(n => n.id !== id));
     return;
   }
-  const { error } = await supabase.from('notes').update({ deleted_at: new Date().toISOString() }).eq('id', id);
+  const { data, error } = await supabase.from('notes').update({ deleted_at: new Date().toISOString() }).eq('id', id).select('id');
   if (error) throw error;
+  if (Array.isArray(data)) assertRowsAffected(data); // RLS filters silently (0 rows)
 }
 
 export const DealNotesService = { listNotes, createNote, updateNote, deleteNote, isNotesLocalOnly };

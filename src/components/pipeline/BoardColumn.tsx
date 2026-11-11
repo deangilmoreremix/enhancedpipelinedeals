@@ -16,6 +16,7 @@ import {
 import { stageColorClasses } from '../../utils/stageMeta';
 import { QuickCreateDeal } from './QuickCreateDeal';
 import { ColumnSkeleton } from './BoardSkeleton';
+import { usePermissions } from '../../hooks/usePermissions';
 
 export const UNCATEGORIZED_ID = '__uncategorized__';
 export const PAGE_SIZE = 25;
@@ -52,6 +53,7 @@ export const BoardColumn: React.FC<BoardColumnProps> = ({
   dragHandleProps, menu, quickCreateOpen, onQuickCreateOpenChange, onQuickCreate, renderCard,
   dropDisabled = false, hideAddDeal = false, color, emptyText
 }) => {
+  const perms = usePermissions();
   const [operation, setOperation] = useState<AggregateOperation>('sum');
   const [field, setField] = useState<AggregateField>('value');
   const sentinelRef = useRef<HTMLDivElement>(null);
@@ -130,7 +132,7 @@ export const BoardColumn: React.FC<BoardColumnProps> = ({
               <ColumnSkeleton />
             ) : (
               shown.map((deal, index) => (
-                <Draggable key={deal.id} draggableId={deal.id} index={index}>
+                <Draggable key={deal.id} draggableId={deal.id} index={index} isDragDisabled={!perms.allowed('edit', 'deal', deal)}>
                   {(dragProvided, dragSnapshot) => (
                     <div
                       ref={dragProvided.innerRef}

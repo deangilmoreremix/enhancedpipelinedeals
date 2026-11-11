@@ -16,6 +16,11 @@ import { isDemoMode } from '../config/demoMode';
 import { validateSchema, dealValidationSchema, sanitizeInput } from '../utils/validation';
 import { emitDealEvent } from '../services/dealEvents';
 import { setActiveStages } from '../utils/stageMeta';
+import { notifyIfPermissionDenied } from '../utils/permissionToast';
+
+/** Permission-denied toast + message when RLS blocked the write; otherwise the generic text. */
+const failMessage = (error: unknown, action: string, kind: string, generic: string): string =>
+  notifyIfPermissionDenied(error, action, kind) ?? generic;
 
 interface DealStore {
   deals: Record<string, Deal>;
@@ -235,7 +240,7 @@ export const useDealStore = create<DealStore>((set, get) => ({
         deals: originalDeal
           ? { ...state.deals, [id]: originalDeal }
           : (({ [id]: _removed, ...rest }) => rest)(state.deals),
-        error: 'Failed to update deal'
+        error: failMessage(error, 'edit', 'deal', 'Failed to update deal')
       }));
       throw error;
     }
@@ -257,7 +262,7 @@ export const useDealStore = create<DealStore>((set, get) => ({
       }
     } catch (error) {
       console.error('Failed to move deal, rolling back:', error);
-      set(st => ({ deals: { ...st.deals, [id]: original }, error: 'Failed to move deal' }));
+      set(st => ({ deals: { ...st.deals, [id]: original }, error: failMessage(error, 'move', 'deal', 'Failed to move deal') }));
       return false;
     }
 
@@ -303,7 +308,7 @@ export const useDealStore = create<DealStore>((set, get) => ({
       set(st => {
         const next = { ...st.deals };
         Object.entries(previous).forEach(([did, pos]) => { if (next[did]) next[did] = { ...next[did], position: pos }; });
-        return { deals: next, error: 'Failed to rebalance column' };
+        return { deals: next, error: failMessage(error, 'edit', 'deal', 'Failed to rebalance column') };
       });
       throw error;
     }
@@ -345,7 +350,7 @@ export const useDealStore = create<DealStore>((set, get) => ({
       return created;
     } catch (error) {
       console.error('Failed to add stage:', error);
-      set({ error: 'Failed to add stage' });
+      set({ error: failMessage(error, 'manage_stages', 'stage', 'Failed to add stage') });
       return null;
     }
   },
@@ -367,7 +372,7 @@ export const useDealStore = create<DealStore>((set, get) => ({
     } catch (error) {
       console.error('Failed to update stage, rolling back:', error);
       apply(original);
-      set({ error: 'Failed to update stage' });
+      set({ error: failMessage(error, 'manage_stages', 'stage', 'Failed to update stage') });
       return false;
     }
   },
@@ -386,7 +391,7 @@ export const useDealStore = create<DealStore>((set, get) => ({
       return true;
     } catch (error) {
       console.error('Failed to reorder stages, rolling back:', error);
-      set({ stages: previous, error: 'Failed to reorder stages' });
+      set({ stages: previous, error: failMessage(error, 'manage_stages', 'stage', 'Failed to reorder stages') });
       return false;
     }
   },
@@ -411,7 +416,7 @@ export const useDealStore = create<DealStore>((set, get) => ({
       return true;
     } catch (error) {
       console.error('Failed to delete stage, rolling back:', error);
-      set({ stages: prevStages, deals: prevDeals, error: 'Failed to delete stage' });
+      set({ stages: prevStages, deals: prevDeals, error: failMessage(error, 'manage_stages', 'stage', 'Failed to delete stage') });
       return false;
     }
   },
@@ -432,7 +437,7 @@ export const useDealStore = create<DealStore>((set, get) => ({
     } catch (error) {
       set(st => {
         const { [id]: _t, ...restTrash } = st.trash;
-        return { deals: { ...st.deals, [id]: original }, trash: restTrash, error: 'Failed to delete deal' };
+        return { deals: { ...st.deals, [id]: original }, trash: restTrash, error: failMessage(error, 'delete', 'deal', 'Failed to delete deal') };
       });
       throw error;
     }
@@ -455,7 +460,7 @@ export const useDealStore = create<DealStore>((set, get) => ({
     } catch (error) {
       set(st => {
         const { [id]: _r, ...restDeals } = st.deals;
-        return { deals: restDeals, trash: { ...st.trash, [id]: trashed }, error: 'Failed to restore deal' };
+        return { deals: restDeals, trash: { ...st.trash, [id]: trashed }, error: failMessage(error, 'restore', 'deal', 'Failed to restore deal') };
       });
       throw error;
     }
@@ -513,7 +518,7 @@ export const useDealStore = create<DealStore>((set, get) => ({
         };
       });
     } catch (error) {
-      set({ error: 'Failed to delete deal', isLoading: false });
+      set({ error: failMessage(error, 'delete', 'deal', 'Failed to delete deal'), isLoading: false });
       throw error;
     }
   },

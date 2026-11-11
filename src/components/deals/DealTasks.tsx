@@ -9,8 +9,11 @@ import {
 import { errorMessage } from '../../services/dealRecordShared';
 import { pushToast } from '../../store/dealRecordStore';
 import { DateField } from './fields/DateField';
+import { useChildRecordPermissions } from '../../hooks/useChildRecordPermissions';
+import { toastFailure } from '../../utils/permissionToast';
 
 export const DealTasks: React.FC<{ dealId: string }> = ({ dealId }) => {
+  const { canCreate, canModify } = useChildRecordPermissions(dealId, 'task');
   const [tasks, setTasks] = useState<DealTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -36,7 +39,7 @@ export const DealTasks: React.FC<{ dealId: string }> = ({ dealId }) => {
       setTasks(prev => sortTasks([t, ...prev]));
       setTitle(''); setDue('');
     } catch (err) {
-      pushToast('error', `Could not add task: ${errorMessage(err)}`);
+      toastFailure(err, 'create', 'task', `Could not add task: ${errorMessage(err)}`);
     } finally { setAdding(false); }
   };
 
@@ -48,7 +51,7 @@ export const DealTasks: React.FC<{ dealId: string }> = ({ dealId }) => {
       setTasks(prev => sortTasks(prev.map(t => (t.id === saved.id ? saved : t))));
     } catch (err) {
       setTasks(before);
-      pushToast('error', `Could not update task: ${errorMessage(err)}`);
+      toastFailure(err, 'edit', 'task', `Could not update task: ${errorMessage(err)}`);
       throw err;
     }
   };
@@ -58,7 +61,7 @@ export const DealTasks: React.FC<{ dealId: string }> = ({ dealId }) => {
     setTasks(prev => prev.filter(t => t.id !== task.id));
     try { await deleteTask(dealId, task.id); } catch (err) {
       setTasks(before);
-      pushToast('error', `Could not delete task: ${errorMessage(err)}`);
+      toastFailure(err, 'delete', 'task', `Could not delete task: ${errorMessage(err)}`);
     }
   };
 
@@ -93,7 +96,7 @@ export const DealTasks: React.FC<{ dealId: string }> = ({ dealId }) => {
           onChange={e => setDue(e.target.value)}
           className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
         />
-        <Button type="submit" size="sm" disabled={!title.trim() || adding}><Plus className="mr-1 h-4 w-4" />Add</Button>
+        <Button type="submit" size="sm" disabled={!title.trim() || adding || !canCreate} title={canCreate ? undefined : "You don't have permission to add tasks"}><Plus className="mr-1 h-4 w-4" />Add</Button>
       </form>
 
       {loading ? (
@@ -110,6 +113,7 @@ export const DealTasks: React.FC<{ dealId: string }> = ({ dealId }) => {
                   type="button"
                   aria-label={done ? `Mark "${t.title}" open` : `Mark "${t.title}" done`}
                   onClick={() => void patch(t, { status: done ? 'open' : 'done' }).catch(() => undefined)}
+                  disabled={!canModify('edit')}
                   className="flex-shrink-0 text-gray-400 hover:text-blue-600"
                 >
                   {done ? <CheckCircle2 className="h-5 w-5 text-green-500" /> : <Circle className="h-5 w-5" />}
@@ -120,11 +124,12 @@ export const DealTasks: React.FC<{ dealId: string }> = ({ dealId }) => {
                   className="w-40 flex-shrink-0"
                   value={t.dueDate}
                   placeholder="No due date"
+                  disabled={!canModify('edit')}
                   onSave={d => patch(t, { dueDate: d ? d.toISOString() : null })}
                 />
-                <button type="button" aria-label={`Delete task "${t.title}"`} onClick={() => void remove(t)} className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/30">
+                {canModify('delete') && <button type="button" aria-label={`Delete task "${t.title}"`} onClick={() => void remove(t)} className="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/30">
                   <Trash2 className="h-4 w-4" />
-                </button>
+                </button>}
               </li>
             );
           })}

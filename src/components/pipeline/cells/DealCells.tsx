@@ -1,10 +1,27 @@
-import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import React, { createContext, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { Deal, PipelineStage } from '../../../types';
 import { useInlineField } from '../../deals/fields/useInlineField';
 import { OwnerPicker } from '../../deals/fields/OwnerPicker';
 import { CompanyPicker } from '../../deals/fields/CompanyPicker';
 import { parseAmountInput } from '../../../utils/currencyMicros';
 import { stageColorClasses } from '../../../utils/stageMeta';
+import { usePermissions } from '../../../hooks/usePermissions';
+
+/**
+ * Per-row/card edit permission. Wrap a row or card in <DealEditScope deal={deal}> and every cell inside
+ * renders read-only when the user may not edit that deal. Cells outside a scope stay editable.
+ */
+const CellEditableContext = createContext(true);
+export const DealEditScope: React.FC<{ deal: Deal; children: React.ReactNode }> = ({ deal, children }) => {
+  const { allowed } = usePermissions();
+  return <CellEditableContext.Provider value={allowed('edit', 'deal', deal)}>{children}</CellEditableContext.Provider>;
+};
+/** Edit permission for one deal (use directly in cells that already receive `deal`). */
+const useDealEditable = (deal: Deal): boolean => {
+  const scoped = useContext(CellEditableContext);
+  const { allowed } = usePermissions();
+  return scoped && allowed('edit', 'deal', deal);
+};
 
 /**
  * Compact inline-edit cells for table rows, list rows and board cards.
@@ -41,7 +58,7 @@ interface InputCellProps<T> extends BaseCellProps {
 }
 
 const InputCell = <T extends string | number | Date | null | undefined>({
-  label, value, display, onCommit, disabled, className = '',
+  label, value, display, onCommit, disabled: disabledProp, className = '',
   inputType, toDraft, fromDraft, inputMode, placeholder
 }: InputCellProps<T> & {
   inputType: 'text' | 'date';
@@ -51,6 +68,8 @@ const InputCell = <T extends string | number | Date | null | undefined>({
   inputMode?: 'decimal' | 'numeric';
   placeholder?: string;
 }) => {
+  const scopedEditable = useContext(CellEditableContext);
+  const disabled = disabledProp || !scopedEditable;
   const f = useInlineField<T>(onCommit, label);
   const [draft, setDraft] = useState(toDraft(value));
   const [err, setErr] = useState<string | null>(null);
@@ -197,7 +216,9 @@ const ChipMenuCell: React.FC<BaseCellProps & {
   chipBase: string;
   /** Custom button content (defaults to the option label). */
   renderLabel?: (opt: ChipOption | undefined, current: string) => React.ReactNode;
-}> = ({ label, value, options, onCommit, disabled, className = '', chipBase, renderLabel }) => {
+}> = ({ label, value, options, onCommit, disabled: disabledProp, className = '', chipBase, renderLabel }) => {
+  const scopedEditable = useContext(CellEditableContext);
+  const disabled = disabledProp || !scopedEditable;
   const f = useInlineField<string>(onCommit, label);
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
@@ -329,7 +350,10 @@ export const PriorityDotCell: React.FC<BaseCellProps & {
 // Relations (G's pickers in compact `cell` variant)
 // ---------------------------------------------------------------------------
 
-export const OwnerCell: React.FC<{ deal: Deal; onSave: CellSave; disabled?: boolean }> = ({ deal, onSave, disabled }) => (
+export const OwnerCell: React.FC<{ deal: Deal; onSave: CellSave; disabled?: boolean }> = ({ deal, onSave, disabled: disabledProp }) => {
+  const editable = useDealEditable(deal);
+  const disabled = disabledProp || !editable;
+  return (
   <span className="block" onClick={stop} onMouseDown={stop} onPointerDown={stop}>
     <OwnerPicker
       variant="cell"
@@ -344,9 +368,13 @@ export const OwnerCell: React.FC<{ deal: Deal; onSave: CellSave; disabled?: bool
       })}
     />
   </span>
-);
+  );
+};
 
-export const CompanyCell: React.FC<{ deal: Deal; onSave: CellSave; disabled?: boolean }> = ({ deal, onSave, disabled }) => (
+export const CompanyCell: React.FC<{ deal: Deal; onSave: CellSave; disabled?: boolean }> = ({ deal, onSave, disabled: disabledProp }) => {
+  const editable = useDealEditable(deal);
+  const disabled = disabledProp || !editable;
+  return (
   <span className="block" onClick={stop} onMouseDown={stop} onPointerDown={stop}>
     <CompanyPicker
       variant="cell"
@@ -356,4 +384,5 @@ export const CompanyCell: React.FC<{ deal: Deal; onSave: CellSave; disabled?: bo
       onChange={(companyId, company) => onSave({ companyId: (companyId ?? null) as unknown as string | undefined, company })}
     />
   </span>
-);
+  );
+};

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Globe, Star } from 'lucide-react';
 import { SavedPipelineView, normalizeSavedFilters } from '../../services/savedPipelineViewService';
 import { Button } from '../ui/Button';
+import { usePermissions } from '../../hooks/usePermissions';
 
 interface SavedViewsPanelProps {
   views: SavedPipelineView[];
@@ -23,6 +24,8 @@ const INPUT_CLASS =
 export const SavedViewsPanel: React.FC<SavedViewsPanelProps> = ({
   views, activeViewId, loading = false, onApply, onSetDefault, onTogglePublic, onRename, onDelete, onSaveCurrent
 }) => {
+  const { allowed } = usePermissions();
+  const canManage = allowed('manage_views', 'view');
   const [newName, setNewName] = useState('');
   const [newPublic, setNewPublic] = useState(false);
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -81,10 +84,10 @@ export const SavedViewsPanel: React.FC<SavedViewsPanelProps> = ({
                 {renamingId !== view.id && (
                   <div className="flex flex-wrap justify-end gap-1">
                     <Button size="sm" variant="outline" type="button" onClick={() => onApply(view)}>Load</Button>
-                    <Button size="sm" variant="ghost" type="button" onClick={() => onSetDefault(view)}>{view.is_default ? 'Unset default' : 'Set default'}</Button>
-                    <Button size="sm" variant="ghost" type="button" onClick={() => onTogglePublic(view)}>{view.is_public ? 'Unshare' : 'Share'}</Button>
-                    <Button size="sm" variant="ghost" type="button" onClick={() => { setRenamingId(view.id); setRenameValue(view.name); }}>Rename</Button>
-                    <Button size="sm" variant="destructive" type="button" onClick={() => { if (window.confirm(`Delete view "${view.name}"?`)) onDelete(view); }}>Delete</Button>
+                    <Button size="sm" variant="ghost" type="button" disabled={!canManage} onClick={() => onSetDefault(view)}>{view.is_default ? 'Unset default' : 'Set default'}</Button>
+                    <Button size="sm" variant="ghost" type="button" disabled={!canManage} onClick={() => onTogglePublic(view)}>{view.is_public ? 'Unshare' : 'Share'}</Button>
+                    <Button size="sm" variant="ghost" type="button" disabled={!canManage} onClick={() => { setRenamingId(view.id); setRenameValue(view.name); }}>Rename</Button>
+                    <Button size="sm" variant="destructive" type="button" disabled={!canManage} onClick={() => { if (window.confirm(`Delete view "${view.name}"?`)) onDelete(view); }}>Delete</Button>
                   </div>
                 )}
               </li>
@@ -93,7 +96,7 @@ export const SavedViewsPanel: React.FC<SavedViewsPanelProps> = ({
         </ul>
       )}
 
-      <form
+      {canManage && <form
         className="pt-4 border-t border-gray-200 dark:border-gray-700 flex flex-wrap items-center gap-2"
         onSubmit={async (e) => {
           e.preventDefault();
@@ -106,7 +109,7 @@ export const SavedViewsPanel: React.FC<SavedViewsPanelProps> = ({
           <span>Share with everyone</span>
         </label>
         <Button size="sm" type="submit" disabled={!newName.trim()}>Save current view</Button>
-      </form>
+      </form>}
     </div>
   );
 };

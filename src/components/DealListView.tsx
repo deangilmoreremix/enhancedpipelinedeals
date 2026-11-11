@@ -9,9 +9,11 @@ import { useStageMeta } from '../utils/stageUtils';
 import { formatMoneyCompact, totalsOf } from '../utils/viewDeals';
 import { useViewSelection } from '../hooks/useViewSelection';
 import { BulkActionBar } from './pipeline/BulkActionBar';
+import { usePermissions } from '../hooks/usePermissions';
 import { useViewToasts } from './pipeline/ViewToasts';
 import {
-  CompanyCell, DateCell, NumberCell, OwnerCell, PriorityCell, StageCell, TextCell
+  CompanyCell, DateCell, NumberCell, OwnerCell, PriorityCell, StageCell, TextCell,
+  DealEditScope
 } from './pipeline/cells/DealCells';
 
 export interface DealListViewProps {
@@ -38,6 +40,7 @@ const SORTS: Array<{ field: string; label: string; dir: 'asc' | 'desc' }> = [
 
 export const DealListView: React.FC<DealListViewProps> = ({ deals, onDealClick, onDealUpdate, isFiltered = false }) => {
   const { stages } = useStageMeta();
+  const perms = usePermissions();
   const sorting = useBoardViewStore(s => s.sorting);
   const toggleSortField = useBoardViewStore(s => s.toggleSortField);
   const tableColumns = useBoardViewStore(s => s.tableColumns);
@@ -100,8 +103,8 @@ export const DealListView: React.FC<DealListViewProps> = ({ deals, onDealClick, 
           const save = (updates: Partial<Deal>) => onDealUpdate(deal.id, updates);
           const isSel = sel.selected.has(deal.id);
           return (
+            <DealEditScope key={deal.id} deal={deal}>
             <div
-              key={deal.id}
               data-deal-id={deal.id}
               aria-selected={isSel}
               onClick={() => onDealClick(deal.id)}
@@ -187,6 +190,7 @@ export const DealListView: React.FC<DealListViewProps> = ({ deals, onDealClick, 
                     <button
                       onClick={(e) => { e.stopPropagation(); void onDealUpdate(deal.id, { isFavorite: !deal.isFavorite }); }}
                       aria-label={deal.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+                      disabled={!perms.allowed('edit', 'deal', deal)}
                       className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
                     >
                       <Star className={`w-5 h-5 ${deal.isFavorite ? 'text-yellow-500 fill-yellow-500' : 'text-gray-400 dark:text-gray-600'}`} />
@@ -209,6 +213,7 @@ export const DealListView: React.FC<DealListViewProps> = ({ deals, onDealClick, 
                 </div>
               </div>
             </div>
+            </DealEditScope>
           );
         })}
       </div>

@@ -1,4 +1,5 @@
 import { supabase } from '../lib/core/supabaseClient';
+import { assertRowsAffected } from '../utils/rlsError';
 import { canUseRemote, getCurrentUserId, localId } from './dealRecordShared';
 
 export const DEAL_FILES_BUCKET = 'deal-files';
@@ -113,8 +114,9 @@ export async function deleteFile(file: DealFile): Promise<void> {
   }
   const { error: rmErr } = await supabase.storage.from(DEAL_FILES_BUCKET).remove([file.path]);
   if (rmErr) throw rmErr;
-  const { error } = await supabase.from('deal_files').delete().eq('id', file.id);
+  const { data, error } = await supabase.from('deal_files').delete().eq('id', file.id).select('id');
   if (error) throw error;
+  if (Array.isArray(data)) assertRowsAffected(data); // RLS filters silently (0 rows)
 }
 
 export const formatFileSize = (bytes: number): string => {

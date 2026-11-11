@@ -1,4 +1,5 @@
 import { Contact } from '../types/contact';
+import { isPermissionDenied } from '../utils/rlsError';
 import { Deal } from '../types';
 import { getSupabaseService } from './supabaseService';
 import { mockContacts } from '../data/mockContacts';
@@ -318,6 +319,7 @@ class DataSyncService {
         return updatedDeal;
       } catch (dbError) {
         console.warn('⚠️ Database update failed:', dbError);
+        if (isPermissionDenied(dbError)) throw dbError; // keep the RLS code for the store's permission toast
         throw new Error('Failed to update deal in database');
       }
     }
@@ -351,6 +353,7 @@ class DataSyncService {
         return;
       } catch (dbError) {
         console.warn('⚠️ Database delete failed:', dbError);
+        if (isPermissionDenied(dbError)) throw dbError;
         throw new Error('Failed to delete deal from database');
       }
     }

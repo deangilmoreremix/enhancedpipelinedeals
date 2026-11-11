@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { DealWorkflow, getAllWorkflows, assignWorkflowToDeal } from '../../services/dealWorkflowService';
+import { usePermissions } from '../../hooks/usePermissions';
+import { useDealStore } from '../../store/dealStore';
 import { EnhancedWorkflowPanel } from '../workflows/EnhancedWorkflowPanel';
 
 /**
@@ -9,6 +11,9 @@ import { EnhancedWorkflowPanel } from '../workflows/EnhancedWorkflowPanel';
 export const DealWorkflowsPanel: React.FC<{
   dealId?: string;
 }> = ({ dealId }) => {
+  const { allowed } = usePermissions();
+  const dealRecord = useDealStore(st => (dealId ? st.deals[dealId] : undefined));
+  const canAssignToDeal = allowed('edit', 'deal', dealRecord);
   const [workflows, setWorkflows] = useState<DealWorkflow[]>([]);
   const [selected, setSelected] = useState('');
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
@@ -53,7 +58,7 @@ export const DealWorkflowsPanel: React.FC<{
           <button
             type="button"
             onClick={handleAssign}
-            disabled={!selected}
+            disabled={!selected || !canAssignToDeal}
             className="px-3 py-1.5 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg disabled:opacity-50"
           >
             Assign

@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Key, Eye, EyeOff, Check, X, AlertCircle, Sparkles, Database, Brain, Globe } from 'lucide-react';
+import { ShieldCheck, Settings, Key, Eye, EyeOff, Check, X, AlertCircle, Sparkles, Database, Brain, Globe } from 'lucide-react';
 import { getSettingsService, UserApiKeys } from '../../services/settingsService';
 import { ModernButton } from './ModernButton';
+import { PermissionsSettings } from './PermissionsSettings';
+import { usePermissions } from '../../hooks/usePermissions';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -97,7 +99,9 @@ const ApiKeyField: React.FC<ApiKeyFieldProps> = ({
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
   const settingsService = getSettingsService();
   const [settings, setSettings] = useState(settingsService.getSettings());
-  const [activeTab, setActiveTab] = useState<'api' | 'general'>('api');
+  const [activeTab, setActiveTab] = useState<'api' | 'general' | 'permissions'>('api');
+  const { isAdmin, isDemo } = usePermissions();
+  const showPermissions = isAdmin || isDemo;
   const [saved, setSaved] = useState(false);
   const [showDangerConfirm, setShowDangerConfirm] = useState(false);
 
@@ -180,6 +184,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
             <Settings className="w-4 h-4 inline mr-2" />
             General
           </button>
+          {showPermissions && (
+            <button
+              onClick={() => setActiveTab('permissions')}
+              className={`flex-1 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+                activeTab === 'permissions'
+                  ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400'
+              }`}
+            >
+              <ShieldCheck className="w-4 h-4 inline mr-2" />
+              Permissions
+            </button>
+          )}
         </div>
 
         {/* Content */}
@@ -199,6 +216,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
               </div>
             </div>
           )}
+
+          {activeTab === 'permissions' && showPermissions && <PermissionsSettings />}
 
           {activeTab === 'general' && (
             <div className="space-y-4">

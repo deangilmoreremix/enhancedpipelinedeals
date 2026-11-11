@@ -8,6 +8,7 @@ import DealDetail from './DealDetail';
 import PipelineStats from './PipelineStats';
 import DealAnalytics from './DealAnalytics';
 import { useDealStore } from '../store/dealStore';
+import { usePermissions } from '../hooks/usePermissions';
 import { isDemoMode } from '../config/demoMode';
 
 // Lazy load view components for code splitting
@@ -58,6 +59,8 @@ const Pipeline: React.FC = () => {
 
   // Pipeline states
   // Single source of truth: the deal store (deals, stages, optimistic moves, realtime)
+  const perms = usePermissions();
+  const canManageStages = perms.allowed('manage_stages', 'stage');
   const deals = useDealStore(s => s.deals);
   const stages = useDealStore(s => s.stages);
   const dataError = useDealStore(s => s.error);
@@ -181,7 +184,7 @@ const Pipeline: React.FC = () => {
     const action = consumeAction();
     switch (action) {
       case 'new-deal': setShowNewDeal(true); break;
-      case 'import': setShowImport(true); break;
+      case 'import': if (perms.allowed('import', 'deal')) setShowImport(true); break;
       case 'export': setExportSignal(n => n + 1); break;
       case 'show-deleted': setShowTrash(true); break;
       case 'find-duplicates': {
@@ -544,7 +547,7 @@ const Pipeline: React.FC = () => {
           </div>
 
           {/* Pipeline Settings - Twenty Features */}
-          <Tooltip content="Manage pipeline stages (add, rename, colour, reorder, probability, won/lost)" position="bottom">
+          {canManageStages && <Tooltip content="Manage pipeline stages (add, rename, colour, reorder, probability, won/lost)" position="bottom">
             <button
               type="button"
               aria-label="Manage pipeline stages"
@@ -553,7 +556,7 @@ const Pipeline: React.FC = () => {
             >
               <Settings className="w-5 h-5" />
             </button>
-          </Tooltip>
+          </Tooltip>}
 
         </div>
       </div>
@@ -639,7 +642,7 @@ const Pipeline: React.FC = () => {
           </button>
 
           {/* Import */}
-          <Tooltip content="Import deals from CSV, TSV, JSON or Excel" position="bottom">
+          {perms.allowed('import', 'deal') && <Tooltip content="Import deals from CSV, TSV, JSON or Excel" position="bottom">
             <button
               type="button"
               onClick={() => setShowImport(true)}
@@ -648,7 +651,7 @@ const Pipeline: React.FC = () => {
               <Upload className="w-4 h-4" />
               <span>Import</span>
             </button>
-          </Tooltip>
+          </Tooltip>}
 
           {/* Export (current view or all deals) */}
           <Tooltip content="Export the current view or all deals as CSV, Excel, or JSON" position="bottom">
@@ -798,7 +801,7 @@ const Pipeline: React.FC = () => {
           stages={stages}
           sortBy={board.sortBy}
           grouping={board.grouping}
-          onEditStages={() => setShowColumnManager(true)}
+          onEditStages={canManageStages ? () => setShowColumnManager(true) : undefined}
           isLoading={booting}
           indicators={{
             health: twentyFeaturesEnabled.health,

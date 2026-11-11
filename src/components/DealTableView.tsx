@@ -15,9 +15,11 @@ import {
 } from './pipeline/kanban/kanbanUtils';
 import { useViewSelection } from '../hooks/useViewSelection';
 import { BulkActionBar } from './pipeline/BulkActionBar';
+import { usePermissions } from '../hooks/usePermissions';
 import { useViewToasts } from './pipeline/ViewToasts';
 import {
-  CompanyCell, DateCell, NumberCell, OwnerCell, PriorityCell, StageCell, TextCell
+  CompanyCell, DateCell, NumberCell, OwnerCell, PriorityCell, StageCell, TextCell,
+  DealEditScope
 } from './pipeline/cells/DealCells';
 
 export interface DealTableViewProps {
@@ -41,6 +43,7 @@ const th = 'px-4 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray
 
 export const DealTableView: React.FC<DealTableViewProps> = ({ deals, onDealClick, onDealUpdate, isFiltered = false }) => {
   const { stages, meta } = useStageMeta();
+  const perms = usePermissions();
   const tableColumns = useBoardViewStore(s => s.tableColumns);
   const sorting = useBoardViewStore(s => s.sorting);
   const toggleSortField = useBoardViewStore(s => s.toggleSortField);
@@ -192,7 +195,7 @@ export const DealTableView: React.FC<DealTableViewProps> = ({ deals, onDealClick
     }
     return (
       <td key={col.key} style={cellStyle} className="px-4 py-4 whitespace-nowrap overflow-hidden text-ellipsis">
-        {body}
+        <DealEditScope deal={deal}>{body}</DealEditScope>
       </td>
     );
   };
@@ -317,6 +320,7 @@ export const DealTableView: React.FC<DealTableViewProps> = ({ deals, onDealClick
                     <td className="px-4 py-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                       <button
                         onClick={(e) => toggleFavorite(e, deal)}
+                        disabled={!perms.allowed('edit', 'deal', deal)}
                         aria-label={deal.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
                         className="p-1 hover:bg-gray-100 dark:hover:bg-gray-600 rounded transition-colors"
                       >

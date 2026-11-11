@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { usePermissions } from '../../hooks/usePermissions';
 import { Link, useInRouterContext } from 'react-router-dom';
 import { ArrowLeft, CheckCircle2, Clock, Loader2, MinusCircle, Play, RefreshCw, RotateCcw, XCircle } from 'lucide-react';
 import type { Workflow, WorkflowStep } from '../../types/workflow';
@@ -68,6 +69,8 @@ interface ViewProps {
 
 /** Presentational run detail (props in, no data fetching): header, annotated diagram, timeline, JSON. */
 export const WorkflowRunDetailView: React.FC<ViewProps> = ({ run, workflow, workflowName, onBack, onRerun, busy, notice }) => {
+  const { allowed: permAllowed } = usePermissions();
+  const canRun = permAllowed('manage_workflows', 'workflow');
   const [selected, setSelected] = useState<string | null>(null);
   const steps: WorkflowStep[] = workflow?.steps ?? [];
   const statusByStep = useMemo(() => mapRunSteps(run.steps, steps, run.status), [run.steps, steps, run.status]);
@@ -95,7 +98,7 @@ export const WorkflowRunDetailView: React.FC<ViewProps> = ({ run, workflow, work
               </span>
             </div>
           </div>
-          {onRerun && (
+          {onRerun && canRun && (
             <div className="flex items-center gap-2">
               {resumable && (
                 <button type="button" disabled={busy} onClick={() => onRerun('resume')} className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-50">

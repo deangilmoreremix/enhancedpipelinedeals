@@ -4,6 +4,7 @@ import {
   type Connection, type Edge, type EdgeChange, type NodeChange, type OnConnectEnd
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
+import { usePermissions } from '../../hooks/usePermissions';
 import { AlertTriangle, Copy, LayoutTemplate, PanelLeft, Play, Redo2, RotateCcw, Save, Settings, Trash2, Undo2 } from 'lucide-react';
 import type { Workflow, WorkflowStep } from '../../types/workflow';
 import { findEntryByRef, type ConfigFieldOption, type RegistryEntry } from '../../services/workflowActionRegistry';
@@ -54,9 +55,12 @@ const MINIMAP_COLOR: Record<string, string> = { trigger: '#f59e0b', action: '#25
 const HISTORY_LIMIT = 100;
 
 const BuilderInner: React.FC<WorkflowBuilderProps> = ({
-  workflow, onWorkflowChange, onSave, onExecute, isExecuting = false, readOnly = false, statusByStep, selectedStepId, onSelectStep,
+  workflow, onWorkflowChange, onSave, onExecute, isExecuting = false, readOnly: readOnlyProp = false, statusByStep, selectedStepId, onSelectStep,
   hideHeader = false, hideProperties = false, stageOptions: stageOptionsProp
 }) => {
+  // Read-only canvas (no edits, Save or Run) unless the user may manage workflows
+  const { allowed: permAllowed } = usePermissions();
+  const readOnly = readOnlyProp || !permAllowed('manage_workflows', 'workflow');
   const rf = useReactFlow();
   const isDark = useIsDark();
   const steps = workflow.steps;

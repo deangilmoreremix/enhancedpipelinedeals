@@ -10,6 +10,7 @@ import {
 } from '../deals/fields';
 import { RelatedCompanyCard } from './RelatedRecordCards';
 import { DealAIAssist } from '../deals/DealAIAssist';
+import { usePermissions } from '../../hooks/usePermissions';
 import StaleDealIndicator from '../deals/StaleDealIndicator';
 
 export const DealDetailOverview: React.FC<DealDetailOverviewProps> = ({
@@ -18,6 +19,8 @@ export const DealDetailOverview: React.FC<DealDetailOverviewProps> = ({
   linkedContact,
   onUpdateDeal,
 }) => {
+  const { allowed } = usePermissions();
+  const readOnly = !allowed('edit', 'deal', editedDeal);
   const currencyCode = editedDeal.currencyCode ?? 'USD';
 
   // Calculate days in current stage and total active days
@@ -57,6 +60,7 @@ export const DealDetailOverview: React.FC<DealDetailOverviewProps> = ({
       <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
         <TextField
           label="Title"
+          disabled={readOnly}
           value={editedDeal.title ?? ''}
           required
           placeholder="Untitled deal"
@@ -65,17 +69,19 @@ export const DealDetailOverview: React.FC<DealDetailOverviewProps> = ({
           className="mb-5"
         />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-5">
-          <StageField label="Stage" value={editedDeal.stage} onSave={stage => onUpdateDeal({ stage })} />
-          <SelectField label="Priority" value={editedDeal.priority} options={PRIORITY_OPTIONS} onSave={priority => onUpdateDeal({ priority: priority as typeof editedDeal.priority })} />
+          <StageField disabled={readOnly} label="Stage" value={editedDeal.stage} onSave={stage => onUpdateDeal({ stage })} />
+          <SelectField disabled={readOnly} label="Priority" value={editedDeal.priority} options={PRIORITY_OPTIONS} onSave={priority => onUpdateDeal({ priority: priority as typeof editedDeal.priority })} />
           <CurrencyField
             label="Amount"
+            disabled={readOnly}
             value={editedDeal.value}
             currencyCode={currencyCode}
             onSave={({ value, currencyCode: code }) => onUpdateDeal({ value, currencyCode: code })}
           />
-          <DateField label="Close date" value={editedDeal.closeDate} onSave={d => onUpdateDeal({ closeDate: d ?? undefined })} />
+          <DateField disabled={readOnly} label="Close date" value={editedDeal.closeDate} onSave={d => onUpdateDeal({ closeDate: d ?? undefined })} />
           <CompanyPicker
             fieldLabel="Company"
+            disabled={readOnly}
             value={editedDeal.companyId}
             label={editedDeal.company}
             onChange={(companyId, company) =>
@@ -85,6 +91,7 @@ export const DealDetailOverview: React.FC<DealDetailOverviewProps> = ({
           />
           <ContactRelationField
             label="Contact"
+            disabled={readOnly}
             contactId={editedDeal.contactId}
             contactName={editedDeal.contact}
             onSave={({ contactId, contact }) =>
@@ -94,6 +101,7 @@ export const DealDetailOverview: React.FC<DealDetailOverviewProps> = ({
           />
           <OwnerPicker
             fieldLabel="Owner"
+            disabled={readOnly || !allowed('assign', 'deal', editedDeal)}
             value={editedDeal.ownerId ?? editedDeal.assignedToId}
             label={editedDeal.assignedTo}
             onChange={(ownerId, name) =>
@@ -104,7 +112,7 @@ export const DealDetailOverview: React.FC<DealDetailOverviewProps> = ({
               })
             }
           />
-          <DateField label="Due date" value={editedDeal.dueDate} onSave={d => onUpdateDeal({ dueDate: d ?? undefined })} />
+          <DateField disabled={readOnly} label="Due date" value={editedDeal.dueDate} onSave={d => onUpdateDeal({ dueDate: d ?? undefined })} />
         </div>
       </div>
 
@@ -178,6 +186,7 @@ export const DealDetailOverview: React.FC<DealDetailOverviewProps> = ({
         </h4>
         <TextField
           multiline
+          disabled={readOnly}
           label="Summary"
           value={editedDeal.notes ?? ''}
           placeholder="Add a short summary of this deal. Use the Notes tab for rich, timestamped notes."

@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { usePermissions } from '../../hooks/usePermissions';
 import { ArrowLeft, Bot, Edit, Globe, Mail, Pause, Play, Plus, Settings, Trash2, AlertTriangle, BarChart3 } from 'lucide-react';
 import { WorkflowBuilder } from './WorkflowBuilder';
 import { WorkflowRunHistory } from './WorkflowRunHistory';
@@ -31,6 +32,10 @@ const newWorkflowTemplate = (): Workflow => ({
 });
 
 export const EnhancedWorkflowPanel: React.FC = () => {
+  const { can } = usePermissions();
+  const manage = can('manage_workflows', 'workflow');
+  const canManage = manage.allowed;
+  const denyTitle = canManage ? undefined : manage.reason;
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
   const [selectedWorkflow, setSelectedWorkflow] = useState<Workflow | null>(null);
   const [emailTemplates, setEmailTemplates] = useState<EmailTemplate[]>([]);
@@ -139,6 +144,7 @@ export const EnhancedWorkflowPanel: React.FC = () => {
           <input
             aria-label="Workflow name"
             value={selectedWorkflow.name}
+            disabled={!canManage}
             onChange={e => { setSelectedWorkflow({ ...selectedWorkflow, name: e.target.value }); setDirty(true); }}
             className="flex-1 min-w-[10rem] px-3 py-1.5 text-sm font-semibold rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
@@ -146,6 +152,7 @@ export const EnhancedWorkflowPanel: React.FC = () => {
             <input
               type="checkbox"
               checked={selectedWorkflow.settings.isActive}
+              disabled={!canManage}
               onChange={e => { setSelectedWorkflow({ ...selectedWorkflow, settings: { ...selectedWorkflow.settings, isActive: e.target.checked } }); setDirty(true); }}
             /> Active
           </label>
@@ -192,7 +199,7 @@ export const EnhancedWorkflowPanel: React.FC = () => {
             </button>
           ))}
         </div>
-        <button type="button" onClick={() => openBuilder(newWorkflowTemplate())} className="px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 inline-flex items-center gap-2 text-sm">
+        <button type="button" disabled={!canManage} title={denyTitle} onClick={() => openBuilder(newWorkflowTemplate())} className="px-3 py-1.5 disabled:opacity-50 disabled:cursor-not-allowed bg-blue-600 text-white rounded-lg hover:bg-blue-700 inline-flex items-center gap-2 text-sm">
           <Plus className="w-4 h-4" /> New Workflow
         </button>
       </div>
@@ -215,10 +222,10 @@ export const EnhancedWorkflowPanel: React.FC = () => {
               </dl>
               <div className="flex gap-2">
                 <button type="button" onClick={() => openBuilder(workflow)} className="flex-1 px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 inline-flex items-center justify-center gap-1"><Edit className="w-4 h-4" /> Edit</button>
-                <button type="button" onClick={() => toggleWorkflowStatus(workflow)} aria-label={workflow.settings.isActive ? 'Deactivate workflow' : 'Activate workflow'} className={`px-3 py-1.5 text-sm rounded-lg text-white ${workflow.settings.isActive ? 'bg-amber-500 hover:bg-amber-600' : 'bg-green-600 hover:bg-green-700'}`}>
+                <button type="button" disabled={!canManage} title={denyTitle} onClick={() => toggleWorkflowStatus(workflow)} aria-label={workflow.settings.isActive ? 'Deactivate workflow' : 'Activate workflow'} className={`px-3 py-1.5 text-sm rounded-lg text-white disabled:opacity-50 disabled:cursor-not-allowed ${workflow.settings.isActive ? 'bg-amber-500 hover:bg-amber-600' : 'bg-green-600 hover:bg-green-700'}`}>
                   {workflow.settings.isActive ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
                 </button>
-                <button type="button" onClick={() => deleteWorkflow(workflow.id)} aria-label="Delete workflow" className="px-3 py-1.5 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700"><Trash2 className="w-4 h-4" /></button>
+                <button type="button" disabled={!canManage} title={denyTitle} onClick={() => deleteWorkflow(workflow.id)} aria-label="Delete workflow" className="px-3 py-1.5 text-sm disabled:opacity-50 disabled:cursor-not-allowed bg-red-600 text-white rounded-lg hover:bg-red-700"><Trash2 className="w-4 h-4" /></button>
               </div>
             </div>
           ))}
@@ -227,7 +234,7 @@ export const EnhancedWorkflowPanel: React.FC = () => {
               <Settings className="w-14 h-14 mx-auto mb-3 text-gray-400" />
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">No Workflows Yet</h3>
               <p className="text-gray-600 dark:text-gray-400 mb-4">Create your first automated workflow to get started.</p>
-              <button type="button" onClick={() => openBuilder(newWorkflowTemplate())} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Create Workflow</button>
+              <button type="button" disabled={!canManage} title={denyTitle} onClick={() => openBuilder(newWorkflowTemplate())} className="px-4 py-2 disabled:opacity-50 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Create Workflow</button>
             </div>
           )}
         </div>

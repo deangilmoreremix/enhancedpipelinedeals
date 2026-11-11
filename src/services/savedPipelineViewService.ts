@@ -1,4 +1,6 @@
 import { supabase, isSupabaseConfigured } from './supabaseService';
+import { assertRowsAffected } from '../utils/rlsError';
+import { notifyIfPermissionDenied } from '../utils/permissionToast';
 import { isDemoMode } from '../config/demoMode';
 import type { ViewFilter, ViewSort, AdvancedFilterGroup } from '../types';
 
@@ -200,10 +202,12 @@ export class SavedPipelineViewService {
         writeLocal(all);
         return true;
       }
-      const { error } = await supabase.from(TABLE).update(patch).eq('id', id);
+      const { data, error } = await supabase.from(TABLE).update(patch).eq('id', id).select('id');
       if (error) throw error;
+      if (Array.isArray(data)) assertRowsAffected(data);
       return true;
     } catch (error) {
+      notifyIfPermissionDenied(error, 'manage_views', 'view');
       console.error('Error updating saved pipeline view:', error);
       return false;
     }
@@ -221,10 +225,12 @@ export class SavedPipelineViewService {
         writeLocal(readLocal().filter(v => v.id !== id));
         return true;
       }
-      const { error } = await supabase.from(TABLE).delete().eq('id', id);
+      const { data, error } = await supabase.from(TABLE).delete().eq('id', id).select('id');
       if (error) throw error;
+      if (Array.isArray(data)) assertRowsAffected(data);
       return true;
     } catch (error) {
+      notifyIfPermissionDenied(error, 'manage_views', 'view');
       console.error('Error deleting saved pipeline view:', error);
       return false;
     }

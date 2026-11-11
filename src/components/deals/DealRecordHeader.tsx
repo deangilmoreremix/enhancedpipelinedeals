@@ -7,6 +7,8 @@ import { orderDealIds, neighbours } from './dealOrder';
 import { setFavorite } from '../../services/favoritesService';
 import { errorMessage } from '../../services/dealRecordShared';
 import { pushToast } from '../../store/dealRecordStore';
+import { usePermissions } from '../../hooks/usePermissions';
+import { toastFailure } from '../../utils/permissionToast';
 
 interface DealRecordHeaderProps {
   deal: Deal;
@@ -19,6 +21,9 @@ export const DealRecordHeader: React.FC<DealRecordHeaderProps> = ({ deal, onFind
   const navigate = useNavigate();
   const deals = useDealStore(s => s.deals);
   const stages = useDealStore(s => s.stages);
+  const perms = usePermissions();
+  const canEdit = perms.allowed('edit', 'deal', deal);
+  const canDelete = perms.allowed('delete', 'deal', deal);
   const [menu, setMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -40,7 +45,7 @@ export const DealRecordHeader: React.FC<DealRecordHeaderProps> = ({ deal, onFind
       await useDealStore.getState().updateDeal(deal.id, { isFavorite: next }); // optimistic + persists deals.is_favorite
       await setFavorite('deal', deal.id, next);
     } catch (e) {
-      pushToast('error', `Could not update favorite: ${errorMessage(e)}`);
+      toastFailure(e, 'edit', 'deal', `Could not update favorite: ${errorMessage(e)}`);
     }
   };
 
@@ -52,7 +57,7 @@ export const DealRecordHeader: React.FC<DealRecordHeaderProps> = ({ deal, onFind
       pushToast('success', 'Deal moved to Deleted deals');
       navigate(nav.next ? `/deals/${nav.next}` : nav.prev ? `/deals/${nav.prev}` : '/');
     } catch (e) {
-      pushToast('error', `Could not delete deal: ${errorMessage(e)}`);
+      toastFailure(e, 'delete', 'deal', `Could not delete deal: ${errorMessage(e)}`);
     }
   };
 
@@ -75,6 +80,8 @@ export const DealRecordHeader: React.FC<DealRecordHeaderProps> = ({ deal, onFind
           aria-label={deal.isFavorite ? 'Remove from favorites' : 'Add to favorites'}
           aria-pressed={!!deal.isFavorite}
           onClick={() => void toggleStar()}
+          disabled={!canEdit}
+          title={canEdit ? undefined : perms.can('edit', 'deal', deal).reason}
           className={iconBtn}
         >
           <Star className={`h-5 w-5 ${deal.isFavorite ? 'fill-yellow-400 text-yellow-500' : ''}`} />
@@ -85,16 +92,22 @@ export const DealRecordHeader: React.FC<DealRecordHeaderProps> = ({ deal, onFind
           </button>
           {menu && (
             <div role="menu" className="absolute right-0 z-30 mt-1 w-56 overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-800">
+              {canEdit && canDelete && (
               <button role="menuitem" type="button" onClick={() => { setMenu(false); onFindDuplicates(); }} className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-800 hover:bg-gray-50 dark:text-gray-100 dark:hover:bg-gray-700">
                 <GitMerge className="h-4 w-4" />Find duplicates / Merge
               </button>
+              )}
               <button role="menuitem" type="button" onClick={() => { setMenu(false); onShowDeleted(); }} className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-800 hover:bg-gray-50 dark:text-gray-100 dark:hover:bg-gray-700">
                 <Archive className="h-4 w-4" />Deleted deals
               </button>
-              <div className="my-1 border-t border-gray-100 dark:border-gray-700" />
-              <button role="menuitem" type="button" onClick={() => void remove()} className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/30">
-                <Trash2 className="h-4 w-4" />Delete deal
-              </button>
+              {canDelete && (
+                <>
+                  <div className="my-1 border-t border-gray-100 dark:border-gray-700" />
+                  <button role="menuitem" type="button" onClick={() => void remove()} className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/30">
+                    <Trash2 className="h-4 w-4" />Delete deal
+                  </button>
+                </>
+              )}
             </div>
           )}
         </div>

@@ -3,6 +3,7 @@ import { Deal } from '../types';
 import { dealFromRow, dealToRow, DealRow } from './dealMapper';
 import { supabase as sharedSupabase } from '../lib/core/supabaseClient';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { assertRowsAffected } from '../utils/rlsError';
 
 interface Database {
   public: {
@@ -436,12 +437,15 @@ class SupabaseService {
   }
 
   async deleteDeal(id: string): Promise<void> {
-    const { error } = await this.supabase
+    const { data, error } = await this.supabase
       .from('deals')
       .delete()
-      .eq('id', id);
+      .eq('id', id)
+      .select('id');
 
     if (error) throw error;
+    // RLS filters DELETEs silently (0 rows, no error): treat as permission denied
+    assertRowsAffected(data);
   }
 
   // Activity tracking

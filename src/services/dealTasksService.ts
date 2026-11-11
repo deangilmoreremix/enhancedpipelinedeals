@@ -1,4 +1,5 @@
 import { supabase } from '../lib/core/supabaseClient';
+import { assertRowsAffected } from '../utils/rlsError';
 import { canUseRemote, getCurrentUserId, localId } from './dealRecordShared';
 
 export type DealTaskStatus = 'open' | 'done';
@@ -108,8 +109,9 @@ export async function deleteTask(dealId: string, id: string): Promise<void> {
     localTasks.set(dealId, (localTasks.get(dealId) ?? []).filter(t => t.id !== id));
     return;
   }
-  const { error } = await supabase.from('tasks').delete().eq('id', id);
+  const { data, error } = await supabase.from('tasks').delete().eq('id', id).select('id');
   if (error) throw error;
+  if (Array.isArray(data)) assertRowsAffected(data); // RLS filters silently (0 rows)
 }
 
 export const DealTasksService = { listTasks, createTask, updateTask, deleteTask, sortTasks, isOverdue };

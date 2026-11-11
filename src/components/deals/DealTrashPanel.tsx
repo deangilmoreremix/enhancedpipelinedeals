@@ -8,6 +8,8 @@ import { fetchDeletedDeals, restoreDealRemote } from '../../services/dealRecordS
 import { errorMessage, isUuid } from '../../services/dealRecordShared';
 import { pushToast } from '../../store/dealRecordStore';
 import { formatMoney } from '../../utils/currencyMicros';
+import { usePermissions } from '../../hooks/usePermissions';
+import { toastFailure } from '../../utils/permissionToast';
 
 interface DealTrashPanelProps {
   isOpen: boolean;
@@ -18,6 +20,7 @@ interface DealTrashPanelProps {
 
 /** "Deleted deals" list: store.trash (this session) merged with soft-deleted rows from Supabase. */
 export const DealTrashPanel: React.FC<DealTrashPanelProps> = ({ isOpen, onClose, onRestored }) => {
+  const perms = usePermissions();
   const trash = useDealStore(s => s.trash);
   const [remote, setRemote] = useState<Deal[]>([]);
   const [loading, setLoading] = useState(false);
@@ -49,7 +52,7 @@ export const DealTrashPanel: React.FC<DealTrashPanelProps> = ({ isOpen, onClose,
       pushToast('success', `Restored "${d.title ?? d.company}"`);
       onRestored?.(d.id);
     } catch (e) {
-      pushToast('error', `Could not restore deal: ${errorMessage(e)}`);
+      toastFailure(e, 'restore', 'deal', `Could not restore deal: ${errorMessage(e)}`);
     } finally {
       setBusy(null);
     }
@@ -75,7 +78,7 @@ export const DealTrashPanel: React.FC<DealTrashPanelProps> = ({ isOpen, onClose,
                   {d.deletedAt && ` - deleted ${d.deletedAt.toLocaleDateString()}`}
                 </p>
               </div>
-              <Button size="sm" variant="outline" disabled={busy === d.id} onClick={() => void restore(d)}>
+              <Button size="sm" variant="outline" disabled={busy === d.id || !perms.allowed('edit', 'deal', d)} title={perms.allowed('edit', 'deal', d) ? undefined : perms.can('edit', 'deal', d).reason} onClick={() => void restore(d)}>
                 <RotateCcw className="mr-1 h-4 w-4" />Restore
               </Button>
             </li>

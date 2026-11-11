@@ -7,9 +7,14 @@
  * 3. Verifies installation
  */
 
-import { getSupabaseService } from '../services/supabaseService';
+import { getSupabaseService, isSupabaseConfigured } from '../services/supabaseService';
 
 export async function initializeAllFeatures(): Promise<void> {
+  // Demo mode: no database to seed (SupabaseService has no client; touching it throws).
+  if (!isSupabaseConfigured) {
+    console.log('ℹ️ Supabase not configured - skipping feature initialization (demo mode)');
+    return;
+  }
   console.log('🚀 Starting complete feature initialization...');
   
   const supabaseService = getSupabaseService();

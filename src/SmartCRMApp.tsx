@@ -10,6 +10,7 @@ import { GamificationProvider } from './contexts/GamificationContext';
 import { AuthProvider } from './components/auth/AuthProvider';
 import ErrorBoundary from './components/ErrorBoundary';
 import { BrowserRouter, MemoryRouter } from 'react-router-dom';
+import { isEmbeddedHost } from './utils/embeddedHost';
 
 export default function SmartCRMApp(props: SmartCRMRemoteProps) {
   useEffect(() => {
@@ -31,7 +32,7 @@ export default function SmartCRMApp(props: SmartCRMRemoteProps) {
     }
   }, []);
 
-  const embedded = !!(props && (props.initialRoute || props.sharedData));
+  const embedded = isEmbeddedHost(props);
   const Router = embedded ? MemoryRouter : BrowserRouter;
   const routerProps: any = embedded ? { initialEntries: [props.initialRoute || '/'] } : {};
 

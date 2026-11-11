@@ -1,5 +1,5 @@
 // netlify/functions/trigger-autopilot.js
-const { supabase } = require("./_supabaseClient");
+import { supabase } from "./_supabaseClient";
 
 // Reuse the same sequence-running logic as run-agent (but scoped as helper)
 async function runSdrStepForContact(contact, settings) {
@@ -40,7 +40,7 @@ Step ${nextStep}/${sequenceLength} for ${contact.name || "contact"}.
   return { success: true, step: nextStep, messageText };
 }
 
-exports.handler = async (event, context) => {
+export const handler = async (event, context) => {
   if (event.httpMethod === "OPTIONS") {
     return {
       statusCode: 200,

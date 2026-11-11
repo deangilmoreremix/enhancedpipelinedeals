@@ -13,17 +13,19 @@ create table if not exists public.feature_flags (
 alter table public.feature_flags enable row level security;
 
 -- Create policy to allow authenticated users to read feature flags
+drop policy if exists "Allow authenticated users to read feature flags" on public.feature_flags;
 create policy "Allow authenticated users to read feature flags"
   on public.feature_flags for select
   to authenticated
   using (true);
 
 -- Create policy to allow service role to manage feature flags
+drop policy if exists "Allow service role full access" on public.feature_flags;
 create policy "Allow service role full access"
   on public.feature_flags for all
   to service_role
   using (true);
 
 -- Create indexes
-create index idx_feature_flags_feature_key on public.feature_flags(feature_key);
-create index idx_feature_flags_enabled on public.feature_flags(enabled);
+create index if not exists idx_feature_flags_feature_key on public.feature_flags(feature_key);
+create index if not exists idx_feature_flags_enabled on public.feature_flags(enabled);

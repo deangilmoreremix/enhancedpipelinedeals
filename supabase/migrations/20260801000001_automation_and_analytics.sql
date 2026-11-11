@@ -37,6 +37,9 @@ begin
 end
 $fn$;
 
+-- SECURITY DEFINER + mutates rows: only the server-side runner (service_role) may call it.
+-- (Supabase default privileges also grant EXECUTE directly to anon/authenticated, so revoke those explicitly.)
+revoke all on function public.claim_workflow_events(integer, integer) from public, anon, authenticated;
 grant execute on function public.claim_workflow_events(integer, integer) to service_role;
 
 -- ---------------------------------------------------------------------------
@@ -63,7 +66,10 @@ update public.sla_instances set started_at = created_at where started_at is null
 -- ---------------------------------------------------------------------------
 -- Run history: view + RPC
 -- ---------------------------------------------------------------------------
-create or replace view public.workflow_run_history
+-- Re-run safe: 20260811000001 later adds a `steps` column to this view/rowtype, so drop first.
+drop function if exists public.get_workflow_run_history(integer, text);
+drop view if exists public.workflow_run_history;
+create view public.workflow_run_history
 with (security_invoker = true) as
 select
   e.id,

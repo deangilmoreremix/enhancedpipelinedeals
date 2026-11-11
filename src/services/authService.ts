@@ -316,6 +316,7 @@ class AuthService {
   // Supabase-compatible methods for AuthProvider
   async getCurrentSession(): Promise<{ data: { session: Session | null }; error: Error | null }> {
     try {
+      if (!this.supabase) return { data: { session: null }, error: null };
       const { data: { session }, error } = await this.supabase.auth.getSession();
       return { data: { session }, error };
     } catch (error) {
@@ -324,6 +325,10 @@ class AuthService {
   }
 
   onAuthStateChange(callback: (event: string, session: Session | null) => void): { data: { subscription: { unsubscribe: () => void } } } {
+    // Demo mode (no Supabase configured): there is no auth client, so nothing to subscribe to.
+    if (!this.supabase) {
+      return { data: { subscription: { unsubscribe: () => {} } } };
+    }
     const { data: { subscription } } = this.supabase.auth.onAuthStateChange((event, session) => {
       callback(event, session);
     });

@@ -37,6 +37,9 @@ alter table public.saved_pipeline_views add column if not exists usage_count int
 alter table public.saved_pipeline_views add column if not exists created_at timestamptz default now();
 alter table public.saved_pipeline_views add column if not exists updated_at timestamptz default now();
 
+-- the original table (20260429000001) declared view_type NOT NULL without a default
+alter table public.saved_pipeline_views alter column view_type set default 'board';
+
 -- view_type: board|table|list|calendar|dashboard (+ legacy kanban/timeline)
 alter table public.saved_pipeline_views drop constraint if exists saved_pipeline_views_view_type_check;
 alter table public.saved_pipeline_views

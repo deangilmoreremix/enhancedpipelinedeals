@@ -34,7 +34,20 @@ create policy "Service role manage deal-images" on storage.objects for all to se
 -- ---------------------------------------------------------------------------
 -- Semantic search
 -- ---------------------------------------------------------------------------
-create extension if not exists vector;
+-- pgvector is optional: when the extension is not installable (e.g. a vanilla local
+-- Postgres) the semantic-search objects are skipped with a notice instead of aborting.
+do $vec$
+begin
+  if not exists (select 1 from pg_extension where extname = 'vector') then
+    if exists (select 1 from pg_available_extensions where name = 'vector') then
+      create extension vector;
+    else
+      raise notice 'pgvector not available: skipping contact_embeddings / match_contacts';
+      return;
+    end if;
+  end if;
+
+  execute $sql$
 
 create table if not exists public.contact_embeddings (
   contact_id uuid primary key references public.contacts(id) on delete cascade,
@@ -60,14 +73,17 @@ create or replace function public.match_contacts(
 )
 returns table (contact_id uuid, content text, similarity float)
 language sql stable
-as $$
+as $fn$
   select ce.contact_id, ce.content, (1 - (ce.embedding <=> query_embedding))::float as similarity
   from public.contact_embeddings ce
   where ce.embedding is not null
     and (1 - (ce.embedding <=> query_embedding)) >= min_similarity
   order by ce.embedding <=> query_embedding
   limit match_count;
-$$;
+$fn$;
 
 revoke all on function public.match_contacts(vector, int, float) from public, anon;
 grant execute on function public.match_contacts(vector, int, float) to authenticated, service_role;
+  $sql$;
+end
+$vec$;

@@ -1,6 +1,6 @@
 // netlify/functions/run-agent.js
-const { supabase } = require("./_supabaseClient");
-const { respond } = require("./_openai");
+import { supabase } from "./_supabaseClient";
+import { respond } from "./_openai";
 
 async function generateMessageWithAI({ agentId, personaId, sequenceLength, step, contact }) {
   try {
@@ -43,7 +43,7 @@ This is where your real SDR copy would go.
   }
 }
 
-exports.handler = async (event, context) => {
+export const handler = async (event, context) => {
   if (event.httpMethod === "OPTIONS") {
     return {
       statusCode: 200,

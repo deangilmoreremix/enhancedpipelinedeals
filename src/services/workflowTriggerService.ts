@@ -1,4 +1,4 @@
-import { supabase } from './supabaseService';
+import { supabase, isSupabaseConfigured } from './supabaseService';
 import {
   WorkflowTrigger,
   TriggerType,
@@ -292,6 +292,7 @@ export class WorkflowTriggerService {
    * Load and schedule recurring triggers
    */
   private async loadScheduledTriggers(): Promise<void> {
+    if (!isSupabaseConfigured) return; // demo mode: no database to read triggers from
     try {
       const { data: scheduledTriggers, error } = await supabase
         .from('scheduled_triggers')

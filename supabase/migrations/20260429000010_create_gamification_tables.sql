@@ -14,11 +14,13 @@ create table if not exists public.achievements (
 );
 
 alter table public.achievements enable row level security;
+drop policy if exists "Allow authenticated access" on public.achievements;
 create policy "Allow authenticated access" on public.achievements for select to authenticated using (true);
+drop policy if exists "Allow service role full access" on public.achievements;
 create policy "Allow service role full access" on public.achievements for all to service_role using (true);
 
-create index idx_achievements_rarity on public.achievements(rarity);
-create index idx_achievements_category on public.achievements(category);
+create index if not exists idx_achievements_rarity on public.achievements(rarity);
+create index if not exists idx_achievements_category on public.achievements(category);
 
 -- User Achievements Table (junction between contacts and achievements)
 create table if not exists public.user_achievements (
@@ -30,12 +32,15 @@ create table if not exists public.user_achievements (
 );
 
 alter table public.user_achievements enable row level security;
+drop policy if exists "Users can view their achievements" on public.user_achievements;
 create policy "Users can view their achievements" on public.user_achievements for select using (auth.uid() = user_id);
+drop policy if exists "Users can insert their achievements" on public.user_achievements;
 create policy "Users can insert their achievements" on public.user_achievements for insert with check (auth.uid() = user_id);
+drop policy if exists "Allow service role full access" on public.user_achievements;
 create policy "Allow service role full access" on public.user_achievements for all to service_role using (true);
 
-create index idx_user_achievements_user_id on public.user_achievements(user_id);
-create index idx_user_achievements_achievement_id on public.user_achievements(achievement_id);
+create index if not exists idx_user_achievements_user_id on public.user_achievements(user_id);
+create index if not exists idx_user_achievements_achievement_id on public.user_achievements(achievement_id);
 
 -- Challenges Table
 create table if not exists public.challenges (
@@ -54,7 +59,9 @@ create table if not exists public.challenges (
 );
 
 alter table public.challenges enable row level security;
+drop policy if exists "Allow authenticated access" on public.challenges;
 create policy "Allow authenticated access" on public.challenges for select to authenticated using (true);
+drop policy if exists "Allow service role full access" on public.challenges;
 create policy "Allow service role full access" on public.challenges for all to service_role using (true);
 
-create index idx_challenges_end_date on public.challenges(end_date);
+create index if not exists idx_challenges_end_date on public.challenges(end_date);

@@ -75,7 +75,8 @@ export default async (req: Request): Promise<Response> => {
 
     if (body.action === 'realtime_token') {
       // Mint an ephemeral client secret; the browser connects to OpenAI over WebRTC with it.
-      const r = await fetch('https://api.openai.com/v1/realtime/client_secrets', {
+      const base = (process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1').replace(/\/+$/, '');
+      const r = await fetch(`${base}/realtime/client_secrets`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({

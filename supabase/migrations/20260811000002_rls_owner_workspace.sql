@@ -537,6 +537,52 @@ select public._rls_install('workspaces',
 drop function if exists public._rls_install(text, text, text, text, text, boolean, boolean, boolean, boolean);
 
 -- ---------------------------------------------------------------------------
+-- merge_deals is SECURITY DEFINER (it re-points children across tables), so in workspace mode it must itself
+-- enforce edit rights: the caller must be able to edit the kept deal and every merged deal (this also rejects
+-- anon and other-workspace callers). Open mode, service_role and direct DB sessions (no JWT role) are unchanged.
+-- ---------------------------------------------------------------------------
+create or replace function public.merge_deals(keep uuid, merge_ids uuid[]) returns void
+language plpgsql security definer set search_path = public as $fn$
+declare m uuid;
+begin
+  merge_ids := array_remove(merge_ids, keep);
+  if merge_ids is null or array_length(merge_ids, 1) is null then
+    return;
+  end if;
+
+  if public.rls_mode() = 'workspace' and auth.role() is not null and auth.role() <> 'service_role' then
+    if not public.can_edit_deal(keep) then
+      raise exception 'not allowed to edit the deal to keep' using errcode = '42501';
+    end if;
+    foreach m in array merge_ids loop
+      if not public.can_edit_deal(m) then
+        raise exception 'not allowed to merge deal %', m using errcode = '42501';
+      end if;
+    end loop;
+  end if;
+
+  update public.notes set deal_id = keep where deal_id = any(merge_ids);
+  update public.deal_files set deal_id = keep where deal_id = any(merge_ids);
+  update public.tasks set deal_id = keep where deal_id = any(merge_ids);
+  update public.deal_activities set deal_id = keep where deal_id = any(merge_ids);
+  update public.calendar_events set deal_id = keep where deal_id = any(merge_ids);
+
+  delete from public.favorites f
+  where f.entity_type = 'deal' and f.entity_id = any(merge_ids)
+    and exists (
+      select 1 from public.favorites k
+      where k.entity_type = 'deal' and k.entity_id = keep and k.user_id is not distinct from f.user_id
+    );
+  update public.favorites set entity_id = keep
+  where entity_type = 'deal' and entity_id = any(merge_ids);
+
+  update public.deals set deleted_at = now(), updated_at = now() where id = any(merge_ids);
+end
+$fn$;
+
+grant execute on function public.merge_deals(uuid, uuid[]) to authenticated, anon, service_role;
+
+-- ---------------------------------------------------------------------------
 -- storage: deal-files bucket (path "<dealId>/<ts>-<name>")
 -- ---------------------------------------------------------------------------
 do $st$

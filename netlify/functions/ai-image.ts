@@ -12,6 +12,7 @@
 import { toFile } from 'openai';
 import { createClient } from '@supabase/supabase-js';
 import { authorize, rateLimited, getClient, CORS_HEADERS } from './_openai';
+import { assertSafeUrl } from './_workflowSteps';
 
 const BUCKET = 'ai-images';
 const GENERATE_MODEL = process.env.OPENAI_IMAGE_MODEL || 'gpt-image-2.6-flare';
@@ -36,6 +37,32 @@ async function ensureBucket() {
   if (!data) {
     await db().storage.createBucket(BUCKET, { public: true, fileSizeLimit: 10 * 1024 * 1024, allowedMimeTypes: ['image/png', 'image/jpeg', 'image/webp'] });
   }
+}
+
+const MAX_SOURCE_IMAGE_BYTES = 20 * 1024 * 1024;
+
+class BadImageUrl extends Error {}
+
+/**
+ * Fetches the image to edit. Only the project's own Supabase origin or a public https URL is allowed: the gateway is
+ * reachable with the (public) anon key, so an unchecked server-side fetch would be an SSRF primitive.
+ */
+async function fetchSourceImage(raw: string): Promise<{ bytes: Buffer; type: string }> {
+  let url: URL;
+  try { url = new URL(raw); } catch { throw new BadImageUrl('imageUrl is not a valid URL'); }
+  const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+  let own = false;
+  try { own = Boolean(supabaseUrl) && new URL(supabaseUrl as string).origin === url.origin; } catch { /* ignore */ }
+  if (!own) {
+    try { await assertSafeUrl(url.toString()); } catch (e) { throw new BadImageUrl(`imageUrl rejected: ${(e as Error).message}`); }
+  }
+  const src = await fetch(url, { redirect: own ? 'follow' : 'error' }).catch(() => null);
+  if (!src || !src.ok) throw new BadImageUrl('Could not fetch imageUrl');
+  const type = (src.headers.get('content-type') || 'image/png').split(';')[0].trim();
+  if (!/^image\/(png|jpe?g|webp)$/.test(type)) throw new BadImageUrl('imageUrl must be a png, jpeg or webp image');
+  const bytes = Buffer.from(await src.arrayBuffer());
+  if (bytes.length > MAX_SOURCE_IMAGE_BYTES) throw new BadImageUrl('imageUrl image is larger than 20 MB');
+  return { bytes, type };
 }
 
 const SIZES = new Set(['1024x1024', '1536x1024', '1024x1536', 'auto']);
@@ -70,10 +97,8 @@ export default async (req: Request): Promise<Response> => {
     if (action === 'edit') {
       model = EDIT_MODEL;
       if (!body.imageUrl) return reply(400, { ok: false, error: 'imageUrl is required for edit' });
-      const src = await fetch(body.imageUrl);
-      if (!src.ok) return reply(400, { ok: false, error: 'Could not fetch imageUrl' });
-      const type = src.headers.get('content-type') || 'image/png';
-      const image = await toFile(Buffer.from(await src.arrayBuffer()), 'source.png', { type });
+      const source = await fetchSourceImage(String(body.imageUrl));
+      const image = await toFile(source.bytes, 'source.png', { type: source.type });
       const mask = body.mask ? await toFile(Buffer.from(body.mask, 'base64'), 'mask.png', { type: 'image/png' }) : undefined;
       result = await (openai.images as any).edit({ model, image, prompt, size, quality, ...(mask ? { mask } : {}) });
     } else {
@@ -84,8 +109,9 @@ export default async (req: Request): Promise<Response> => {
     if (!item?.b64_json) return reply(502, { ok: false, error: 'Image API returned no image' });
 
     await ensureBucket();
-    const folder = [body.entityType, body.entityId].filter(Boolean).join('/') || 'misc';
-    const path = `${folder.replace(/[^a-zA-Z0-9/_-]/g, '')}/${Date.now()}.png`;
+    // sanitise per segment so the returned path is exactly the stored path (no empty segments)
+    const folder = [body.entityType, body.entityId].map((x) => String(x ?? '').replace(/[^a-zA-Z0-9_-]/g, '')).filter(Boolean).join('/') || 'misc';
+    const path = `${folder}/${Date.now()}.png`;
     const { error: upErr } = await db().storage.from(BUCKET).upload(path, Buffer.from(item.b64_json, 'base64'), {
       contentType: 'image/png',
       upsert: false,
@@ -95,6 +121,7 @@ export default async (req: Request): Promise<Response> => {
     const { data: pub } = db().storage.from(BUCKET).getPublicUrl(path);
     return reply(200, { ok: true, url: pub.publicUrl, path, model, revised_prompt: item.revised_prompt ?? null });
   } catch (e: any) {
+    if (e instanceof BadImageUrl) return reply(400, { ok: false, error: e.message });
     const status = typeof e?.status === 'number' && e.status >= 400 && e.status < 600 ? e.status : 500;
     return reply(status, { ok: false, error: e?.message || 'Image request failed' });
   }

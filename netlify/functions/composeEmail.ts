@@ -5,10 +5,23 @@
 import { createClient } from '@supabase/supabase-js';
 import { authorize, rateLimited, respondStream, CORS_HEADERS } from './_openai';
 
-const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY!
-);
+let _supabase: ReturnType<typeof createClient> | null = null;
+function db() {
+  if (!_supabase) {
+    const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
+    if (!url || !key) throw new Error('Supabase service credentials are not configured on the server');
+    _supabase = createClient(url, key);
+  }
+  return _supabase;
+}
+
+/** Contact line for the system prompt; never prints "undefined" for missing fields. Exported for tests. */
+export function describeContact(contact: { name?: string | null; company?: string | null } | null | undefined): string {
+  if (!contact) return 'Contact: (unknown contact; do not invent details)';
+  const name = contact.name || 'the contact';
+  return contact.company ? `Contact: ${name} at ${contact.company}` : `Contact: ${name}`;
+}
 
 const err = (status: number, error: string) =>
   new Response(JSON.stringify({ error }), { status, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } });
@@ -19,15 +32,19 @@ export default async (req: Request): Promise<Response> => {
   if (!(await authorize(req.headers.get('authorization') || undefined))) return err(401, 'Unauthorized');
   if (rateLimited(req.headers.get('x-nf-client-connection-ip') || 'anon')) return err(429, 'Rate limit exceeded');
 
-  try {
-    const { contactId, dealId, input, personaId } = await req.json();
+  let payload: any;
+  try { payload = await req.json(); } catch { return err(400, 'Invalid JSON body'); }
+  const { contactId, dealId, input, personaId } = payload ?? {};
+  if (!contactId) return err(400, 'contactId is required');
 
+  try {
+    const supabase = db();
     // Fetch contact and deal context
     const { data: contact } = await supabase
       .from('contacts')
       .select('*')
       .eq('id', contactId)
-      .single();
+      .maybeSingle<any>();
 
     let dealContext = '';
     if (dealId) {
@@ -35,7 +52,7 @@ export default async (req: Request): Promise<Response> => {
         .from('deals')
         .select('*')
         .eq('id', dealId)
-        .single();
+        .maybeSingle<any>();
       dealContext = deal ? `Deal: ${deal.title} (${deal.value} value, ${deal.stage} stage)` : '';
     }
 
@@ -46,7 +63,7 @@ export default async (req: Request): Promise<Response> => {
         .from('sdr_personas')
         .select('persona_prompt')
         .eq('id', personaId)
-        .single();
+        .maybeSingle<any>();
       personaPrompt = persona?.persona_prompt || '';
     }
 
@@ -54,7 +71,7 @@ export default async (req: Request): Promise<Response> => {
 
 ${personaPrompt}
 
-Contact: ${contact?.name} at ${contact?.company}
+${describeContact(contact)}
 ${dealContext}
 
 Guidelines:
@@ -85,6 +102,7 @@ ${input ? `Improve and complete this draft: ${input}` : 'Write a compelling emai
         } catch (err) {
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: String((err as Error).message) })}\n\n`));
         }
+        controller.enqueue(encoder.encode('data: [DONE]\n\n'));
         controller.close();
       }
     });

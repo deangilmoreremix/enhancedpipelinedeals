@@ -1,6 +1,6 @@
 // Responses-API based SDR / AE agent builders.
 // (Replaces the old openai-agents + AgentMail toolkit setup; AgentMail was removed from the project.)
-const { respond, respondWithTools } = require("./_openai");
+import { respond, respondWithTools } from "./_openai";
 
 function makeRunner(instructions, tier) {
   return {
@@ -53,4 +53,4 @@ Rules:
   return { agent, runner: makeRunner(instructions, "default") };
 }
 
-module.exports = { buildSdrAgent, buildAeAgent };
+export { buildSdrAgent, buildAeAgent };

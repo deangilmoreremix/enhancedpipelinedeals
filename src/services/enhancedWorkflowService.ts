@@ -1,4 +1,4 @@
-import { supabase } from './supabaseService';
+import { supabase, isSupabaseConfigured } from './supabaseService';
 import {
   Workflow,
   WorkflowExecution,
@@ -541,6 +541,7 @@ export class EnhancedWorkflowService {
   }
 
   async getWebhookConfigs(): Promise<WebhookConfiguration[]> {
+    if (!isSupabaseConfigured) return []; // demo mode: no database
     try {
       const { data, error } = await supabase
         .from('webhook_configurations')

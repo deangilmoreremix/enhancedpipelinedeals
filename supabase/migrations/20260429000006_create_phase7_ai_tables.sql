@@ -197,59 +197,79 @@ alter table public.prompt_executions enable row level security;
 
 -- Simple RLS: Allow authenticated users full access (tables will be secured when core entities exist)
 -- deal_scorings
+drop policy if exists "Allow authenticated access" on public.deal_scorings;
 create policy "Allow authenticated access" on public.deal_scorings for select to authenticated using (true);
+drop policy if exists "Allow service role full access" on public.deal_scorings;
 create policy "Allow service role full access" on public.deal_scorings for all to service_role using (true);
 
 -- competitor_analyses
+drop policy if exists "Allow authenticated access" on public.competitor_analyses;
 create policy "Allow authenticated access" on public.competitor_analyses for select to authenticated using (true);
+drop policy if exists "Allow service role full access" on public.competitor_analyses;
 create policy "Allow service role full access" on public.competitor_analyses for all to service_role using (true);
 
 -- deal_insights
+drop policy if exists "Allow authenticated access" on public.deal_insights;
 create policy "Allow authenticated access" on public.deal_insights for select to authenticated using (true);
+drop policy if exists "Allow service role full access" on public.deal_insights;
 create policy "Allow service role full access" on public.deal_insights for all to service_role using (true);
 
 -- automated_notes
+drop policy if exists "Allow authenticated access" on public.automated_notes;
 create policy "Allow authenticated access" on public.automated_notes for select to authenticated using (true);
+drop policy if exists "Allow service role full access" on public.automated_notes;
 create policy "Allow service role full access" on public.automated_notes for all to service_role using (true);
 
 -- action_items
+drop policy if exists "Allow authenticated access" on public.action_items;
 create policy "Allow authenticated access" on public.action_items for select to authenticated using (true);
+drop policy if exists "Allow service role full access" on public.action_items;
 create policy "Allow service role full access" on public.action_items for all to service_role using (true);
 
 -- follow_ups
+drop policy if exists "Allow authenticated access" on public.follow_ups;
 create policy "Allow authenticated access" on public.follow_ups for select to authenticated using (true);
+drop policy if exists "Allow service role full access" on public.follow_ups;
 create policy "Allow service role full access" on public.follow_ups for all to service_role using (true);
 
 -- data_enrichments
+drop policy if exists "Allow authenticated access" on public.data_enrichments;
 create policy "Allow authenticated access" on public.data_enrichments for select to authenticated using (true);
+drop policy if exists "Allow service role full access" on public.data_enrichments;
 create policy "Allow service role full access" on public.data_enrichments for all to service_role using (true);
 
 -- record_classifications
+drop policy if exists "Allow authenticated access" on public.record_classifications;
 create policy "Allow authenticated access" on public.record_classifications for select to authenticated using (true);
+drop policy if exists "Allow service role full access" on public.record_classifications;
 create policy "Allow service role full access" on public.record_classifications for all to service_role using (true);
 
 -- summary_generations
+drop policy if exists "Allow authenticated access" on public.summary_generations;
 create policy "Allow authenticated access" on public.summary_generations for select to authenticated using (true);
+drop policy if exists "Allow service role full access" on public.summary_generations;
 create policy "Allow service role full access" on public.summary_generations for all to service_role using (true);
 
 -- custom_ai_prompts
+drop policy if exists "Allow authenticated access" on public.custom_ai_prompts;
 create policy "Allow authenticated access" on public.custom_ai_prompts for select to authenticated using (true);
+drop policy if exists "Allow service role full access" on public.custom_ai_prompts;
 create policy "Allow service role full access" on public.custom_ai_prompts for all to service_role using (true);
 
 -- Indexes for performance
-create index idx_deal_scorings_deal_id on public.deal_scorings(deal_id);
-create index idx_competitor_analyses_deal_id on public.competitor_analyses(deal_id);
-create index idx_deal_insights_deal_id on public.deal_insights(deal_id);
-create index idx_automated_notes_communication_id on public.automated_notes(communication_id);
-create index idx_automated_notes_deal_id on public.automated_notes(deal_id);
-create index idx_data_enrichments_entity on public.data_enrichments(entity_id, entity_type);
-create index idx_record_classifications_entity on public.record_classifications(entity_id, entity_type);
-create index idx_custom_ai_prompts_user_category on public.custom_ai_prompts(user_id, category);
-create index idx_custom_ai_prompts_category on public.custom_ai_prompts(category);
-create index idx_prompt_executions_prompt_id on public.prompt_executions(prompt_id);
-create index idx_prompt_executions_user_id on public.prompt_executions(user_id);
-create index idx_summary_generations_entity on public.summary_generations(entity_id, entity_type);
-create index idx_action_items_deal_id on public.action_items(deal_id);
-create index idx_action_items_status on public.action_items(status);
-create index idx_follow_ups_deal_id on public.follow_ups(deal_id);
-create index idx_follow_ups_completed on public.follow_ups(completed);
+create index if not exists idx_deal_scorings_deal_id on public.deal_scorings(deal_id);
+create index if not exists idx_competitor_analyses_deal_id on public.competitor_analyses(deal_id);
+create index if not exists idx_deal_insights_deal_id on public.deal_insights(deal_id);
+create index if not exists idx_automated_notes_communication_id on public.automated_notes(communication_id);
+create index if not exists idx_automated_notes_deal_id on public.automated_notes(deal_id);
+create index if not exists idx_data_enrichments_entity on public.data_enrichments(entity_id, entity_type);
+create index if not exists idx_record_classifications_entity on public.record_classifications(entity_id, entity_type);
+create index if not exists idx_custom_ai_prompts_user_category on public.custom_ai_prompts(user_id, category);
+create index if not exists idx_custom_ai_prompts_category on public.custom_ai_prompts(category);
+create index if not exists idx_prompt_executions_prompt_id on public.prompt_executions(prompt_id);
+create index if not exists idx_prompt_executions_user_id on public.prompt_executions(user_id);
+create index if not exists idx_summary_generations_entity on public.summary_generations(entity_id, entity_type);
+create index if not exists idx_action_items_deal_id on public.action_items(deal_id);
+create index if not exists idx_action_items_status on public.action_items(status);
+create index if not exists idx_follow_ups_deal_id on public.follow_ups(deal_id);
+create index if not exists idx_follow_ups_completed on public.follow_ups(completed);

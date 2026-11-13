@@ -5,7 +5,6 @@ import { enUS } from 'date-fns/locale';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import { CalendarEventService, CalendarEvent } from '../../services/calendarEventService';
 import { DealDeadlineService, DealDeadline } from '../../services/dealDeadlineService';
-import { CalendarOAuthService } from '../../services/calendarOAuthService';
 import { ReminderService } from '../../services/reminderService';
 import { useFeatureFlag } from '../../hooks/useFeatureFlag';
 import { Button } from '../ui/Button';
@@ -13,7 +12,7 @@ import { Modal } from '../ui/Modal';
 import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
 import { Badge } from '../ui/Badge';
-import { Calendar as CalendarIcon, Plus, Settings, Sync, Users, Clock, MapPin } from 'lucide-react';
+import { Calendar as CalendarIcon, Plus, Users, Clock, MapPin } from 'lucide-react';
 
 const localizer = dateFnsLocalizer({
   format,
@@ -24,21 +23,6 @@ const localizer = dateFnsLocalizer({
     'en-US': enUS,
   },
 });
-
-interface CalendarIntegration {
-  id: string;
-  provider: 'google' | 'outlook' | 'apple';
-  email: string;
-  settings: {
-    syncEnabled: boolean;
-    bidirectionalSync: boolean;
-    defaultReminderMinutes: number;
-    autoCreateEvents: boolean;
-  };
-  syncStatus: 'idle' | 'syncing' | 'error';
-  syncError?: string;
-  isActive: boolean;
-}
 
 interface TwentyCalendarProps {
   userId: string;
@@ -59,17 +43,12 @@ export const TwentyCalendar: React.FC<TwentyCalendarProps> = ({
 }) => {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [deadlines, setDeadlines] = useState<DealDeadline[]>([]);
-  const [integrations, setIntegrations] = useState<CalendarIntegration[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showSettingsModal, setShowSettingsModal] = useState(false);
-  const [syncing, setSyncing] = useState(false);
 
   // Feature flags
   const calendarPhase6Enabled = useFeatureFlag('twenty_calendar_phase6');
-  const oauthGoogleEnabled = useFeatureFlag('calendar_oauth_google');
-  const oauthOutlookEnabled = useFeatureFlag('calendar_oauth_outlook');
   const meetingSchedulingEnabled = useFeatureFlag('calendar_meeting_scheduling');
   const eventLinkingEnabled = useFeatureFlag('calendar_event_linking');
   const dealDeadlinesEnabled = useFeatureFlag('deal_deadlines_calendar');
@@ -85,15 +64,13 @@ export const TwentyCalendar: React.FC<TwentyCalendarProps> = ({
       if (dealId) eventFilters.dealId = dealId;
       if (contactId) eventFilters.contactId = contactId;
 
-      const [calendarEvents, deadlineData, integrationData] = await Promise.all([
+      const [calendarEvents, deadlineData] = await Promise.all([
         CalendarEventService.getEvents(eventFilters),
-        dealDeadlinesEnabled ? DealDeadlineService.getDeadlines({ dealId, upcomingOnly: true }) : Promise.resolve([]),
-        CalendarOAuthService.getUserIntegrations(userId)
+        dealDeadlinesEnabled ? DealDeadlineService.getDeadlines({ dealId, upcomingOnly: true }) : Promise.resolve([])
       ]);
 
       setEvents(calendarEvents);
       setDeadlines(deadlineData);
-      setIntegrations(integrationData);
     } catch (error) {
       console.error('Failed to load calendar data:', error);
     } finally {
@@ -104,32 +81,6 @@ export const TwentyCalendar: React.FC<TwentyCalendarProps> = ({
   useEffect(() => {
     loadCalendarData();
   }, [loadCalendarData]);
-
-  // Sync calendar integrations
-  const syncIntegrations = async () => {
-    if (!integrations.length) return;
-
-    setSyncing(true);
-    try {
-      const syncPromises = integrations
-        .filter(i => i.settings.syncEnabled)
-        .map(async (integration) => {
-          const response = await fetch(`/api/calendar/sync/${integration.id}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ syncType: 'incremental' })
-          });
-          return response.json();
-        });
-
-      await Promise.all(syncPromises);
-      await loadCalendarData(); // Refresh data after sync
-    } catch (error) {
-      console.error('Failed to sync calendars:', error);
-    } finally {
-      setSyncing(false);
-    }
-  };
 
   // Handle event creation
   const handleCreateEvent = async (eventData: any) => {
@@ -146,17 +97,6 @@ export const TwentyCalendar: React.FC<TwentyCalendarProps> = ({
   const handleEventSelect = (event: any) => {
     setSelectedEvent(event);
     onEventSelect?.(event);
-  };
-
-  // Connect calendar integration
-  const connectCalendar = async (provider: 'google' | 'outlook') => {
-    try {
-      const response = await fetch(`/api/calendar/oauth/${provider}?userId=${userId}`);
-      const { authUrl } = await response.json();
-      window.location.href = authUrl;
-    } catch (error) {
-      console.error('Failed to get OAuth URL:', error);
-    }
   };
 
   // Transform events for calendar display
@@ -243,25 +183,6 @@ export const TwentyCalendar: React.FC<TwentyCalendarProps> = ({
               <span>Schedule Meeting</span>
             </Button>
           )}
-
-          <Button
-            onClick={syncIntegrations}
-            disabled={syncing || !integrations.some(i => i.settings.syncEnabled)}
-            variant="outline"
-            size="sm"
-            className="flex items-center space-x-1"
-          >
-            <Sync className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />
-            <span>{syncing ? 'Syncing...' : 'Sync'}</span>
-          </Button>
-
-          <Button
-            onClick={() => setShowSettingsModal(true)}
-            variant="outline"
-            size="sm"
-          >
-            <Settings className="h-4 w-4" />
-          </Button>
         </div>
       </div>
 
@@ -359,17 +280,6 @@ export const TwentyCalendar: React.FC<TwentyCalendarProps> = ({
           onCreate={handleCreateEvent}
         />
       )}
-
-      {/* Settings Modal */}
-      {showSettingsModal && (
-        <CalendarSettingsModal
-          integrations={integrations}
-          oauthGoogleEnabled={oauthGoogleEnabled}
-          oauthOutlookEnabled={oauthOutlookEnabled}
-          onConnect={connectCalendar}
-          onClose={() => setShowSettingsModal(false)}
-        />
-      )}
     </div>
   );
 };
@@ -397,7 +307,7 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({
     endTime: '',
     location: '',
     meetingUrl: '',
-    eventType: 'meeting' as const,
+    eventType: 'meeting' as string,
     attendees: [] as string[]
   });
 
@@ -476,83 +386,6 @@ const CreateEventModal: React.FC<CreateEventModalProps> = ({
           </Button>
         </div>
       </form>
-    </Modal>
-  );
-};
-
-// Calendar Settings Modal Component
-interface CalendarSettingsModalProps {
-  integrations: CalendarIntegration[];
-  oauthGoogleEnabled: boolean;
-  oauthOutlookEnabled: boolean;
-  onConnect: (provider: 'google' | 'outlook') => void;
-  onClose: () => void;
-}
-
-const CalendarSettingsModal: React.FC<CalendarSettingsModalProps> = ({
-  integrations,
-  oauthGoogleEnabled,
-  oauthOutlookEnabled,
-  onConnect,
-  onClose
-}) => {
-  return (
-    <Modal isOpen onClose={onClose} title="Calendar Settings">
-      <div className="space-y-6">
-        <div>
-          <h3 className="text-lg font-medium text-gray-900 mb-4">Connected Calendars</h3>
-
-          {integrations.length === 0 ? (
-            <p className="text-gray-500">No calendar integrations connected</p>
-          ) : (
-            <div className="space-y-3">
-              {integrations.map((integration) => (
-                <div key={integration.id} className="flex items-center justify-between p-3 border rounded-lg">
-                  <div className="flex items-center space-x-3">
-                    <div className={`w-3 h-3 rounded-full ${
-                      integration.isActive ? 'bg-green-500' : 'bg-gray-300'
-                    }`} />
-                    <div>
-                      <p className="font-medium">{integration.provider}</p>
-                      <p className="text-sm text-gray-500">{integration.email}</p>
-                    </div>
-                  </div>
-                  <Badge variant={integration.syncStatus === 'error' ? 'destructive' : 'secondary'}>
-                    {integration.syncStatus}
-                  </Badge>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div>
-          <h3 className="text-lg font-medium text-gray-900 mb-4">Connect New Calendar</h3>
-          <div className="space-y-2">
-            {oauthGoogleEnabled && (
-              <Button
-                onClick={() => onConnect('google')}
-                variant="outline"
-                className="w-full justify-start"
-              >
-                <img src="/google-icon.svg" alt="Google" className="w-5 h-5 mr-2" />
-                Connect Google Calendar
-              </Button>
-            )}
-
-            {oauthOutlookEnabled && (
-              <Button
-                onClick={() => onConnect('outlook')}
-                variant="outline"
-                className="w-full justify-start"
-              >
-                <img src="/outlook-icon.svg" alt="Outlook" className="w-5 h-5 mr-2" />
-                Connect Outlook Calendar
-              </Button>
-            )}
-          </div>
-        </div>
-      </div>
     </Modal>
   );
 };

@@ -1,4 +1,96 @@
-import { ViewFilter, Deal, Contact } from '../types';
+import { ViewFilter, ViewSort, Deal } from '../types';
+import { Contact } from '../types/contact';
+import { ownerLabel } from '../utils/ownerLabel';
+
+/** A nested AND/OR group of conditions (conditions may themselves be groups). */
+export interface FilterGroupNode {
+  logic: 'AND' | 'OR';
+  children: FilterNode[];
+}
+export type FilterNode = ViewFilter | FilterGroupNode;
+
+export const isFilterGroup = (n: FilterNode): n is FilterGroupNode =>
+  !!n && typeof n === 'object' && Array.isArray((n as FilterGroupNode).children);
+
+/** Relative date tokens usable as the bounds of a `between` filter: value `{ relative: 'last_7_days' }`. */
+export const RELATIVE_DATE_OPTIONS: Array<{ id: string; label: string }> = [
+  { id: 'today', label: 'Today' },
+  { id: 'yesterday', label: 'Yesterday' },
+  { id: 'tomorrow', label: 'Tomorrow' },
+  { id: 'last_7_days', label: 'Last 7 days' },
+  { id: 'last_30_days', label: 'Last 30 days' },
+  { id: 'last_90_days', label: 'Last 90 days' },
+  { id: 'next_7_days', label: 'Next 7 days' },
+  { id: 'next_30_days', label: 'Next 30 days' },
+  { id: 'this_week', label: 'This week' },
+  { id: 'last_week', label: 'Last week' },
+  { id: 'this_month', label: 'This month' },
+  { id: 'last_month', label: 'Last month' },
+  { id: 'this_quarter', label: 'This quarter' },
+  { id: 'this_year', label: 'This year' },
+  { id: 'overdue', label: 'Overdue (before today)' }
+];
+
+const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+const endOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
+const addDays = (d: Date, n: number) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+
+/** Resolve a relative token to an inclusive [start, end] range (null when unknown). */
+export function resolveRelativeRange(token: string, now: Date = new Date()): [Date, Date] | null {
+  const today = startOfDay(now);
+  switch (token) {
+    case 'today': return [today, endOfDay(today)];
+    case 'yesterday': return [addDays(today, -1), endOfDay(addDays(today, -1))];
+    case 'tomorrow': return [addDays(today, 1), endOfDay(addDays(today, 1))];
+    case 'last_7_days': return [addDays(today, -6), endOfDay(today)];
+    case 'last_30_days': return [addDays(today, -29), endOfDay(today)];
+    case 'last_90_days': return [addDays(today, -89), endOfDay(today)];
+    case 'next_7_days': return [today, endOfDay(addDays(today, 6))];
+    case 'next_30_days': return [today, endOfDay(addDays(today, 29))];
+    case 'this_week': {
+      const start = addDays(today, -today.getDay());
+      return [start, endOfDay(addDays(start, 6))];
+    }
+    case 'last_week': {
+      const start = addDays(today, -today.getDay() - 7);
+      return [start, endOfDay(addDays(start, 6))];
+    }
+    case 'this_month': return [new Date(now.getFullYear(), now.getMonth(), 1), endOfDay(new Date(now.getFullYear(), now.getMonth() + 1, 0))];
+    case 'last_month': return [new Date(now.getFullYear(), now.getMonth() - 1, 1), endOfDay(new Date(now.getFullYear(), now.getMonth(), 0))];
+    case 'this_quarter': {
+      const q = Math.floor(now.getMonth() / 3) * 3;
+      return [new Date(now.getFullYear(), q, 1), endOfDay(new Date(now.getFullYear(), q + 3, 0))];
+    }
+    case 'this_year': return [new Date(now.getFullYear(), 0, 1), endOfDay(new Date(now.getFullYear(), 11, 31))];
+    case 'overdue': return [new Date(1970, 0, 1), new Date(today.getTime() - 1)];
+    default: return null;
+  }
+}
+
+/** Token of a relative-date filter value (`{relative}` or `'rel:token'`), else null. */
+export function getRelativeToken(value: unknown): string | null {
+  if (value && typeof value === 'object' && !Array.isArray(value) && typeof (value as any).relative === 'string') {
+    return (value as any).relative;
+  }
+  if (typeof value === 'string' && value.startsWith('rel:')) return value.slice(4);
+  return null;
+}
+
+/** Aliases so chips/saved views can use snake_case or friendly names. */
+const FIELD_ALIASES: Record<string, string> = {
+  owner: 'assignedTo',
+  close_date: 'dueDate',
+  due_date: 'dueDate',
+  created_at: 'createdAt',
+  updated_at: 'updatedAt',
+  favorite: 'isFavorite',
+  health: 'healthScore'
+};
+
+const isEmptyValue = (v: unknown) =>
+  v === null || v === undefined || v === '' || (Array.isArray(v) && v.length === 0);
+
+const PRIORITY_RANK: Record<string, number> = { high: 3, medium: 2, low: 1 };
 
 /**
  * Advanced Filtering Service
@@ -12,6 +104,57 @@ export class AdvancedFilteringService {
     if (!filters || filters.length === 0) return deals;
 
     return deals.filter(deal => this.evaluateFilters(deal, filters));
+  }
+
+  /**
+   * Apply a nested AND/OR group tree to deals.
+   */
+  static filterDealsByGroup(deals: Deal[], group: FilterGroupNode | null | undefined): Deal[] {
+    if (!group || group.children.length === 0) return deals;
+    return deals.filter(deal => this.evaluateNode(deal, group));
+  }
+
+  /** Evaluate a filter node (condition or nested group) against a record. */
+  static evaluateNode(record: any, node: FilterNode): boolean {
+    if (!isFilterGroup(node)) return this.evaluateFilter(record, node);
+    if (node.children.length === 0) return true;
+    return node.logic === 'OR'
+      ? node.children.some(c => this.evaluateNode(record, c))
+      : node.children.every(c => this.evaluateNode(record, c));
+  }
+
+  /**
+   * Multi-key sort (priority 0 first). Stable; nullish values go last; ties fall back to board position.
+   */
+  static sortDeals(deals: Deal[], sorting: ViewSort[]): Deal[] {
+    const keys = [...sorting].sort((a, b) => (a.priority ?? 0) - (b.priority ?? 0));
+    const manual = (a: Deal, b: Deal) =>
+      (a.position ?? 0) - (b.position ?? 0) || a.createdAt.getTime() - b.createdAt.getTime();
+    const out = [...deals];
+    if (keys.length === 0) return out.sort(manual);
+    return out.sort((a, b) => {
+      for (const k of keys) {
+        const av = this.getNestedValue(a, k.field);
+        const bv = this.getNestedValue(b, k.field);
+        const aEmpty = isEmptyValue(av);
+        const bEmpty = isEmptyValue(bv);
+        if (aEmpty && bEmpty) continue;
+        if (aEmpty) return 1;
+        if (bEmpty) return -1;
+        const c = this.compareForSort(k.field, av, bv);
+        if (c !== 0) return k.direction === 'desc' ? -c : c;
+      }
+      return manual(a, b);
+    });
+  }
+
+  private static compareForSort(field: string, a: any, b: any): number {
+    if (field === 'priority') return (PRIORITY_RANK[String(a)] ?? 0) - (PRIORITY_RANK[String(b)] ?? 0);
+    if (a instanceof Date || b instanceof Date) return new Date(a).getTime() - new Date(b).getTime();
+    if (typeof a === 'number' && typeof b === 'number') return a - b;
+    if (typeof a === 'boolean' && typeof b === 'boolean') return Number(a) - Number(b);
+    if (Array.isArray(a) || Array.isArray(b)) return String(a).localeCompare(String(b));
+    return String(a).localeCompare(String(b), undefined, { sensitivity: 'base' });
   }
 
   /**
@@ -58,7 +201,7 @@ export class AdvancedFilteringService {
   /**
    * Evaluate a single filter condition
    */
-  private static evaluateFilter(record: any, filter: ViewFilter): boolean {
+  static evaluateFilter(record: any, filter: ViewFilter): boolean {
     const value = this.getNestedValue(record, filter.field);
     const filterValue = filter.value;
 
@@ -76,10 +219,10 @@ export class AdvancedFilteringService {
         return !this.contains(value, filterValue);
 
       case 'greater_than':
-        return this.compare(value, filterValue) > 0;
+        return !isEmptyValue(value) && this.compare(value, filterValue) > 0;
 
       case 'less_than':
-        return this.compare(value, filterValue) < 0;
+        return !isEmptyValue(value) && this.compare(value, filterValue) < 0;
 
       case 'between':
         return this.between(value, filterValue);
@@ -91,10 +234,10 @@ export class AdvancedFilteringService {
         return !this.in(value, filterValue);
 
       case 'is_null':
-        return value === null || value === undefined || value === '';
+        return isEmptyValue(value);
 
       case 'is_not_null':
-        return value !== null && value !== undefined && value !== '';
+        return !isEmptyValue(value);
 
       default:
         return true;
@@ -104,10 +247,16 @@ export class AdvancedFilteringService {
   /**
    * Get nested object value by dot notation path
    */
-  private static getNestedValue(obj: any, path: string): any {
-    return path.split('.').reduce((current, key) => {
+  static getNestedValue(obj: any, path: string): any {
+    const resolved = FIELD_ALIASES[path] ?? path;
+    const value = resolved.split('.').reduce((current, key) => {
       return current && current[key] !== undefined ? current[key] : undefined;
     }, obj);
+    // Owner: assignedTo text is the display fallback; ownerId (via the user directory) is canonical
+    if (resolved === 'assignedTo' && (value === undefined || value === null || value === '') && obj && typeof obj === 'object') {
+      return ownerLabel(obj) || value;
+    }
+    return value;
   }
 
   /**
@@ -115,6 +264,13 @@ export class AdvancedFilteringService {
    */
   private static equals(value: any, filterValue: any): boolean {
     if (value === filterValue) return true;
+    if (typeof value === 'boolean') return String(value) === String(filterValue);
+    if (Array.isArray(value) && !Array.isArray(filterValue)) {
+      return value.some(v => String(v).toLowerCase() === String(filterValue).toLowerCase());
+    }
+    if (typeof value === 'string' && typeof filterValue === 'string') {
+      if (value.trim().toLowerCase() === filterValue.trim().toLowerCase()) return true;
+    }
 
     // Handle type coercion for common cases
     if (typeof value === 'string' && typeof filterValue === 'number') {
@@ -126,7 +282,10 @@ export class AdvancedFilteringService {
 
     // Handle date comparisons
     if (value instanceof Date && typeof filterValue === 'string') {
-      return value.toISOString().split('T')[0] === filterValue;
+      return !isNaN(value.getTime()) && value.toISOString().split('T')[0] === filterValue;
+    }
+    if (value instanceof Date && filterValue instanceof Date) {
+      return value.getTime() === filterValue.getTime();
     }
     if (typeof value === 'string' && filterValue instanceof Date) {
       return value === filterValue.toISOString().split('T')[0];
@@ -134,7 +293,7 @@ export class AdvancedFilteringService {
 
     // Handle array comparisons
     if (Array.isArray(value) && Array.isArray(filterValue)) {
-      return JSON.stringify(value.sort()) === JSON.stringify(filterValue.sort());
+      return JSON.stringify([...value].sort()) === JSON.stringify([...filterValue].sort());
     }
 
     return false;
@@ -145,6 +304,10 @@ export class AdvancedFilteringService {
    */
   private static contains(value: any, filterValue: any): boolean {
     if (value === null || value === undefined) return false;
+    if (Array.isArray(value)) {
+      const needle = String(filterValue).toLowerCase();
+      return value.some(v => String(v).toLowerCase().includes(needle));
+    }
 
     const strValue = String(value).toLowerCase();
     const strFilter = String(filterValue).toLowerCase();
@@ -183,6 +346,14 @@ export class AdvancedFilteringService {
    * Between comparison for ranges
    */
   private static between(value: any, filterValue: any): boolean {
+    if (isEmptyValue(value)) return false;
+    const token = getRelativeToken(filterValue);
+    if (token) {
+      const range = resolveRelativeRange(token);
+      if (!range) return false;
+      const t = (value instanceof Date ? value : new Date(value)).getTime();
+      return !isNaN(t) && t >= range[0].getTime() && t <= range[1].getTime();
+    }
     if (!Array.isArray(filterValue) || filterValue.length !== 2) return false;
 
     const [min, max] = filterValue;
@@ -196,7 +367,9 @@ export class AdvancedFilteringService {
    */
   private static in(value: any, filterValue: any): boolean {
     if (!Array.isArray(filterValue)) return false;
-
+    if (Array.isArray(value)) {
+      return value.some(v => filterValue.some(item => this.equals(v, item)));
+    }
     return filterValue.some(item => this.equals(value, item));
   }
 
@@ -263,7 +436,7 @@ export class AdvancedFilteringService {
       // Validate operator-specific requirements
       switch (filter.operator) {
         case 'between':
-          if (!Array.isArray(filter.value) || filter.value.length !== 2) {
+          if (!getRelativeToken(filter.value) && (!Array.isArray(filter.value) || filter.value.length !== 2)) {
             errors.push(`Filter ${index + 1}: Between operator requires an array with 2 values`);
           }
           break;
@@ -301,6 +474,7 @@ export class AdvancedFilteringService {
       { field: 'contact', label: 'Contact', type: 'string' },
       { field: 'value', label: 'Value', type: 'number' },
       { field: 'stage', label: 'Stage', type: 'select' },
+      { field: 'assignedTo', label: 'Owner', type: 'string' },
       { field: 'probability', label: 'Probability', type: 'number' },
       { field: 'priority', label: 'Priority', type: 'select' },
       { field: 'dueDate', label: 'Due Date', type: 'date' },
@@ -382,6 +556,8 @@ export class AdvancedFilteringService {
 
 // Export convenience functions
 export const filterDeals = AdvancedFilteringService.filterDeals;
+export const filterDealsByGroup = AdvancedFilteringService.filterDealsByGroup;
+export const sortDealsBy = AdvancedFilteringService.sortDeals;
 export const filterContacts = AdvancedFilteringService.filterContacts;
 export const buildFilterQuery = AdvancedFilteringService.buildFilterQuery;
 export const validateFilters = AdvancedFilteringService.validateFilters;

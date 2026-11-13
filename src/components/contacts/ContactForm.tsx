@@ -3,6 +3,7 @@ import { RefreshCw, UserPlus, AlertCircle } from 'lucide-react';
 import { Contact } from '../../types/contact';
 import { AIEnrichmentData } from '../../services/enhancedContactImportService';
 import { validateString, validateEmail } from '../../utils/validation';
+import { getAIEnrichmentService } from '../../services/aiEnrichmentService';
 
 interface ContactFormProps {
   initialData?: Partial<Contact>;
@@ -58,27 +59,24 @@ export const ContactForm: React.FC<ContactFormProps> = ({
     }
   }, [errors, enrichmentOptions.enrichCompanyData, formData]);
 
-  // Get AI suggestions (mock implementation - would integrate with actual AI service)
+  // AI suggestions: researches the company on the public web (OpenAI web_search via the gateway)
   const getAISuggestions = async (field: string, value: string, currentData: Partial<Contact>): Promise<Partial<AIEnrichmentData>> => {
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    if (field === 'company') {
-      // Mock AI enrichment response
+    if (field === 'company' && value.trim()) {
+      const company = await getAIEnrichmentService().enrichCompany({ name: value, industry: currentData.industry });
+      if (!company.confidence) return {};
       return {
         enrichedCompanyData: {
-          industry: 'Technology',
-          size: 'SMB',
-          revenue: '$5M - $25M',
-          competitors: ['Competitor A', 'Competitor B'],
-          founded: '2015',
-          description: `${value} is a technology company specializing in innovative solutions.`,
-          headquarters: 'San Francisco, CA',
-          funding: 'Series A'
-        }
+          industry: company.industry,
+          size: company.size,
+          revenue: company.revenue,
+          competitors: company.competitors,
+          founded: company.founded,
+          description: company.description,
+          headquarters: company.headquarters,
+          funding: company.fundingHistory,
+        } as any,
       };
     }
-
     return {};
   };
 

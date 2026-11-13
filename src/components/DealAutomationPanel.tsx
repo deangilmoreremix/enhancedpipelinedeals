@@ -4,6 +4,7 @@ import { Zap, Clock, Mail, Phone, Calendar, MessageSquare, CheckCircle, Settings
 import { getSupabaseService } from '../services/supabaseService';
 import ResearchStatusOverlay from './ui/ResearchStatusOverlay';
 import { ModernButton } from './ui/ModernButton';
+import { callAI } from '../services/aiClient';
 
 interface DealAutomationPanelProps {
   deal: Deal;
@@ -97,47 +98,21 @@ export const DealAutomationPanel: React.FC<DealAutomationPanelProps> = ({ deal }
     });
 
     try {
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      if (!supabaseUrl) {
-        throw new Error('Supabase URL not configured');
-      }
-
-      const response = await fetch(`${supabaseUrl}/functions/v1/deal-automation`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-        },
-        body: JSON.stringify({
+      // Generate via the server-side Responses API gateway
+      const result = await callAI('deal_automation', {
+        input: 'Design a deal progression and nurturing automation (professional consultative style, 5-7 steps). Return JSON only.',
+        context: {
           deal: {
             title: deal.title,
             company: deal.company,
             value: deal.value,
             stage: deal.stage,
             probability: deal.probability
-          },
-          automationGoal: 'Deal progression and nurturing',
-          sequenceLength: 'Medium (5-7 steps)',
-          communicationStyle: 'Professional consultative'
-        }),
+          }
+        }
       });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-        throw new Error(`Automation generation failed: ${errorData.error || response.statusText}`);
-      }
-
-      const data = await response.json();
-
-      // Extract automation from AI response
-      let automation;
-      if (data.choices && data.choices[0] && data.choices[0].message) {
-        automation = JSON.parse(data.choices[0].message.content);
-      } else if (data.candidates && data.candidates[0] && data.candidates[0].content) {
-        automation = JSON.parse(data.candidates[0].content.parts[0].text);
-      } else {
-        throw new Error('Invalid response format from AI service');
-      }
+      const automation: any = result.data;
+      if (!automation) throw new Error('Invalid response format from AI service');
 
       // Transform AI-generated automation to our format
       const newAutomation: AutomationRule = {

@@ -22,7 +22,7 @@ export const Tooltip: React.FC<TooltipProps> = ({
   const [isFocused, setIsFocused] = useState(false);
   const tooltipRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLDivElement>(null);
-  const timerRef = useRef<number>();
+  const timerRef = useRef<ReturnType<typeof setTimeout>>();
 
   // Position calculations
   const getTooltipPositionClasses = () => {

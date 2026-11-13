@@ -1,19 +1,40 @@
+export const DEFAULT_STAGE_KEYS = ['qualification', 'proposal', 'negotiation', 'closed-won', 'closed-lost'] as const;
+export type StageKey = typeof DEFAULT_STAGE_KEYS[number];
+
+/** A row of `pipeline_stages` (dynamic stage definition). */
+export interface PipelineStage {
+  id: string;
+  pipelineId?: string | null;
+  key: string;
+  name: string;
+  color: string;
+  position: number;
+  visible: boolean;
+  probability: number;
+  isWon: boolean;
+  isLost: boolean;
+  wipLimit?: number | null;
+}
+
 export interface Deal {
   id: string;
   title?: string; // Optional title field for deal naming
   company: string;
+  companyId?: string; // FK -> companies.id (company text stays in sync for display/search)
   contact: string;
   contactId?: string;
   assignedToId?: string; // Links to team member's contact ID
   assignedTo?: string; // Team member's name for display
   value: number;
-  stage: 'qualification' | 'proposal' | 'negotiation' | 'closed-won' | 'closed-lost';
+  stage: string; // stage key (see PipelineStage.key); DEFAULT_STAGE_KEYS are the built-ins
   probability: number;
   priority: 'high' | 'medium' | 'low';
   dueDate?: Date;
   notes?: string;
   createdAt: Date;
   updatedAt: Date;
+  createdBy?: string; // auth user that created the row (read-only, set by the DB)
+  workspaceId?: string; // tenant of the row (read-only, set by the DB)
   contactAvatar?: string;
   companyAvatar?: string;
   lastActivity?: string;
@@ -58,6 +79,13 @@ export interface Deal {
   timeline?: DealActivity[];
   lastHealthUpdate?: Date;
   lastProbabilityUpdate?: Date;
+
+  // Pipeline foundation (Phase A)
+  position?: number; // ordering within a stage
+  deletedAt?: Date | null; // soft delete
+  ownerId?: string; // canonical owner (profiles.id); assignedTo is the display-name fallback
+  closeDate?: Date;
+  currencyCode?: string;
 }
 
 export interface PipelineColumn {
@@ -1034,4 +1062,28 @@ export interface DataTransformation {
   parameters: Record<string, any>;
   timestamp: Date;
   performedBy: string;
+}
+// Relations & owners (Workstream G)
+export interface Company {
+  id: string;
+  name: string;
+  industry?: string;
+  website?: string;
+  domain?: string;
+  size?: string;
+  revenue?: number;
+  phone?: string;
+  address?: string;
+  logoUrl?: string;
+  notes?: string;
+  ownerId?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/** Person that can own records (profiles row, current user or a name found on existing deals). */
+export interface DirectoryUser {
+  id: string;
+  name: string;
+  avatar?: string;
 }

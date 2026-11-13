@@ -1,7 +1,9 @@
 import { Contact } from '../types/contact';
 import { Deal } from '../types';
+import { dealFromRow, dealToRow, DealRow } from './dealMapper';
 import { supabase as sharedSupabase } from '../lib/core/supabaseClient';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { assertRowsAffected } from '../utils/rlsError';
 
 interface Database {
   public: {
@@ -12,9 +14,9 @@ interface Database {
         Update: Partial<Omit<Contact, 'id' | 'createdAt'>>;
       };
       deals: {
-        Row: Deal;
-        Insert: Omit<Deal, 'id' | 'createdAt' | 'updatedAt'>;
-        Update: Partial<Omit<Deal, 'id' | 'createdAt'>>;
+        Row: DealRow;
+        Insert: DealRow;
+        Update: DealRow;
       };
       activities: {
         Row: {
@@ -240,7 +242,7 @@ class SupabaseService {
       }
       
       // Transform data to handle gamification_stats deserialization
-      const contacts = (data || []).map(contact => ({
+      const contacts = (data || []).map((contact: any) => ({
         ...contact,
         gamificationStats: contact.gamification_stats || undefined,
         isTeamMember: contact.is_team_member || false
@@ -363,23 +365,35 @@ class SupabaseService {
   }
 
   // Deal methods
-  async getDeals(): Promise<Deal[]> {
+  async getDeals(opts: { includeDeleted?: boolean } = {}): Promise<Deal[]> {
     if (!this.isConnected || !this.supabase) {
       throw new Error('Supabase not configured - cannot load deals');
     }
 
     try {
-      const { data, error } = await this.supabase
-        .from('deals')
-        .select('*')
-        .order('updated_at', { ascending: false });
+      // Page through the table 500 rows at a time until exhausted
+      const PAGE_SIZE = 500;
+      const rows: DealRow[] = [];
+      for (let from = 0; ; from += PAGE_SIZE) {
+        const { data, error } = await this.supabase
+          .from('deals')
+          .select('*')
+          .order('updated_at', { ascending: false })
+          .order('id', { ascending: true })
+          .range(from, from + PAGE_SIZE - 1);
 
-      if (error) {
-        throw new Error(`Database query failed: ${error.message}`);
+        if (error) {
+          throw new Error(`Database query failed: ${error.message}`);
+        }
+        const page = (data || []) as DealRow[];
+        rows.push(...page);
+        if (page.length < PAGE_SIZE) break;
       }
-      
-      console.log(`✅ Loaded ${data?.length || 0} deals from database`);
-      return data || [];
+
+      const deals: Deal[] = rows.map(dealFromRow);
+      console.log(`✅ Loaded ${deals.length} deals from database`);
+      // Soft-deleted rows are filtered client-side so this works before/after the deleted_at migration
+      return opts.includeDeleted ? deals : deals.filter(d => !d.deletedAt);
     } catch (error) {
       console.error('Error loading deals:', error);
       throw error;
@@ -394,17 +408,13 @@ class SupabaseService {
     try {
       const { data, error } = await this.supabase
         .from('deals')
-        .insert({
-          ...deal,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
+        .insert(dealToRow(deal as Partial<Deal>))
         .select()
         .single();
 
       if (error) throw error;
       console.log('✅ Created deal in database:', data.title);
-      return data;
+      return dealFromRow(data);
     } catch (error) {
       console.error('Failed to create deal in database:', error);
       throw error;
@@ -415,7 +425,7 @@ class SupabaseService {
     const { data, error } = await this.supabase
       .from('deals')
       .update({
-        ...updates,
+        ...dealToRow(updates, { partial: true }),
         updated_at: new Date().toISOString(),
       })
       .eq('id', id)
@@ -423,16 +433,19 @@ class SupabaseService {
       .single();
 
     if (error) throw error;
-    return data;
+    return dealFromRow(data);
   }
 
   async deleteDeal(id: string): Promise<void> {
-    const { error } = await this.supabase
+    const { data, error } = await this.supabase
       .from('deals')
       .delete()
-      .eq('id', id);
+      .eq('id', id)
+      .select('id');
 
     if (error) throw error;
+    // RLS filters DELETEs silently (0 rows, no error): treat as permission denied
+    assertRowsAffected(data);
   }
 
   // Activity tracking
@@ -471,10 +484,17 @@ class SupabaseService {
       .subscribe();
   }
 
+  /** Realtime deals feed; `new`/`old` rows in the payload are mapped to Deal (old rows only carry the id). */
   subscribeToDeals(callback: (payload: any) => void) {
     return this.supabase
       .channel('deals')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'deals' }, callback)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'deals' }, (payload: any) => {
+        callback({
+          ...payload,
+          new: payload.new && Object.keys(payload.new).length ? dealFromRow(payload.new) : payload.new,
+          old: payload.old && payload.old.id ? { id: payload.old.id } : payload.old,
+        });
+      })
       .subscribe();
   }
 
@@ -765,4 +785,4 @@ export const getSupabaseService = (): SupabaseService => {
 };
 
 export { SupabaseService };
-export { supabase } from '../lib/core/supabaseClient';
+export { supabase, isSupabaseConfigured } from '../lib/core/supabaseClient';

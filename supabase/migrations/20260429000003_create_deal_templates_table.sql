@@ -16,22 +16,26 @@ create table if not exists public.deal_templates (
 alter table public.deal_templates enable row level security;
 
 -- Policies
+drop policy if exists "Users can view public templates and their own" on public.deal_templates;
 create policy "Users can view public templates and their own"
   on public.deal_templates for select
   using (is_public or auth.uid() = user_id);
 
+drop policy if exists "Users can insert their own templates" on public.deal_templates;
 create policy "Users can insert their own templates"
   on public.deal_templates for insert
   with check (auth.uid() = user_id);
 
+drop policy if exists "Users can update their own templates" on public.deal_templates;
 create policy "Users can update their own templates"
   on public.deal_templates for update
   using (auth.uid() = user_id);
 
+drop policy if exists "Users can delete their own templates" on public.deal_templates;
 create policy "Users can delete their own templates"
   on public.deal_templates for delete
   using (auth.uid() = user_id);
 
 -- Indexes
-create index idx_deal_templates_user_id on public.deal_templates(user_id);
-create index idx_deal_templates_is_public on public.deal_templates(is_public);
+create index if not exists idx_deal_templates_user_id on public.deal_templates(user_id);
+create index if not exists idx_deal_templates_is_public on public.deal_templates(is_public);

@@ -6,6 +6,7 @@
 import { getSupabaseService } from './supabaseService';
 import { getPipelineAnalyticsService } from './pipelineAnalyticsService';
 
+import { loadStageKeys } from '../utils/stageMeta';
 export interface KPI {
   id: string;
   name: string;
@@ -51,6 +52,50 @@ export interface KPIDashboard {
   overallHealth: number; // 0-100
 }
 
+/**
+ * Won deals whose WON date falls in [start, end]. The won date is `close_date`; deals without one fall
+ * back to the latest stage change into a won stage in `deal_history`. Soft-deleted deals are excluded and
+ * won stages come from `pipeline_stages` (never hard-coded keys, never `updated_at`).
+ */
+export async function fetchWonDealsInPeriod(
+  supabase: any,
+  wonKeys: string[],
+  start: Date,
+  end: Date,
+  select = 'id, value, stage, close_date, created_at'
+): Promise<Array<Record<string, any> & { wonAt: string }>> {
+  if (wonKeys.length === 0) return [];
+  const { data, error } = await supabase
+    .from('deals')
+    .select(select)
+    .is('deleted_at', null)
+    .in('stage', wonKeys);
+  if (error) throw error;
+  const deals: Array<Record<string, any>> = data || [];
+  const noClose = deals.filter(d => !d.close_date);
+  const wonAtFromHistory = new Map<string, string>();
+  if (noClose.length > 0) {
+    const { data: hist, error: hErr } = await supabase
+      .from('deal_history')
+      .select('deal_id, new_value, changed_at')
+      .in('deal_id', noClose.map(d => d.id))
+      .eq('field', 'stage')
+      .in('new_value', wonKeys)
+      .order('changed_at', { ascending: false });
+    if (hErr) throw hErr;
+    for (const h of hist || []) if (!wonAtFromHistory.has(h.deal_id)) wonAtFromHistory.set(h.deal_id, h.changed_at);
+  }
+  const s = start.getTime();
+  const e = end.getTime();
+  return deals
+    .map(d => ({ ...d, wonAt: d.close_date || wonAtFromHistory.get(d.id) || '' }))
+    .filter(d => {
+      if (!d.wonAt) return false;
+      const t = new Date(d.wonAt).getTime();
+      return t >= s && t <= e;
+    });
+}
+
 class KPIService {
   private supabaseService = getSupabaseService();
   private analyticsService = getPipelineAnalyticsService();
@@ -70,7 +115,7 @@ class KPIService {
 
       if (error) throw error;
 
-      return (data || []).map(k => this.transformKPI(k));
+      return (data || []).map((k: any) => this.transformKPI(k));
     } catch (error) {
       console.error('Failed to get KPIs:', error);
       return [];
@@ -182,7 +227,8 @@ class KPIService {
           period_end: periodEnd.toISOString().split('T')[0],
           value,
           target_value: kpi.targetValue,
-          status
+          status,
+          calculated_at: new Date().toISOString()
         })
         .select()
         .single();
@@ -220,7 +266,7 @@ class KPIService {
 
       if (error) throw error;
 
-      return (data || []).map(v => this.transformKPIValue(v));
+      return (data || []).map((v: any) => this.transformKPIValue(v));
     } catch (error) {
       console.error('Failed to get KPI values:', error);
       return [];
@@ -301,11 +347,13 @@ class KPIService {
   /**
    * Get predefined KPI templates
    */
+  // NOTE: the quoted stage names inside the template formulas below are legacy formula identifiers (they are stored with
+  // saved KPIs and matched in executeKPIFormula); the calculations themselves resolve won stages from pipeline_stages.
   getKPITemplates(): Array<Omit<KPI, 'id' | 'createdAt' | 'updatedAt'>> {
     return [
       {
         name: 'Monthly Revenue',
-        description: 'Total revenue from closed deals in the current month',
+        description: 'Total revenue from won deals in the current month',
         formula: 'SUM(deals.value WHERE stage = "closed-won" AND closed_date >= period_start AND closed_date <= period_end)',
         dataSource: 'deals',
         targetValue: 50000,
@@ -315,7 +363,7 @@ class KPIService {
       },
       {
         name: 'Conversion Rate',
-        description: 'Percentage of deals that convert to closed-won',
+        description: 'Percentage of deals that reach a won stage',
         formula: '(COUNT(deals WHERE stage = "closed-won") / COUNT(deals)) * 100',
         dataSource: 'deals',
         targetValue: 25,
@@ -437,16 +485,10 @@ class KPIService {
   private async calculateRevenueSum(periodStart: Date, periodEnd: Date): Promise<number> {
     const supabase = (this.supabaseService as any).supabase;
 
-    const { data, error } = await supabase
-      .from('deals')
-      .select('value')
-      .eq('stage', 'closed-won')
-      .gte('updated_at', periodStart.toISOString())
-      .lte('updated_at', periodEnd.toISOString());
+    const wonKeys = await loadStageKeys('won');
+    const data = await fetchWonDealsInPeriod(supabase, wonKeys, periodStart, periodEnd);
 
-    if (error) throw error;
-
-    return (data || []).reduce((sum, deal) => sum + (deal.value || 0), 0);
+    return (data || []).reduce((sum: number, deal: any) => sum + (deal.value || 0), 0);
   }
 
   private async calculateConversionRate(periodStart: Date, periodEnd: Date): Promise<number> {
@@ -455,13 +497,15 @@ class KPIService {
     const { data, error } = await supabase
       .from('deals')
       .select('stage')
+      .is('deleted_at', null)
       .gte('created_at', periodStart.toISOString())
       .lte('created_at', periodEnd.toISOString());
 
     if (error) throw error;
 
+    const wonKeys = new Set(await loadStageKeys('won'));
     const total = data?.length || 0;
-    const won = data?.filter(d => d.stage === 'closed-won').length || 0;
+    const won = data?.filter((d: any) => wonKeys.has(d.stage)).length || 0;
 
     return total > 0 ? (won / total) * 100 : 0;
   }
@@ -469,17 +513,11 @@ class KPIService {
   private async calculateAverageDealSize(periodStart: Date, periodEnd: Date): Promise<number> {
     const supabase = (this.supabaseService as any).supabase;
 
-    const { data, error } = await supabase
-      .from('deals')
-      .select('value')
-      .eq('stage', 'closed-won')
-      .gte('updated_at', periodStart.toISOString())
-      .lte('updated_at', periodEnd.toISOString());
+    const wonKeys = await loadStageKeys('won');
+    const data = await fetchWonDealsInPeriod(supabase, wonKeys, periodStart, periodEnd);
 
-    if (error) throw error;
-
-    const values = (data || []).map(d => d.value).filter(v => v > 0);
-    return values.length > 0 ? values.reduce((sum, v) => sum + v, 0) / values.length : 0;
+    const values = (data || []).map((d: any) => d.value).filter((v: any) => v > 0);
+    return values.length > 0 ? values.reduce((sum: number, v: any) => sum + v, 0) / values.length : 0;
   }
 
   private async calculateAverageVelocity(periodStart: Date, periodEnd: Date): Promise<number> {
@@ -494,8 +532,8 @@ class KPIService {
 
     if (error) throw error;
 
-    const values = (data || []).map(d => d.days_in_stage).filter(v => v > 0);
-    return values.length > 0 ? values.reduce((sum, v) => sum + v, 0) / values.length : 0;
+    const values = (data || []).map((d: any) => d.days_in_stage).filter((v: any) => v > 0);
+    return values.length > 0 ? values.reduce((sum: number, v: any) => sum + v, 0) / values.length : 0;
   }
 
   private async executeComplexFormula(kpi: KPI, periodStart: Date, periodEnd: Date): Promise<number> {
@@ -628,4 +666,3 @@ export const getKPIService = (): KPIService => {
 };
 
 export { KPIService };
-export type { KPI, KPIValue, KPISummary, KPIDashboard };

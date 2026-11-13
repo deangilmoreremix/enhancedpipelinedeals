@@ -1,5 +1,8 @@
 import React, { useMemo } from 'react';
 import { Deal } from '../../types';
+import { useStageMeta } from '../../utils/stageUtils';
+import { winRatePercent } from '../../utils/winRate';
+import { stageKeysWhere } from '../../utils/stageMeta';
 import {
   DollarSign, TrendingUp, Target, Award, BarChart3, PieChart,
   ArrowUp, ArrowDown, Activity, Clock, Zap
@@ -16,8 +19,12 @@ export const KPIWidgets: React.FC<KPIWidgetsProps> = ({
   timeRange = 'month',
   onKPIClick
 }) => {
+  const { stages } = useStageMeta();
   const analytics = useMemo(() => {
     const allDeals = Object.values(deals);
+    const wonKeys = new Set(stageKeysWhere(stages, 'won'));
+    const lostKeys = new Set(stageKeysWhere(stages, 'lost'));
+    const openKeys = stageKeysWhere(stages, 'open');
     const now = new Date();
     const rangeStart = new Date();
 
@@ -44,14 +51,14 @@ export const KPIWidgets: React.FC<KPIWidgetsProps> = ({
     );
 
     const totalValue = periodDeals.reduce((sum, d) => sum + d.value, 0);
-    const wonDeals = periodDeals.filter(d => d.stage === 'closed-won');
-    const lostDeals = periodDeals.filter(d => d.stage === 'closed-lost');
+    const wonDeals = periodDeals.filter(d => wonKeys.has(d.stage));
+    const lostDeals = periodDeals.filter(d => lostKeys.has(d.stage));
     const activeDeals = periodDeals.filter(
-      d => !['closed-won', 'closed-lost'].includes(d.stage)
+      d => !wonKeys.has(d.stage) && !lostKeys.has(d.stage)
     );
 
     const wonValue = wonDeals.reduce((sum, d) => sum + d.value, 0);
-    const winRate = periodDeals.length > 0 ? (wonDeals.length / periodDeals.length) * 100 : 0;
+    const winRate = winRatePercent(wonDeals.length, lostDeals.length);
     const conversionRate = activeDeals.length > 0 ? (wonDeals.length / activeDeals.length) * 100 : 0;
 
     const avgDealSize = periodDeals.length > 0 ? totalValue / periodDeals.length : 0;
@@ -71,16 +78,14 @@ export const KPIWidgets: React.FC<KPIWidgetsProps> = ({
       d => new Date(d.createdAt) < rangeStart && new Date(d.createdAt) >= new Date(rangeStart.getTime() - (now.getTime() - rangeStart.getTime()))
     );
     const previousWonValue = previousPeriodDeals
-      .filter(d => d.stage === 'closed-won')
+      .filter(d => wonKeys.has(d.stage))
       .reduce((sum, d) => sum + d.value, 0);
 
     const growthRate = previousWonValue > 0 ? ((wonValue - previousWonValue) / previousWonValue) * 100 : 0;
 
-    const stageValues = {
-      qualification: allDeals.filter(d => d.stage === 'qualification').reduce((s, d) => s + d.value, 0),
-      proposal: allDeals.filter(d => d.stage === 'proposal').reduce((s, d) => s + d.value, 0),
-      negotiation: allDeals.filter(d => d.stage === 'negotiation').reduce((s, d) => s + d.value, 0)
-    };
+    const stageValues: Record<string, number> = Object.fromEntries(
+      openKeys.map(key => [key, allDeals.filter(d => d.stage === key).reduce((sum, d) => sum + d.value, 0)])
+    );
 
     return {
       totalValue,
@@ -97,7 +102,7 @@ export const KPIWidgets: React.FC<KPIWidgetsProps> = ({
       lostDeals: lostDeals.length,
       stageValues
     };
-  }, [deals, timeRange]);
+  }, [deals, timeRange, stages]);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', {

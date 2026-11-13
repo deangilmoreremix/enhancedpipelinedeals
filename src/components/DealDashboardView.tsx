@@ -4,49 +4,53 @@ import {
   DollarSign, TrendingUp, Target, Award, BarChart3,
   PieChart, Users, Calendar, ArrowUp, ArrowDown
 } from 'lucide-react';
+import type { Contact } from '../types/contact';
+import { useStageMeta } from '../utils/stageUtils';
+import { winRatePercent } from '../utils/winRate';
+import { sortedStages, stageHex, stageKeysWhere } from '../utils/stageMeta';
 import {
   BarChart, Bar, PieChart as RePieChart, Pie, Cell, LineChart, Line,
   XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend,
   ResponsiveContainer
 } from 'recharts';
 
-interface DealDashboardViewProps {
-  deals: Record<string, Deal>;
-  contacts: any[];
+export interface DealDashboardViewProps {
+  /** Filtered (and sorted) deals, same list as every other view. */
+  deals: Deal[];
+  /** Real contacts (Pipeline passes useContactStore().contacts). */
+  contacts: Contact[];
 }
 
-export const DealDashboardView: React.FC<DealDashboardViewProps> = ({ deals }) => {
+export const DealDashboardView: React.FC<DealDashboardViewProps> = ({ deals, contacts }) => {
+  const { stages } = useStageMeta();
   const analytics = useMemo(() => {
-    const allDeals = Object.values(deals);
+    const allDeals = deals;
+    const wonKeys = new Set(stageKeysWhere(stages, 'won'));
+    const lostKeys = new Set(stageKeysWhere(stages, 'lost'));
+    const isOpen = (d: Deal) => !wonKeys.has(d.stage) && !lostKeys.has(d.stage);
     const totalValue = allDeals.reduce((sum, deal) => sum + deal.value, 0);
     const totalDeals = allDeals.length;
     const averageDealSize = totalDeals > 0 ? totalValue / totalDeals : 0;
 
-    const wonDeals = allDeals.filter(deal => deal.stage === 'closed-won');
-    const lostDeals = allDeals.filter(deal => deal.stage === 'closed-lost');
-    const activeDeals = allDeals.filter(deal => !['closed-won', 'closed-lost'].includes(deal.stage));
+    const wonDeals = allDeals.filter(deal => wonKeys.has(deal.stage));
+    const lostDeals = allDeals.filter(deal => lostKeys.has(deal.stage));
+    const activeDeals = allDeals.filter(isOpen);
 
     const wonValue = wonDeals.reduce((sum, deal) => sum + deal.value, 0);
-    const winRate = totalDeals > 0 ? (wonDeals.length / totalDeals) * 100 : 0;
+    const winRate = winRatePercent(wonDeals.length, lostDeals.length);
     const averageProbability = totalDeals > 0
       ? allDeals.reduce((sum, deal) => sum + deal.probability, 0) / totalDeals
       : 0;
 
-    const stageDistribution = [
-      { name: 'Qualification', value: allDeals.filter(d => d.stage === 'qualification').length, color: '#3b82f6' },
-      { name: 'Proposal', value: allDeals.filter(d => d.stage === 'proposal').length, color: '#6366f1' },
-      { name: 'Negotiation', value: allDeals.filter(d => d.stage === 'negotiation').length, color: '#f59e0b' },
-      { name: 'Won', value: wonDeals.length, color: '#10b981' },
-      { name: 'Lost', value: lostDeals.length, color: '#ef4444' }
-    ].filter(stage => stage.value > 0);
+    const orderedStages = sortedStages(stages);
+    const stageDistribution = orderedStages
+      .map(st => ({ name: st.name, value: allDeals.filter(d => d.stage === st.key).length, color: stageHex(st.color) }))
+      .filter(stage => stage.value > 0);
 
-    const valueByStage = [
-      { stage: 'Qualification', value: allDeals.filter(d => d.stage === 'qualification').reduce((s, d) => s + d.value, 0) / 1000 },
-      { stage: 'Proposal', value: allDeals.filter(d => d.stage === 'proposal').reduce((s, d) => s + d.value, 0) / 1000 },
-      { stage: 'Negotiation', value: allDeals.filter(d => d.stage === 'negotiation').reduce((s, d) => s + d.value, 0) / 1000 },
-      { stage: 'Won', value: wonValue / 1000 },
-      { stage: 'Lost', value: lostDeals.reduce((s, d) => s + d.value, 0) / 1000 }
-    ];
+    const valueByStage = orderedStages.map(st => ({
+      stage: st.name,
+      value: allDeals.filter(d => d.stage === st.key).reduce((s, d) => s + d.value, 0) / 1000
+    }));
 
     const now = new Date();
     const monthlyTrend = Array.from({ length: 6 }, (_, i) => {
@@ -60,7 +64,7 @@ export const DealDashboardView: React.FC<DealDashboardViewProps> = ({ deals }) =
         month: date.toLocaleDateString('en-US', { month: 'short' }),
         deals: monthDeals.length,
         value: monthDeals.reduce((s, d) => s + d.value, 0) / 1000,
-        won: monthDeals.filter(d => d.stage === 'closed-won').length
+        won: monthDeals.filter(d => wonKeys.has(d.stage)).length
       };
     });
 
@@ -87,9 +91,10 @@ export const DealDashboardView: React.FC<DealDashboardViewProps> = ({ deals }) =
       valueByStage,
       monthlyTrend,
       topDeals,
-      averageAIScore
+      averageAIScore,
+      openDeals: activeDeals
     };
-  }, [deals]);
+  }, [deals, stages]);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -228,7 +233,7 @@ export const DealDashboardView: React.FC<DealDashboardViewProps> = ({ deals }) =
                 labelLine={false}
                 label={({ name, percent, x, y }: { name?: string; percent?: number; x?: number; y?: number }) => (
                   <text x={x} y={y} textAnchor="middle" dominantBaseline="middle" fill="hsl(var(--foreground))" fontSize={12}>
-                    {name} {(percent * 100).toFixed(0)}%
+                    {name} {((percent ?? 0) * 100).toFixed(0)}%
                   </text>
                 )}
                 outerRadius={100}
@@ -382,11 +387,16 @@ export const DealDashboardView: React.FC<DealDashboardViewProps> = ({ deals }) =
               </span>
             </div>
             <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+              <span className="text-sm text-gray-600 dark:text-gray-400">Contacts</span>
+              <span className="text-sm font-bold text-gray-900 dark:text-white" data-testid="dashboard-contacts">
+                {contacts.length}
+              </span>
+            </div>
+            <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
               <span className="text-sm text-gray-600 dark:text-gray-400">Weighted Pipeline</span>
               <span className="text-sm font-bold text-gray-900 dark:text-white">
                 {formatCurrency(
-                  Object.values(deals)
-                    .filter(d => !['closed-won', 'closed-lost'].includes(d.stage))
+                  analytics.openDeals
                     .reduce((sum, d) => sum + (d.value * d.probability / 100), 0)
                 )}
               </span>

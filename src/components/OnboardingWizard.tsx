@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { SDR_AGENTS } from "./sdr/sdrAgentsConfig";
+import { SDR_AGENT_DETAILS } from "./sdr/sdrAgentsConfig";
 import { ModernButton } from './ui/ModernButton';
 import { PersonaSelector } from './ui/PersonaSelector';
 import { ChevronLeft, ChevronRight, Check, Bot, MessageSquare, Target, Zap } from 'lucide-react';
@@ -117,7 +117,7 @@ export function OnboardingWizard({ onComplete, onSkip }: OnboardingWizardProps) 
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {SDR_AGENTS.map((agent) => (
+              {SDR_AGENT_DETAILS.map((agent) => (
                 <div
                   key={agent.id}
                   onClick={() => updateConfig({ primarySDRAgent: agent.id })}
@@ -316,7 +316,7 @@ export function OnboardingWizard({ onComplete, onSkip }: OnboardingWizardProps) 
             <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 max-w-md mx-auto">
               <h3 className="font-semibold text-gray-900 dark:text-white mb-2">Your Configuration:</h3>
               <div className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
-                <p><strong>SDR Agent:</strong> {SDR_AGENTS.find(a => a.id === config.primarySDRAgent)?.name}</p>
+                <p><strong>SDR Agent:</strong> {SDR_AGENT_DETAILS.find(a => a.id === config.primarySDRAgent)?.name}</p>
                 <p><strong>Tone:</strong> {config.communicationTone}</p>
                 <p><strong>Industry:</strong> {config.industry}</p>
                 <p><strong>Goals:</strong> {config.goals?.length} selected</p>

@@ -1,11 +1,11 @@
 // SDR Autopilot Agent Definition
-// System prompt and message building for GPT-5.2 SDR agent
+// System prompt and message building for the SDR agent
 
 import { pickModelForSdrTask } from '../../config/ai';
 
-// SDR System Prompt for GPT-5.2
+// SDR System Prompt
 export const SDR_SYSTEM_PROMPT = `
-You are SmartCRM's SDR Autopilot agent, powered by GPT-5.2.
+You are SmartCRM's SDR Autopilot agent, powered by OpenAI.
 
 Your job:
 - Turn high-level outreach goals into multi-day SDR campaigns.

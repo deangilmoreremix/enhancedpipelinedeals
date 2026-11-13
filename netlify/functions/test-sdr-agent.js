@@ -1,5 +1,5 @@
 // netlify/functions/test-sdr-agent.js
-const { buildSdrAgent } = require("./_aiClients");
+import { buildSdrAgent } from "./_aiClients";
 
 function corsHeaders() {
   return {
@@ -9,7 +9,7 @@ function corsHeaders() {
   };
 }
 
-exports.handler = async (event, context) => {
+export const handler = async (event, context) => {
   if (event.httpMethod === "OPTIONS") {
     return { statusCode: 200, headers: corsHeaders(), body: "" };
   }

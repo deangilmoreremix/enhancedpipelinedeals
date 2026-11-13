@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { ModernButton } from './ui/ModernButton';
 import { PersonaSelector } from './ui/PersonaSelector';
 import { Sparkles, Wand2, Zap, Target, FileText, Send, Loader2 } from 'lucide-react';
+import { authedFetch, callAI } from '../services/aiClient';
 
 interface AIEmailComposerProps {
   contactId: string;
@@ -16,6 +17,7 @@ export function AIEmailComposer({ contactId, dealId, onSend, initialContent = ''
   const [isStreaming, setIsStreaming] = useState(false);
   const [selectedPersona, setSelectedPersona] = useState<any>(null);
   const [showPersonaSelector, setShowPersonaSelector] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -25,15 +27,15 @@ export function AIEmailComposer({ contactId, dealId, onSend, initialContent = ''
   }, [initialContent]);
 
   const generateEmail = async () => {
+    const existingDraft = content; // restored if generation fails
+    setError(null);
     setIsGenerating(true);
     setIsStreaming(true);
 
     try {
-      const response = await fetch('/.netlify/functions/composeEmail', {
+      const response = await authedFetch('/api/ai/compose-email', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contactId,
           dealId,
@@ -42,37 +44,50 @@ export function AIEmailComposer({ contactId, dealId, onSend, initialContent = ''
         })
       });
 
-      if (!response.body) {
-        throw new Error('No response body');
+      if (!response.ok || !response.body) {
+        let detail = '';
+        try {
+          const body = await response.json();
+          detail = typeof body?.error === 'string' ? body.error : '';
+        } catch { /* not JSON */ }
+        throw new Error(detail || `Compose failed (${response.status})`);
       }
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let accumulatedContent = '';
+      let buffer = '';
+
+      const handleLine = (line: string) => {
+        if (!line.startsWith('data: ')) return;
+        const payload = line.slice(6).trim();
+        if (!payload || payload === '[DONE]') return;
+        let data: any;
+        try {
+          data = JSON.parse(payload);
+        } catch {
+          return; // partial / non-JSON frame
+        }
+        if (data?.error) throw new Error(typeof data.error === 'string' ? data.error : 'Email generation failed');
+        if (data?.content) {
+          accumulatedContent += data.content;
+          setContent(accumulatedContent);
+        }
+      };
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-
-        const chunk = decoder.decode(value);
-        const lines = chunk.split('\n');
-
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            try {
-              const data = JSON.parse(line.slice(6));
-              if (data.content) {
-                accumulatedContent += data.content;
-                setContent(accumulatedContent);
-              }
-            } catch (e) {
-              // Ignore parsing errors for now
-            }
-          }
-        }
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() ?? ''; // keep an incomplete trailing line for the next chunk
+        for (const line of lines) handleLine(line);
       }
-    } catch (error) {
-      console.error('Email generation failed:', error);
+      if (buffer) handleLine(buffer);
+    } catch (err) {
+      console.error('Email generation failed:', err);
+      setContent(existingDraft); // keep the draft the user had
+      setError(err instanceof Error && err.message ? err.message : 'Email generation failed');
     } finally {
       setIsGenerating(false);
       setIsStreaming(false);
@@ -80,46 +95,45 @@ export function AIEmailComposer({ contactId, dealId, onSend, initialContent = ''
   };
 
   const applyTransformation = async (action: string) => {
+    setError(null);
     setIsGenerating(true);
 
     try {
-      const response = await fetch('/.netlify/functions/transformEmail', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          content,
-          action,
-          personaId: selectedPersona?.id
-        })
+      const result = await callAI<{ content: string }>('transform_email', {
+        input: `Action: ${action}\n\nEMAIL:\n${content}`,
+        instructions: selectedPersona ? `Match the persona "${selectedPersona.name}".` : undefined,
       });
-
-      const result = await response.json();
-      setContent(result.content);
-    } catch (error) {
-      console.error('Transformation failed:', error);
+      if (result.data?.content) setContent(result.data.content);
+    } catch (err) {
+      console.error('Transformation failed:', err);
+      setError(err instanceof Error && err.message ? err.message : 'Transformation failed');
     } finally {
       setIsGenerating(false);
     }
   };
 
   const insertCaseStudy = async () => {
-    const caseStudy = await fetch('/.netlify/functions/getCaseStudy', {
-      method: 'POST',
-      body: JSON.stringify({ dealId })
-    });
-    const result = await caseStudy.json();
-    setContent(prev => prev + '\n\n' + result.caseStudy);
+    setError(null);
+    try {
+      const result = await callAI<{ caseStudy: string }>('case_study', { dealId, contactId, input: 'Write a relevant case study snippet for this email.' });
+      if (result.data?.caseStudy) setContent(prev => prev + '\n\n' + result.data!.caseStudy);
+    } catch (err) {
+      setError(err instanceof Error && err.message ? err.message : 'Could not insert a case study');
+    }
   };
 
   const insertCTA = async () => {
-    const cta = await fetch('/.netlify/functions/generateCTA', {
-      method: 'POST',
-      body: JSON.stringify({ dealId, personaId: selectedPersona?.id })
-    });
-    const result = await cta.json();
-    setContent(prev => prev + '\n\n' + result.cta);
+    setError(null);
+    try {
+      const result = await callAI<{ cta: string }>('cta', {
+        dealId, contactId,
+        input: 'Write a call-to-action for this email.',
+        instructions: selectedPersona ? `Match the persona "${selectedPersona.name}".` : undefined,
+      });
+      if (result.data?.cta) setContent(prev => prev + '\n\n' + result.data!.cta);
+    } catch (err) {
+      setError(err instanceof Error && err.message ? err.message : 'Could not insert a call-to-action');
+    }
   };
 
   const sendEmail = async () => {
@@ -186,6 +200,12 @@ export function AIEmailComposer({ contactId, dealId, onSend, initialContent = ''
             agentId="email-composer"
             onPersonaSelected={setSelectedPersona}
           />
+        </div>
+      )}
+
+      {error && (
+        <div role="alert" className="px-3 py-2 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 text-sm">
+          {error}
         </div>
       )}
 

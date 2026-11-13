@@ -1,204 +1,101 @@
 /**
- * AI Gateway Service - Secure proxy for all AI API calls
- * Routes requests through Supabase Edge Functions to keep API keys secure
+ * AI Gateway Service - thin compatibility layer over the server-side Responses API gateway
+ * (netlify/functions/ai-gateway.ts). Keeps the legacy request/response shapes used by
+ * older callers, but everything goes through `callAI` (OpenAI Responses API on the server).
  */
+import { callAI, AIGatewayError } from './aiClient';
 
-interface AIGatewayRequest {
-  provider: 'openai' | 'gemini' | 'gemma';
+export interface AIGatewayRequest {
+  provider: 'openai';
   model: string;
   taskType: string;
   aiRequestData: any;
 }
 
-interface AIGatewayResponse {
+export interface AIGatewayResponse {
   error?: string;
   fallbackMode?: boolean;
   provider?: string;
   status?: number;
+  text?: string;
+  output_text?: string;
+  data?: any;
+  /** Compatibility shim for parsers that still read choices[0].message.content. */
+  choices?: Array<{ message: { role: 'assistant'; content: string } }>;
   [key: string]: any;
 }
 
+/** Map any legacy model hint to a tier; the server owns concrete model ids. */
+function tierFor(model?: string): 'fast' | 'default' | 'deep' {
+  if (!model) return 'default';
+  if (/mini|nano|luna|flash|fast/i.test(model)) return 'fast';
+  if (/astra|pro|deep|thinking/i.test(model)) return 'deep';
+  return 'default';
+}
+
 class AIGatewayService {
-  private gatewayUrl: string;
-
-  constructor() {
-    // Get the Supabase function URL from environment variables
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    
-    if (!supabaseUrl) {
-      throw new Error('VITE_SUPABASE_URL not configured');
-    }
-    
-    this.gatewayUrl = `${supabaseUrl}/functions/v1/ai-gateway`;
-  }
-
-  /**
-   * Send request to AI provider through secure gateway
-   */
   async makeRequest(request: AIGatewayRequest): Promise<AIGatewayResponse> {
     try {
-      console.log(`🚀 AI Gateway: Sending ${request.provider} ${request.model} request for ${request.taskType}`);
-
-      const response = await fetch(this.gatewayUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-        },
-        body: JSON.stringify(request),
+      const d = request.aiRequestData || {};
+      let messages: Array<{ role: string; content: string }> | undefined = d.messages;
+      if (!messages && Array.isArray(d.contents)) {
+        messages = [{ role: 'user', content: d.contents.map((c: any) => c.parts?.map((p: any) => p.text).join('')).join('\n') }];
+      }
+      const task = request.taskType && /^[a-z_]+$/.test(request.taskType) ? request.taskType : 'chat';
+      const result = await callAI(task, {
+        messages,
+        tier: tierFor(request.model),
+        maxOutputTokens: d.max_output_tokens || d.max_completion_tokens || d.generationConfig?.maxOutputTokens,
       });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-        
-        if (errorData.fallbackMode) {
-          console.warn(`⚠️ AI Gateway: ${request.provider} unavailable, using fallback mode`);
-          throw new Error(`AI_FALLBACK: ${errorData.error}`);
-        }
-        
-        throw new Error(`Gateway error: ${errorData.error || response.statusText}`);
-      }
-
-      const data = await response.json();
-      console.log(`✅ AI Gateway: Successfully received ${request.provider} response`);
-      
-      return data;
-    } catch (error) {
-      console.error(`❌ AI Gateway error for ${request.provider}:`, error);
-      
-      // Check if this is a fallback scenario
-      if (error.message.startsWith('AI_FALLBACK:')) {
-        return { error: error.message.replace('AI_FALLBACK:', ''), fallbackMode: true };
-      }
-      
-      return { error: `Failed to communicate with AI gateway: ${error.message}`, fallbackMode: true };
+      return {
+        provider: 'openai',
+        model: result.model,
+        text: result.text,
+        output_text: result.text,
+        data: result.data,
+        choices: [{ message: { role: 'assistant', content: result.text } }],
+      };
+    } catch (error: any) {
+      const status = error instanceof AIGatewayError ? error.status : undefined;
+      console.error('AI Gateway error:', error);
+      return { error: `Failed to communicate with AI gateway: ${error?.message}`, fallbackMode: true, status };
     }
   }
 
-  /**
-   * Create OpenAI-formatted request for the gateway
-   */
+  /** Build a request for the gateway (messages are sent as Responses `input`). */
   createOpenAIRequest(
-    messages: Array<{ role: string; content: string }>, 
-    model: string = 'gpt-4o',
-    taskType: string = 'general',
+    messages: Array<{ role: string; content: string }>,
+    model: string = 'default',
+    taskType: string = 'chat',
     options: any = {}
   ): AIGatewayRequest {
-    const { maxTokens, temperature, ...restOptions } = options;
+    const { maxTokens, ...rest } = options;
     return {
       provider: 'openai',
       model,
       taskType,
-      aiRequestData: {
-        model,
-        messages,
-        temperature: temperature || 0.7,
-        max_completion_tokens: maxTokens || 1000,
-        ...restOptions
-      }
+      aiRequestData: { messages, max_output_tokens: maxTokens || 1000, ...rest },
     };
   }
 
-  /**
-   * Create Gemini-formatted request for the gateway
-   */
-  createGeminiRequest(
-    prompt: string, 
-    model: string = 'gpt-4o',
-    taskType: string = 'general',
-    systemInstruction?: string,
-    options: any = {}
-  ): AIGatewayRequest {
-    return {
-      provider: model.startsWith('gemma') ? 'gemma' : 'gemini',
-      model,
-      taskType,
-      aiRequestData: {
-        contents: [{
-          parts: [{
-            text: systemInstruction ? `${systemInstruction}\n\n${prompt}` : prompt
-          }]
-        }],
-        generationConfig: {
-          temperature: options.temperature || 0.7,
-          topK: model.includes('gemma') ? 40 : 64,
-          topP: options.topP || 0.95,
-          maxOutputTokens: options.maxTokens || 2048,
-        },
-        safetySettings: [
-          {
-            category: "HARM_CATEGORY_HARASSMENT",
-            threshold: "BLOCK_MEDIUM_AND_ABOVE"
-          },
-          {
-            category: "HARM_CATEGORY_HATE_SPEECH", 
-            threshold: "BLOCK_MEDIUM_AND_ABOVE"
-          },
-          {
-            category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-            threshold: "BLOCK_MEDIUM_AND_ABOVE"
-          },
-          {
-            category: "HARM_CATEGORY_DANGEROUS_CONTENT",
-            threshold: "BLOCK_MEDIUM_AND_ABOVE"
-          }
-        ]
-      }
-    };
-  }
-
-  /**
-   * Check if gateway is available and properly configured
-   */
+  /** Real health check: tiny `fast` request through the gateway. */
   async healthCheck(): Promise<{ status: 'healthy' | 'degraded' | 'down'; providers: string[]; error?: string }> {
     try {
-      // Test with a minimal request to check API key validity
-      // For now, return a healthy status to avoid API key validation errors
-      // The actual validation will happen when tasks are executed
-      return { 
-        status: 'healthy', 
-        providers: ['openai', 'gemma'],
-        error: undefined
-      };
-    } catch (error) {
-      console.warn('Health check failed:', error?.message || 'Unknown error');
-      
-      // Check for API key issues specifically
-      const errorMsg = error?.message || '';
-      if (errorMsg.includes('invalid_api_key') || errorMsg.includes('Incorrect API key')) {
-        return { 
-          status: 'down', 
-          providers: [], 
-          error: 'Invalid OpenAI API key. Please update OPENAI_API_KEY in Supabase secrets and redeploy ai-gateway function.' 
-        };
-      }
-      
-      if (errorMsg.includes('AI_FALLBACK')) {
-        return { 
-          status: 'degraded', 
-          providers: [], 
-          error: 'AI services temporarily unavailable - check API key configuration' 
-        };
-      }
-      
-      // For any other error, return degraded status
-      return { 
-        status: 'degraded', 
-        providers: [], 
-        error: `API configuration issue: ${errorMsg}` 
-      };
+      await callAI('chat', { input: 'ping', tier: 'fast', maxOutputTokens: 16 });
+      return { status: 'healthy', providers: ['openai'] };
+    } catch (error: any) {
+      const status = error instanceof AIGatewayError ? error.status : undefined;
+      if (status === 401) return { status: 'down', providers: [], error: 'Gateway rejected credentials (401)' };
+      return { status: 'degraded', providers: [], error: error?.message || 'Gateway unavailable' };
     }
   }
 }
 
-// Singleton instance
+export { AIGatewayService };
+
 let aiGatewayService: AIGatewayService | null = null;
 
 export const getAIGatewayService = (): AIGatewayService => {
-  if (!aiGatewayService) {
-    aiGatewayService = new AIGatewayService();
-  }
+  if (!aiGatewayService) aiGatewayService = new AIGatewayService();
   return aiGatewayService;
 };
-
-export { AIGatewayService };

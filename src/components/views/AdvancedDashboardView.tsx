@@ -1,5 +1,7 @@
 import React, { useState, useMemo } from 'react';
-import { Deal, Dashboard, DashboardWidget, CustomMetric } from '../types';
+import { useStageMeta } from '../../utils/stageUtils';
+import { sortedStages, stageHex, stageKeysWhere } from '../../utils/stageMeta';
+import { Deal, Dashboard, DashboardWidget, CustomMetric } from '../../types';
 import {
   BarChart3,
   PieChart,
@@ -50,30 +52,30 @@ export const AdvancedDashboardView: React.FC<AdvancedDashboardViewProps> = ({
   onLayoutChange,
   isEditable = false
 }) => {
+  const { stages: stageList } = useStageMeta();
   const [draggedWidget, setDraggedWidget] = useState<string | null>(null);
 
   // Process dashboard data
   const dashboardData = useMemo(() => {
     const allDeals = Object.values(deals);
+    const wonKeys = new Set(stageKeysWhere(stageList, 'won'));
+    const lostKeys = new Set(stageKeysWhere(stageList, 'lost'));
+    const isActive = (d: Deal) => !wonKeys.has(d.stage) && !lostKeys.has(d.stage);
 
     return {
       totalDeals: allDeals.length,
       totalValue: allDeals.reduce((sum, deal) => sum + deal.value, 0),
       avgDealSize: allDeals.length > 0 ? allDeals.reduce((sum, deal) => sum + deal.value, 0) / allDeals.length : 0,
-      wonDeals: allDeals.filter(d => d.stage === 'closed-won').length,
-      lostDeals: allDeals.filter(d => d.stage === 'closed-lost').length,
-      activeDeals: allDeals.filter(d => !['closed-won', 'closed-lost'].includes(d.stage)).length,
-      conversionRate: allDeals.length > 0 ? (allDeals.filter(d => d.stage === 'closed-won').length / allDeals.length) * 100 : 0,
+      wonDeals: allDeals.filter(d => wonKeys.has(d.stage)).length,
+      lostDeals: allDeals.filter(d => lostKeys.has(d.stage)).length,
+      activeDeals: allDeals.filter(isActive).length,
+      conversionRate: allDeals.length > 0 ? (allDeals.filter(d => wonKeys.has(d.stage)).length / allDeals.length) * 100 : 0,
       avgProbability: allDeals.length > 0 ? allDeals.reduce((sum, d) => sum + d.probability, 0) / allDeals.length : 0,
 
       // Stage distribution
-      stageData: [
-        { name: 'Qualification', value: allDeals.filter(d => d.stage === 'qualification').length, color: '#3b82f6' },
-        { name: 'Proposal', value: allDeals.filter(d => d.stage === 'proposal').length, color: '#6366f1' },
-        { name: 'Negotiation', value: allDeals.filter(d => d.stage === 'negotiation').length, color: '#f59e0b' },
-        { name: 'Won', value: allDeals.filter(d => d.stage === 'closed-won').length, color: '#10b981' },
-        { name: 'Lost', value: allDeals.filter(d => d.stage === 'closed-lost').length, color: '#ef4444' }
-      ].filter(item => item.value > 0),
+      stageData: sortedStages(stageList)
+        .map(st => ({ name: st.name, value: allDeals.filter(d => d.stage === st.key).length, color: stageHex(st.color) }))
+        .filter(item => item.value > 0),
 
       // Monthly trend (last 6 months)
       monthlyTrend: Array.from({ length: 6 }, (_, i) => {
@@ -88,17 +90,17 @@ export const AdvancedDashboardView: React.FC<AdvancedDashboardViewProps> = ({
           month: date.toLocaleDateString('en-US', { month: 'short' }),
           deals: monthDeals.length,
           value: monthDeals.reduce((s, d) => s + d.value, 0) / 1000,
-          won: monthDeals.filter(d => d.stage === 'closed-won').length
+          won: monthDeals.filter(d => wonKeys.has(d.stage)).length
         };
       }),
 
       // Top deals
       topDeals: allDeals
-        .filter(d => !['closed-won', 'closed-lost'].includes(d.stage))
+        .filter(isActive)
         .sort((a, b) => b.value - a.value)
         .slice(0, 5)
     };
-  }, [deals]);
+  }, [deals, stageList]);
 
   const chartTextColor = 'hsl(var(--muted-foreground))';
   const chartGridColor = 'hsl(var(--border))';
@@ -120,7 +122,7 @@ export const AdvancedDashboardView: React.FC<AdvancedDashboardViewProps> = ({
     switch (widget.type) {
       case 'metric':
         const metricKey = config.metricKey;
-        const value = dashboardData[metricKey as keyof typeof dashboardData];
+        const value = dashboardData[metricKey as keyof typeof dashboardData] as number;
         const format = config.format || 'number';
 
         return (
@@ -144,7 +146,7 @@ export const AdvancedDashboardView: React.FC<AdvancedDashboardViewProps> = ({
 
       case 'chart':
         const chartType = config.chartType || 'bar';
-        const chartData = config.dataKey ? dashboardData[config.dataKey as keyof typeof dashboardData] : [];
+        const chartData: unknown = config.dataKey ? dashboardData[config.dataKey as keyof typeof dashboardData] : [];
 
         if (chartType === 'bar' && Array.isArray(chartData)) {
           return (
@@ -174,7 +176,7 @@ export const AdvancedDashboardView: React.FC<AdvancedDashboardViewProps> = ({
                   outerRadius={80}
                   label={{ fill: chartTextColor }}
                 >
-                  {chartData.map((entry, index) => (
+                  {(chartData as Array<{ color?: string }>).map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color || '#3b82f6'} />
                   ))}
                 </Pie>
@@ -203,8 +205,8 @@ export const AdvancedDashboardView: React.FC<AdvancedDashboardViewProps> = ({
         return <div className="flex items-center justify-center h-full text-gray-500 dark:text-gray-400">Chart not configured</div>;
 
       case 'table':
-        const tableData = config.dataKey ? dashboardData[config.dataKey as keyof typeof dashboardData] : [];
-        const columns = config.columns || ['name', 'value'];
+        const tableData: unknown = config.dataKey ? dashboardData[config.dataKey as keyof typeof dashboardData] : [];
+        const columns: string[] = config.columns || ['name', 'value'];
 
         if (!Array.isArray(tableData)) {
           return <div className="flex items-center justify-center h-full text-gray-500 dark:text-gray-400">No data available</div>;
@@ -223,7 +225,7 @@ export const AdvancedDashboardView: React.FC<AdvancedDashboardViewProps> = ({
                 </tr>
               </thead>
               <tbody>
-                {tableData.slice(0, 10).map((row, index) => (
+                {(tableData as Array<Record<string, any>>).slice(0, 10).map((row, index) => (
                   <tr key={index} className="border-b border-gray-100 dark:border-gray-700">
                     {columns.map(col => (
                       <td key={col} className="p-2 text-gray-900 dark:text-gray-100">

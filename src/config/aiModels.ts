@@ -1,148 +1,67 @@
 export interface AIModel {
   id: string;
   name: string;
-  provider: 'openai' | 'gemini' | 'gemma';
+  provider: 'openai';
   family: string;
-  contextWindow: number;
+  /** Gateway tier this model backs (see netlify/functions/_openai.ts). */
+  tier: 'fast' | 'default' | 'deep';
+  /** Output-token cap used for requests (not a limit of the model). */
   maxTokens: number;
-  pricing?: {
-    input: number;
-    output: number;
-  };
   capabilities: string[];
   isActive: boolean;
-  endpoint?: string;
 }
 
+// OpenAI GPT-6 family, served through the Responses API.
 export const AI_MODELS: AIModel[] = [
-  // OpenAI Models - Updated with ChatGPT-5 models
   {
-    id: 'gpt-4o',
-    name: 'GPT-5',
+    id: 'gpt-6-astra',
+    name: 'GPT-6 Astra',
     provider: 'openai',
-    family: 'GPT-5',
-    contextWindow: 256000,
+    family: 'GPT-6',
+    tier: 'deep',
     maxTokens: 8192,
-    pricing: {
-      input: 0.005,
-      output: 0.015
-    },
-    capabilities: ['text-generation', 'analysis', 'reasoning', 'creative-writing', 'advanced-problem-solving', 'multimodal', 'complex-reasoning'],
-    isActive: true
+    capabilities: ['text-generation', 'analysis', 'reasoning', 'complex-reasoning', 'advanced-problem-solving', 'multimodal'],
+    isActive: true,
   },
   {
-    id: 'gpt-4o-mini',
-    name: 'GPT-5 Mini',
+    id: 'gpt-6.1-sol',
+    name: 'GPT-6.1 Sol',
     provider: 'openai',
-    family: 'GPT-5',
-    contextWindow: 128000,
+    family: 'GPT-6',
+    tier: 'default',
     maxTokens: 4096,
-    pricing: {
-      input: 0.0003,
-      output: 0.0012
-    },
-    capabilities: ['text-generation', 'analysis', 'reasoning'],
-    isActive: true
-  },
-  {
-    id: 'gpt-4o-mini',
-    name: 'GPT-5 Nano',
-    provider: 'openai',
-    family: 'GPT-5',
-    contextWindow: 8192,
-    maxTokens: 4096,
-    pricing: {
-      input: 0.00005,
-      output: 0.0002
-    },
-    capabilities: ['text-generation', 'basic-analysis'],
-    isActive: true
-  },
-  {
-    id: 'gpt-4o',
-    name: 'GPT-4o',
-    provider: 'openai',
-    family: 'GPT-4',
-    contextWindow: 128000,
-    maxTokens: 4096,
-    pricing: {
-      input: 0.0025,
-      output: 0.01
-    },
     capabilities: ['text-generation', 'analysis', 'reasoning', 'creative-writing'],
-    isActive: true
+    isActive: true,
   },
   {
-    id: 'gpt-4o-mini',
-    name: 'GPT-4o Mini',
+    id: 'gpt-6.1-terra',
+    name: 'GPT-6.1 Terra',
     provider: 'openai',
-    family: 'GPT-4',
-    contextWindow: 128000,
-    maxTokens: 16384,
-    pricing: {
-      input: 0.00015,
-      output: 0.0006
-    },
-    capabilities: ['text-generation', 'analysis', 'reasoning'],
-    isActive: true
-  },
-  {
-    id: 'gpt-3.5-turbo',
-    name: 'GPT-3.5 Turbo',
-    provider: 'openai',
-    family: 'GPT-3.5',
-    contextWindow: 16385,
+    family: 'GPT-6',
+    tier: 'fast',
     maxTokens: 4096,
-    pricing: {
-      input: 0.0005,
-      output: 0.0015
-    },
-    capabilities: ['text-generation', 'analysis'],
-    isActive: true
-  },
-
-  // Gemini Models
-  {
-    id: 'gemini-2.0-flash-exp',
-    name: 'Gemini 2.0 Flash Experimental',
-    provider: 'gemini',
-    family: 'Gemini 2.0',
-    contextWindow: 1000000,
-    maxTokens: 8192,
-    capabilities: ['text-generation', 'analysis', 'reasoning', 'multimodal'],
+    capabilities: ['text-generation', 'analysis', 'multimodal', 'writing'],
     isActive: true,
-    endpoint: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent'
   },
   {
-    id: 'gemini-1.5-flash',
-    name: 'Gemini 1.5 Flash',
-    provider: 'gemini',
-    family: 'Gemini 1.5',
-    contextWindow: 1000000,
-    maxTokens: 8192,
-    capabilities: ['text-generation', 'analysis', 'reasoning', 'multimodal'],
+    id: 'gpt-6-luna',
+    name: 'GPT-6 Luna',
+    provider: 'openai',
+    family: 'GPT-6',
+    tier: 'fast',
+    maxTokens: 2048,
+    capabilities: ['text-generation', 'basic-analysis'],
     isActive: true,
-    endpoint: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent'
   },
-  {
-    id: 'gemini-1.5-pro',
-    name: 'Gemini 1.5 Pro',
-    provider: 'gemini',
-    family: 'Gemini 1.5',
-    contextWindow: 2000000,
-    maxTokens: 8192,
-    capabilities: ['text-generation', 'analysis', 'reasoning', 'multimodal', 'complex-reasoning'],
-    isActive: true,
-    endpoint: 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent'
-  },
-
 ];
+
+export const DEFAULT_MODEL_ID = 'gpt-6.1-sol';
 
 export function getModelById(id: string): AIModel | undefined {
   return AI_MODELS.find(model => model.id === id);
 }
 
-export function getModelsByProvider(provider: 'openai' | 'gemini' | 'gemma'): AIModel[] {
+export function getModelsByProvider(provider: 'openai'): AIModel[] {
   return AI_MODELS.filter(model => model.provider === provider && model.isActive);
 }
 
@@ -156,21 +75,21 @@ export function getActiveModels(): AIModel[] {
 
 // Task-specific model recommendations - OpenAI only
 export const TASK_MODEL_MAPPING = {
-  'contact-analysis': ['gpt-4o', 'gpt-4o-mini'],
-  'email-generation': ['gpt-4o', 'gpt-4o-mini'],
-  'company-research': ['gpt-4o', 'gpt-4o-mini'],
-  'deal-summary': ['gpt-4o', 'gpt-4o-mini'],
-  'next-actions': ['gpt-4o-mini', 'gpt-4o'],
-  'insights': ['gpt-4o', 'gpt-4o-mini'],
-  'contact-research': ['gpt-4o-mini', 'gpt-4o'],
-  'social-media-discovery': ['gpt-4o-mini', 'gpt-4o'],
-  'app-enrichment': ['gpt-4o', 'gpt-4o-mini'],
-  'channel-identification': ['gpt-4o-mini', 'gpt-4o'],
-  'sales-coaching': ['gpt-4o', 'gpt-4o-mini'],
-  'objection-handling': ['gpt-4o', 'gpt-4o-mini'],
-  'dynamic-recommendations': ['gpt-4o-mini', 'gpt-4o'],
-  'real-time-coaching': ['gpt-4o', 'gpt-4o-mini'],
-  'conversation-analysis': ['gpt-4o', 'gpt-4o-mini']
+  'contact-analysis': ['gpt-6.1-sol', 'gpt-6-luna'],
+  'email-generation': ['gpt-6.1-sol', 'gpt-6-luna'],
+  'company-research': ['gpt-6.1-sol', 'gpt-6-luna'],
+  'deal-summary': ['gpt-6.1-sol', 'gpt-6-luna'],
+  'next-actions': ['gpt-6-luna', 'gpt-6.1-sol'],
+  'insights': ['gpt-6.1-sol', 'gpt-6-luna'],
+  'contact-research': ['gpt-6-luna', 'gpt-6.1-sol'],
+  'social-media-discovery': ['gpt-6-luna', 'gpt-6.1-sol'],
+  'app-enrichment': ['gpt-6.1-sol', 'gpt-6-luna'],
+  'channel-identification': ['gpt-6-luna', 'gpt-6.1-sol'],
+  'sales-coaching': ['gpt-6.1-sol', 'gpt-6-luna'],
+  'objection-handling': ['gpt-6.1-sol', 'gpt-6-luna'],
+  'dynamic-recommendations': ['gpt-6-luna', 'gpt-6.1-sol'],
+  'real-time-coaching': ['gpt-6.1-sol', 'gpt-6-luna'],
+  'conversation-analysis': ['gpt-6.1-sol', 'gpt-6-luna']
 } as const;
 
 export function getRecommendedModelForTask(task: keyof typeof TASK_MODEL_MAPPING): AIModel[] {

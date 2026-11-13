@@ -2,6 +2,11 @@ import React from 'react';
 import { Sparkles, Brain, Wand2, Target, BarChart3, Mail, Phone, Edit, Heart, HeartOff, Camera, User, Globe, Clock, Building2, Tag, DollarSign, TrendingUp, AlertCircle, CheckCircle, Plus, X, Zap, Calendar, FileText } from 'lucide-react';
 import { DealDetailSidebarProps } from './types';
 import { AIAnalyzeButton, EmailButton, CallButton, AIEnrichButton, AIAutoEnrichButton, FavoriteButton } from '../ui/UnifiedActionButton';
+import { initialsAvatar } from '../../utils/avatar';
+import { useDealStore } from '../../store/dealStore';
+import { stageChip } from '../deals/fields/stageColors';
+import { formatMoney } from '../../utils/currencyMicros';
+import { BTN_ICON, BTN_PRIMARY } from '../ui/buttonStyles';
 
 export const DealDetailSidebar: React.FC<DealDetailSidebarProps> = ({
   deal,
@@ -16,25 +21,10 @@ export const DealDetailSidebar: React.FC<DealDetailSidebarProps> = ({
   onAction,
   onClose
 }) => {
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(value);
-  };
-
-  const getStageColor = (stage: string) => {
-    const colors: Record<string, string> = {
-      'qualification': 'bg-blue-500',
-      'proposal': 'bg-indigo-500',
-      'negotiation': 'bg-purple-500',
-      'closed-won': 'bg-green-500',
-      'closed-lost': 'bg-red-500'
-    };
-    return colors[stage] || 'bg-gray-500';
-  };
+  const stages = useDealStore(st => st.stages);
+  const stageDef = stages.find(st => st.key === editedDeal.stage);
+  const chip = stageChip(stageDef?.color);
+  const formatCurrency = (value: number) => formatMoney(value, editedDeal.currencyCode ?? 'USD');
 
   const getPriorityColor = (priority: string) => {
     const colors: Record<string, string> = {
@@ -55,9 +45,9 @@ export const DealDetailSidebar: React.FC<DealDetailSidebarProps> = ({
         </h2>
         <button
           onClick={onClose}
-          className="p-2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+          className={BTN_ICON}
         >
-          <X className="w-5 h-5" />
+          <X className="w-4 h-4" />
         </button>
       </div>
 
@@ -90,8 +80,8 @@ export const DealDetailSidebar: React.FC<DealDetailSidebarProps> = ({
 
           {/* Stage and Priority */}
           <div className="flex items-center justify-center space-x-2 mt-3">
-            <span className={`${getStageColor(editedDeal.stage)} text-white text-xs px-3 py-1 rounded-full font-medium`}>
-              {editedDeal.stage.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+            <span style={chip.style} className={`${chip.className} text-white text-xs px-3 py-1 rounded-full font-medium`}>
+              {stageDef?.name ?? editedDeal.stage.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}
             </span>
             <span className={`text-xs font-medium ${getPriorityColor(editedDeal.priority)}`}>
               {editedDeal.priority.toUpperCase()} PRIORITY
@@ -138,8 +128,8 @@ export const DealDetailSidebar: React.FC<DealDetailSidebarProps> = ({
 
           {/* AI Goals Button */}
           <div className="mb-3">
-            <button className="w-full flex items-center justify-center py-2 px-3 bg-gradient-to-r from-purple-600 to-blue-600 dark:from-purple-700 dark:to-blue-700 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 dark:hover:from-purple-800 dark:hover:to-blue-800 text-sm font-medium transition-all duration-200 border border-purple-300/50 dark:border-purple-500/50 shadow-sm hover:shadow-md hover:scale-105">
-              <Target className="w-4 h-4 mr-2" />
+            <button type="button" className={`${BTN_PRIMARY} w-full`}>
+              <Target className="w-4 h-4" />
               AI Goals
             </button>
           </div>
@@ -244,7 +234,7 @@ export const DealDetailSidebar: React.FC<DealDetailSidebarProps> = ({
               <div className="flex items-center space-x-3 mb-3">
                 <div className="relative">
                   <img
-                    src={linkedContact.avatarSrc || `https://api.dicebear.com/7.x/avataaars/svg?seed=${linkedContact.name}`}
+                    src={linkedContact.avatarSrc || initialsAvatar(linkedContact.name)}
                     alt={linkedContact.name}
                     className="w-12 h-12 rounded-full border-2 border-white dark:border-gray-600 shadow-md"
                   />
@@ -309,7 +299,7 @@ export const DealDetailSidebar: React.FC<DealDetailSidebarProps> = ({
             <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 border border-gray-200 dark:border-gray-600 text-center">
               <User className="w-8 h-8 text-gray-400 dark:text-gray-500 mx-auto mb-2" />
               <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">No contact assigned to this deal</p>
-              <button className="px-4 py-2 bg-blue-600 dark:bg-blue-700 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-800 transition-colors text-sm font-medium">
+              <button type="button" className={BTN_PRIMARY}>
                 Add Contact
               </button>
             </div>

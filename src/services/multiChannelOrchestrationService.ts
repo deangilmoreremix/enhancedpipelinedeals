@@ -1,7 +1,21 @@
 /**
  * Multi-Channel Orchestration Service
- * Coordinates outreach across email, SMS, LinkedIn, WhatsApp, and other channels
+ * Coordinates outreach across email, SMS, LinkedIn, WhatsApp, and other channels.
+ *
+ * Data layer: Supabase only (contacts, outbound_messages). This stack has no SMS / WhatsApp / LinkedIn / email delivery
+ * provider, so "sending" QUEUES a row in outbound_messages (status 'queued') for a human or a future provider to pick up,
+ * and connecting a channel reports "not configured". Demo / unconfigured mode never touches the network
+ * (in-memory queue + preferences).
  */
+import { supabase, isSupabaseConfigured } from '../lib/core/supabaseClient';
+import { isDemoMode } from '../config/demoMode';
+
+export const CHANNEL_NOT_CONFIGURED_MESSAGE =
+  'Not configured: no delivery provider (SMS / WhatsApp / LinkedIn) exists in this stack, so this channel cannot be connected. Messages for it are queued in outbound_messages instead.';
+
+const isRemote = () => isSupabaseConfigured && !isDemoMode();
+
+interface QueuedMessageRow { contact_id: string | null; channel: string; status: string; created_at: string }
 
 interface Channel {
   id: string;
@@ -68,7 +82,7 @@ interface OrchestrationResult {
 interface OrchestrationStepResult {
   stepId: string;
   channelId: string;
-  status: 'sent' | 'delivered' | 'opened' | 'clicked' | 'replied' | 'failed';
+  status: 'queued' | 'sent' | 'delivered' | 'opened' | 'clicked' | 'replied' | 'failed';
   timestamp: string;
   messageId?: string;
   error?: string;
@@ -79,6 +93,8 @@ class MultiChannelOrchestrationService {
   private channels = new Map<string, Channel>();
   private strategies = new Map<string, OrchestrationStrategy>();
   private contactPreferences = new Map<string, ContactChannelPreferences>();
+  /** demo / unconfigured mode: stands in for outbound_messages */
+  private localQueue: QueuedMessageRow[] = [];
 
   constructor() {
     this.initializeChannels();
@@ -348,24 +364,32 @@ class MultiChannelOrchestrationService {
     return true;
   }
 
+  /** Counts the contact's queued/sent messages on this channel (outbound_messages) against the channel's per-minute/hour/day limits. */
   private async checkRateLimit(channelId: string, contactId: string): Promise<boolean> {
-    // Simplified rate limiting - in production, use Redis or database
     const channel = this.channels.get(channelId);
     if (!channel) return false;
 
     try {
-      const response = await fetch('/.netlify/functions/check-rate-limit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          channelId,
-          contactId,
-          limits: channel.rateLimits
-        })
-      });
-
-      const data = await response.json();
-      return data.allowed;
+      const now = Date.now();
+      const since = new Date(now - 24 * 60 * 60 * 1000).toISOString();
+      let times: number[];
+      if (isRemote()) {
+        const { data, error } = await supabase
+          .from('outbound_messages')
+          .select('created_at')
+          .eq('contact_id', contactId)
+          .eq('channel', channelId)
+          .gte('created_at', since);
+        if (error) throw new Error(error.message);
+        times = (data ?? []).map((r: any) => new Date(r.created_at).getTime());
+      } else {
+        times = this.localQueue
+          .filter((m) => m.contact_id === contactId && m.channel === channelId && m.created_at >= since)
+          .map((m) => new Date(m.created_at).getTime());
+      }
+      const within = (ms: number) => times.filter((t) => now - t < ms).length;
+      const { perMinute, perHour, perDay } = channel.rateLimits;
+      return within(60_000) < perMinute && within(3_600_000) < perHour && times.length < perDay;
     } catch (error) {
       console.warn('Rate limit check failed:', error);
       return true; // Allow if check fails
@@ -434,18 +458,25 @@ class MultiChannelOrchestrationService {
         channelId: step.channelId,
         status: 'failed',
         timestamp: new Date().toISOString(),
-        error: error.message
+        error: error instanceof Error ? error.message : String(error)
       };
     }
   }
 
   private async getContactDetails(contactId: string): Promise<any> {
+    const fallback = { id: contactId, name: 'Contact', email: 'contact@example.com' };
+    if (!isRemote()) return fallback;
     try {
-      const response = await fetch(`/api/contacts/${contactId}`);
-      return await response.json();
+      const { data, error } = await supabase
+        .from('contacts')
+        .select('id,name,email,phone,company,title,social_profiles')
+        .eq('id', contactId)
+        .maybeSingle();
+      if (error) throw new Error(error.message);
+      return data ?? fallback;
     } catch (error) {
       console.error('Failed to get contact details:', error);
-      return { id: contactId, name: 'Contact', email: 'contact@example.com' };
+      return fallback;
     }
   }
 
@@ -473,25 +504,38 @@ AI Sales Agent`,
     return templates[templateId] || `Default message for ${contact.name}`;
   }
 
-  private async sendThroughChannel(channel: Channel, contact: any, content: string, executeAt: Date): Promise<any> {
-    const payload = {
-      channelId: channel.id,
-      contact,
-      content,
-      scheduledTime: executeAt.toISOString()
-    };
+  /**
+   * There is no delivery provider in this stack: the message is queued in outbound_messages (status 'queued') and
+   * needs a human (or a future provider) to actually send it. Returns { queued: true }.
+   */
+  private async sendThroughChannel(channel: Channel, contact: any, content: string, executeAt: Date): Promise<{ queued: true; status: 'queued'; messageId?: string; metrics?: Record<string, any> }> {
+    const recipient = channel.type === 'email'
+      ? contact?.email
+      : channel.id === 'linkedin'
+        ? contact?.social_profiles?.linkedin ?? contact?.name
+        : contact?.phone ?? contact?.email;
+    const createdAt = new Date().toISOString();
 
-    const response = await fetch('/.netlify/functions/send-channel-message', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-
-    if (!response.ok) {
-      throw new Error(`Channel send failed: ${response.status}`);
+    if (!isRemote()) {
+      this.localQueue.push({ contact_id: contact?.id ?? null, channel: channel.id, status: 'queued', created_at: createdAt });
+      return { queued: true, status: 'queued', metrics: { scheduledTime: executeAt.toISOString() } };
     }
 
-    return await response.json();
+    const { data, error } = await supabase
+      .from('outbound_messages')
+      .insert({
+        contact_id: contact?.id ?? null,
+        channel: channel.id,
+        recipient: recipient ?? null,
+        subject: null,
+        body: content,
+        status: 'queued',
+        created_by_agent: true,
+      })
+      .select('id')
+      .maybeSingle();
+    if (error) throw new Error(`Channel queue failed: ${error.message}`);
+    return { queued: true, status: 'queued', messageId: (data as any)?.id, metrics: { scheduledTime: executeAt.toISOString() } };
   }
 
   private async getContactPreferences(contactId: string): Promise<ContactChannelPreferences> {
@@ -500,8 +544,12 @@ AI Sales Agent`,
     }
 
     try {
-      const response = await fetch(`/api/contacts/${contactId}/preferences`);
-      const data = await response.json();
+      let data: any = { preferredChannels: [] }; // demo / local: no stored preferences (no channel restriction)
+      if (isRemote()) {
+        const { data: row, error } = await supabase.from('contacts').select('custom_fields').eq('id', contactId).maybeSingle();
+        if (error) throw new Error(error.message);
+        data = (row as any)?.custom_fields?.channel_preferences ?? {};
+      }
 
       const preferences: ContactChannelPreferences = {
         contactId,
@@ -585,53 +633,63 @@ AI Sales Agent`,
     const updated = { ...existing, ...preferences };
     this.contactPreferences.set(contactId, updated);
 
-    // Persist to database
-    await fetch('/.netlify/functions/update-contact-preferences', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updated)
-    });
+    if (!isRemote()) return;
+    // Persist on the contact (no dedicated preferences table): contacts.custom_fields.channel_preferences
+    const { data: row, error: readError } = await supabase.from('contacts').select('custom_fields').eq('id', contactId).maybeSingle();
+    if (readError) throw new Error(readError.message);
+    const custom = { ...((row as any)?.custom_fields ?? {}), channel_preferences: updated };
+    const { error } = await supabase.from('contacts').update({ custom_fields: custom }).eq('id', contactId);
+    if (error) throw new Error(error.message);
   }
 
-  async connectChannel(channelId: string, credentials: any): Promise<boolean> {
-    try {
-      const response = await fetch('/.netlify/functions/connect-channel', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ channelId, credentials })
-      });
-
-      if (response.ok) {
-        const channel = this.channels.get(channelId);
-        if (channel) {
-          channel.connected = true;
-          channel.settings = { ...channel.settings, ...credentials };
-        }
-        return true;
-      }
-    } catch (error) {
-      console.error('Failed to connect channel:', error);
-    }
-    return false;
+  /** No delivery provider exists in this stack: nothing is connected, and the result says so (surface `message` in the UI). */
+  async connectChannel(channelId: string, _credentials?: any): Promise<{ connected: false; configured: false; message: string }> {
+    const known = this.channels.has(channelId);
+    return {
+      connected: false,
+      configured: false,
+      message: known ? CHANNEL_NOT_CONFIGURED_MESSAGE : `Unknown channel "${channelId}". ${CHANNEL_NOT_CONFIGURED_MESSAGE}`,
+    };
   }
 
+  /** Aggregates outbound_messages created by agents in the range. successRate = share of messages that did not fail (queued or sent). */
   async getOrchestrationAnalytics(timeRange: { start: string; end: string }): Promise<any> {
+    const empty = { totalSequences: 0, successRate: 0, channelPerformance: {}, engagementRates: {} };
     try {
-      const response = await fetch('/.netlify/functions/get-orchestration-analytics', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ timeRange })
-      });
+      let rows: Array<{ contact_id: string | null; channel: string | null; status: string | null }>;
+      if (isRemote()) {
+        const { data, error } = await supabase
+          .from('outbound_messages')
+          .select('contact_id,channel,status,created_at')
+          .eq('created_by_agent', true)
+          .gte('created_at', timeRange.start)
+          .lte('created_at', timeRange.end);
+        if (error) throw new Error(error.message);
+        rows = (data ?? []) as any[];
+      } else {
+        rows = this.localQueue.filter((m) => m.created_at >= timeRange.start && m.created_at <= timeRange.end);
+      }
+      if (rows.length === 0) return empty;
 
-      return await response.json();
+      const channelPerformance: Record<string, { total: number; queued: number; sent: number; failed: number }> = {};
+      for (const r of rows) {
+        const key = r.channel || 'email';
+        const p = (channelPerformance[key] ??= { total: 0, queued: 0, sent: 0, failed: 0 });
+        p.total++;
+        if (r.status === 'failed') p.failed++;
+        else if (r.status === 'sent') p.sent++;
+        else p.queued++;
+      }
+      const failed = rows.filter((r) => r.status === 'failed').length;
+      return {
+        totalSequences: new Set(rows.map((r) => r.contact_id).filter(Boolean)).size,
+        successRate: Math.round(((rows.length - failed) / rows.length) * 100),
+        channelPerformance,
+        engagementRates: {}, // opens / clicks / replies are not tracked without a delivery provider
+      };
     } catch (error) {
       console.error('Failed to get orchestration analytics:', error);
-      return {
-        totalSequences: 0,
-        successRate: 0,
-        channelPerformance: {},
-        engagementRates: {}
-      };
+      return empty;
     }
   }
 }

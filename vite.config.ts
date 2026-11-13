@@ -101,5 +101,6 @@ export default defineConfig(({ mode }) => ({
     host: true,
     cors: true
   },
-  envPrefix: ['VITE_', 'SUPABASE_']
+  // only VITE_* reaches the browser bundle (SUPABASE_SERVICE_ROLE_KEY & co. must never be inlined)
+  envPrefix: ['VITE_']
 }));

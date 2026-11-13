@@ -16,6 +16,7 @@ create table if not exists public.sdr_user_preferences (
 alter table public.sdr_user_preferences enable row level security;
 
 -- RLS Policy: Users can access their own preferences
+drop policy if exists "Users can manage their own SDR preferences" on public.sdr_user_preferences;
 create policy "Users can manage their own SDR preferences"
   on public.sdr_user_preferences for all
   using (auth.uid()::text = user_id);
@@ -40,10 +41,12 @@ create table if not exists public.sdr_preset_configurations (
 
 alter table public.sdr_preset_configurations enable row level security;
 
+drop policy if exists "Users can view preset configurations" on public.sdr_preset_configurations;
 create policy "Users can view preset configurations"
   on public.sdr_preset_configurations for select
   using (is_active = true);
 
+drop policy if exists "Users can manage preset configurations" on public.sdr_preset_configurations;
 create policy "Users can manage preset configurations"
   on public.sdr_preset_configurations for all
   to authenticated
@@ -67,6 +70,7 @@ create table if not exists public.sdr_campaign_templates (
 
 alter table public.sdr_campaign_templates enable row level security;
 
+drop policy if exists "Users can manage their own campaign templates" on public.sdr_campaign_templates;
 create policy "Users can manage their own campaign templates"
   on public.sdr_campaign_templates for all
   using (auth.uid()::text = user_id);
@@ -87,17 +91,19 @@ create table if not exists public.sdr_agent_performance (
 
 alter table public.sdr_agent_performance enable row level security;
 
+drop policy if exists "Users can view their own agent performance" on public.sdr_agent_performance;
 create policy "Users can view their own agent performance"
   on public.sdr_agent_performance for select
   using (auth.uid()::text = user_id);
 
+drop policy if exists "Users can insert their own agent performance" on public.sdr_agent_performance;
 create policy "Users can insert their own agent performance"
   on public.sdr_agent_performance for insert
   with check (auth.uid()::text = user_id);
 
 -- Indexes for performance
-create index idx_sdr_user_preferences_user_agent on public.sdr_user_preferences(user_id, agent_id);
-create index idx_sdr_user_preferences_active on public.sdr_user_preferences(is_active);
-create index idx_sdr_preset_configurations_agent_id on public.sdr_preset_configurations(agent_id);
-create index idx_sdr_campaign_templates_user_id on public.sdr_campaign_templates(user_id);
-create index idx_sdr_agent_performance_user_agent on public.sdr_agent_performance(user_id, agent_id);
+create index if not exists idx_sdr_user_preferences_user_agent on public.sdr_user_preferences(user_id, agent_id);
+create index if not exists idx_sdr_user_preferences_active on public.sdr_user_preferences(is_active);
+create index if not exists idx_sdr_preset_configurations_agent_id on public.sdr_preset_configurations(agent_id);
+create index if not exists idx_sdr_campaign_templates_user_id on public.sdr_campaign_templates(user_id);
+create index if not exists idx_sdr_agent_performance_user_agent on public.sdr_agent_performance(user_id, agent_id);

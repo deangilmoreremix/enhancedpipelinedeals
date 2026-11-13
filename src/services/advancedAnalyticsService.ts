@@ -392,7 +392,7 @@ class AdvancedAnalyticsService {
     return {
       deal,
       history: history || [],
-      stageChanges: history?.filter(h => h.field === 'stage') || []
+      stageChanges: history?.filter((h: any) => h.field === 'stage') || []
     };
   }
 
@@ -423,7 +423,7 @@ class AdvancedAnalyticsService {
     if (!contacts) return [];
 
     const predictions = await Promise.allSettled(
-      contacts.map(contact => this.predictChurnRisk(contact.id, userId))
+      contacts.map((contact: any) => this.predictChurnRisk(contact.id, userId))
     );
 
     return predictions
@@ -446,7 +446,7 @@ class AdvancedAnalyticsService {
     if (!deals) return [];
 
     const analyses = await Promise.allSettled(
-      deals.map(deal => this.analyzeDealVelocity(deal.id, userId))
+      deals.map((deal: any) => this.analyzeDealVelocity(deal.id, userId))
     );
 
     return analyses

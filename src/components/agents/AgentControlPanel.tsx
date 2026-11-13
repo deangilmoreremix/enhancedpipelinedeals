@@ -1,21 +1,46 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
+import { listAgents, listPersonas, saveAgentSettings, getAgentLogs } from "../../services/agentControlService";
+
+interface AgentOption {
+  id: string;
+  name: string;
+}
+
+interface AgentLog {
+  message: string;
+}
+
+type SkillSettings = {
+  negotiation: boolean;
+  objection: boolean;
+  competitor: boolean;
+  followup: boolean;
+  research: boolean;
+};
+
+type ChannelSettings = {
+  email: boolean;
+  sms: boolean;
+  voice: boolean;
+  linkedin: boolean;
+};
 
 export const AgentControlPanel = () => {
   const [loading, setLoading] = useState(false);
   const [contactId, setContactId] = useState("");
   const [autopilotEnabled, setAutopilotEnabled] = useState(false);
-  const [agents, setAgents] = useState([]);
-  const [personas, setPersonas] = useState([]);
+  const [agents, setAgents] = useState<AgentOption[]>([]);
+  const [personas, setPersonas] = useState<AgentOption[]>([]);
   const [selectedAgent, setSelectedAgent] = useState("");
   const [selectedPersona, setSelectedPersona] = useState("");
   const [sequenceLength, setSequenceLength] = useState("30");
-  const [channels, setChannels] = useState({
+  const [channels, setChannels] = useState<ChannelSettings>({
     email: true,
     sms: false,
     voice: false,
     linkedin: false,
   });
-  const [skills, setSkills] = useState({
+  const [skills, setSkills] = useState<SkillSettings>({
     negotiation: true,
     objection: true,
     competitor: true,
@@ -26,7 +51,11 @@ export const AgentControlPanel = () => {
     start: "20:00",
     end: "08:00",
   });
-  const [logs, setLogs] = useState([]);
+  const [logs, setLogs] = useState<AgentLog[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [, setAgentsLoading] = useState(false);
+  const [, setPersonasLoading] = useState(false);
 
   // Load data on mount with error handling
   useEffect(() => {
@@ -44,12 +73,7 @@ export const AgentControlPanel = () => {
     setAgentsLoading(true);
     setError(null);
     try {
-      const res = await fetch("/.netlify/functions/get-agents");
-      if (!res.ok) {
-        throw new Error(`Failed to load agents: ${res.status}`);
-      }
-      const json = await res.json();
-      setAgents(json.agents || []);
+      setAgents(await listAgents());
     } catch (err) {
       console.error("Failed to load agents:", err);
       setError("Failed to load agents. Please try again.");
@@ -63,12 +87,7 @@ export const AgentControlPanel = () => {
     setPersonasLoading(true);
     setError(null);
     try {
-      const res = await fetch("/.netlify/functions/get-personas");
-      if (!res.ok) {
-        throw new Error(`Failed to load personas: ${res.status}`);
-      }
-      const json = await res.json();
-      setPersonas(json.personas || []);
+      setPersonas(await listPersonas());
     } catch (err) {
       console.error("Failed to load personas:", err);
       setError("Failed to load personas. Please try again.");
@@ -79,38 +98,50 @@ export const AgentControlPanel = () => {
   }, []);
 
   const saveSettings = async () => {
+    setError(null);
+    setSuccess(null);
+    if (!contactId.trim()) {
+      setError("Enter a contact ID before saving.");
+      return;
+    }
     setLoading(true);
-
-    await fetch("/.netlify/functions/save-agent-settings", {
-      method: "POST",
-      body: JSON.stringify({
-        contactId,
+    try {
+      const { preferencesSaved } = await saveAgentSettings({
+        contactId: contactId.trim(),
         autopilotEnabled,
-        selectedAgent,
-        selectedPersona,
+        selectedAgent: agents.some((a) => a.id === selectedAgent) ? selectedAgent : undefined,
+        selectedPersona: personas.some((p) => p.id === selectedPersona) ? selectedPersona : undefined,
         sequenceLength,
         channels,
         skills,
-        inbox,
         quietHours,
-      }),
-    });
-
-    setLoading(false);
-    alert("Settings saved!");
+      });
+      setSuccess(preferencesSaved ? "Settings saved." : "Settings saved (channel / skill preferences could not be stored).");
+    } catch (err: any) {
+      console.error("Failed to save agent settings:", err);
+      setError(`Failed to save settings: ${err?.message || "unknown error"}`);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const loadLogs = async () => {
-    const res = await fetch(
-      `/.netlify/functions/get-agent-logs?contactId=${contactId}`
-    );
-    const json = await res.json();
-    setLogs(json.logs);
+    setError(null);
+    try {
+      setLogs(await getAgentLogs(contactId.trim()));
+    } catch (err: any) {
+      console.error("Failed to load agent logs:", err);
+      setError(`Failed to load logs: ${err?.message || "unknown error"}`);
+      setLogs([]);
+    }
   };
 
   return (
     <div className="p-6 space-y-8">
       <h1 className="text-3xl font-bold">AI Agent Control Panel</h1>
+
+      {error && <div role="alert" className="p-3 rounded bg-red-50 text-red-700 text-sm">{error}</div>}
+      {success && <div role="status" className="p-3 rounded bg-green-50 text-green-700 text-sm">{success}</div>}
 
       {/* Contact ID */}
       <div>
@@ -186,7 +217,7 @@ export const AgentControlPanel = () => {
       <div>
         <label className="font-semibold">AI Skills</label>
         <div className="grid grid-cols-2 gap-3">
-          {Object.keys(skills).map((skill) => (
+          {(Object.keys(skills) as (keyof SkillSettings)[]).map((skill) => (
             <label key={skill} className="flex gap-2 items-center">
               <input
                 type="checkbox"
@@ -205,7 +236,7 @@ export const AgentControlPanel = () => {
       <div>
         <label className="font-semibold">Communication Channels</label>
         <div className="grid grid-cols-2 gap-3">
-          {Object.keys(channels).map((ch) => (
+          {(Object.keys(channels) as (keyof ChannelSettings)[]).map((ch) => (
             <label key={ch} className="flex gap-2 items-center">
               <input
                 type="checkbox"

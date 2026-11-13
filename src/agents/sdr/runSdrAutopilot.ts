@@ -1,7 +1,7 @@
 // SDR Autopilot Runner Engine
-// Main orchestration for GPT-5.2 SDR campaigns
+// Main orchestration for SDR campaigns (OpenAI Responses API via the server-side gateway)
 
-import { openai } from '../../lib/core/openaiClient';
+import { callAI } from '../../services/aiClient';
 import { getSdrModel, buildSdrMessages } from './sdrAgentDefinition';
 import { sdrTools } from './sdrTools';
 import { getOrCreateThreadForLead } from './sdrStateHelpers';
@@ -30,54 +30,54 @@ export async function runSdrAutopilot(params: {
     const leadContext = await getLeadContextFromSmartCRM(leadId);
     const contextString = JSON.stringify(leadContext, null, 2);
 
-    // Build messages
+    // Build messages: system guidance -> `instructions`, the rest -> `input`
     const messages: any[] = buildSdrMessages(contextString, goal);
+    const instructions = messages.filter(m => m.role === 'system').map(m => m.content).join('\n\n');
+    const input = messages.filter(m => m.role !== 'system');
 
-    // Start the conversation with GPT-5.2
-    const completion = await openai.chat.completions.create({
-      model: getSdrModel("autopilot"),
-      messages: messages as any,
-      tools: sdrTools as any,
-      tool_choice: "auto",
-      max_tokens: 4096,
-      temperature: 0.7
+    // Responses API uses flat function tools: { type, name, description, parameters }
+    const tools = (sdrTools as any[]).map(t => (t.function ? { type: 'function', ...t.function } : t));
+    const tier = getSdrModel("autopilot");
+
+    let response = await callAI('chat', {
+      instructions,
+      input,
+      tools,
+      toolChoice: 'auto',
+      tier,
+      maxOutputTokens: 4096,
+      store: true,
     });
+    const initialText = response.text;
+    const toolResults: any[] = [];
 
-    const response = completion.choices[0]?.message;
-    if (!response) {
-      throw new Error("No response from GPT-5.2");
+    // Tool loop: run requested tools, send function_call_output items back with previous_response_id
+    for (let turn = 0; turn < 6 && response.tool_calls?.length; turn++) {
+      const outputs = await handleToolCalls(response.tool_calls, { leadId, mailboxKey });
+      toolResults.push(...outputs);
+      response = await callAI('chat', {
+        instructions,
+        input: outputs.map(o => ({ type: 'function_call_output', call_id: o.call_id, output: o.output })),
+        previousResponseId: response.id,
+        tools,
+        tier,
+        maxOutputTokens: 2048,
+      });
     }
 
-    // Handle tool calls
-    if (response.tool_calls && response.tool_calls.length > 0) {
-      const toolResults = await handleToolCalls(response.tool_calls, { leadId, mailboxKey });
-
-      // Continue conversation with tool results
-      const followUpMessages: any[] = [
-        ...messages,
-        response,
-        ...toolResults
-      ];
-
-      const followUpCompletion = await openai.chat.completions.create({
-        model: getSdrModel("autopilot"),
-        messages: followUpMessages as any,
-        max_tokens: 2048,
-        temperature: 0.7
-      });
-
+    if (toolResults.length > 0) {
       return {
         threadId,
-        initialResponse: response.content,
+        initialResponse: initialText,
         toolResults,
-        finalResponse: followUpCompletion.choices[0]?.message?.content,
+        finalResponse: response.text,
         success: true
       };
     }
 
     return {
       threadId,
-      response: response.content,
+      response: response.text,
       success: true
     };
 
@@ -91,16 +91,18 @@ export async function runSdrAutopilot(params: {
   }
 }
 
-// Handle tool calls from GPT-5.2
-async function handleToolCalls(toolCalls: any[], context: { leadId: string; mailboxKey: string }) {
-  const toolResults = [];
+// Handle tool calls from the model
+async function handleToolCalls(
+  toolCalls: Array<{ call_id: string; name: string; arguments: any }>,
+  context: { leadId: string; mailboxKey: string }
+) {
+  const toolResults: Array<{ call_id: string; name: string; output: string }> = [];
 
   for (const toolCall of toolCalls) {
-    const { id: callId, function: func } = toolCall;
-    const { name, arguments: argsString } = func;
+    const { call_id: callId, name } = toolCall;
 
     try {
-      const args = JSON.parse(argsString || "{}");
+      const args = toolCall.arguments || {};
       let result: any = {};
 
       // Dispatch to appropriate tool implementation
@@ -136,20 +138,14 @@ result = await sendSdrEmail({
           result = { error: `Unknown tool: ${name}` };
       }
 
-      toolResults.push({
-        role: "tool",
-        tool_call_id: callId,
-        content: JSON.stringify(result)
-      });
+      toolResults.push({ call_id: callId, name, output: JSON.stringify(result) });
 
     } catch (error) {
       console.error(`Tool call error for ${name}:`, error);
       toolResults.push({
-        role: "tool",
-        tool_call_id: callId,
-        content: JSON.stringify({
-          error: `Tool execution failed: ${(error as Error).message}`
-        })
+        call_id: callId,
+        name,
+        output: JSON.stringify({ error: `Tool execution failed: ${(error as Error).message}` })
       });
     }
   }

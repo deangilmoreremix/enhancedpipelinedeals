@@ -110,7 +110,7 @@ export class AutomatedNoteTakingService {
 
       if (error) throw error;
 
-      return data.map(item => this.transformDatabaseResult(item));
+      return data.map((item: any) => this.transformDatabaseResult(item));
     } catch (error) {
       console.error('Failed to get deal notes:', error);
       return [];
@@ -360,10 +360,10 @@ export class AutomatedNoteTakingService {
 
       const totalNotes = notes.length;
       const averageConfidence = totalNotes > 0
-        ? notes.reduce((sum, item) => sum + item.confidence, 0) / totalNotes
+        ? notes.reduce((sum: number, item: any) => sum + item.confidence, 0) / totalNotes
         : 0;
 
-      const sentimentDistribution = notes.reduce((acc, item) => {
+      const sentimentDistribution = notes.reduce((acc: Record<string, number>, item: any) => {
         acc[item.sentiment] = (acc[item.sentiment] || 0) + 1;
         return acc;
       }, {} as Record<string, number>);
@@ -375,8 +375,8 @@ export class AutomatedNoteTakingService {
 
       if (actionError) throw actionError;
 
-      const pendingActionItems = actionItems.filter(item => item.status === 'pending').length;
-      const completedActionItems = actionItems.filter(item => item.status === 'completed').length;
+      const pendingActionItems = actionItems.filter((item: any) => item.status === 'pending').length;
+      const completedActionItems = actionItems.filter((item: any) => item.status === 'completed').length;
 
       // Get follow-ups stats
       const { data: followUps, error: followError } = await supabase
@@ -385,7 +385,7 @@ export class AutomatedNoteTakingService {
 
       if (followError) throw followError;
 
-      const pendingFollowUps = followUps.filter(item => !item.completed).length;
+      const pendingFollowUps = followUps.filter((item: any) => !item.completed).length;
 
       return {
         totalNotes,

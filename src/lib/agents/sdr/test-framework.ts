@@ -216,7 +216,7 @@ export const sdrTestSuites: SDRTestSuite[] = [
           },
           deal: {
             id: 'test-deal-1',
-            title: 'Enterprise Software Deal',
+            deal_name: 'Enterprise Software Deal',
             value: 50000,
             stage: 'proposal',
           },

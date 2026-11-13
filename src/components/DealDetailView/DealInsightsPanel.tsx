@@ -4,6 +4,7 @@ import { Deal } from '../../types';
 import { Contact } from '../../types/contact';
 import { daysSince, isDealStale } from '../../utils/dateUtils';
 
+import { openStageKeys, stageIsLost, stageIsOpen, stageIsWon } from '../../utils/stageMeta';
 // Health score calculation configuration
 const HEALTH_SCORE_CONFIG = {
   BASE_SCORE: 50,
@@ -56,11 +57,11 @@ export const DealInsightsPanel: React.FC<DealInsightsPanelProps> = ({ deal, cont
     }
     
     // Stage-based adjustments
-    if (deal.stage === 'negotiation' || deal.stage === 'proposal') {
+    if (stageIsOpen(deal.stage) && openStageKeys().indexOf(deal.stage) > 0) {
       score += HEALTH_SCORE_CONFIG.STAGE_BONUS.NEGOTIATION;
     }
-    if (deal.stage === 'closed-lost') score = HEALTH_SCORE_CONFIG.MIN_SCORE;
-    if (deal.stage === 'closed-won') score = HEALTH_SCORE_CONFIG.MAX_SCORE;
+    if (stageIsLost(deal.stage)) score = HEALTH_SCORE_CONFIG.MIN_SCORE;
+    if (stageIsWon(deal.stage)) score = HEALTH_SCORE_CONFIG.MAX_SCORE;
     
     // Priority boost
     if (deal.priority === 'high') {

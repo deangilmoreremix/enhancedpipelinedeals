@@ -3,7 +3,6 @@ import { DealDetailSidebar } from './DealDetailSidebar';
 import { DealDetailTabs } from './DealDetailTabs';
 import { DealDetailOverview } from './DealDetailOverview';
 import { DealDetailActions } from './DealDetailActions';
-import { DealJourneyTimeline } from '../DealJourneyTimeline';
 import { DealCommunicationHub } from '../DealCommunicationHub';
 import { DealAnalyticsDashboard } from '../DealAnalyticsDashboard';
 import { DealAutomationPanel } from '../DealAutomationPanel';
@@ -11,11 +10,20 @@ import DealManagementPanel from './DealManagementPanel';
 import { EmailComposer } from '../EmailComposer';
 import { ContactsModal } from '../ContactsModal';
 import { dealDetailReducer, dealDetailActions, initialDealDetailState } from './reducer';
-import { useButtonActions } from '../../hooks/useButtonActions';
+import { useButtonActions, type ButtonAction } from '../../hooks/useButtonActions';
 import { useContactStore } from '../../store/contactStore';
 import { aiEnrichmentService } from '../../services/aiEnrichmentService';
 import { useSmartAI } from '../../hooks/useSmartAI';
 import { DealDetailModalProps } from './types';
+import DealNotes from '../deals/DealNotes';
+import DealTasks from '../deals/DealTasks';
+import DealFiles from '../deals/DealFiles';
+import DealTimeline from '../deals/DealTimeline';
+import DealActivityPanel from '../deals/DealActivityPanel';
+import { AIEmailComposer } from '../AIEmailComposer';
+import DealCalendarPanel from '../deals/DealCalendarPanel';
+import DealToasts from '../deals/DealToasts';
+import { pushToast } from '../../store/dealRecordStore';
 
 export const DealDetailModal: React.FC<DealDetailModalProps> = ({
   deal,
@@ -23,7 +31,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
   onClose,
   onUpdate,
   contactData,
-  onAddContact
+  variant = 'modal'
 }) => {
   const { contacts, updateContact } = useContactStore();
   const { smartScoreContact } = useSmartAI();
@@ -44,6 +52,11 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
     onOpenEmailComposer: () => dispatch(dealDetailActions.setActiveModal('emailComposer')),
     onOpenContactSelector: () => dispatch(dealDetailActions.setShowContactSelector(true))
   });
+
+  // Child components pass plain action strings and ignore the returned promise.
+  const onAction = (action: string, event?: React.MouseEvent): void => {
+    void handleAction(action as ButtonAction, event);
+  };
 
   // Update state when deal or contactData changes
   useEffect(() => {
@@ -98,41 +111,16 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
       await onUpdate(deal.id, { isFavorite: updatedDeal.isFavorite });
     } catch (error) {
       console.error('Failed to update favorite status:', error);
+      pushToast('error', 'Could not update favorite');
       dispatch(dealDetailActions.updateEditedDeal(deal));
     }
   }, [deal.id, state.editedDeal.isFavorite, onUpdate]);
 
-  const handleEditField = useCallback((field: string, value: any) => {
-    dispatch(dealDetailActions.updateEditedDeal({ [field]: value }));
-  }, []);
-
-  const handleStartEditingField = useCallback((field: string) => {
-    dispatch(dealDetailActions.setEditingField(field));
-  }, []);
-
-  const handleSaveField = useCallback(async () => {
-    if (!state.editingField) return;
-
-    try {
-      let updates: Partial<any> = {};
-
-      if (state.editingField.startsWith('custom_')) {
-        const fieldName = state.editingField.replace('custom_', '');
-        const customFields = {
-          ...(state.editedDeal.customFields || {}),
-        };
-        updates = { customFields };
-      } else {
-        const fieldValue = state.editedDeal[state.editingField as keyof typeof state.editedDeal];
-        updates = { [state.editingField]: fieldValue };
-      }
-
-      await onUpdate(deal.id, updates);
-      dispatch(dealDetailActions.setEditingField(null));
-    } catch (error) {
-      console.error('Failed to update field:', error);
-    }
-  }, [state.editingField, state.editedDeal, deal.id, onUpdate]);
+  // Inline field editors persist through the store (optimistic; they surface their own errors).
+  const handleUpdateDeal = useCallback(
+    async (updates: Partial<typeof deal>) => onUpdate(deal.id, updates),
+    [deal.id, onUpdate]
+  );
 
   const handleAnalyzeDeal = useCallback(async () => {
     dispatch(dealDetailActions.setAnalyzing(true));
@@ -305,17 +293,10 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
 
   if (!isOpen) return null;
 
-  return (
-    <div
-      className="fixed inset-0 bg-black/95 backdrop-blur-md z-[60] flex items-center justify-center p-2 animate-fade-in"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) {
-          onClose();
-        }
-      }}
-    >
-      <div className="bg-white dark:bg-gray-900 rounded-xl w-full max-w-[95vw] h-[95vh] overflow-hidden flex animate-scale-in shadow-2xl">
+  const isPage = variant === 'page';
 
+  const body = (
+    <>
         {/* Sidebar */}
         <DealDetailSidebar
           deal={deal}
@@ -327,7 +308,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
           onContactEnrichment={handleContactEnrichment}
           onFindNewImage={handleFindNewImage}
           onToggleFavorite={handleToggleFavorite}
-          onAction={handleAction}
+          onAction={onAction}
           onClose={onClose}
         />
 
@@ -349,21 +330,34 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
             onCancel={handleCancel}
             onToggleFavorite={handleToggleFavorite}
             onShare={handleShareDeal}
-            onAction={handleAction}
+            onAction={onAction}
           />
 
           {/* Tab Content */}
-          <div className="flex-1 overflow-y-auto bg-gray-50 min-h-0">
+          <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 min-h-0">
             {state.activeTab === 'overview' && (
               <DealDetailOverview
                 deal={deal}
                 editedDeal={state.editedDeal}
                 linkedContact={state.linkedContact}
-                onEditField={handleEditField}
-                onStartEditingField={handleStartEditingField}
-                onSaveField={handleSaveField}
-                editingField={state.editingField}
+                onUpdateDeal={handleUpdateDeal}
               />
+            )}
+
+            {state.activeTab === 'notes' && (
+              <div className="p-6"><DealNotes dealId={deal.id} /></div>
+            )}
+
+            {state.activeTab === 'tasks' && (
+              <div className="p-6"><DealTasks dealId={deal.id} /></div>
+            )}
+
+            {state.activeTab === 'files' && (
+              <div className="p-6"><DealFiles dealId={deal.id} /></div>
+            )}
+
+            {state.activeTab === 'timeline' && (
+              <div className="p-6"><DealTimeline dealId={deal.id} showFilters maxItems={200} refreshKey={`${deal.updatedAt?.getTime?.() ?? ''}`} /></div>
             )}
 
             {state.activeTab === 'insights' && (
@@ -390,7 +384,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
 
             {state.activeTab === 'journey' && (
               <div className="p-6">
-                <DealJourneyTimeline deal={state.editedDeal} dealId={state.editedDeal.id} />
+                <DealActivityPanel dealId={state.editedDeal.id} refreshKey={`${deal.updatedAt?.getTime?.() ?? ''}`} />
               </div>
             )}
 
@@ -424,19 +418,15 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
 
             {state.activeTab === 'calendar' && (
               <div className="p-6">
-                <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-                  <div className="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto mb-3">📅</div>
-                  <h4 className="text-lg font-medium text-gray-700 dark:text-gray-300 mb-2">Calendar View</h4>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                    View deal-related dates and scheduled activities.
-                  </p>
-                  <p className="text-xs text-gray-400">Coming soon</p>
-                </div>
+                <DealCalendarPanel deal={state.editedDeal} contact={state.linkedContact} />
               </div>
             )}
 
             {state.activeTab === 'email' && state.linkedContact && (
-              <div className="p-6">
+              <div className="p-6 space-y-6">
+                <section aria-label="AI email draft">
+                  <AIEmailComposer contactId={state.linkedContact.id} dealId={state.editedDeal.id} />
+                </section>
                 <EmailComposer
                   contact={state.linkedContact}
                   deal={state.editedDeal}
@@ -468,8 +458,11 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
             )}
           </div>
         </div>
-      </div>
+    </>
+  );
 
+  const overlays = (
+    <>
       {/* Modals */}
       {state.activeModal === 'emailComposer' && state.linkedContact && (
         <EmailComposer
@@ -491,6 +484,32 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
           selectedContactId={state.linkedContact?.id}
         />
       )}
+      <DealToasts />
+    </>
+  );
+
+  if (isPage) {
+    return (
+      <div className="w-full h-[calc(100vh-13rem)] min-h-[32rem] bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden flex">
+        {body}
+        {overlays}
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/95 backdrop-blur-md z-[60] flex items-center justify-center p-2 animate-fade-in"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
+    >
+      <div className="bg-white dark:bg-gray-900 rounded-xl w-full max-w-[95vw] h-[95vh] overflow-hidden flex animate-scale-in shadow-2xl">
+        {body}
+      </div>
+      {overlays}
     </div>
   );
 };

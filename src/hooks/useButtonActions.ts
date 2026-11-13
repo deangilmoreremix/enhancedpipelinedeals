@@ -3,6 +3,8 @@ import { Deal } from '../types';
 import { Contact } from '../types/contact';
 import { getPhoneService } from '../services/phoneService';
 import { getAIFunctionOrchestrator } from '../services/aiFunctionOrchestrator';
+import { getAIEnrichmentService } from '../services/aiEnrichmentService';
+import { avatarOrFallback } from '../services/imageService';
 
 export type ButtonAction =
   | 'email'
@@ -263,22 +265,24 @@ export const useButtonActions = ({
           return { success: false, error: 'No contact available for auto-enrichment' };
         }
 
-        const mockEnrichment = {
-          firstName: contact.firstName,
-          lastName: contact.lastName,
-          email: contact.email,
-          company: contact.company,
-          phone: contact.phone || `+1-${Math.floor(Math.random() * 900) + 100}-${Math.floor(Math.random() * 900) + 100}-${Math.floor(Math.random() * 9000) + 1000}`,
-          industry: contact.industry || ['Technology', 'Finance', 'Healthcare', 'Education'][Math.floor(Math.random() * 4)],
-          notes: "Auto-enriched with AI on " + new Date().toLocaleDateString(),
-          confidence: 85
-        };
-
-        if (onUpdateContact) {
-          await onUpdateContact(contact.id, mockEnrichment);
+        // Public-web research with the OpenAI web_search tool. Fills empty fields only, never overwrites,
+        // appends a sourced note and merges public social profiles.
+        const { applied, suggestions, research } = await getAIEnrichmentService().enrichContactFromWeb(contact as any);
+        const enrichmentUpdates: Record<string, unknown> = applied;
+        if (!research.found || Object.keys(applied).length === 0) {
+          return {
+            success: false,
+            error: research.found
+              ? 'No new information found (existing fields already match)'
+              : (research.notes || 'No reliable public information found for this contact'),
+          };
         }
 
-        return { success: true, data: mockEnrichment };
+        if (onUpdateContact) {
+          await onUpdateContact(contact.id, enrichmentUpdates);
+        }
+
+        return { success: true, data: { applied: enrichmentUpdates, suggestions, sources: research.sources, confidence: research.confidence } };
       } catch (error) {
         console.error('AI Auto-Enrich action failed:', error);
         return { success: false, error: 'Failed to auto-enrich contact' };
@@ -291,7 +295,8 @@ export const useButtonActions = ({
           return { success: false, error: 'No contact available' };
         }
 
-        const mockImageUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${contact.name.toLowerCase().replace(/\s+/g, '')}`;
+        // Generates a real avatar with OpenAI GPT Image 2.6 (stored in Supabase Storage); falls back to local initials
+        const mockImageUrl = await avatarOrFallback({ id: contact.id, name: contact.name, title: contact.title, industry: contact.industry });
 
         if (onUpdateContact) {
           await onUpdateContact(contact.id, { avatarSrc: mockImageUrl });

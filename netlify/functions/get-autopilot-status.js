@@ -1,5 +1,5 @@
 // netlify/functions/get-autopilot-status.js
-const { supabase } = require("./_supabaseClient");
+import { supabase } from "./_supabaseClient";
 
 function corsHeaders() {
   return {
@@ -9,7 +9,7 @@ function corsHeaders() {
   };
 }
 
-exports.handler = async (event, context) => {
+export const handler = async (event, context) => {
   if (event.httpMethod === "OPTIONS") {
     return { statusCode: 200, headers: corsHeaders(), body: "" };
   }
@@ -80,7 +80,7 @@ exports.handler = async (event, context) => {
           name: contact.name,
           email: contact.email,
           company: contact.company,
-          lead_status: contact.lead_status,
+          lead_status: contact.lead_status ?? contact.status,
         },
         settings,
         lastLog,

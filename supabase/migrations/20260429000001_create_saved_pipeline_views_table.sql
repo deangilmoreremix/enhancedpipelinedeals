@@ -18,22 +18,26 @@ create table if not exists public.saved_pipeline_views (
 alter table public.saved_pipeline_views enable row level security;
 
 -- Policies
+drop policy if exists "Users can view their own saved views" on public.saved_pipeline_views;
 create policy "Users can view their own saved views"
   on public.saved_pipeline_views for select
   using (auth.uid() = user_id);
 
+drop policy if exists "Users can insert their own saved views" on public.saved_pipeline_views;
 create policy "Users can insert their own saved views"
   on public.saved_pipeline_views for insert
   with check (auth.uid() = user_id);
 
+drop policy if exists "Users can update their own saved views" on public.saved_pipeline_views;
 create policy "Users can update their own saved views"
   on public.saved_pipeline_views for update
   using (auth.uid() = user_id);
 
+drop policy if exists "Users can delete their own saved views" on public.saved_pipeline_views;
 create policy "Users can delete their own saved views"
   on public.saved_pipeline_views for delete
   using (auth.uid() = user_id);
 
 -- Indexes
-create index idx_saved_pipeline_views_user_id on public.saved_pipeline_views(user_id);
-create index idx_saved_pipeline_views_is_default on public.saved_pipeline_views(is_default) where is_default = true;
+create index if not exists idx_saved_pipeline_views_user_id on public.saved_pipeline_views(user_id);
+create index if not exists idx_saved_pipeline_views_is_default on public.saved_pipeline_views(is_default) where is_default = true;

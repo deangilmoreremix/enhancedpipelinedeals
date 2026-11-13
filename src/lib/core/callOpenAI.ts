@@ -1,24 +1,25 @@
-import { openai } from "./openaiClient";
+import { callAI } from "../../services/aiClient";
 import { openaiFunctionRouter } from "./openaiFunctionRouter";
 
-export async function callOpenAI(prompt: string, functions: any[]) {
-  const response = await openai.chat.completions.create({
-    model: "gpt-4o-mini", // or GPT-5 when available
-    messages: [{ role: "user", content: prompt }],
-    functions,
-    function_call: "auto",
-    temperature: 0.7
+/**
+ * Responses API call through the Netlify gateway. When `functions` (tool definitions) are supplied and the
+ * model requests one, it is executed through the function router; otherwise the text answer is returned.
+ * Accepts both legacy `{name, description, parameters}` and `{type:'function', function:{...}}` shapes.
+ */
+export async function callOpenAI(prompt: string, functions: any[] = []) {
+  const tools = functions.map((f) => {
+    const def = f.function ?? f;
+    return { type: "function", name: def.name, description: def.description, parameters: def.parameters };
   });
 
-  const choice = response.choices[0];
+  const result = await callAI("chat", {
+    input: prompt,
+    tier: "fast",
+    tools: tools.length ? tools : undefined,
+    toolChoice: tools.length ? "auto" : undefined,
+  });
 
-  if (choice.finish_reason === "function_call") {
-    const fn = choice.message.function_call;
-    const fnName = fn!.name;
-    const args = JSON.parse(fn!.arguments || "{}");
-
-    return await openaiFunctionRouter(fnName, args);
-  }
-
-  return response.choices[0].message.content;
+  const call = result.tool_calls?.[0];
+  if (call) return await openaiFunctionRouter(call.name, call.arguments);
+  return result.text;
 }

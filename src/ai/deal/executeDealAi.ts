@@ -4,6 +4,7 @@
  */
 
 import { DealAiRequest, DealAiResponse, DealAiTask } from './types';
+import { callAI } from '../../services/aiClient';
 import { getOptimalModel, getModelCapabilities, getFallbackModels } from './modelRouter';
 import { buildDealContext, summarizeContext } from './contextBuilder';
 import { createClient } from '@supabase/supabase-js';
@@ -236,32 +237,22 @@ async function handleDefault(request: DealAiRequest, context: any, model: string
 }
 
 // Helper Functions
-async function callOpenAI(prompt: string, model: string, capabilities: any) {
-  const openaiApiKey = import.meta.env?.OPENAI_API_KEY;
-  if (!openaiApiKey) {
-    throw new Error('OpenAI API key not configured');
-  }
-
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${openaiApiKey}`,
-    },
-    body: JSON.stringify({
-      model,
-      messages: [{ role: 'user', content: prompt }],
-      max_tokens: capabilities.maxTokens,
-      temperature: 0.7,
-    }),
+async function callOpenAI(prompt: string, tier: string, capabilities: any) {
+  // Server-side Responses API gateway (no API key in the browser).
+  const result = await callAI('chat', {
+    input: prompt,
+    tier,
+    effort: capabilities.reasoningEffort,
+    maxOutputTokens: capabilities.maxTokens,
   });
 
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(`OpenAI API error: ${error.error?.message || response.statusText}`);
-  }
-
-  return await response.json();
+  // Keep the legacy result shape that downstream code reads.
+  return {
+    model: result.model,
+    output_text: result.text,
+    choices: [{ message: { role: 'assistant', content: result.text } }],
+    usage: result.usage as any,
+  };
 }
 
 function buildDealAnalysisPrompt(context: any): string {
@@ -297,14 +288,8 @@ Context: ${summarizeContext(context)}
 ${options?.customInstructions || 'Generate an appropriate email for this situation.'}`;
 }
 
-function calculateCost(model: string, tokens: number): number {
-  const rates: Record<string, number> = {
-    'gpt-4o-mini': 0.00015,
-    'gpt-4o': 0.0003,
-    'gpt-4o': 0.0006
-  };
-
-  return (rates[model] || rates['gpt-4o']) * tokens;
+function calculateCost(tier: string, tokens: number): number {
+  return getModelCapabilities(tier).costPerToken * tokens;
 }
 
 async function logUsage(request: DealAiRequest, result: any, startTime: number, cost: number) {

@@ -3,6 +3,10 @@
  * Advanced reporting and insights for sales pipeline performance
  */
 
+import { supabase, isSupabaseConfigured } from '../lib/core/supabaseClient';
+import { isDemoMode } from '../config/demoMode';
+import { dealFromRow } from './dealMapper';
+import { getActiveStages, openStageKeys, sortedStages, stageIsLost, stageIsWon } from '../utils/stageMeta';
 interface PipelineMetrics {
   totalDeals: number;
   totalValue: number;
@@ -69,7 +73,7 @@ class PipelineAnalyticsService {
       const totalValue = deals.reduce((sum, deal) => sum + (deal.value || 0), 0);
       const averageDealSize = totalDeals > 0 ? totalValue / totalDeals : 0;
 
-      const closedDeals = deals.filter(deal => deal.stage === 'closed-won');
+      const closedDeals = deals.filter(deal => stageIsWon(deal.stage));
       const conversionRate = totalDeals > 0 ? (closedDeals.length / totalDeals) * 100 : 0;
 
       const velocity = this.calculateAverageVelocity(deals);
@@ -103,7 +107,7 @@ class PipelineAnalyticsService {
 
     try {
       const deals = await this.getDealsData();
-      const stages = ['qualification', 'proposal', 'negotiation', 'closed-won', 'closed-lost'];
+      const stages = sortedStages(getActiveStages()).map(st => st.key);
 
       const analytics: StageAnalytics[] = stages.map(stage => {
         const stageDeals = deals.filter(deal => deal.stage === stage);
@@ -173,13 +177,13 @@ class PipelineAnalyticsService {
         ).length;
 
         const dealsClosed = deals.filter(deal =>
-          deal.stage === 'closed-won' &&
+          stageIsWon(deal.stage) &&
           new Date(deal.updatedAt) >= periodStart &&
           new Date(deal.updatedAt) <= periodEnd
         ).length;
 
         const revenue = deals
-          .filter(deal => deal.stage === 'closed-won')
+          .filter(deal => stageIsWon(deal.stage))
           .reduce((sum, deal) => sum + (deal.value || 0), 0);
 
         // Calculate growth (compared to previous period)
@@ -214,20 +218,40 @@ class PipelineAnalyticsService {
     }
 
     try {
-      // Get agent activity data
-      const response = await fetch('/.netlify/functions/get-agent-performance');
-      const data = await response.json();
+      // AI SDR agents: agent_metrics (run counters) + sdr_agent_executions (which leads each agent worked on)
+      if (!isSupabaseConfigured || isDemoMode()) return [];
+      const [{ data: metrics, error: mErr }, { data: meta }, { data: runs }] = await Promise.all([
+        supabase.from('agent_metrics').select('agent_id,total_runs,successful_runs,failed_runs,last_run_at'),
+        supabase.from('agent_metadata').select('id,label'),
+        supabase.from('sdr_agent_executions').select('agent_id,context_id,executed_at').limit(5000),
+      ]);
+      if (mErr) throw new Error(mErr.message);
+      const labels = new Map((meta ?? []).map((m: any) => [m.id, m.label]));
+      const contexts = new Map<string, Set<string>>();
+      const firstRun = new Map<string, number>();
+      for (const r of (runs ?? []) as any[]) {
+        if (!contexts.has(r.agent_id)) contexts.set(r.agent_id, new Set());
+        if (r.context_id) contexts.get(r.agent_id)!.add(String(r.context_id));
+        const t = r.executed_at ? new Date(r.executed_at).getTime() : NaN;
+        if (!Number.isNaN(t)) firstRun.set(r.agent_id, Math.min(firstRun.get(r.agent_id) ?? t, t));
+      }
 
-      const performance: AgentPerformance[] = data.agents.map(agent => ({
-        agentId: agent.id,
-        agentName: agent.name,
-        dealsManaged: agent.dealsManaged || 0,
-        revenueGenerated: agent.revenueGenerated || 0,
-        winRate: agent.winRate || 0,
-        averageDealSize: agent.averageDealSize || 0,
-        activityScore: this.calculateActivityScore(agent),
-        efficiency: agent.efficiency || 0
-      }));
+      const performance: AgentPerformance[] = (metrics ?? []).map((m: any) => {
+        const total = m.total_runs || 0;
+        const ok = m.successful_runs || 0;
+        const days = firstRun.has(m.agent_id) ? Math.max(1, (Date.now() - firstRun.get(m.agent_id)!) / 86_400_000) : 1;
+        const dealsManaged = contexts.get(m.agent_id)?.size ?? 0;
+        return {
+          agentId: m.agent_id,
+          agentName: labels.get(m.agent_id) || m.agent_id,
+          dealsManaged,
+          revenueGenerated: 0, // not attributed to AI agents
+          winRate: total > 0 ? Math.round((ok / total) * 100) : 0, // run success rate
+          averageDealSize: 0,
+          activityScore: this.calculateActivityScore({ emailsSent: total, dealsUpdated: dealsManaged }),
+          efficiency: Math.round((ok / days) * 100) / 100, // successful runs per active day
+        };
+      });
 
       this.cache.set(cacheKey, performance);
       return performance;
@@ -274,14 +298,13 @@ class PipelineAnalyticsService {
 
   private async getDealsData(dateRange?: { start: string; end: string }): Promise<any[]> {
     try {
-      let url = '/.netlify/functions/get-deals-analytics';
-      if (dateRange) {
-        url += `?start=${dateRange.start}&end=${dateRange.end}`;
-      }
+      if (!isSupabaseConfigured || isDemoMode()) return []; // demo: no remote data (same empty state as before)
 
-      const response = await fetch(url);
-      const data = await response.json();
-      return data.deals || [];
+      let query = supabase.from('deals').select('*').is('deleted_at', null);
+      if (dateRange) query = query.gte('created_at', dateRange.start).lte('created_at', dateRange.end);
+      const { data, error } = await query;
+      if (error) throw new Error(error.message);
+      return (data ?? []).map((row: any) => dealFromRow(row));
     } catch (error) {
       console.warn('Failed to get deals data:', error);
       return [];
@@ -290,7 +313,7 @@ class PipelineAnalyticsService {
 
   private calculateAverageVelocity(deals: any[]): number {
     const closedDeals = deals.filter(deal =>
-      deal.stage === 'closed-won' && deal.createdAt && deal.updatedAt
+      stageIsWon(deal.stage) && deal.createdAt && deal.updatedAt
     );
 
     if (closedDeals.length === 0) return 0;
@@ -307,12 +330,12 @@ class PipelineAnalyticsService {
 
   private calculateWinRate(deals: any[]): number {
     const closedDeals = deals.filter(deal =>
-      deal.stage === 'closed-won' || deal.stage === 'closed-lost'
+      stageIsWon(deal.stage) || stageIsLost(deal.stage)
     );
 
     if (closedDeals.length === 0) return 0;
 
-    const wonDeals = closedDeals.filter(deal => deal.stage === 'closed-won').length;
+    const wonDeals = closedDeals.filter(deal => stageIsWon(deal.stage)).length;
     return Math.round((wonDeals / closedDeals.length) * 100);
   }
 
@@ -341,13 +364,13 @@ class PipelineAnalyticsService {
   }
 
   private analyzeStageDistribution(deals: any[]): { score: number; analysis: string } {
-    const stages = ['qualification', 'proposal', 'negotiation'];
+    const stages = openStageKeys();
     const totalDeals = deals.length;
 
     if (totalDeals === 0) return { score: 0, analysis: 'No deals in pipeline' };
 
     let score = 0;
-    const analysis = [];
+    const analysis: string[] = [];
 
     stages.forEach((stage, index) => {
       const stageDeals = deals.filter(deal => deal.stage === stage).length;
@@ -355,7 +378,7 @@ class PipelineAnalyticsService {
 
       // Ideal distribution: 40% qualification, 30% proposal, 20% negotiation
       const idealPercentages = [40, 30, 20];
-      const ideal = idealPercentages[index];
+      const ideal = idealPercentages[index] ?? 10;
 
       const deviation = Math.abs(percentage - ideal);
       const stageScore = Math.max(0, 10 - deviation);
@@ -416,7 +439,8 @@ class PipelineAnalyticsService {
   }
 
   private getNextStage(stage: string): string | null {
-    const stages = ['qualification', 'proposal', 'negotiation', 'closed-won'];
+    // Next stage in pipeline order, skipping lost stages (a lost stage is not a conversion)
+    const stages = sortedStages(getActiveStages()).filter(st => !st.isLost).map(st => st.key);
     const index = stages.indexOf(stage);
     return index >= 0 && index < stages.length - 1 ? stages[index + 1] : null;
   }

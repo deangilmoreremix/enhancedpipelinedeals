@@ -1,6 +1,7 @@
 import { Deal } from '../types';
 import { Contact } from '../types/contact';
 
+import { getActiveStages, getStageMeta, openStageKeys } from '../utils/stageMeta';
 export interface IntentSignals {
   budgetMentioned: boolean;
   timelineMentioned: boolean;
@@ -134,14 +135,12 @@ export class ContextDetectionService {
     let score = 50; // Base score
 
     // Deal stage impact
-    const stageScores: Record<string, number> = {
-      'qualification': 20,
-      'proposal': 40,
-      'negotiation': 60,
-      'closed-won': 80,
-      'closed-lost': 10
-    };
-    score += stageScores[deal.stage] || 0;
+    const stageMeta = getStageMeta(getActiveStages(), deal.stage);
+    const openKeys = openStageKeys();
+    const openIdx = openKeys.indexOf(deal.stage);
+    if (stageMeta.isWon) score += 80;
+    else if (stageMeta.isLost) score += 10;
+    else if (openIdx >= 0) score += Math.min(60, 20 + openIdx * 20);
 
     // Time since last activity (negative impact for old deals)
     const lastActivity = deal.updatedAt ? new Date(deal.updatedAt) : new Date(deal.createdAt);
@@ -178,25 +177,21 @@ export class ContextDetectionService {
     const recommendations: string[] = [];
 
     // Deal stage-based recommendations
-    switch (deal.stage) {
-      case 'qualification':
-        recommendations.push('sdr-data-enrichment');
-        if (engagementScore < 60) recommendations.push('sdr-follow-up');
-        break;
-
-      case 'proposal':
-        if (intentSignals.qualificationScore > 70) recommendations.push('sdr-high-intent');
-        if (competitorData.length > 0) recommendations.push('sdr-competitor-aware');
-        break;
-
-      case 'negotiation':
-        recommendations.push('sdr-objection-handling');
-        if (intentSignals.qualificationScore > 80) recommendations.push('sdr-high-intent');
-        break;
-
-      case 'closed-lost':
-        recommendations.push('sdr-winback');
-        break;
+    // Role of the stage in the configured pipeline: first open = discovery, last open = closing, others = middle, lost = winback
+    const stageMeta = getStageMeta(getActiveStages(), deal.stage);
+    const openKeys = openStageKeys();
+    const openIdx = openKeys.indexOf(deal.stage);
+    if (stageMeta.isLost) {
+      recommendations.push('sdr-winback');
+    } else if (openIdx === 0) {
+      recommendations.push('sdr-data-enrichment');
+      if (engagementScore < 60) recommendations.push('sdr-follow-up');
+    } else if (openIdx > 0 && openIdx === openKeys.length - 1) {
+      recommendations.push('sdr-objection-handling');
+      if (intentSignals.qualificationScore > 80) recommendations.push('sdr-high-intent');
+    } else if (openIdx > 0) {
+      if (intentSignals.qualificationScore > 70) recommendations.push('sdr-high-intent');
+      if (competitorData.length > 0) recommendations.push('sdr-competitor-aware');
     }
 
     // Time-based recommendations

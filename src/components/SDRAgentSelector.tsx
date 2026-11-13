@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
+import { CheckCircle } from 'lucide-react';
 import { ModernButton } from './ui/ModernButton';
-import { SDR_AGENTS } from '../components/sdr/sdrAgentsConfig';
+import { SDR_AGENT_DETAILS } from '../components/sdr/sdrAgentsConfig';
+import { authedFetch } from '../services/aiClient';
 
 interface SDRAgent {
   id: string;
@@ -23,7 +25,7 @@ export function SDRAgentSelector({
   onAgentSelected,
   selectedAgentId
 }: SDRAgentSelectorProps) {
-  const [agents, setAgents] = useState<SDRAgent[]>(SDR_AGENTS);
+  const [agents, setAgents] = useState<SDRAgent[]>(SDR_AGENT_DETAILS);
   const [selectedAgent, setSelectedAgent] = useState<SDRAgent | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [filter, setFilter] = useState<string>('all');
@@ -52,7 +54,7 @@ export function SDRAgentSelector({
         ? { contact_id: contactId, agent_id: agent.id }
         : { pipeline_id: pipelineId, agent_id: agent.id };
 
-      const response = await fetch(`/.netlify/functions/${endpoint}`, {
+      const response = await authedFetch(`/.netlify/functions/${endpoint}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

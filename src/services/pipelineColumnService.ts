@@ -1,44 +1,15 @@
 import { supabase } from './supabaseService';
 import { CustomPipelineColumn } from '../types/pipeline';
-import { PipelineColumn } from '../types';
+import { PipelineColumn, PipelineStage } from '../types';
+import { getStages, upsertStages, DEFAULT_STAGES } from './pipelineStageService';
 
-const DEFAULT_COLUMNS: CustomPipelineColumn[] = [
-  {
-    id: 'qualification',
-    name: 'Qualification',
-    position: 1,
-    config: { color: 'border-blue-500', wipLimit: 10 },
-    is_active: true
-  },
-  {
-    id: 'proposal',
-    name: 'Proposal',
-    position: 2,
-    config: { color: 'border-indigo-500', wipLimit: 8 },
-    is_active: true
-  },
-  {
-    id: 'negotiation',
-    name: 'Negotiation',
-    position: 3,
-    config: { color: 'border-purple-500', wipLimit: 6 },
-    is_active: true
-  },
-  {
-    id: 'closed-won',
-    name: 'Closed Won',
-    position: 4,
-    config: { color: 'border-green-500', wipLimit: 0 },
-    is_active: true
-  },
-  {
-    id: 'closed-lost',
-    name: 'Closed Lost',
-    position: 5,
-    config: { color: 'border-red-500', wipLimit: 0 },
-    is_active: true
-  }
-];
+const stageToCustom = (s: PipelineStage): CustomPipelineColumn => ({
+  id: s.key,
+  name: s.name,
+  position: s.position + 1,
+  config: { color: `border-${s.color}-500`, wipLimit: s.wipLimit ?? 0 },
+  is_active: s.visible
+});
 
 /**
  * Service for managing custom pipeline columns
@@ -49,35 +20,36 @@ export class PipelineColumnService {
   /**
    * Get custom columns for a user (or global if userId not provided)
    */
-  static async getCustomColumns(userId?: string): Promise<CustomPipelineColumn[]> {
-    // If supabase client is not initialized, return default columns
-    if (!supabase) {
-      return DEFAULT_COLUMNS;
-    }
-
-    try {
-      const { data, error } = await supabase
-        .from('app_settings')
-        .select('setting_value')
-        .eq('setting_key', this.SETTING_KEY)
-        .maybeSingle();
-
-      if (error || !data) {
-        return DEFAULT_COLUMNS;
-      }
-
-      const stored = data.setting_value as CustomPipelineColumn[];
-      return stored?.length > 0 ? stored : DEFAULT_COLUMNS;
-    } catch (error) {
-      console.error('Error fetching custom columns:', error);
-      return DEFAULT_COLUMNS;
-    }
+  static async getCustomColumns(_userId?: string): Promise<CustomPipelineColumn[]> {
+    // Delegates to pipelineStageService (pipeline_stages table, with app_settings/default fallbacks)
+    const stages = await getStages();
+    return (stages.length ? stages : DEFAULT_STAGES).map(stageToCustom);
   }
 
   /**
-   * Save custom columns (global or user-specific)
+   * @deprecated The stage manager (CustomColumnManager) now edits stages through dealStore.
+   * Kept as a compatibility writer: it never zeroes probabilities or drops won/lost flags.
    */
   static async saveCustomColumns(columns: CustomPipelineColumn[], userId?: string): Promise<boolean> {
+    try {
+      // Preserve probability / won / lost of existing stages: the legacy column shape does not carry them
+      const existing = await getStages();
+      await upsertStages(columns.map((c, i) => {
+        const prev = existing.find(s => s.key === c.id) ?? DEFAULT_STAGES.find(d => d.key === c.id);
+        return {
+          key: c.id,
+          name: c.name,
+          color: c.config.color?.replace(/^border-/, '').replace(/-\d+$/, '') || prev?.color || 'gray',
+          position: c.position != null ? c.position - 1 : i,
+          visible: c.is_active,
+          wipLimit: c.config.wipLimit ? c.config.wipLimit : null,
+          ...(prev ? {} : { probability: 0, isWon: false, isLost: false })
+        };
+      }));
+      return true;
+    } catch (error) {
+      console.warn('pipeline_stages save failed, falling back to app_settings:', error);
+    }
     try {
       const { error } = await supabase
         .from('app_settings')
@@ -88,11 +60,8 @@ export class PipelineColumnService {
             user_id: userId || null,
             updated_at: new Date().toISOString()
           },
-          {
-            onConflict: userId ? 'user_id,setting_key' : 'setting_key'
-          }
+          { onConflict: userId ? 'user_id,setting_key' : 'setting_key' }
         );
-
       if (error) throw error;
       return true;
     } catch (error) {

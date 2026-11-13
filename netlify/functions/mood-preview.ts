@@ -1,14 +1,19 @@
+import './_serverEnv';
 import type { Handler } from "@netlify/functions";
+import { authorize, json } from "./_openai";
 import { determineMood } from "../../src/lib/mood/determineMood";
 import { getContactAndDeal } from "../../src/lib/autopilot/helpers";
 
 export const handler: Handler = async (event) => {
+  if (event.httpMethod === "OPTIONS") return { ...json(204, {}), body: "" };
   if (event.httpMethod !== "GET") {
     return {
       statusCode: 405,
       body: JSON.stringify({ error: "Method Not Allowed" })
     };
   }
+
+  if (!(await authorize(event.headers.authorization || event.headers.Authorization))) return json(401, { error: "Unauthorized" });
 
   try {
     const contactId = event.queryStringParameters?.contactId;

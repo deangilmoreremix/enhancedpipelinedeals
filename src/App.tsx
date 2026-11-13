@@ -1,27 +1,90 @@
-import React, { useState } from 'react';
+import React, { Suspense, useEffect, useState } from 'react';
+import { Route, Routes, useLocation } from 'react-router-dom';
+import { OPEN_SETTINGS_EVENT } from './components/settingsEvents';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import { PersonalizationProvider } from './contexts/PersonalizationContext';
 import { GamificationProvider } from './contexts/GamificationContext';
 import { AuthProvider } from './components/auth/AuthProvider';
-import Pipeline from './components/Pipeline';
+import { AppNavigation } from './components/navigation/AppNavigation';
 import { DarkModeToggle } from './components/ui/DarkModeToggle';
 import { EnhancedAIStatusIndicator } from './components/ui/EnhancedAIStatusIndicator';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { SettingsModal } from './components/ui/SettingsModal';
 import { useKeyboardShortcuts, globalShortcuts } from './hooks/useKeyboardShortcuts';
 import { Settings } from 'lucide-react';
+import { OPEN_COMMAND_PALETTE_EVENT } from './components/commandPaletteEvents';
+
+const PipelinePage = React.lazy(() => import('./pages/PipelinePage'));
+const ContactsPage = React.lazy(() => import('./pages/ContactsPage'));
+const AgentsPage = React.lazy(() => import('./pages/AgentsPage'));
+const CalendarPage = React.lazy(() => import('./pages/CalendarPage'));
+const EmailPage = React.lazy(() => import('./pages/EmailPage'));
+const ViewsPage = React.lazy(() => import('./pages/ViewsPage'));
+const WorkflowsPage = React.lazy(() => import('./pages/WorkflowsPage'));
+const AnalyticsPage = React.lazy(() => import('./pages/AnalyticsPage'));
+const AppsPage = React.lazy(() => import('./pages/AppsPage'));
+const DealRecordPage = React.lazy(() => import('./pages/DealRecordPage'));
+const CompanyPage = React.lazy(() => import('./pages/CompanyPage'));
+const ContactPage = React.lazy(() => import('./pages/ContactPage'));
+
+const CommandPalette = React.lazy(() => import('./components/CommandPalette'));
+
+/** Loads the command palette on the first Ctrl/Cmd+K, then it manages its own open state. */
+const CommandPaletteHost = () => {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    if (mounted) return;
+    const onOpen = () => setMounted(true);
+    window.addEventListener(OPEN_COMMAND_PALETTE_EVENT, onOpen);
+    return () => window.removeEventListener(OPEN_COMMAND_PALETTE_EVENT, onOpen);
+  }, [mounted]);
+  return mounted ? (
+    <Suspense fallback={null}>
+      <CommandPalette defaultOpen />
+    </Suspense>
+  ) : null;
+};
+
+const routeElement = (node: React.ReactNode) => (
+  <ErrorBoundary level="page">{node}</ErrorBoundary>
+);
+
+const PageFallback = () => (
+  <div className="flex items-center justify-center py-24 text-gray-500 dark:text-gray-400" role="status">
+    Loading...
+  </div>
+);
+
+const NotFound = () => (
+  <div className="max-w-7xl mx-auto px-4 py-16 text-center">
+    <h2 className="text-xl font-semibold">Page not found</h2>
+  </div>
+);
 
 function AppContent() {
+  // Start workflow triggers (deal events bus + realtime workflow_events); non-fatal if it fails
+  useEffect(() => {
+    import('./services/workflowTriggerService')
+      .then(m => m.workflowTriggerService.initialize())
+      .catch(err => console.warn('Workflow trigger service not started:', err));
+  }, []);
+
   useKeyboardShortcuts(globalShortcuts);
   const { isInitialized } = useTheme();
   const [showSettings, setShowSettings] = useState(false);
+  const { pathname } = useLocation();
+  useEffect(() => {
+    const onOpen = () => setShowSettings(true);
+    window.addEventListener(OPEN_SETTINGS_EVENT, onOpen);
+    return () => window.removeEventListener(OPEN_SETTINGS_EVENT, onOpen);
+  }, []);
 
   return (
     <div className={`min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300 text-gray-900 dark:text-white ${
       isInitialized ? 'opacity-100' : 'opacity-0'
     }`}>
-      {/* Header */}
-      <header className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-md shadow-sm border-b border-gray-200 dark:border-gray-700 sticky top-0 z-40 transition-colors duration-300">
+      {/* Header (hidden on the Pipeline page, which carries its own theme toggle + settings) */}
+      {pathname !== '/' && <header className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-md shadow-sm border-b border-gray-200 dark:border-gray-700 sticky top-0 z-40 transition-colors duration-300">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4 transition-colors duration-300">
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Smart CRM</h1>
@@ -36,15 +99,39 @@ function AppContent() {
               <DarkModeToggle />
             </div>
           </div>
+          <AppNavigation />
         </div>
-      </header>
+      </header>}
 
       {/* Main content */}
-      <Pipeline />
+      <main>
+        <Suspense fallback={<PageFallback />}>
+          <Routes>
+            <Route path="/" element={routeElement(<PipelinePage />)} />
+            <Route path="/contacts" element={routeElement(<ContactsPage />)} />
+            <Route path="/agents" element={routeElement(<AgentsPage />)} />
+            <Route path="/calendar" element={routeElement(<CalendarPage />)} />
+            <Route path="/email" element={routeElement(<EmailPage />)} />
+            <Route path="/views" element={routeElement(<ViewsPage />)} />
+            <Route path="/workflows" element={routeElement(<WorkflowsPage />)} />
+            <Route path="/analytics" element={routeElement(<AnalyticsPage />)} />
+            <Route path="/apps" element={routeElement(<AppsPage />)} />
+            <Route path="/deals/:id" element={routeElement(<DealRecordPage />)} />
+            <Route path="/companies/:id" element={routeElement(<CompanyPage />)} />
+            <Route path="/contacts/:id" element={routeElement(<ContactPage />)} />
+            <Route path="*" element={routeElement(<NotFound />)} />
+          </Routes>
+        </Suspense>
+      </main>
 
       {/* Enhanced AI Status Indicator */}
       <ErrorBoundary level="component">
         <EnhancedAIStatusIndicator />
+      </ErrorBoundary>
+
+      {/* Global command palette (Ctrl/Cmd+K) */}
+      <ErrorBoundary level="component">
+        <CommandPaletteHost />
       </ErrorBoundary>
 
       {/* Settings Modal */}

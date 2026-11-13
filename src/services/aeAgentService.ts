@@ -2,6 +2,10 @@
  * Account Executive (AE) Agent Service
  * Advanced deal management and closing automation
  */
+import { supabase, isSupabaseConfigured } from '../lib/core/supabaseClient';
+import { isDemoMode } from '../config/demoMode';
+import { dealFromRow } from './dealMapper';
+import { mockDeals } from '../data/mockDeals';
 
 interface DealContext {
   id: string;
@@ -124,14 +128,30 @@ class AEAgentService {
     }
   ];
 
+  /** deals + contacts straight from Supabase; demo / unconfigured mode reads the bundled mock deals (no network). */
+  private async loadDealAndContact(dealId: string): Promise<{ deal: any; contact: any }> {
+    if (!isSupabaseConfigured || isDemoMode()) {
+      const deal: any = mockDeals[dealId];
+      if (!deal) throw new Error('Deal not found');
+      return { deal, contact: { id: deal.contactId, name: deal.contact, title: '', company: deal.company } };
+    }
+    const { data: row, error } = await supabase.from('deals').select('*').eq('id', dealId).maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!row) throw new Error('Deal not found');
+    const deal: any = dealFromRow(row as any);
+    let contact: any = { id: deal.contactId, name: deal.contact, title: '', company: deal.company };
+    if (deal.contactId) {
+      const { data: c, error: cErr } = await supabase.from('contacts').select('id,name,title,company').eq('id', deal.contactId).maybeSingle();
+      if (cErr) throw new Error(cErr.message);
+      if (c) contact = c;
+    }
+    return { deal, contact };
+  }
+
   async analyzeDeal(dealId: string): Promise<DealContext> {
     try {
       // Fetch comprehensive deal data
-      const dealResponse = await fetch(`/api/deals/${dealId}`);
-      const deal = await dealResponse.json();
-
-      const contactResponse = await fetch(`/api/contacts/${deal.contactId}`);
-      const contact = await contactResponse.json();
+      const { deal, contact } = await this.loadDealAndContact(dealId);
 
       // Analyze deal requirements and objections
       const requirements = await this.extractRequirements(deal);
@@ -276,7 +296,13 @@ class AEAgentService {
     rationale: string;
   }>> {
     try {
-      const nextSteps = [];
+      const nextSteps: Array<{
+        action: string;
+        priority: 'high' | 'medium' | 'low';
+        timeline: string;
+        owner: string;
+        rationale: string;
+      }> = [];
 
       // Analyze current stage and generate appropriate actions
       switch (dealContext.stage) {
@@ -468,12 +494,12 @@ class AEAgentService {
 
   private async extractRequirements(deal: any): Promise<string[]> {
     // Extract from deal notes, custom fields, etc.
-    const requirements = [];
+    const requirements: string[] = [];
 
     if (deal.notes) {
       // Simple extraction - in production, use NLP
       const noteLines = deal.notes.split('\n');
-      noteLines.forEach(line => {
+      noteLines.forEach((line: any) => {
         if (line.toLowerCase().includes('need') ||
             line.toLowerCase().includes('require') ||
             line.toLowerCase().includes('want')) {
@@ -548,7 +574,7 @@ class AEAgentService {
   }
 
   private async generateObjectionResponse(objectionType: string, dealContext: DealContext): Promise<string> {
-    const responses = {
+    const responses: Record<string, string> = {
       price: `I understand budget concerns are important. Let me show you the ROI this solution delivers - our clients typically see ${dealContext.value * 0.3} in annual savings. Would you be open to discussing the value metrics that matter most to your business?`,
       timing: `I completely understand timing is critical. Based on what you've shared, we could have you up and running within ${dealContext.timeline.expectedCloseDate ? 'your preferred timeline' : '30 days'}. What specific timing concerns do you have?`,
       competition: `It's smart to evaluate all options. What specifically draws you to ${dealContext.competitors[0] || 'the other solution'}? I'd love to understand their strengths so I can show you how we complement or exceed those benefits.`,
@@ -560,7 +586,7 @@ class AEAgentService {
   }
 
   private async selectObjectionStrategy(objectionType: string, dealContext: DealContext): Promise<string> {
-    const strategies = {
+    const strategies: Record<string, string> = {
       price: 'Value-based selling - focus on ROI and long-term benefits',
       timing: 'Timeline optimization - show quick wins and phased implementation',
       competition: 'Competitive differentiation - highlight unique advantages',
@@ -572,7 +598,7 @@ class AEAgentService {
   }
 
   private async planFollowUpActions(objectionType: string, dealContext: DealContext): Promise<string[]> {
-    const actions = {
+    const actions: Record<string, string[]> = {
       price: [
         'Send detailed ROI calculator',
         'Share relevant case studies',

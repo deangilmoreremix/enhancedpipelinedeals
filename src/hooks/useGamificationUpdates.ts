@@ -1,4 +1,5 @@
 import { useGamification } from '../contexts/GamificationContext';
+import { stageIsLost, stageIsWon } from '../utils/stageMeta';
 import { useContactStore } from '../store/contactStore';
 import { Deal } from '../types';
 
@@ -34,7 +35,7 @@ export const useGamificationUpdates = () => {
     const newAchievements: string[] = [];
 
     // Deal won - update positive stats
-    if (newStage === 'closed-won' && previousStage !== 'closed-won') {
+    if (stageIsWon(newStage) && !stageIsWon(previousStage)) {
       console.log(`🎉 Deal won by ${teamMember.name}: $${dealValue.toLocaleString()}`);
       
       // Update core stats
@@ -65,7 +66,7 @@ export const useGamificationUpdates = () => {
     }
     
     // Deal lost - update negative stats
-    else if (newStage === 'closed-lost' && previousStage !== 'closed-lost') {
+    else if (stageIsLost(newStage) && !stageIsLost(previousStage)) {
       console.log(`😞 Deal lost by ${teamMember.name}: $${dealValue.toLocaleString()}`);
       
       // Reset streak
@@ -80,7 +81,7 @@ export const useGamificationUpdates = () => {
     }
     
     // Deal reopened (moved from closed back to active)
-    else if (previousStage === 'closed-won' && newStage !== 'closed-won') {
+    else if (stageIsWon(previousStage) && !stageIsWon(newStage)) {
       console.log(`🔄 Deal reopened by ${teamMember.name}: $${dealValue.toLocaleString()}`);
       
       // Reverse the won deal stats
@@ -95,7 +96,7 @@ export const useGamificationUpdates = () => {
       // Note: We don't remove achievements or reset streaks for reopened deals
     }
     
-    else if (previousStage === 'closed-lost' && newStage !== 'closed-lost') {
+    else if (stageIsLost(previousStage) && !stageIsLost(newStage)) {
       console.log(`🔄 Lost deal reopened by ${teamMember.name}: $${dealValue.toLocaleString()}`);
       
       // Reverse the lost deal stats
@@ -165,7 +166,7 @@ export const useGamificationUpdates = () => {
   };
 
   const handleDealValueChange = async (deal: Deal, previousValue: number) => {
-    if (!deal.assignedToId || deal.stage !== 'closed-won') return;
+    if (!deal.assignedToId || !stageIsWon(deal.stage)) return;
     
     // If the value changed on a won deal, update the revenue difference
     const valueDifference = deal.value - previousValue;

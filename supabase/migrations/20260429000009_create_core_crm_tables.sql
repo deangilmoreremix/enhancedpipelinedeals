@@ -13,7 +13,9 @@ create table if not exists public.companies (
 );
 
 alter table public.companies enable row level security;
+drop policy if exists "Allow authenticated access" on public.companies;
 create policy "Allow authenticated access" on public.companies for select to authenticated using (true);
+drop policy if exists "Allow service role full access" on public.companies;
 create policy "Allow service role full access" on public.companies for all to service_role using (true);
 
 -- Contacts Table
@@ -42,14 +44,18 @@ create table if not exists public.contacts (
 );
 
 alter table public.contacts enable row level security;
+drop policy if exists "Users can view contacts they created" on public.contacts;
 create policy "Users can view contacts they created" on public.contacts for select using (auth.uid() = created_by);
+drop policy if exists "Users can insert their contacts" on public.contacts;
 create policy "Users can insert their contacts" on public.contacts for insert with check (auth.uid() = created_by);
+drop policy if exists "Users can update their contacts" on public.contacts;
 create policy "Users can update their contacts" on public.contacts for update using (auth.uid() = created_by);
+drop policy if exists "Allow service role full access" on public.contacts;
 create policy "Allow service role full access" on public.contacts for all to service_role using (true);
 
-create index idx_contacts_created_by on public.contacts(created_by);
-create index idx_contacts_email on public.contacts(email);
-create index idx_contacts_company on public.contacts(company);
+create index if not exists idx_contacts_created_by on public.contacts(created_by);
+create index if not exists idx_contacts_email on public.contacts(email);
+create index if not exists idx_contacts_company on public.contacts(company);
 
 -- Deals Table
 create table if not exists public.deals (
@@ -73,14 +79,18 @@ create table if not exists public.deals (
 );
 
 alter table public.deals enable row level security;
+drop policy if exists "Users can view deals in their workspace" on public.deals;
 create policy "Users can view deals in their workspace" on public.deals for select using (true);
+drop policy if exists "Users can insert deals" on public.deals;
 create policy "Users can insert deals" on public.deals for insert with check (true);
+drop policy if exists "Users can update deals" on public.deals;
 create policy "Users can update deals" on public.deals for update using (true);
+drop policy if exists "Allow service role full access" on public.deals;
 create policy "Allow service role full access" on public.deals for all to service_role using (true);
 
-create index idx_deals_contact_id on public.deals(contact_id);
-create index idx_deals_assigned_to_id on public.deals(assigned_to_id);
-create index idx_deals_stage on public.deals(stage);
+create index if not exists idx_deals_contact_id on public.deals(contact_id);
+create index if not exists idx_deals_assigned_to_id on public.deals(assigned_to_id);
+create index if not exists idx_deals_stage on public.deals(stage);
 
 -- App Settings Table
 create table if not exists public.app_settings (
@@ -93,12 +103,15 @@ create table if not exists public.app_settings (
 );
 
 alter table public.app_settings enable row level security;
+drop policy if exists "Users can manage their settings" on public.app_settings;
 create policy "Users can manage their settings" on public.app_settings for all using (auth.uid() = user_id);
+drop policy if exists "Allow global settings read" on public.app_settings;
 create policy "Allow global settings read" on public.app_settings for select using (user_id is null);
+drop policy if exists "Allow service role full access" on public.app_settings;
 create policy "Allow service role full access" on public.app_settings for all to service_role using (true);
 
-create index idx_app_settings_user_id on public.app_settings(user_id);
-create index idx_app_settings_setting_key on public.app_settings(setting_key);
+create index if not exists idx_app_settings_user_id on public.app_settings(user_id);
+create index if not exists idx_app_settings_setting_key on public.app_settings(setting_key);
 
 -- Custom Personas Table
 create table if not exists public.custom_personas (
@@ -116,7 +129,9 @@ create table if not exists public.custom_personas (
 );
 
 alter table public.custom_personas enable row level security;
+drop policy if exists "Users can manage their personas" on public.custom_personas;
 create policy "Users can manage their personas" on public.custom_personas for all using (auth.uid() = user_id);
+drop policy if exists "Allow service role full access" on public.custom_personas;
 create policy "Allow service role full access" on public.custom_personas for all to service_role using (true);
 
 -- AI Feedback Table
@@ -134,5 +149,7 @@ create table if not exists public.ai_feedback (
 );
 
 alter table public.ai_feedback enable row level security;
+drop policy if exists "Users can manage their feedback" on public.ai_feedback;
 create policy "Users can manage their feedback" on public.ai_feedback for all using (auth.uid() = user_id);
+drop policy if exists "Allow service role full access" on public.ai_feedback;
 create policy "Allow service role full access" on public.ai_feedback for all to service_role using (true);

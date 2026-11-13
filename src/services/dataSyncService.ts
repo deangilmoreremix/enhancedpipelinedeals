@@ -1,8 +1,10 @@
 import { Contact } from '../types/contact';
+import { isPermissionDenied, PermissionDeniedError, permissionMessage } from '../utils/rlsError';
 import { Deal } from '../types';
 import { getSupabaseService } from './supabaseService';
 import { mockContacts } from '../data/mockContacts';
 import { mockDeals } from '../data/mockDeals';
+import { isDemoMode } from '../config/demoMode';
 
 export interface DataSyncResult<T> {
   data: T;
@@ -90,7 +92,7 @@ class DataSyncService {
   }
 
   /**
-   * Get deals - combines mock data with user-created data
+   * Get deals - database deals + local deals; mock data only in demo mode
    */
   async getDeals(): Promise<DataSyncResult<Record<string, Deal>>> {
     try {
@@ -116,8 +118,8 @@ class DataSyncService {
         }
       }
 
-      // Combine mock data with database data and local user-created data
-      const allDeals = { ...mockDeals, ...databaseDeals, ...this.localDeals };
+      // Mock deals are only merged in demo mode (Supabase not configured or demo_mode flag)
+      const allDeals = { ...(isDemoMode() ? mockDeals : {}), ...databaseDeals, ...this.localDeals };
 
       const totalCount = Object.keys(allDeals).length;
       this.updateSyncStatus({ dealsCount: totalCount });
@@ -132,7 +134,7 @@ class DataSyncService {
       console.error('❌ Failed to load deals:', error);
 
       // Fallback to mock + local data
-      const fallbackDeals = { ...mockDeals, ...this.localDeals };
+      const fallbackDeals = { ...(isDemoMode() ? mockDeals : {}), ...this.localDeals };
       const totalCount = Object.keys(fallbackDeals).length;
 
       this.updateSyncStatus({ dealsConnected: false, dealsCount: totalCount });
@@ -253,7 +255,7 @@ class DataSyncService {
   }
 
   /**
-   * Create deal - tries database first, falls back to local storage
+   * Create deal - database in connected mode (errors propagate); local storage only in demo/unconfigured mode
    */
   async createDeal(deal: Omit<Deal, 'id' | 'createdAt' | 'updatedAt'>): Promise<Deal> {
     const supabase = getSupabaseService();
@@ -269,15 +271,15 @@ class DataSyncService {
     };
 
     if (isConnected) {
+      // Connected mode: the database is the source of truth. Never fake a local deal on failure.
       try {
-        // Try to save to database
         const dbDeal = await supabase.createDeal(deal);
-        console.log('✅ Deal saved to database:', dbDeal.title);
         this.updateSyncStatus({ dealsCount: this.syncStatus.dealsCount + 1 });
         return dbDeal;
       } catch (dbError) {
-        console.warn('⚠️ Database save failed, storing locally:', dbError);
-        // Fall through to local storage
+        console.warn('Database deal create failed:', dbError);
+        if (isPermissionDenied(dbError)) throw new PermissionDeniedError(permissionMessage('create', 'deal'));
+        throw dbError instanceof Error ? dbError : new Error('Failed to create deal in database');
       }
     }
 
@@ -317,7 +319,8 @@ class DataSyncService {
         return updatedDeal;
       } catch (dbError) {
         console.warn('⚠️ Database update failed:', dbError);
-        throw new Error('Failed to update deal in database');
+        if (isPermissionDenied(dbError)) throw new PermissionDeniedError(permissionMessage('edit', 'deal'));
+        throw dbError instanceof Error ? dbError : new Error('Failed to update deal in database');
       }
     }
 
@@ -350,6 +353,7 @@ class DataSyncService {
         return;
       } catch (dbError) {
         console.warn('⚠️ Database delete failed:', dbError);
+        if (isPermissionDenied(dbError)) throw dbError;
         throw new Error('Failed to delete deal from database');
       }
     }

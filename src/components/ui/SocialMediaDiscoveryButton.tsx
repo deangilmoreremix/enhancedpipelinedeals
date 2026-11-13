@@ -1,6 +1,6 @@
 /**
  * Social Media Discovery Button Component
- * Provides UI for triggering Gemma-powered social media channel discovery
+ * Provides UI for triggering AI-powered social media channel discovery
  */
 
 import React, { useState } from 'react';
@@ -141,7 +141,7 @@ export const SocialMediaDiscoveryButton: React.FC<SocialMediaDiscoveryButtonProp
           <div className="flex items-center justify-between mb-3">
             <h4 className="font-semibold text-purple-900 flex items-center">
               <Sparkles className="w-4 h-4 mr-2" />
-              Gemma Social Discovery Results
+              AI Social Discovery Results
             </h4>
             <button
               onClick={() => setShowDiscoveryResults(false)}

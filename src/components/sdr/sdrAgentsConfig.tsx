@@ -1,4 +1,4 @@
-import { SDRAgentMeta } from './types';
+import { SDRAgentMeta, SDRAgentDetails } from './types';
 import { Bot, MessageSquare, Target, Zap, TrendingUp, Users, CheckCircle, Heart, Coffee, Star } from 'lucide-react';
 
 export const SDR_AGENTS: SDRAgentMeta[] = [
@@ -143,3 +143,7 @@ export const SDR_AGENTS: SDRAgentMeta[] = [
     }
   }
 ];
+/** Display details (name, description, icon) for each configured SDR agent. */
+export const SDR_AGENT_DETAILS: SDRAgentDetails[] = SDR_AGENTS.flatMap(meta =>
+  meta.agent ? [meta.agent] : []
+);

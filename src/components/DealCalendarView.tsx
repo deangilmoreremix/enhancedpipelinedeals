@@ -1,43 +1,30 @@
 import React, { useMemo, useState } from 'react';
 import { Deal } from '../types';
+import { useStageMeta } from '../utils/stageUtils';
+import { stageColorClasses } from '../utils/stageMeta';
+import { useViewSelection } from '../hooks/useViewSelection';
+import { BulkActionBar } from './pipeline/BulkActionBar';
+import { useViewToasts } from './pipeline/ViewToasts';
 import {
   ChevronLeft, ChevronRight, DollarSign, Calendar as CalendarIcon,
   Star, Sparkles, TrendingUp
 } from 'lucide-react';
 
-interface DealCalendarViewProps {
-  deals: Record<string, Deal>;
+export interface DealCalendarViewProps {
+  /** Filtered AND sorted deals (Pipeline's single `viewDeals`). */
+  deals: Deal[];
   onDealClick: (dealId: string) => void;
-  onDealUpdate: (dealId: string, updates: Partial<Deal>) => void;
-  searchTerm: string;
-  filterStage: string;
+  onDealUpdate?: (dealId: string, updates: Partial<Deal>) => Promise<unknown> | void;
+  isFiltered?: boolean;
 }
 
-export const DealCalendarView: React.FC<DealCalendarViewProps> = ({
-  deals,
-  onDealClick,
-  searchTerm,
-  filterStage
-}) => {
+export const DealCalendarView: React.FC<DealCalendarViewProps> = ({ deals, onDealClick }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
-
-  const filteredDeals = useMemo(() => {
-    let result = Object.values(deals);
-
-    if (searchTerm.trim()) {
-      result = result.filter(deal =>
-        deal.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        deal.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        deal.contact.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-
-    if (filterStage !== 'all') {
-      result = result.filter(deal => deal.stage === filterStage);
-    }
-
-    return result;
-  }, [deals, searchTerm, filterStage]);
+  const { meta } = useStageMeta();
+  const { notify, toastsNode } = useViewToasts();
+  const filteredDeals = deals;
+  const orderedIds = useMemo(() => deals.map(d => d.id), [deals]);
+  const sel = useViewSelection(orderedIds, { onOpen: onDealClick, notify });
 
   const getDaysInMonth = (date: Date) => {
     const year = date.getFullYear();
@@ -83,16 +70,7 @@ export const DealCalendarView: React.FC<DealCalendarViewProps> = ({
     }).format(value);
   };
 
-  const getStageColor = (stage: string) => {
-    const colors: Record<string, string> = {
-      'qualification': 'border-l-blue-500',
-      'proposal': 'border-l-indigo-500',
-      'negotiation': 'border-l-amber-500',
-      'closed-won': 'border-l-green-500',
-      'closed-lost': 'border-l-red-500'
-    };
-    return colors[stage] || 'border-l-gray-500';
-  };
+  const stageAccent = (stage: string) => stageColorClasses(meta(stage).color);
 
   const monthName = currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
   const daysInMonth = getDaysInMonth(currentDate);
@@ -201,8 +179,17 @@ export const DealCalendarView: React.FC<DealCalendarViewProps> = ({
                   {dayDeals.slice(0, 3).map((deal) => (
                     <div
                       key={deal.id}
-                      onClick={() => onDealClick(deal.id)}
-                      className={`text-xs p-1.5 bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 rounded border-l-2 ${getStageColor(deal.stage)} cursor-pointer transition-colors`}
+                      data-deal-id={deal.id}
+                      aria-selected={sel.selected.has(deal.id)}
+                      title="Ctrl/Cmd+click or Shift+click to select"
+                      onClick={(e) => {
+                        if (e.metaKey || e.ctrlKey || e.shiftKey) { sel.select(deal.id, { shiftKey: e.shiftKey }); return; }
+                        onDealClick(deal.id);
+                      }}
+                      style={stageAccent(deal.stage).styleAccent}
+                      className={`text-xs p-1.5 hover:bg-gray-100 dark:hover:bg-gray-600 rounded border-l-2 ${stageAccent(deal.stage).borderLeft} ${
+                        sel.selected.has(deal.id) ? 'bg-blue-50 dark:bg-blue-900/30 ring-1 ring-blue-500' : 'bg-gray-50 dark:bg-gray-700'
+                      } ${sel.focusedId === deal.id ? 'ring-2 ring-blue-500' : ''} cursor-pointer transition-colors`}
                     >
                       <div className="flex items-start justify-between">
                         <div className="flex-1 min-w-0">
@@ -327,6 +314,8 @@ export const DealCalendarView: React.FC<DealCalendarViewProps> = ({
           </div>
         </div>
       </div>
+      <BulkActionBar onNotify={notify} />
+      {toastsNode}
     </div>
   );
 };

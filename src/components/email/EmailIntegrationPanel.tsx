@@ -196,7 +196,7 @@ export const EmailIntegrationPanel: React.FC<EmailIntegrationPanelProps> = ({
                         </div>
                         <div className="mt-2 text-sm text-gray-600">
                           {email.bodyText || email.bodyHtml?.replace(/<[^>]*>/g, '').slice(0, 200)}
-                          {(email.bodyText || email.bodyHtml)?.length > 200 && '...'}
+                          {(email.bodyText || email.bodyHtml || "").length > 200 && '...'}
                         </div>
                         {email.attachments && email.attachments.length > 0 && (
                           <div className="mt-2 flex items-center space-x-1 text-xs text-gray-500">
@@ -232,5 +232,4 @@ export const EmailIntegrationPanel: React.FC<EmailIntegrationPanelProps> = ({
       </div>
     </div>
   );
-};</content>
-<parameter name="filePath">/workspaces/enhancedpipelinedeals/src/components/email/EmailIntegrationPanel.tsx
+};

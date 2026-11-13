@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { openCommandPalette } from '../components/commandPaletteEvents';
 
 export interface KeyboardShortcut {
   key: string;
@@ -10,15 +11,40 @@ export interface KeyboardShortcut {
   description: string;
 }
 
+/** True when the event target is somewhere the user is typing. */
+export const isEditableTarget = (target: EventTarget | null): boolean => {
+  const el = target as HTMLElement | null;
+  if (!el || typeof el.tagName !== 'string') return false;
+  const tag = el.tagName.toLowerCase();
+  return tag === 'input' || tag === 'textarea' || tag === 'select' || el.isContentEditable === true;
+};
+
+/** Focuses the board's search input (marked with data-board-search), if one is mounted. */
+export const focusSearchInput = (): boolean => {
+  const input = document.querySelector<HTMLInputElement>('input[data-board-search]');
+  if (!input) return false;
+  input.focus();
+  input.select();
+  return true;
+};
+
 export const globalShortcuts: KeyboardShortcut[] = [
   {
+    // Opens the command palette (src/components/CommandPalette.tsx listens for this event)
     key: 'k',
     ctrl: true,
     action: () => {
-      // Quick search functionality
-      console.log('Quick search activated');
+      openCommandPalette();
     },
-    description: 'Quick search'
+    description: 'Command palette'
+  },
+  {
+    key: 'k',
+    meta: true,
+    action: () => {
+      openCommandPalette();
+    },
+    description: 'Command palette'
   },
   {
     key: 'n',
@@ -42,8 +68,7 @@ export const globalShortcuts: KeyboardShortcut[] = [
   {
     key: '/',
     action: () => {
-      // Focus search
-      console.log('Focus search activated');
+      focusSearchInput();
     },
     description: 'Focus search'
   }
@@ -52,7 +77,10 @@ export const globalShortcuts: KeyboardShortcut[] = [
 export function useKeyboardShortcuts(shortcuts: KeyboardShortcut[]) {
   useEffect(() => {
     const handleKeyPress = (event: KeyboardEvent) => {
+      // Plain-key shortcuts (like "/") must not hijack typing in form fields
+      const typing = isEditableTarget(event.target);
       for (const shortcut of shortcuts) {
+        if (typing && !shortcut.ctrl && !shortcut.meta && !shortcut.alt) continue;
         const ctrlMatch = shortcut.ctrl ? event.ctrlKey : !event.ctrlKey;
         const shiftMatch = shortcut.shift ? event.shiftKey : !event.shiftKey;
         const altMatch = shortcut.alt ? event.altKey : !event.altKey;

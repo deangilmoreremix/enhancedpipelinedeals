@@ -214,7 +214,7 @@ export function generateStructuredData(type: 'organization' | 'software' | 'brea
 
 export function injectStructuredData(type: 'organization' | 'software' | 'breadcrumb', data?: any) {
   const scriptId = `structured-data-${type}`;
-  let script = document.getElementById(scriptId);
+  let script = document.getElementById(scriptId) as HTMLScriptElement | null;
 
   if (!script) {
     script = document.createElement('script');

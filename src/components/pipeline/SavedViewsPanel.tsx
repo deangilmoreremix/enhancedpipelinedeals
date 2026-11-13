@@ -1,197 +1,117 @@
-import React, { useState, useEffect } from 'react';
-import { SavedPipelineView, getAllViews, setDefaultView, deleteView, saveCurrentView as saveView } from '../../services/savedPipelineViewService';
-import { isFeatureEnabled } from '../../services/featureFlagService';
+import React, { useState } from 'react';
+import { Globe, Star } from 'lucide-react';
+import { SavedPipelineView, normalizeSavedFilters } from '../../services/savedPipelineViewService';
+import { Button } from '../ui/Button';
+import { usePermissions } from '../../hooks/usePermissions';
 
-/**
- * Saved Pipeline Views Panel - Twenty Feature
- * Allows users to manage and switch between saved pipeline view configurations
- */
-export const SavedViewsPanel: React.FC<{
-  onViewSelect?: (view: SavedPipelineView) => void;
-  currentViewType?: string;
-  currentFilters?: any;
-  currentSorting?: any;
-  currentColumns?: string[];
-}> = ({ onViewSelect, currentViewType, currentFilters, currentSorting, currentColumns }) => {
-  const [views, setViews] = useState<SavedPipelineView[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [featureEnabled, setFeatureEnabled] = useState(false);
-  const [showSaveModal, setShowSaveModal] = useState(false);
-  const [newViewName, setNewViewName] = useState('');
+interface SavedViewsPanelProps {
+  views: SavedPipelineView[];
+  activeViewId: string | null;
+  loading?: boolean;
+  onApply: (view: SavedPipelineView) => void;
+  onSetDefault: (view: SavedPipelineView) => void;
+  onTogglePublic: (view: SavedPipelineView) => void;
+  onRename: (view: SavedPipelineView, name: string) => Promise<boolean>;
+  onDelete: (view: SavedPipelineView) => void;
+  /** Save the current board configuration under a new name. */
+  onSaveCurrent: (name: string, isPublic: boolean) => Promise<boolean>;
+}
 
-  useEffect(() => {
-    const init = async () => {
-      const enabled = await isFeatureEnabled('twenty_views_reporting');
-      setFeatureEnabled(enabled);
+const INPUT_CLASS =
+  'px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent';
 
-      if (enabled) {
-        await loadViews();
-      }
-      setLoading(false);
-    };
-
-    init();
-  }, []);
-
-  const loadViews = async () => {
-    const viewData = await getAllViews();
-    setViews(viewData);
-  };
-
-  const handleSetDefault = async (viewId: string) => {
-    const success = await setDefaultView(viewId);
-    if (success) {
-      await loadViews(); // Refresh to show updated default status
-    }
-  };
-
-  const handleDelete = async (viewId: string) => {
-    if (window.confirm('Are you sure you want to delete this saved view?')) {
-      const success = await deleteView(viewId);
-      if (success) {
-        await loadViews(); // Refresh the list
-      }
-    }
-  };
+/** Saved views management list (apply / rename / default / share / delete) + "save current view". */
+export const SavedViewsPanel: React.FC<SavedViewsPanelProps> = ({
+  views, activeViewId, loading = false, onApply, onSetDefault, onTogglePublic, onRename, onDelete, onSaveCurrent
+}) => {
+  const { allowed } = usePermissions();
+  const canManage = allowed('manage_views', 'view');
+  const [newName, setNewName] = useState('');
+  const [newPublic, setNewPublic] = useState(false);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
 
   if (loading) {
-    return (
-      <div className="p-4">
-        <div className="animate-pulse">
-          <div className="h-4 bg-gray-200 rounded w-1/3 mb-4"></div>
-          <div className="space-y-3">
-            <div className="h-3 bg-gray-200 rounded"></div>
-            <div className="h-3 bg-gray-200 rounded w-5/6"></div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (!featureEnabled) {
-    return (
-      <div className="p-4 text-center text-gray-500">
-        Saved Views feature is not yet available.
-      </div>
-    );
+    return <p className="p-4 text-sm text-gray-500 dark:text-gray-400" role="status">Loading views...</p>;
   }
 
   return (
-    <div className="p-4">
-      <h3 className="text-lg font-semibold mb-4">Saved Pipeline Views</h3>
-
+    <div className="space-y-4">
       {views.length === 0 ? (
-        <div className="text-center text-gray-500 py-8">
-          No saved views yet. Save your current view configuration to get started.
-        </div>
+        <p className="text-center text-sm text-gray-500 dark:text-gray-400 py-6">
+          No saved views yet. Set up filters, sorting and grouping, then save them below.
+        </p>
       ) : (
-        <div className="space-y-3">
-          {views.map((view) => (
-            <div
-              key={view.id}
-              className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 flex justify-between items-center"
-            >
-              <div className="flex-1">
-                <div className="flex items-center space-x-2">
-                  <h4 className="font-medium text-gray-900 dark:text-gray-100">
-                    {view.name}
-                  </h4>
-                  {view.is_default && (
-                    <span className="text-xs bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300 px-2 py-1 rounded">
-                      Default
-                    </span>
+        <ul className="space-y-2" aria-label="Saved views">
+          {views.map(view => {
+            const f = normalizeSavedFilters(view.filters);
+            const count = f.conditions.length + f.groups.length + (f.favoritesOnly ? 1 : 0) + (f.search ? 1 : 0);
+            return (
+              <li
+                key={view.id}
+                className={`border rounded-lg p-3 flex items-center justify-between gap-3 ${
+                  view.id === activeViewId ? 'border-blue-400 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-600' : 'border-gray-200 dark:border-gray-700'
+                }`}
+              >
+                <div className="min-w-0 flex-1">
+                  {renamingId === view.id ? (
+                    <form
+                      className="flex items-center gap-2"
+                      onSubmit={async (e) => {
+                        e.preventDefault();
+                        if (await onRename(view, renameValue)) setRenamingId(null);
+                      }}
+                    >
+                      <input autoFocus aria-label="View name" value={renameValue} onChange={(e) => setRenameValue(e.target.value)} className={`${INPUT_CLASS} flex-1`} />
+                      <Button size="sm" type="submit">Save</Button>
+                      <Button size="sm" variant="ghost" type="button" onClick={() => setRenamingId(null)}>Cancel</Button>
+                    </form>
+                  ) : (
+                    <>
+                      <div className="flex items-center space-x-2">
+                        <span className="font-medium text-sm text-gray-900 dark:text-gray-100 truncate">{view.name}</span>
+                        {view.is_default && <Star className="w-3.5 h-3.5 text-yellow-500 fill-yellow-500" aria-label="Default view" />}
+                        {view.is_public && <Globe className="w-3.5 h-3.5 text-green-600" aria-label="Shared" />}
+                      </div>
+                      <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                        {count} filter{count === 1 ? '' : 's'}
+                        {Array.isArray(view.sorting) && view.sorting.length > 0 ? ` · ${view.sorting.length} sort` : ''}
+                        {view.group_by && view.group_by !== 'stage' ? ` · grouped by ${view.group_by}` : ''}
+                      </p>
+                    </>
                   )}
                 </div>
-                <div className="mt-1 flex items-center space-x-4 text-xs text-gray-500">
-                  <span className="capitalize">{view.view_type}</span>
-                  <span>{view.columns?.length || 0} columns</span>
-                  {view.filters && Object.keys(view.filters).length > 0 && (
-                    <span>{Object.keys(view.filters).length} filters</span>
-                  )}
-                </div>
-              </div>
-
-              <div className="flex space-x-2">
-                <button
-                  className="text-sm bg-gray-500 hover:bg-gray-600 text-white px-3 py-1 rounded"
-                  onClick={() => onViewSelect?.(view)}
-                >
-                  Load
-                </button>
-                {!view.is_default && (
-                  <button
-                    className="text-sm bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded"
-                    onClick={() => handleSetDefault(view.id)}
-                  >
-                    Set Default
-                  </button>
+                {renamingId !== view.id && (
+                  <div className="flex flex-wrap justify-end gap-1">
+                    <Button size="sm" variant="outline" type="button" onClick={() => onApply(view)}>Load</Button>
+                    <Button size="sm" variant="ghost" type="button" disabled={!canManage} onClick={() => onSetDefault(view)}>{view.is_default ? 'Unset default' : 'Set default'}</Button>
+                    <Button size="sm" variant="ghost" type="button" disabled={!canManage} onClick={() => onTogglePublic(view)}>{view.is_public ? 'Unshare' : 'Share'}</Button>
+                    <Button size="sm" variant="ghost" type="button" disabled={!canManage} onClick={() => { setRenamingId(view.id); setRenameValue(view.name); }}>Rename</Button>
+                    <Button size="sm" variant="destructive" type="button" disabled={!canManage} onClick={() => { if (window.confirm(`Delete view "${view.name}"?`)) onDelete(view); }}>Delete</Button>
+                  </div>
                 )}
-                <button
-                  className="text-sm bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded"
-                  onClick={() => handleDelete(view.id)}
-                >
-                  Delete
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
+              </li>
+            );
+          })}
+        </ul>
       )}
 
-      <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
-        <button
-          className="text-sm bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
-          onClick={() => setShowSaveModal(true)}
-        >
-          Save Current View
-        </button>
-      </div>
-
-      {/* Save View Modal */}
-      {showSaveModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg max-w-sm w-full mx-4">
-            <h3 className="text-lg font-medium mb-4 text-gray-900 dark:text-white">Save Current View</h3>
-            <input
-              type="text"
-              placeholder="Enter view name"
-              value={newViewName}
-              onChange={(e) => setNewViewName(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded mb-4 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-              autoFocus
-            />
-            <div className="flex justify-end space-x-2">
-              <button
-                className="px-3 py-1 bg-gray-300 dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500 rounded text-gray-700 dark:text-gray-200"
-                onClick={() => {
-                  setShowSaveModal(false);
-                  setNewViewName('');
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded"
-                onClick={async () => {
-                  if (!newViewName.trim()) return;
-                  await saveView(
-                    newViewName,
-                    currentViewType || 'kanban',
-                    currentFilters || {},
-                    currentSorting || {},
-                    currentColumns || []
-                  );
-                  setShowSaveModal(false);
-                  setNewViewName('');
-                  await loadViews();
-                }}
-              >
-                Save
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {canManage && <form
+        className="pt-4 border-t border-gray-200 dark:border-gray-700 flex flex-wrap items-center gap-2"
+        onSubmit={async (e) => {
+          e.preventDefault();
+          if (await onSaveCurrent(newName, newPublic)) { setNewName(''); setNewPublic(false); }
+        }}
+      >
+        <input aria-label="New view name" placeholder="Name for current view" value={newName} onChange={(e) => setNewName(e.target.value)} className={`${INPUT_CLASS} flex-1 min-w-[12rem]`} />
+        <label className="flex items-center space-x-1 text-sm text-gray-600 dark:text-gray-300">
+          <input type="checkbox" checked={newPublic} onChange={(e) => setNewPublic(e.target.checked)} className="rounded border-gray-300 text-blue-600" />
+          <span>Share with everyone</span>
+        </label>
+        <Button size="sm" type="submit" disabled={!newName.trim()}>Save current view</Button>
+      </form>}
     </div>
   );
 };
+
+export default SavedViewsPanel;

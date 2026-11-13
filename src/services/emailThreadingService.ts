@@ -381,6 +381,7 @@ export class EmailThreadingService {
 
     deals?.forEach(deal => {
       let confidence = 0;
+      const dealContact = deal.contacts as unknown as { id: string; name: string; email: string; company: string } | null;
 
       // Subject matches deal title
       if (deal.title && email.subject.toLowerCase().includes(deal.title.toLowerCase())) {
@@ -388,14 +389,14 @@ export class EmailThreadingService {
       }
 
       // Email from/to matches contact
-      if (deal.contacts?.email === email.fromEmail ||
-          email.toEmails.includes(deal.contacts.email)) {
+      if (dealContact?.email === email.fromEmail ||
+          (!!dealContact?.email && email.toEmails.includes(dealContact.email))) {
         confidence += 0.4;
       }
 
       // Company name in email content
-      if (deal.contacts?.company &&
-          searchText.includes(deal.contacts.company.toLowerCase())) {
+      if (dealContact?.company &&
+          searchText.includes(dealContact.company.toLowerCase())) {
         confidence += 0.2;
       }
 

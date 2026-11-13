@@ -14,11 +14,13 @@ create table if not exists public.realtime_sync_status (
 alter table public.realtime_sync_status enable row level security;
 
 -- Simple policies
+drop policy if exists "Allow authenticated access" on public.realtime_sync_status;
 create policy "Allow authenticated access" on public.realtime_sync_status for select to authenticated using (true);
+drop policy if exists "Allow service role full access" on public.realtime_sync_status;
 create policy "Allow service role full access" on public.realtime_sync_status for all to service_role using (true);
 
 -- Indexes
-create index idx_realtime_sync_status_entity on public.realtime_sync_status(entity_type, entity_id);
+create index if not exists idx_realtime_sync_status_entity on public.realtime_sync_status(entity_type, entity_id);
 
 -- Function to increment sync version
 create or replace function public.increment_sync_version(

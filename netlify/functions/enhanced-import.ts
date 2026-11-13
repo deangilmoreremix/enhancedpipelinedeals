@@ -1,15 +1,11 @@
 import { createClient } from '@supabase/supabase-js';
-import OpenAI from 'openai';
+import { respond, authorize } from './_openai';
 
 // Initialize clients
 const supabase = createClient(
   process.env.SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY!
 );
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-});
 
 // Simple rate limiter
 class RateLimiter {
@@ -45,20 +41,17 @@ async function enrichDealWithAI(deal: any, options: any) {
       const prompt = `Research this company and provide key insights: ${deal.company}
       Return as JSON: {industry, size, revenue, competitors: [], founded, description}`;
 
-      const response = await openai.chat.completions.create({
-        model: 'gpt-4',
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.3,
-        max_tokens: 500
+      const response = await respond({
+        tier: 'fast',
+        input: prompt,
+        jsonObject: true,
+        maxOutputTokens: 800
       });
 
-      const content = response.choices[0]?.message?.content;
-      if (content) {
-        try {
-          enriched.enrichedCompanyData = JSON.parse(content);
-        } catch (e) {
-          console.warn('Failed to parse company enrichment:', e);
-        }
+      if (response.json) {
+        enriched.enrichedCompanyData = response.json;
+      } else {
+        console.warn('Failed to parse company enrichment');
       }
     }
 
@@ -69,23 +62,20 @@ async function enrichDealWithAI(deal: any, options: any) {
 
       Return as JSON: {insights: [], riskLevel: "low|medium|high", recommendedActions: []}`;
 
-      const response = await openai.chat.completions.create({
-        model: 'gpt-4',
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.5,
-        max_tokens: 400
+      const response = await respond({
+        tier: 'fast',
+        input: prompt,
+        jsonObject: true,
+        maxOutputTokens: 800
       });
 
-      const content = response.choices[0]?.message?.content;
-      if (content) {
-        try {
-          const analysis = JSON.parse(content);
-          enriched.aiInsights = analysis.insights;
-          enriched.riskLevel = analysis.riskLevel;
-          enriched.recommendedActions = analysis.recommendedActions;
-        } catch (e) {
-          console.warn('Failed to parse deal analysis:', e);
-        }
+      if (response.json) {
+        const analysis = response.json;
+        enriched.aiInsights = analysis.insights;
+        enriched.riskLevel = analysis.riskLevel;
+        enriched.recommendedActions = analysis.recommendedActions;
+      } else {
+        console.warn('Failed to parse deal analysis');
       }
     }
 
@@ -191,9 +181,14 @@ export const handler = async (event: any) => {
     return { statusCode: 200, headers, body: '' };
   }
 
+  // Spends OpenAI credits and reads deals with a privileged key: requires a Supabase session (or the anon key).
+  if (!(await authorize(event.headers?.authorization || event.headers?.Authorization))) {
+    return { statusCode: 401, headers, body: JSON.stringify({ error: 'Unauthorized' }) };
+  }
+
   try {
     // Rate limiting
-    const clientIP = event.headers['x-forwarded-for'] || event.headers['client-ip'] || 'unknown';
+    const clientIP = event.headers?.['x-nf-client-connection-ip'] || event.headers?.['x-forwarded-for'] || event.headers?.['client-ip'] || 'unknown';
     if (!rateLimiter.isAllowed(clientIP)) {
       return {
         statusCode: 429,
@@ -205,6 +200,9 @@ export const handler = async (event: any) => {
     if (event.httpMethod === 'POST') {
       const body = JSON.parse(event.body || '{}');
       const { action, data } = body;
+      if (!data || typeof data !== 'object') {
+        return { statusCode: 400, headers, body: JSON.stringify({ error: 'data is required' }) };
+      }
 
       switch (action) {
         case 'import_deals_with_ai':
@@ -228,7 +226,7 @@ export const handler = async (event: any) => {
 
           // AI enrichment
           const enrichedDeals = await Promise.all(
-            deals.map(deal => enrichDealWithAI(deal, data.enrichmentOptions))
+            deals.map(deal => enrichDealWithAI(deal, data.enrichmentOptions ?? {}))
           );
 
           return {

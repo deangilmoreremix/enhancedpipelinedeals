@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Deal, ViewType, SavedView, ViewFilter, ViewSort, ViewColumn, Dashboard, CustomMetric } from '../types';
+import { useStageMeta } from '../../utils/stageUtils';
+import { sortedStages, stageHex } from '../../utils/stageMeta';
+import { Deal, ViewType, SavedView, ViewFilter, ViewSort, ViewColumn, Dashboard, CustomMetric } from '../../types';
 import {
   Table,
   Kanban,
@@ -20,7 +22,7 @@ import { ViewsReportingService } from '../../services/viewsReportingService';
 import { CustomMetricsService } from '../../services/customMetricsService';
 import { AdvancedFilteringService } from '../../services/advancedFilteringService';
 import { exportService } from '../../services/exportService';
-import { featureFlagService } from '../../services/featureFlagService';
+import { FeatureFlagService } from '../../services/featureFlagService';
 
 interface ViewsReportingManagerProps {
   deals: Record<string, Deal>;
@@ -35,6 +37,7 @@ export const ViewsReportingManager: React.FC<ViewsReportingManagerProps> = ({
   onDealUpdate,
   currentUserId
 }) => {
+  const { stages: stageList } = useStageMeta();
   const [currentViewType, setCurrentViewType] = useState<ViewType>('table');
   const [savedViews, setSavedViews] = useState<SavedView[]>([]);
   const [currentSavedView, setCurrentSavedView] = useState<SavedView | null>(null);
@@ -76,7 +79,7 @@ export const ViewsReportingManager: React.FC<ViewsReportingManagerProps> = ({
 
     const flagValues: Record<string, boolean> = {};
     for (const flag of flags) {
-      flagValues[flag] = await featureFlagService.isFeatureEnabled(flag);
+      flagValues[flag] = await FeatureFlagService.isFeatureEnabled(flag);
     }
     setFeatureFlags(flagValues);
   };
@@ -239,13 +242,9 @@ export const ViewsReportingManager: React.FC<ViewsReportingManagerProps> = ({
           <AdvancedKanbanView
             deals={deals}
             config={{
-              columns: [
-                { id: 'qualification', title: 'Qualification', color: '#3b82f6' },
-                { id: 'proposal', title: 'Proposal', color: '#6366f1' },
-                { id: 'negotiation', title: 'Negotiation', color: '#f59e0b' },
-                { id: 'closed-won', title: 'Won', color: '#10b981' },
-                { id: 'closed-lost', title: 'Lost', color: '#ef4444' }
-              ],
+              columns: sortedStages(stageList).filter(st => st.visible).map(st => ({
+                id: st.key, title: st.name, field: 'stage', color: stageHex(st.color)
+              })),
               cardTemplate: {
                 showFields: ['title', 'company', 'value', 'probability'],
                 layout: 'detailed'

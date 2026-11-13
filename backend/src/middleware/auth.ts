@@ -5,7 +5,13 @@ import { permissionService } from '../services/permissionService';
 import { auditService } from '../services/auditService';
 import { featureFlags } from '../features/flags';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+const JWT_SECRET = process.env.JWT_SECRET as string;
+if (!JWT_SECRET) {
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('JWT_SECRET environment variable is required in production');
+  }
+  console.warn('JWT_SECRET is not set; JWT verification will fail until it is configured');
+}
 
 interface AuthenticatedRequest extends Request {
   context?: RequestContext;

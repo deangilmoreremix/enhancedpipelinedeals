@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Key, Eye, EyeOff, Check, X, AlertCircle, Sparkles, Database, Brain, Globe } from 'lucide-react';
+import { ShieldCheck, Settings, Key, Eye, EyeOff, Check, X, AlertCircle, Sparkles, Database, Brain, Globe } from 'lucide-react';
 import { getSettingsService, UserApiKeys } from '../../services/settingsService';
 import { ModernButton } from './ModernButton';
+import { PermissionsSettings } from './PermissionsSettings';
+import { usePermissions } from '../../hooks/usePermissions';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -97,7 +99,9 @@ const ApiKeyField: React.FC<ApiKeyFieldProps> = ({
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
   const settingsService = getSettingsService();
   const [settings, setSettings] = useState(settingsService.getSettings());
-  const [activeTab, setActiveTab] = useState<'api' | 'general'>('api');
+  const [activeTab, setActiveTab] = useState<'api' | 'general' | 'permissions'>('api');
+  const { isAdmin, isDemo } = usePermissions();
+  const showPermissions = isAdmin || isDemo;
   const [saved, setSaved] = useState(false);
   const [showDangerConfirm, setShowDangerConfirm] = useState(false);
 
@@ -180,68 +184,40 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
             <Settings className="w-4 h-4 inline mr-2" />
             General
           </button>
+          {showPermissions && (
+            <button
+              onClick={() => setActiveTab('permissions')}
+              className={`flex-1 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+                activeTab === 'permissions'
+                  ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400'
+              }`}
+            >
+              <ShieldCheck className="w-4 h-4 inline mr-2" />
+              Permissions
+            </button>
+          )}
         </div>
 
         {/* Content */}
         <div className="p-4 overflow-y-auto max-h-[calc(90vh-180px)]">
           {activeTab === 'api' && (
             <div className="space-y-4">
-              <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
                 <div className="flex items-start space-x-2">
-                  <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+                  <AlertCircle className="w-4 h-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
                   <div>
-                    <p className="text-sm text-amber-800 dark:text-amber-200">
-                      Enter your own API keys to enable AI features. Keys are stored locally in your browser.
+                    <p className="text-sm text-blue-800 dark:text-blue-200">
+                      AI features run server-side through the OpenAI API (Netlify functions). Set
+                      <code className="mx-1">OPENAI_API_KEY</code> in your Netlify environment variables; keys are never stored in the browser.
                     </p>
                   </div>
                 </div>
               </div>
-
-              <ApiKeyField
-                provider="openai"
-                label="OpenAI API Key"
-                description="Required for GPT-5, GPT-4, and other OpenAI models"
-                placeholder="sk-..."
-                value={settings.apiKeys.openai || ''}
-                onChange={(v) => handleApiKeyChange('openai', v)}
-                onClear={() => handleClearApiKey('openai')}
-                icon={<Sparkles className="w-4 h-4 text-blue-600" />}
-              />
-
-              <ApiKeyField
-                provider="google"
-                label="Google AI API Key"
-                description="For Gemini models and Google AI features"
-                placeholder="AIza..."
-                value={settings.apiKeys.google || ''}
-                onChange={(v) => handleApiKeyChange('google', v)}
-                onClear={() => handleClearApiKey('google')}
-                icon={<Brain className="w-4 h-4 text-green-600" />}
-              />
-
-              <ApiKeyField
-                provider="anthropic"
-                label="Anthropic API Key"
-                description="For Claude and other Anthropic models"
-                placeholder="sk-ant-..."
-                value={settings.apiKeys.anthropic || ''}
-                onChange={(v) => handleApiKeyChange('anthropic', v)}
-                onClear={() => handleClearApiKey('anthropic')}
-                icon={<Globe className="w-4 h-4 text-purple-600" />}
-              />
-
-              <ApiKeyField
-                provider="supabase"
-                label="Supabase Project URL"
-                description="Your Supabase project URL (optional)"
-                placeholder="https://your-project.supabase.co"
-                value={settings.apiKeys.supabase || ''}
-                onChange={(v) => handleApiKeyChange('supabase', v)}
-                onClear={() => handleClearApiKey('supabase')}
-                icon={<Database className="w-4 h-4 text-cyan-600" />}
-              />
             </div>
           )}
+
+          {activeTab === 'permissions' && showPermissions && <PermissionsSettings />}
 
           {activeTab === 'general' && (
             <div className="space-y-4">

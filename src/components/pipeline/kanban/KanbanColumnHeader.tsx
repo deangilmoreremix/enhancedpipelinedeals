@@ -1,4 +1,12 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { GripVertical, ChevronDown, AlertTriangle } from 'lucide-react';
+import {
+  AGGREGATE_FIELDS,
+  AGGREGATE_OPERATIONS,
+  AggregateField,
+  AggregateOperation,
+  formatAggregate
+} from './kanbanUtils';
 import { formatCurrency } from '../../../utils/formatters';
 
 export interface ColumnAggregation {
@@ -15,29 +23,77 @@ export interface KanbanColumnHeaderProps {
   wipLimit?: number;
   color: string;
   onEdit?: () => void;
+  /** Selected aggregate (defaults to sum of value, computed from `aggregation`). */
+  operation?: AggregateOperation;
+  field?: AggregateField;
+  /** Pre-computed aggregate for operation/field; falls back to `aggregation.sum`. */
+  aggregateValue?: number;
+  onAggregateChange?: (operation: AggregateOperation, field: AggregateField) => void;
+  /** Spread onto the grip so the whole column can be dragged by its header. */
+  dragHandleProps?: React.HTMLAttributes<HTMLElement> | null;
+  /** Slot for the stage manage menu. */
+  menu?: React.ReactNode;
+  /** Highlights the header as an invalid/valid drop target. */
+  className?: string;
 }
 
 /**
- * Enhanced Kanban Column Header with aggregation metrics and WIP limits
+ * Kanban column header: title, count / WIP badge and a configurable aggregate
+ * (count, sum, avg, min, max over value or probability).
  */
 export const KanbanColumnHeader: React.FC<KanbanColumnHeaderProps> = ({
   title,
   aggregation,
   wipLimit,
   color,
-  onEdit
+  onEdit,
+  operation = 'sum',
+  field = 'value',
+  aggregateValue,
+  onAggregateChange,
+  dragHandleProps,
+  menu,
+  className = ''
 }) => {
-  const isOverLimit = wipLimit && aggregation.count > wipLimit;
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const pickerRef = useRef<HTMLDivElement>(null);
+  const isOverLimit = !!wipLimit && aggregation.count > wipLimit;
+  const atLimit = !!wipLimit && aggregation.count >= wipLimit;
+
+  useEffect(() => {
+    if (!pickerOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) setPickerOpen(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [pickerOpen]);
+
+  const value = aggregateValue ?? aggregation.sum;
+  const opLabel = AGGREGATE_OPERATIONS.find(o => o.id === operation)?.label ?? 'Sum';
+  const fieldLabel = AGGREGATE_FIELDS.find(f => f.id === field)?.label ?? 'Value';
+  const selectClass =
+    'w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white';
 
   return (
-    <div className={`p-4 border-b border-gray-200 dark:border-gray-700 ${color}`}>
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center space-x-2">
-          <h3 className="font-semibold text-gray-900 dark:text-white">{title}</h3>
+    <div className={`p-4 border-b border-gray-200 dark:border-gray-700 rounded-t-xl ${color} ${className}`}>
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center space-x-2 min-w-0">
+          {dragHandleProps && (
+            <span
+              {...dragHandleProps}
+              aria-label={`Drag column ${title}`}
+              className="cursor-grab text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
+            >
+              <GripVertical className="w-4 h-4" />
+            </span>
+          )}
+          <h3 className="font-semibold text-gray-900 dark:text-white truncate">{title}</h3>
           {onEdit && (
             <button
               onClick={onEdit}
               className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
+              aria-label={`Edit ${title}`}
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -46,41 +102,64 @@ export const KanbanColumnHeader: React.FC<KanbanColumnHeaderProps> = ({
           )}
         </div>
         <div className="flex items-center space-x-2">
-          <span className={`px-2 py-1 rounded-md text-xs font-medium ${
-            isOverLimit
-              ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300'
-              : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'
-          }`}>
+          <span
+            className={`px-2 py-1 rounded-md text-xs font-medium ${
+              isOverLimit
+                ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300'
+                : atLimit
+                  ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300'
+                  : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'
+            }`}
+          >
             {aggregation.count}
-            {wipLimit && ` / ${wipLimit}`}
+            {wipLimit ? ` / ${wipLimit}` : ''}
           </span>
-          {isOverLimit && (
-            <svg className="w-4 h-4 text-red-500" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-            </svg>
-          )}
+          {isOverLimit && <AlertTriangle className="w-4 h-4 text-red-500" />}
+          {menu}
         </div>
       </div>
 
-      {/* Aggregation Metrics */}
-      <div className="grid grid-cols-2 gap-2 text-sm">
-        <div>
-          <div className="text-gray-600 dark:text-gray-400">Total</div>
-          <div className="font-medium text-gray-900 dark:text-white">
-            {formatCurrency(aggregation.sum)}
+      {/* Aggregate (count / sum / avg / min / max over value or probability) */}
+      <div className="relative" ref={pickerRef}>
+        <button
+          type="button"
+          onClick={() => onAggregateChange && setPickerOpen(o => !o)}
+          className="flex items-center space-x-1 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+          aria-label="Change column aggregate"
+          aria-haspopup="true"
+          aria-expanded={pickerOpen}
+        >
+          <span>{operation === 'count' ? 'Count' : `${opLabel} of ${fieldLabel}`}:</span>
+          <span className="font-medium text-gray-900 dark:text-white">
+            {onAggregateChange || aggregateValue !== undefined ? formatAggregate(value, operation, field) : formatCurrency(value)}
+          </span>
+          {onAggregateChange && <ChevronDown className="w-3 h-3" />}
+        </button>
+        {pickerOpen && onAggregateChange && (
+          <div className="absolute left-0 top-full mt-1 z-30 w-48 p-3 space-y-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg">
+            <label className="block text-xs text-gray-500 dark:text-gray-400">
+              Operation
+              <select
+                value={operation}
+                onChange={(e) => onAggregateChange(e.target.value as AggregateOperation, field)}
+                className={`${selectClass} mt-1`}
+              >
+                {AGGREGATE_OPERATIONS.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
+              </select>
+            </label>
+            <label className="block text-xs text-gray-500 dark:text-gray-400">
+              Field
+              <select
+                value={field}
+                disabled={operation === 'count'}
+                onChange={(e) => onAggregateChange(operation, e.target.value as AggregateField)}
+                className={`${selectClass} mt-1 disabled:opacity-50`}
+              >
+                {AGGREGATE_FIELDS.map(f => <option key={f.id} value={f.id}>{f.label}</option>)}
+              </select>
+            </label>
           </div>
-        </div>
-        <div>
-          <div className="text-gray-600 dark:text-gray-400">Average</div>
-          <div className="font-medium text-gray-900 dark:text-white">
-            {formatCurrency(aggregation.average)}
-          </div>
-        </div>
-        <div className="col-span-2 mt-1">
-          <div className="text-xs text-gray-500 dark:text-gray-400">
-            Range: {formatCurrency(aggregation.min)} - {formatCurrency(aggregation.max)}
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );

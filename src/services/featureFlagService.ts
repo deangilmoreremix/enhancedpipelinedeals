@@ -1,4 +1,4 @@
-import { supabase } from './supabaseService';
+import { supabase, isSupabaseConfigured } from './supabaseService';
 
 export interface FeatureFlag {
   id: string;
@@ -17,7 +17,7 @@ export class FeatureFlagService {
    */
   static async isFeatureEnabled(featureKey: string): Promise<boolean> {
     // If supabase client is not initialized, return false
-    if (!supabase) {
+    if (!isSupabaseConfigured) {
       return false;
     }
 
@@ -164,6 +164,11 @@ export class FeatureFlagService {
 }
 
 // Export convenience functions
+/**
+ * Accessor for the feature flag service (all operations are static on the class).
+ */
+export const getFeatureFlagService = (): typeof FeatureFlagService => FeatureFlagService;
+
 export const isFeatureEnabled = FeatureFlagService.isFeatureEnabled;
 export const getAllFeatureFlags = FeatureFlagService.getAllFeatureFlags;
 export const updateFeatureFlag = FeatureFlagService.updateFeatureFlag;

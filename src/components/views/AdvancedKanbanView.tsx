@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Deal, KanbanViewConfig } from '../types';
+import { Deal, KanbanViewConfig } from '../../types';
 import { Plus, MoreHorizontal, Users, DollarSign, Clock } from 'lucide-react';
 
 interface AdvancedKanbanViewProps {

@@ -64,7 +64,7 @@ export const useContactStore = create<ContactStore>((set, get) => ({
     // Validate contact data
     const validation = validateSchema(contactData, contactValidationSchema);
     if (!validation.isValid) {
-      const errorMessage = `Validation failed: ${validation.firstError}`;
+      const errorMessage = `Validation failed: ${validation.error}`;
       set({ error: errorMessage });
       throw new Error(errorMessage);
     }
@@ -104,7 +104,7 @@ export const useContactStore = create<ContactStore>((set, get) => ({
     if (Object.keys(updates).length > 0) {
       const validation = validateSchema(updates, contactValidationSchema);
       if (!validation.isValid) {
-        const errorMessage = `Validation failed: ${validation.firstError}`;
+        const errorMessage = `Validation failed: ${validation.error}`;
         set({ error: errorMessage });
         throw new Error(errorMessage);
       }
@@ -231,11 +231,9 @@ export const useContactStore = create<ContactStore>((set, get) => ({
       throw new Error('Contact not found');
     }
 
-    // Simulate API call to find new image
-    await new Promise(resolve => setTimeout(resolve, 800));
-    // Generate a new avatar with a different seed
-    const newSeed = Date.now().toString();
-    const newAvatarUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${newSeed}`;
+    // Generate a new avatar with OpenAI GPT Image 2.6 (stored in Supabase Storage)
+    const { generateContactAvatar } = await import('../services/imageService');
+    const newAvatarUrl = (await generateContactAvatar({ id: contactId, name: contact.name, title: contact.title, industry: contact.industry })).url;
 
     await updateContact(contactId, {
       avatarSrc: newAvatarUrl

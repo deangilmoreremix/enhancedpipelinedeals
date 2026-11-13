@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Moon, Sun, Laptop, ChevronDown } from 'lucide-react';
 import { Tooltip } from './Tooltip';
+import { BTN_ICON } from './buttonStyles';
 
 export const DarkModeToggle: React.FC = () => {
   const { isDarkMode, toggleDarkMode, theme, setTheme } = useTheme();
@@ -43,15 +44,15 @@ export const DarkModeToggle: React.FC = () => {
               toggleDarkMode();
             }
           }}
-          className="p-2 rounded-full bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-blue-400 focus:ring-offset-white dark:focus:ring-offset-gray-900"
+          className={BTN_ICON}
           aria-label={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
           aria-pressed={isDarkMode}
           role="switch"
         >
           {isDarkMode ? (
-            <Sun className="h-5 w-5 text-yellow-400" aria-hidden="true" />
+            <Sun className="h-4 w-4 text-yellow-500" aria-hidden="true" />
           ) : (
-            <Moon className="h-5 w-5 text-gray-700" aria-hidden="true" />
+            <Moon className="h-4 w-4" aria-hidden="true" />
           )}
           <span className="sr-only">
             {isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
@@ -69,7 +70,7 @@ export const DarkModeToggle: React.FC = () => {
               setIsMenuOpen(!isMenuOpen);
             }
           }}
-          className="ml-1 p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-gray-900 rounded-md"
+          className={`${BTN_ICON} ml-2`}
           aria-label="More theme options"
           aria-expanded={isMenuOpen}
           aria-controls="theme-menu"

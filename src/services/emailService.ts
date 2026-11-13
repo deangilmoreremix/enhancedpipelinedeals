@@ -1,6 +1,6 @@
 import { Deal } from '../types';
 import { Contact } from '../types/contact';
-import { getAPIConfig } from '../config/apiConfig';
+import { supabase } from '../lib/core/supabaseClient';
 
 export interface EmailTemplate {
   subject: string;
@@ -96,9 +96,9 @@ Best regards,
     }
 
     if (deal) {
-      subject = subject.replace('[DEAL_TITLE]', deal.title);
-      body = body.replace('[DEAL_TITLE]', deal.title);
-      body = body.replace('[COMPANY_NAME]', deal.company);
+      subject = subject.replace('[DEAL_TITLE]', deal.title ?? '');
+      body = body.replace('[DEAL_TITLE]', deal.title ?? '');
+      body = body.replace('[COMPANY_NAME]', deal.company ?? '');
     }
 
     // Add default placeholders
@@ -126,55 +126,26 @@ Best regards,
     return `mailto:${emailData.to}?${params.toString()}`;
   }
 
+  /**
+   * Records the message in Supabase (`outbound_messages`, status "queued") and opens a mailto: draft
+   * so the user can send it from their own mail client. The stack (Netlify + Supabase + OpenAI) has no
+   * transactional email provider, so nothing is delivered automatically.
+   */
   async sendEmail(emailData: EmailData): Promise<boolean> {
-    const { sendgrid } = getAPIConfig();
-
-    // If SendGrid is configured, send a real transactional email via the v3 API.
-    if (sendgrid.apiKey) {
-      try {
-        const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${sendgrid.apiKey}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            personalizations: [{ to: [{ email: emailData.to }] }],
-            from: { email: sendgrid.fromEmail },
-            subject: emailData.subject,
-            content: [
-              {
-                type: 'text/html',
-                value: emailData.body.replace(/\n/g, '<br/>')
-              }
-            ]
-          })
-        });
-
-        if (!response.ok) {
-          const errorBody = await response.text();
-          console.error('SendGrid send failed:', response.status, errorBody);
-          // Fall back to opening a mailto draft so the user can send manually.
-          this.openMailto(emailData);
-          return false;
-        }
-
-        console.log('📧 Email sent via SendGrid:', {
-          to: emailData.to,
-          subject: emailData.subject,
-          dealId: emailData.deal?.id,
-          contactId: emailData.contact?.id,
-          timestamp: new Date().toISOString()
-        });
-        return true;
-      } catch (error) {
-        console.error('Failed to send email via SendGrid:', error);
-        this.openMailto(emailData);
-        return false;
-      }
+    try {
+      const { error } = await supabase.from('outbound_messages').insert({
+        contact_id: emailData.contact?.id ?? null,
+        deal_id: emailData.deal?.id ?? null,
+        channel: 'email',
+        recipient: emailData.to,
+        subject: emailData.subject,
+        body: emailData.body,
+        status: 'queued',
+      });
+      if (error) console.warn('Could not record outbound message:', error.message);
+    } catch (error) {
+      console.warn('Could not record outbound message:', error);
     }
-
-    // No SendGrid key configured: fall back to a mailto: draft.
     this.openMailto(emailData);
     return true;
   }

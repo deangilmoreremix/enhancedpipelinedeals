@@ -1,33 +1,37 @@
-import { Handler } from '@netlify/functions';
-import OpenAI from 'openai';
-import { createClient } from '@supabase/supabase-js';
+/**
+ * Streaming email composer (Netlify Functions v2). POST /api/ai/compose-email
+ * Body: { contactId, dealId?, input?, personaId? } -> SSE `data: {"content": "..."}` frames.
+ */
+import { authorize, userClient, rateLimited, respondStream, CORS_HEADERS } from './_openai';
+import { describeContact } from './_prompts';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-});
+const err = (status: number, error: string) =>
+  new Response(JSON.stringify({ error }), { status, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS } });
 
-const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY!
-);
+export default async (req: Request): Promise<Response> => {
+  if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS_HEADERS });
+  if (req.method !== 'POST') return err(405, 'Method not allowed');
+  const authHeader = req.headers.get('authorization') || undefined;
+  if (!(await authorize(authHeader))) return err(401, 'Unauthorized');
+  if (rateLimited(req.headers.get('x-nf-client-connection-ip') || 'anon')) return err(429, 'Rate limit exceeded');
 
-export const handler: Handler = async (event) => {
-  if (event.httpMethod !== 'POST') {
-    return {
-      statusCode: 405,
-      body: JSON.stringify({ error: 'Method not allowed' })
-    };
-  }
+  let payload: any;
+  try { payload = await req.json(); } catch { return err(400, 'Invalid JSON body'); }
+  const { contactId, dealId, input, personaId } = payload ?? {};
+  if (!contactId) return err(400, 'contactId is required');
 
   try {
-    const { contactId, dealId, input, personaId } = JSON.parse(event.body);
-
+    // Contact / deal / persona reads run AS THE CALLER (RLS applies), never with the service role.
+    const supabase = userClient(authHeader);
+    if (!supabase) return err(500, 'SUPABASE_URL / SUPABASE_ANON_KEY are not configured on the server');
     // Fetch contact and deal context
     const { data: contact } = await supabase
       .from('contacts')
       .select('*')
       .eq('id', contactId)
-      .single();
+      .maybeSingle<any>();
+
+    if (!contact) return err(404, 'Contact not found');
 
     let dealContext = '';
     if (dealId) {
@@ -35,7 +39,7 @@ export const handler: Handler = async (event) => {
         .from('deals')
         .select('*')
         .eq('id', dealId)
-        .single();
+        .maybeSingle<any>();
       dealContext = deal ? `Deal: ${deal.title} (${deal.value} value, ${deal.stage} stage)` : '';
     }
 
@@ -46,7 +50,7 @@ export const handler: Handler = async (event) => {
         .from('sdr_personas')
         .select('persona_prompt')
         .eq('id', personaId)
-        .single();
+        .maybeSingle<any>();
       personaPrompt = persona?.persona_prompt || '';
     }
 
@@ -54,7 +58,7 @@ export const handler: Handler = async (event) => {
 
 ${personaPrompt}
 
-Contact: ${contact?.name} at ${contact?.company}
+${describeContact(contact)}
 ${dealContext}
 
 Guidelines:
@@ -67,29 +71,25 @@ Guidelines:
 
 ${input ? `Improve and complete this draft: ${input}` : 'Write a compelling email based on the context provided.'}`;
 
-    // Create streaming response
-    const stream = await openai.chat.completions.create({
-      model: 'gpt-4',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: input || 'Write a professional email for this contact and deal.' }
-      ],
-      stream: true,
-      temperature: 0.7,
-      max_tokens: 1000
+    // Stream via the Responses API (typed events -> output_text deltas)
+    const deltas = respondStream({
+      tier: 'default',
+      instructions: systemPrompt,
+      input: input || 'Write a professional email for this contact and deal.',
+      maxOutputTokens: 1500
     });
 
-    // Return streaming response
     const encoder = new TextEncoder();
     const readable = new ReadableStream({
       async start(controller) {
-        for await (const chunk of stream) {
-          const content = chunk.choices[0]?.delta?.content || '';
-          if (content) {
-            const data = `data: ${JSON.stringify({ content })}\n\n`;
-            controller.enqueue(encoder.encode(data));
+        try {
+          for await (const content of deltas) {
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content })}\n\n`));
           }
+        } catch (err) {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: String((err as Error).message) })}\n\n`));
         }
+        controller.enqueue(encoder.encode('data: [DONE]\n\n'));
         controller.close();
       }
     });
@@ -99,16 +99,14 @@ ${input ? `Improve and complete this draft: ${input}` : 'Write a compelling emai
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
         'Connection': 'keep-alive',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Content-Type'
+        ...CORS_HEADERS
       }
     });
 
   } catch (error) {
     console.error('Compose email error:', error);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: 'Failed to compose email' })
-    };
+    return err(500, 'Failed to compose email');
   }
 };
+
+export const config = { path: '/api/ai/compose-email' };

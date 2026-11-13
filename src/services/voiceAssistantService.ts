@@ -4,6 +4,7 @@
  */
 
 import { getOpenAIFunctionService } from './openaiFunctionCallingService';
+import { authedFetch } from './aiClient';
 
 interface VoiceSession {
   id: string;
@@ -30,7 +31,8 @@ interface VoiceEvent {
 class VoiceAssistantService {
   private sessions = new Map<string, VoiceSession>();
   private eventListeners = new Map<string, ((event: VoiceEvent) => void)[]>();
-  private realtimeUrl = 'wss://api.openai.com/v1/realtime';
+  /** WebRTC SDP exchange endpoint (GA Realtime API). Auth uses an ephemeral key minted by our Netlify function. */
+  private realtimeCallsUrl = 'https://api.openai.com/v1/realtime/calls';
   private isInitialized = false;
 
   constructor() {
@@ -42,13 +44,6 @@ class VoiceAssistantService {
       // Check for WebRTC support
       if (!navigator.mediaDevices || !window.RTCPeerConnection) {
         console.warn('⚠️ WebRTC not supported, voice assistant disabled');
-        return;
-      }
-
-      // Check for OpenAI API key
-      const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
-      if (!apiKey) {
-        console.warn('⚠️ OpenAI API key not found, voice assistant disabled');
         return;
       }
 
@@ -100,7 +95,7 @@ class VoiceAssistantService {
       });
 
       // Set up data channel for events
-      const dataChannel = peerConnection.createDataChannel('events');
+      const dataChannel = peerConnection.createDataChannel('oai-events');
       session.dataChannel = dataChannel;
 
       this.setupDataChannelHandlers(dataChannel, id);
@@ -165,46 +160,29 @@ class VoiceAssistantService {
     }
   }
 
-  private async connectToOpenAI(peerConnection: RTCPeerConnection, sessionId: string): Promise<void> {
-    const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
-
+  private async connectToOpenAI(peerConnection: RTCPeerConnection, _sessionId: string): Promise<void> {
     try {
-      // Create offer
+      // 1) Ephemeral key from our server (the real OpenAI key never reaches the browser)
+      const tokenRes = await authedFetch('/api/ai/voice', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'realtime_token', instructions: this.getSystemInstructions() }),
+      });
+      const token: any = await tokenRes.json().catch(() => ({}));
+      if (!tokenRes.ok || !token.value) throw new Error(token.error || `Realtime token error: ${tokenRes.status}`);
+
+      // 2) SDP offer/answer over WebRTC
       const offer = await peerConnection.createOffer();
       await peerConnection.setLocalDescription(offer);
 
-      // Connect to OpenAI Realtime API
-      const response = await fetch(`${this.realtimeUrl}?model=gpt-4o-realtime-preview`, {
+      const response = await fetch(`${this.realtimeCallsUrl}?model=${encodeURIComponent(token.model)}`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          sdp: offer.sdp,
-          config: {
-            voice: 'alloy',
-            instructions: this.getSystemInstructions(),
-            tools: this.getRealtimeTools(),
-            input_audio_format: 'pcm16',
-            output_audio_format: 'pcm16',
-            input_audio_transcription: {
-              model: 'whisper-1'
-            }
-          }
-        })
+        headers: { Authorization: `Bearer ${token.value}`, 'Content-Type': 'application/sdp' },
+        body: offer.sdp,
       });
+      if (!response.ok) throw new Error(`OpenAI Realtime API error: ${response.status}`);
 
-      if (!response.ok) {
-        throw new Error(`OpenAI Realtime API error: ${response.status}`);
-      }
-
-      const answer = await response.json();
-      await peerConnection.setRemoteDescription({
-        type: 'answer',
-        sdp: answer.sdp
-      });
-
+      await peerConnection.setRemoteDescription({ type: 'answer', sdp: await response.text() });
     } catch (error) {
       console.error('Failed to connect to OpenAI Realtime API:', error);
       throw error;
@@ -214,6 +192,16 @@ class VoiceAssistantService {
   private setupDataChannelHandlers(dataChannel: RTCDataChannel, sessionId: string): void {
     dataChannel.onopen = () => {
       console.log(`📡 Data channel opened for session: ${sessionId}`);
+      // Configure tools + input transcription once the channel is open
+      dataChannel.send(JSON.stringify({
+        type: 'session.update',
+        session: {
+          type: 'realtime',
+          tools: this.getRealtimeTools(),
+          tool_choice: 'auto',
+          audio: { input: { transcription: { model: 'gpt-transcribe' } } },
+        },
+      }));
     };
 
     dataChannel.onmessage = (event) => {

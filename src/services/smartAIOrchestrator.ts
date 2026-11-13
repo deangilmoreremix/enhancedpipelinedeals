@@ -6,6 +6,7 @@
 import { getMonitoringService } from './monitoringService';
 import { validateContactData, validateDealData } from '../utils/validation';
 
+import { loadStageKeys, stageIsLost, stageIsWon } from '../utils/stageMeta';
 // Task types for intelligent model routing
 export type AiTask =
   | "contact_analyze"
@@ -37,8 +38,11 @@ export type AiTask =
   | "summary_generation"
   | "custom_prompt_execution";
 
-// Model routing based on task complexity
-export function pickModel(task: AiTask): string {
+// Model routing based on task complexity. Returns a gateway *tier*; the concrete
+// model ids (gpt-6-astra / gpt-6.1-sol / gpt-6-luna) are owned by the server (netlify/functions/_openai.ts).
+export type AiTier = 'fast' | 'default' | 'deep';
+
+export function pickModel(task: AiTask): AiTier {
   switch (task) {
     case "trend_analysis":
     case "intelligence_engine":
@@ -48,7 +52,7 @@ export function pickModel(task: AiTask): string {
     case "competitor_analysis":
     case "deal_insights":
     case "summary_generation":
-      return "gpt-4o"; // Heavy analytics & cross-panel intelligence
+      return "deep"; // Heavy analytics & cross-panel intelligence
 
     case "sales_playbook":
     case "deal_health":
@@ -62,7 +66,7 @@ export function pickModel(task: AiTask): string {
     case "record_classification":
     case "data_enrichment":
     case "custom_prompt_execution":
-      return "gpt-4o"; // Multi-step reasoning tasks
+      return "default"; // Multi-step reasoning tasks
 
     case "automated_note_taking":
     case "natural_language_query":
@@ -71,7 +75,7 @@ export function pickModel(task: AiTask): string {
     case "proposal_email":
     case "discovery_questions":
     default:
-      return "gpt-4o-mini"; // Quick features, emails, short insights
+      return "fast"; // Quick features, emails, short insights
   }
 }
 
@@ -150,33 +154,35 @@ export class CRMContextBuilder {
         .limit(10);
 
       // Fetch current deals
-      const { data: deals } = await supabase
+      const closedKeys = await loadStageKeys('closed');
+      let dealsQuery = supabase
         .from('deals')
         .select('*')
-        .eq('contact_id', contactId)
-        .eq('status', 'active');
+        .eq('contact_id', contactId);
+      if (closedKeys.length > 0) dealsQuery = dealsQuery.not('stage', 'in', `(${closedKeys.join(',')})`);
+      const { data: deals } = await dealsQuery;
 
       return {
         contactId,
         fields: {
-          name: contact.name || contact.first_name + ' ' + contact.last_name,
+          name: contact.name || [contact.first_name, contact.last_name].filter(Boolean).join(' '),
           title: contact.title,
           company: contact.company,
-          location: contact.location || contact.city + ', ' + contact.state,
-          source: contact.source,
+          location: contact.location || [contact.city, contact.state].filter(Boolean).join(', ') || undefined,
+          source: contact.source || (Array.isArray(contact.sources) ? contact.sources.join(', ') : undefined),
           email: contact.email,
           phone: contact.phone,
           industry: contact.industry,
           website: contact.website
         },
-        recentInteractions: interactions?.map(i => ({
+        recentInteractions: interactions?.map((i: any) => ({
           type: i.type,
-          date: i.created_at,
+          date: i.timestamp || i.created_at,
           subject: i.subject,
           duration: i.duration,
           notes: i.notes
         })) || [],
-        currentDeals: deals?.map(d => ({
+        currentDeals: deals?.map((d: any) => ({
           id: d.id,
           stage: d.stage,
           value: d.value,
@@ -205,63 +211,81 @@ export class CRMContextBuilder {
   }
 
   static async buildDealSnapshot(dealId: string): Promise<any> {
-    return {
-      dealId,
-      details: {
-        name: "Enterprise Software License",
-        value: 75000,
-        stage: "negotiation",
-        probability: 80,
-        expectedCloseDate: "2024-02-15"
-      },
-      stakeholders: [
-        { name: "John Doe", role: "CTO", influence: "high" },
-        { name: "Jane Smith", role: "CFO", influence: "medium" }
-      ],
-      timeline: [
-        { date: "2024-01-01", event: "Initial contact" },
-        { date: "2024-01-15", event: "Demo completed" },
-        { date: "2024-01-20", event: "Proposal sent" }
-      ]
-    };
+    try {
+      const { supabase } = await import('../lib/core/supabaseClient');
+      const { data: deal } = await supabase.from('deals').select('*').eq('id', dealId).maybeSingle();
+      if (!deal) return { dealId, details: null, note: 'Deal not found' };
+
+      const { data: activities } = await supabase
+        .from('deal_activities')
+        .select('*')
+        .eq('deal_id', dealId)
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+      return {
+        dealId,
+        details: {
+          name: deal.title,
+          company: deal.company,
+          value: deal.value,
+          stage: deal.stage,
+          probability: deal.probability,
+          priority: deal.priority,
+          expectedCloseDate: deal.due_date,
+          notes: deal.notes,
+        },
+        timeline: (activities || []).map((a: any) => ({ date: a.created_at, event: a.title || a.type || a.message })),
+      };
+    } catch (error) {
+      console.error('Failed to build deal snapshot:', error);
+      return { dealId, details: null, note: 'Deal data unavailable' };
+    }
+  }
+
+  private static async loadDeals(): Promise<any[]> {
+    try {
+      const { supabase } = await import('../lib/core/supabaseClient');
+      const { data } = await supabase.from('deals').select('stage,value,probability,created_at,updated_at');
+      return data || [];
+    } catch {
+      return [];
+    }
   }
 
   static async buildPipelineSnapshot(entityId: string): Promise<any> {
+    const deals = await this.loadDeals();
+    const stageDistribution: Record<string, number> = {};
+    deals.forEach(d => { stageDistribution[d.stage] = (stageDistribution[d.stage] || 0) + 1; });
+    const won = deals.filter(d => stageIsWon(d.stage));
+    const closed = deals.filter(d => stageIsWon(d.stage) || stageIsLost(d.stage));
+    const open = deals.filter(d => !stageIsWon(d.stage) && !stageIsLost(d.stage));
+    const avg = deals.length ? deals.reduce((n, d) => n + (Number(d.value) || 0), 0) / deals.length : 0;
     return {
       entityId,
       metrics: {
-        totalDeals: 12,
-        activeDeals: 8,
-        averageDealSize: 45000,
-        conversionRate: 0.65,
-        averageTimeToClose: 45 // days
+        totalDeals: deals.length,
+        activeDeals: open.length,
+        averageDealSize: Math.round(avg),
+        conversionRate: closed.length ? won.length / closed.length : null,
       },
-      stageDistribution: {
-        prospecting: 3,
-        qualification: 2,
-        proposal: 2,
-        negotiation: 1,
-        closed: 4
-      }
+      stageDistribution,
     };
   }
 
   static async buildGlobalAnalyticsSnapshot(workspaceId: string): Promise<any> {
+    const pipeline = await this.buildPipelineSnapshot(workspaceId);
+    const deals = await this.loadDeals();
+    const open = deals.filter(d => !stageIsWon(d.stage) && !stageIsLost(d.stage));
+    const weighted = open.reduce((n, d) => n + (Number(d.value) || 0) * ((Number(d.probability) || 0) / 100), 0);
     return {
       workspaceId,
       kpis: {
-        monthlyRecurringRevenue: 250000,
-        customerAcquisitionCost: 5000,
-        customerLifetimeValue: 75000,
-        churnRate: 0.05,
-        growthRate: 0.15
+        openPipelineValue: open.reduce((n, d) => n + (Number(d.value) || 0), 0),
+        weightedPipelineValue: Math.round(weighted),
+        wonValue: deals.filter(d => stageIsWon(d.stage)).reduce((n, d) => n + (Number(d.value) || 0), 0),
       },
-      trends: {
-        leadQuality: "improving",
-        salesCycle: "stable",
-        conversionRates: "trending_up",
-        customerSatisfaction: "high"
-      }
+      pipeline,
     };
   }
 }
@@ -552,8 +576,8 @@ export class SmartAIOrchestrator {
       // Get prompt template
       const prompt = this.getTaskPrompt(task, crmContext, params);
 
-      // Execute AI call (placeholder - would integrate with actual OpenAI service)
-      const result = await this.callAI(model, prompt, task);
+      // Execute AI call through the server-side Responses API gateway
+      const result = await this.callAI(model, prompt, task, persona);
 
       // Track performance
       this.monitoring.trackAIFunctionCall(
@@ -706,90 +730,39 @@ export class SmartAIOrchestrator {
     }
   }
 
-  private async callAI(model: string, prompt: string, task: AiTask): Promise<any> {
+  private async callAI(tier: AiTier, prompt: string, task: AiTask, persona?: SDRPersona | null): Promise<any> {
     try {
-      // Import OpenAI service dynamically
-      const { useRealOpenAI } = await import('./realOpenAIService');
+      const { callAI: gateway } = await import('./aiClient');
+      const instructions = persona
+        ? `Write and reason in the voice of the SDR persona "${persona.name}": tone ${persona.tone}; email style ${persona.email_style}; focus on ${persona.communication_focus.join(', ')}.`
+        : undefined;
+      // Tasks with a dedicated strict schema on the gateway; everything else is generic chat (JSON mode when needed).
+      const dedicated = ['contact_analyze', 'lead_score', 'email_compose', 'web_research'];
+      const expectsJSON = this.taskExpectsJSON(task);
+      const result = await gateway(dedicated.includes(task) ? task : 'chat', {
+        input: prompt,
+        instructions: [instructions, expectsJSON && !dedicated.includes(task) ? 'Respond with a single JSON object only.' : '']
+          .filter(Boolean).join('\n') || undefined,
+        json: expectsJSON && !dedicated.includes(task),
+        tier,
+        maxOutputTokens: this.getMaxTokensForTask(task),
+      } as any);
 
-      // Use real OpenAI service for GPT-5.2 models
-      const openaiService = useRealOpenAI();
-
-      // Create a wrapper that maps to the expected interface
-      const response = await this.callOpenAIWithModel(openaiService, model, prompt, task);
-
-      // Parse and validate response
-      const content = response;
-      if (!content) {
-        throw new Error('No content received from OpenAI');
-      }
-
-      // For tasks that expect JSON responses, parse and validate
-      if (this.taskExpectsJSON(task)) {
-        try {
-          const parsed = JSON.parse(content);
-          return { success: true, data: parsed };
-        } catch (parseError) {
-          console.warn(`Failed to parse JSON response for task ${task}:`, parseError);
-          // Return a structured error response
-          return {
-            success: false,
-            error: 'AI response was not in expected JSON format',
-            rawResponse: content
-          };
+      if (expectsJSON || dedicated.includes(task)) {
+        if (result.data == null) {
+          return { success: false, error: 'AI response was not in expected JSON format', rawResponse: result.text };
         }
+        return { success: true, data: result.data };
       }
-
-      // For text-based responses
-      return { success: true, data: content };
-
+      return { success: true, data: result.text };
     } catch (error) {
       console.error(`AI call failed for task ${task}:`, error);
-
-      // Return structured error response
       return {
         success: false,
         error: error instanceof Error ? error.message : 'AI service unavailable',
         task,
-        model
+        model: tier,
       };
-    }
-  }
-
-  private async callOpenAIWithModel(openaiService: any, model: string, prompt: string, task: AiTask): Promise<string> {
-    // This is a placeholder - in reality, you'd need to implement the actual OpenAI API call
-    // For now, we'll simulate the call and return mock data based on the task
-
-    console.log(`Calling ${model} for task: ${task}`);
-
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    // Return mock responses based on task type
-    // In production, this would make actual API calls to OpenAI
-    return this.getMockResponse(task);
-  }
-
-  private getTemperatureForTask(task: AiTask): number {
-    // Lower temperature for analytical/factual tasks, higher for creative tasks
-    switch (task) {
-      case "email_compose":
-      case "meeting_invite":
-      case "proposal_email":
-        return 0.7; // More creative for personalized communication
-
-      case "contact_analyze":
-      case "lead_score":
-      case "deal_health":
-      case "risk_assessment":
-        return 0.3; // More analytical and consistent
-
-      case "sales_playbook":
-      case "automation_suggestions":
-      case "insights_generation":
-        return 0.5; // Balanced creativity and analysis
-
-      default:
-        return 0.4; // Default balanced temperature
     }
   }
 
@@ -845,379 +818,6 @@ export class SmartAIOrchestrator {
     ];
 
     return jsonTasks.includes(task);
-  }
-
-  // Legacy mock responses for fallback (keeping for reference)
-  private getMockResponse(task: AiTask): any {
-    const mockResponses: Record<AiTask, any> = {
-      contact_analyze: {
-        success: true,
-        data: {
-          summary: "High-potential CTO at growing SaaS company showing strong interest in automation solutions.",
-          score: 78,
-          next_action: "Schedule technical deep-dive demo focusing on integration capabilities.",
-          risks: ["Competitor evaluation in progress", "Budget approval pending Q2"]
-        }
-      },
-      lead_score: {
-        success: true,
-        data: {
-          score: 85,
-          level: "SQL",
-          reasons: ["Active product usage", "Budget allocated", "Timeline: Q2"],
-          next_steps: ["Technical demo", "Stakeholder alignment", "Proposal preparation"]
-        }
-      },
-      email_compose: {
-        success: true,
-        data: {
-          subject: "Accelerating TechCorp's Digital Transformation",
-          body: "Hi John,\n\nI noticed TechCorp's recent focus on automation solutions aligns perfectly with our enterprise platform. As CTO, you'd be interested in how we've helped similar companies reduce integration time by 60%.\n\nWould you be available for a 15-minute call this week to discuss your specific requirements?\n\nBest,\n[Your Name]"
-        }
-      },
-      sales_playbook: {
-        success: true,
-        data: {
-          steps: [
-            "Technical validation with engineering team",
-            "ROI presentation to CFO",
-            "Legal review of contract terms",
-            "Stakeholder sign-off and implementation planning"
-          ],
-          stakeholders: ["CTO", "CFO", "Legal", "Engineering Lead"],
-          risks: ["Budget approval timeline", "Technical integration complexity"],
-          timeline: "Close within 3 weeks"
-        }
-      },
-      deal_health: {
-        success: true,
-        data: {
-          status: "Green",
-          risk_score: 25,
-          risk_factors: ["Slight delay in technical evaluation", "Budget approval in progress"],
-          actions: ["Follow up on technical requirements", "Provide additional case studies", "Schedule stakeholder alignment call"],
-          recommendations: ["Maintain weekly check-ins", "Provide implementation timeline"]
-        }
-      },
-      web_research: {
-        success: true,
-        data: {
-          findings: [
-            "TechCorp raised $15M Series A in Q4 2023",
-            "Expanded engineering team by 40% in 2023",
-            "Launched AI-powered analytics platform in Q1 2024"
-          ],
-          citations: [
-            { url: "https://techcrunch.com/techcorp-funding", title: "TechCorp Raises $15M" },
-            { url: "https://linkedin.com/company/techcorp", title: "Company Updates" }
-          ],
-          recommendations: ["Focus on AI integration capabilities", "Highlight scalability for growing teams"]
-        }
-      },
-      // Phase 7 AI Enhancements
-      deal_scoring: {
-        success: true,
-        data: {
-          overallScore: 82,
-          qualificationLevel: "qualified",
-          scoringFactors: [
-            {
-              id: "contact_qual",
-              name: "Contact Qualification",
-              category: "contact",
-              score: 88,
-              weight: 0.3,
-              evidence: ["CTO title", "Enterprise company", "Recent funding round"],
-              reasoning: "High-level decision maker at well-funded company",
-              confidence: 90
-            },
-            {
-              id: "deal_progress",
-              name: "Deal Progression",
-              category: "engagement",
-              score: 75,
-              weight: 0.25,
-              evidence: ["Multiple stakeholder meetings", "Technical demo completed"],
-              reasoning: "Good engagement but timeline concerns",
-              confidence: 85
-            }
-          ],
-          confidence: 87
-        }
-      },
-      competitor_analysis: {
-        success: true,
-        data: {
-          primaryCompetitors: [
-            {
-              id: "comp1",
-              name: "CompetitorX",
-              strength: 75,
-              keyAdvantages: ["Lower pricing", "Faster implementation"],
-              keyDisadvantages: ["Limited customization", "Smaller support team"],
-              recentActivity: ["New partnership announced", "Price reduction"],
-              pricingStrategy: "Volume-based discounts"
-            }
-          ],
-          competitivePosition: "competitive",
-          threats: [
-            {
-              id: "threat1",
-              type: "pricing",
-              severity: "medium",
-              description: "Competitor offering 20% discount for similar solution",
-              mitigationStrategies: ["Emphasize total cost of ownership", "Highlight superior support"],
-              probability: 60
-            }
-          ],
-          opportunities: [
-            {
-              id: "opp1",
-              type: "gap",
-              potential: "high",
-              description: "Competitor lacks advanced AI features we offer",
-              exploitationStrategy: ["Demo AI capabilities", "Share customer success stories"],
-              expectedValue: 25000
-            }
-          ],
-          recommendations: ["Accelerate timeline", "Increase competitive intelligence monitoring", "Strengthen value proposition"]
-        }
-      },
-      deal_insights: {
-        success: true,
-        data: {
-          progressionInsights: [
-            {
-              id: "insight1",
-              insight: "Deal velocity has slowed by 40% in last 2 weeks",
-              type: "concerning",
-              category: "timeline",
-              confidence: 85,
-              supportingEvidence: ["Last contact 12 days ago", "No response to last proposal"],
-              actionable: true
-            }
-          ],
-          riskAssessments: [
-            {
-              id: "risk1",
-              risk: "Competitor evaluation may be causing delay",
-              severity: "medium",
-              probability: 70,
-              impact: "high",
-              mitigationStrategies: ["Schedule competitive positioning call", "Provide detailed comparison"],
-              monitoringRequired: true
-            }
-          ],
-          actionRecommendations: [
-            {
-              id: "action1",
-              action: "Schedule urgent check-in call with decision maker",
-              priority: "high",
-              timeframe: "immediate",
-              expectedOutcome: "Re-engage stalled deal and identify blocking issues",
-              requiredResources: ["SDR time", "Product demo access"],
-              successMetrics: ["Meeting scheduled", "Objections identified"]
-            }
-          ],
-          predictiveMetrics: [
-            {
-              id: "metric1",
-              metric: "Close Probability",
-              currentValue: 65,
-              predictedValue: 45,
-              confidence: 75,
-              timeframe: "30 days",
-              trend: "decreasing",
-              factors: ["Slowing velocity", "Competitor involvement", "Budget approval delay"]
-            }
-          ],
-          communicationSuggestions: [
-            {
-              id: "comm1",
-              type: "call",
-              recipient: "CTO",
-              timing: "Tomorrow morning",
-              subject: "Following up on TechCorp's automation requirements",
-              keyPoints: ["Address any concerns", "Reiterate value proposition", "Schedule next steps"],
-              tone: "professional",
-              expectedResponse: "Meeting confirmation or updated timeline"
-            }
-          ]
-        }
-      },
-      automated_note_taking: {
-        success: true,
-        data: {
-          summary: "CTO expressed strong interest in automation platform but concerned about integration timeline. Requested detailed ROI analysis and competitor comparison.",
-          keyPoints: [
-            "Current system causing 20 hours/week manual work",
-            "Budget approved for Q2 implementation",
-            "Key decision criteria: ROI, ease of use, support quality",
-            "Competitor evaluation in progress"
-          ],
-          sentiment: "positive",
-          actionItems: [
-            {
-              id: "action1",
-              description: "Prepare detailed ROI analysis showing 300%+ return",
-              priority: "high",
-              assignee: "Sales Engineer",
-              dueDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000), // 2 days
-              status: "pending"
-            },
-            {
-              id: "action2",
-              description: "Create competitor feature comparison document",
-              priority: "medium",
-              assignee: "SDR",
-              dueDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000), // 3 days
-              status: "pending"
-            }
-          ],
-          followUps: [
-            {
-              id: "followup1",
-              type: "email",
-              description: "Send ROI analysis and competitor comparison",
-              timing: "End of week",
-              priority: "high"
-            },
-            {
-              id: "followup2",
-              type: "call",
-              description: "Schedule technical demo with engineering team",
-              timing: "Next week",
-              priority: "medium"
-            }
-          ],
-          tags: ["budget_approved", "roi_focus", "competitor_comparison", "timeline_concern"]
-        }
-      },
-      natural_language_query: {
-        success: true,
-        data: {
-          parsedIntent: {
-            action: "find",
-            entityType: "deal",
-            filters: { stage: "negotiation", value: { min: 50000 } },
-            aggregations: ["total_value", "count"],
-            sorting: { value: "desc" }
-          },
-          results: [
-            {
-              type: "data",
-              data: {
-                deals: [
-                  { id: "deal1", company: "TechCorp", value: 75000, stage: "negotiation" },
-                  { id: "deal2", company: "DataSys", value: 60000, stage: "negotiation" }
-                ],
-                summary: { totalValue: 135000, count: 2 }
-              },
-              confidence: 95
-            },
-            {
-              type: "insight",
-              insight: "Two high-value deals in negotiation stage, representing $135K in potential revenue",
-              confidence: 90
-            }
-          ]
-        }
-      },
-      data_enrichment: {
-        success: true,
-        data: {
-          enrichedData: {
-            socialProfiles: {
-              linkedin: "https://linkedin.com/in/john-doe",
-              twitter: "https://twitter.com/johndoetech"
-            },
-            firmographic: {
-              employeeCount: 150,
-              revenue: 15000000,
-              industry: "Software Development",
-              founded: 2018
-            },
-            technographic: {
-              crm: "Salesforce",
-              marketing: "HubSpot",
-              analytics: "Mixpanel"
-            }
-          },
-          confidence: 85,
-          sources: ["LinkedIn", "Crunchbase", "BuiltWith"]
-        }
-      },
-      record_classification: {
-        success: true,
-        data: {
-          classifications: [
-            {
-              category: "Technology",
-              subcategory: "SaaS",
-              confidence: 95,
-              reasoning: "Company provides cloud-based software solutions",
-              tags: ["saas", "cloud", "technology"],
-              metadata: { growthStage: "Series A" }
-            },
-            {
-              category: "Enterprise",
-              subcategory: "Mid-Market",
-              confidence: 88,
-              reasoning: "Company size and revenue indicate mid-market enterprise",
-              tags: ["enterprise", "mid-market"],
-              metadata: { employeeRange: "100-500" }
-            }
-          ],
-          primaryCategory: "Technology",
-          secondaryCategories: ["Enterprise", "SaaS"],
-          confidence: 92
-        }
-      },
-      summary_generation: {
-        success: true,
-        data: {
-          content: "TechCorp is a Series A SaaS company with 150 employees, founded in 2018. They provide cloud-based automation solutions and have recently raised $15M in funding. Current deal value is $75K in the negotiation stage.",
-          keyInsights: [
-            "Strong growth trajectory with recent funding",
-            "Mid-market enterprise with established product",
-            "Active in automation space with technical requirements"
-          ],
-          recommendations: [
-            "Focus on ROI and technical integration benefits",
-            "Address timeline concerns with implementation plan",
-            "Highlight competitive advantages in AI capabilities"
-          ],
-          wordCount: 87,
-          confidence: 90
-        }
-      },
-      custom_prompt_execution: {
-        success: true,
-        data: {
-          response: "Custom prompt executed successfully with provided variables.",
-          executionDetails: {
-            model: "gpt-4o",
-            tokens: 150,
-            processingTime: 1200
-          }
-        }
-      },
-      // Default response for other tasks
-      trend_analysis: { success: true, data: { trends: [], insights: [] } },
-      intelligence_engine: { success: true, data: { insights: [], recommendations: [] } },
-      prediction: { success: true, data: { forecasts: [], probabilities: [] } },
-      automation_suggestions: { success: true, data: { suggestions: [] } },
-      enrichment: { success: true, data: { enrichedData: {} } },
-      meeting_invite: { success: true, data: { subject: "", body: "" } },
-      proposal_email: { success: true, data: { subject: "", body: "" } },
-      communication_optimize: { success: true, data: { analysis: {}, suggestions: [] } },
-      discovery_questions: { success: true, data: { questions: [] } },
-      insights_generation: { success: true, data: { insights: [] } },
-      risk_assessment: { success: true, data: { risks: [], mitigations: [] } },
-      sdr_persona: { success: true, data: { persona: null } }
-    };
-
-    return mockResponses[task] || { success: false, error: "Task not implemented" };
   }
 
   // SDR Persona management

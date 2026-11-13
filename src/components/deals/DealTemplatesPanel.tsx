@@ -1,5 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { DealTemplate, getAllTemplates, applyTemplate as applyTemplateService } from '../../services/dealTemplateService';
+import { getAllTemplates, applyTemplate as applyTemplateService } from '../../services/dealTemplateService';
+import type { DealTemplate as BaseDealTemplate } from '../../types';
+
+// Rows come straight from the database, which uses snake_case for this column.
+type DealTemplate = BaseDealTemplate & { is_public?: boolean };
 import { isFeatureEnabled } from '../../services/featureFlagService';
 
 /**

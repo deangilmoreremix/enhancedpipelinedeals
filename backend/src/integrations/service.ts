@@ -1,4 +1,5 @@
 import axios from 'axios';
+import crypto from 'crypto';
 import { supabase } from '../services/database';
 
 interface Integration {
@@ -16,13 +17,8 @@ interface Integration {
 
 export class IntegrationService {
   private static readonly INTEGRATION_TYPES = {
-    slack: 'slack',
-    zapier: 'zapier',
-    hubspot: 'hubspot',
-    salesforce: 'salesforce',
-    mailchimp: 'mailchimp',
-    google_sheets: 'google_sheets',
     webhook: 'webhook',
+    supabase: 'supabase',
   };
 
   static async createIntegration(input: any, context: any): Promise<Integration> {
@@ -105,7 +101,7 @@ export class IntegrationService {
       throw new Error('Failed to fetch integrations');
     }
 
-    return data.map(this.formatIntegration);
+    return data.map((d: any) => this.formatIntegration(d));
   }
 
   static async testIntegration(id: string, context: any) {
@@ -155,14 +151,10 @@ export class IntegrationService {
 
   private static async testIntegrationConnection(integration: Integration) {
     switch (integration.type) {
-      case 'slack':
-        return await this.testSlackIntegration(integration);
-      case 'zapier':
-        return await this.testZapierIntegration(integration);
-      case 'hubspot':
-        return await this.testHubSpotIntegration(integration);
       case 'webhook':
         return await this.testWebhookIntegration(integration);
+      case 'supabase':
+        return await this.testSupabaseIntegration();
       default:
         throw new Error(`Test not implemented for integration type: ${integration.type}`);
     }
@@ -170,98 +162,52 @@ export class IntegrationService {
 
   private static async performSync(integration: Integration, context: any) {
     switch (integration.type) {
-      case 'slack':
-        return await this.syncWithSlack(integration, context);
-      case 'hubspot':
-        return await this.syncWithHubSpot(integration, context);
-      case 'google_sheets':
-        return await this.syncWithGoogleSheets(integration, context);
+      case 'webhook':
+        return await this.deliverWebhook(
+          integration.config,
+          { event: 'integration.sync', workspaceId: context.workspaceId, timestamp: new Date().toISOString() }
+        );
+      case 'supabase':
+        return await this.testSupabaseIntegration();
       default:
         throw new Error(`Sync not implemented for integration type: ${integration.type}`);
     }
   }
 
-  private static async testSlackIntegration(integration: Integration) {
-    const { accessToken } = integration.config;
-
-    if (!accessToken) {
-      throw new Error('Slack access token not configured');
+  private static async testSupabaseIntegration() {
+    const { error } = await supabase.from('integrations').select('id', { head: true, count: 'exact' });
+    if (error) {
+      throw new Error(`Supabase error: ${error.message}`);
     }
-
-    const response = await axios.get('https://slack.com/api/auth.test', {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-      },
-    });
-
-    if (!response.data.ok) {
-      throw new Error(`Slack API error: ${response.data.error}`);
-    }
-
-    return {
-      team: response.data.team,
-      user: response.data.user,
-      url: response.data.url,
-    };
-  }
-
-  private static async testZapierIntegration(integration: Integration) {
-    const { webhookUrl } = integration.config;
-
-    if (!webhookUrl) {
-      throw new Error('Zapier webhook URL not configured');
-    }
-
-    const response = await axios.post(webhookUrl, {
-      test: true,
-      timestamp: new Date().toISOString(),
-    });
-
-    return {
-      status: response.status,
-      response: response.data,
-    };
-  }
-
-  private static async testHubSpotIntegration(integration: Integration) {
-    const { apiKey } = integration.config;
-
-    if (!apiKey) {
-      throw new Error('HubSpot API key not configured');
-    }
-
-    const response = await axios.get('https://api.hubapi.com/crm/v3/objects/contacts', {
-      params: { limit: 1 },
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-      },
-    });
-
-    return {
-      total: response.data.total,
-      results: response.data.results.length,
-    };
+    return { connected: true };
   }
 
   private static async testWebhookIntegration(integration: Integration) {
-    const { url, secret } = integration.config;
+    return await this.deliverWebhook(integration.config, {
+      test: true,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  /**
+   * Outbound HTTP POST to a user-configured URL, signed with HMAC-SHA256
+   * (header X-Webhook-Signature: sha256=<hex>) when a secret is configured.
+   */
+  static async deliverWebhook(config: Record<string, any>, payload: any) {
+    const { url, secret } = config || {};
 
     if (!url) {
       throw new Error('Webhook URL not configured');
     }
 
-    const payload = {
-      test: true,
-      timestamp: new Date().toISOString(),
-    };
+    const body = JSON.stringify(payload);
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (secret) {
+      headers['X-Webhook-Signature'] =
+        'sha256=' + crypto.createHmac('sha256', secret).update(body).digest('hex');
+    }
 
-    const response = await axios.post(url, payload, {
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Webhook-Test': 'true',
-        ...(secret && { 'X-Webhook-Signature': secret }),
-      },
-    });
+    const response = await axios.post(url, body, { headers, timeout: 10000 });
 
     return {
       status: response.status,
@@ -269,28 +215,7 @@ export class IntegrationService {
     };
   }
 
-  private static async syncWithSlack(integration: Integration, context: any) {
-    // Implementation for syncing deals/contacts with Slack
-    // This would post updates to configured Slack channels
-    console.log('Syncing with Slack for workspace:', context.workspaceId);
-    return { synced: true };
-  }
-
-  private static async syncWithHubSpot(integration: Integration, context: any) {
-    // Implementation for syncing with HubSpot CRM
-    // This would sync deals and contacts bidirectionally
-    console.log('Syncing with HubSpot for workspace:', context.workspaceId);
-    return { synced: true };
-  }
-
-  private static async syncWithGoogleSheets(integration: Integration, context: any) {
-    // Implementation for syncing with Google Sheets
-    // This would export/import data to/from spreadsheets
-    console.log('Syncing with Google Sheets for workspace:', context.workspaceId);
-    return { synced: true };
-  }
-
-  private static async getIntegrationById(id: string, context: any): Promise<Integration | null> {
+  static async getIntegrationById(id: string, context: any): Promise<Integration | null> {
     const { data, error } = await supabase
       .from('integrations')
       .select('*')
@@ -336,89 +261,6 @@ export class IntegrationService {
     };
   }
 
-  static async handleOAuthCallback(type: string, code: string, state: string, context: any) {
-    switch (type) {
-      case 'slack':
-        return await this.handleSlackOAuth(code, state, context);
-      case 'hubspot':
-        return await this.handleHubSpotOAuth(code, state, context);
-      case 'google_sheets':
-        return await this.handleGoogleSheetsOAuth(code, state, context);
-      default:
-        throw new Error(`OAuth not supported for integration type: ${type}`);
-    }
-  }
-
-  private static async handleSlackOAuth(code: string, state: string, context: any) {
-    // Exchange code for access token
-    const response = await axios.post('https://slack.com/api/oauth.v2.access', {
-      client_id: process.env.SLACK_CLIENT_ID,
-      client_secret: process.env.SLACK_CLIENT_SECRET,
-      code,
-    });
-
-    if (!response.data.ok) {
-      throw new Error(`Slack OAuth error: ${response.data.error}`);
-    }
-
-    // Store the access token in integration config
-    const integrationId = state; // Assuming state contains integration ID
-    await this.updateIntegrationConfig(integrationId, {
-      accessToken: response.data.access_token,
-      teamId: response.data.team.id,
-      teamName: response.data.team.name,
-    }, context);
-
-    return {
-      team: response.data.team.name,
-      user: response.data.authed_user,
-    };
-  }
-
-  private static async handleHubSpotOAuth(code: string, state: string, context: any) {
-    const response = await axios.post('https://api.hubapi.com/oauth/v1/token', {
-      grant_type: 'authorization_code',
-      client_id: process.env.HUBSPOT_CLIENT_ID,
-      client_secret: process.env.HUBSPOT_CLIENT_SECRET,
-      redirect_uri: process.env.HUBSPOT_REDIRECT_URI,
-      code,
-    });
-
-    const integrationId = state;
-    await this.updateIntegrationConfig(integrationId, {
-      accessToken: response.data.access_token,
-      refreshToken: response.data.refresh_token,
-      expiresAt: Date.now() + (response.data.expires_in * 1000),
-    }, context);
-
-    return {
-      expires_in: response.data.expires_in,
-      token_type: response.data.token_type,
-    };
-  }
-
-  private static async handleGoogleSheetsOAuth(code: string, state: string, context: any) {
-    const response = await axios.post('https://oauth2.googleapis.com/token', {
-      client_id: process.env.GOOGLE_CLIENT_ID,
-      client_secret: process.env.GOOGLE_CLIENT_SECRET,
-      code,
-      grant_type: 'authorization_code',
-      redirect_uri: process.env.GOOGLE_REDIRECT_URI,
-    });
-
-    const integrationId = state;
-    await this.updateIntegrationConfig(integrationId, {
-      accessToken: response.data.access_token,
-      refreshToken: response.data.refresh_token,
-      expiresAt: Date.now() + (response.data.expires_in * 1000),
-    }, context);
-
-    return {
-      expires_in: response.data.expires_in,
-      scope: response.data.scope,
-    };
-  }
-
   private static async updateIntegrationConfig(id: string, config: any, context: any) {
     const { data } = await supabase
       .from('integrations')
@@ -427,7 +269,7 @@ export class IntegrationService {
       .eq('workspace_id', context.workspaceId)
       .single();
 
-    const updatedConfig = { ...data.config, ...config };
+    const updatedConfig = { ...(data?.config || {}), ...config };
 
     await supabase
       .from('integrations')

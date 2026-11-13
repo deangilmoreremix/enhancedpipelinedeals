@@ -3,6 +3,8 @@ import { Deal, BulkDealAction, BulkActionResult } from '../../types';
 import { executeBulkAction, previewBulkAction, validateBulkAction, getAvailableBulkActions } from '../../services/bulkDealActionsService';
 import { CheckCircle, AlertCircle, Loader, Users, Edit, Tag, Calendar, Archive, Trash2, TrendingUp } from 'lucide-react';
 
+import { useStageMeta } from '../../utils/stageUtils';
+import { sortedStages } from '../../utils/stageMeta';
 interface BulkDealActionsProps {
   selectedDeals: Deal[];
   onActionComplete: (results: BulkActionResult[]) => void;
@@ -14,6 +16,7 @@ const BulkDealActions: React.FC<BulkDealActionsProps> = ({
   onActionComplete,
   onClose
 }) => {
+  const { stages: stageList } = useStageMeta();
   const [availableActions] = useState<BulkDealAction[]>(getAvailableBulkActions());
   const [selectedAction, setSelectedAction] = useState<BulkDealAction | null>(null);
   const [actionConfig, setActionConfig] = useState<Partial<BulkDealAction>>({});
@@ -185,11 +188,7 @@ const BulkDealActions: React.FC<BulkDealActionsProps> = ({
                 className="w-full border border-gray-300 rounded px-3 py-2"
               >
                 <option value="">Select stage...</option>
-                <option value="qualification">Qualification</option>
-                <option value="proposal">Proposal</option>
-                <option value="negotiation">Negotiation</option>
-                <option value="closed-won">Closed Won</option>
-                <option value="closed-lost">Closed Lost</option>
+                {sortedStages(stageList).map(st => <option key={st.key} value={st.key}>{st.name}</option>)}
               </select>
             </div>
           )}

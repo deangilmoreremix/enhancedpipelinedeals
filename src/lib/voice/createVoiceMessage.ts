@@ -1,21 +1,12 @@
-import { openai } from "../core/openaiClient";
+import { speak } from "../../services/voiceService";
 import { logger } from "../core/logger";
 
 /**
- * Converts a text script into base64-encoded audio.
+ * Converts a text script into spoken audio (OpenAI Speech API via the Netlify gateway).
+ * Returns the public URL of the mp3 stored in Supabase Storage.
  */
-export async function createVoiceMessage(script: string): Promise<string> {
+export async function createVoiceMessage(script: string, contactId?: string): Promise<string> {
   logger.info("Creating voice message from script");
-
-  const audio = await openai.audio.speech.create({
-    model: "gpt-4o-mini-tts", // TTS-capable model
-    voice: "alloy",
-    input: script
-  });
-
-  // Node SDK returns a Response-like object; convert to buffer
-  const buffer = Buffer.from(await audio.arrayBuffer());
-
-  const base64 = buffer.toString("base64");
-  return base64;
+  const { url } = await speak(script, { contactId });
+  return url;
 }

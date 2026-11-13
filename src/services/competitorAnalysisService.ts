@@ -273,17 +273,17 @@ export class CompetitorAnalysisService {
 
       const totalAnalyzed = data.length;
       const averageConfidence = totalAnalyzed > 0
-        ? data.reduce((sum, item) => sum + item.confidence, 0) / totalAnalyzed
+        ? data.reduce((sum: number, item: any) => sum + item.confidence, 0) / totalAnalyzed
         : 0;
 
-      const positionDistribution = data.reduce((acc, item) => {
+      const positionDistribution = data.reduce((acc: Record<string, number>, item: any) => {
         acc[item.competitive_position] = (acc[item.competitive_position] || 0) + 1;
         return acc;
       }, {} as Record<string, number>);
 
       // Count competitor frequencies
       const competitorCounts: Record<string, number> = {};
-      data.forEach(item => {
+      data.forEach((item: any) => {
         (item.primary_competitors || []).forEach((comp: any) => {
           competitorCounts[comp.name] = (competitorCounts[comp.name] || 0) + 1;
         });

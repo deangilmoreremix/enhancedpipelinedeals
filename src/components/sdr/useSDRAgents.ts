@@ -1,12 +1,33 @@
 import { useState, useEffect } from 'react';
 import { sdrPreferencesService } from '../../services/sdrPreferencesService';
+import type { SDRAgentPreferences } from '../../types/sdr-config';
+import type {
+  SDRAgentMetadata,
+  SDRAgentAnalytics,
+  SDRRunResponse,
+  SDRFilterOptions,
+  SDRBatchOperation
+} from './types';
 import { SDR_AGENTS } from './sdrAgentsConfig';
+import { authedFetch } from '../../services/aiClient';
 
 // Interfaces moved to types.ts
 export type { SDRAgentMetadata, SDRAgentAnalytics } from './types';
 export type { SDRRunResponse } from './types';
 export type { SDRFilterOptions } from './types';
 export type { SDRBatchOperation } from './types';
+
+// Usage stats are persisted alongside the stored preferences object.
+type StoredUsagePrefs = {
+  favorite?: boolean;
+  usageCount?: number;
+  lastUsed?: string;
+};
+
+const readUsagePrefs = (prefs: unknown): StoredUsagePrefs => (prefs ?? {}) as StoredUsagePrefs;
+
+const withUsagePrefs = (prefs: unknown, usage: StoredUsagePrefs): SDRAgentPreferences =>
+  ({ ...(prefs as object | null | undefined), ...usage }) as unknown as SDRAgentPreferences;
 
 export const useSDRAgents = () => {
   const [agents, setAgents] = useState<SDRAgentMetadata[]>([]);
@@ -31,7 +52,7 @@ export const useSDRAgents = () => {
       // Load favorites and usage stats for all agents
       const updatedAgents = await Promise.all(
         SDR_AGENTS.map(async (agent) => {
-          const prefs = await sdrPreferencesService.getUserPreferences('user-1', agent.id);
+          const prefs = readUsagePrefs(await sdrPreferencesService.getUserPreferences('user-1', agent.id));
           return {
             ...agent,
             favorite: prefs?.favorite || false,
@@ -53,7 +74,7 @@ export const useSDRAgents = () => {
     const startTime = Date.now();
 
     try {
-      const res = await fetch("/.netlify/functions/sdr-run", {
+      const res = await authedFetch("/.netlify/functions/sdr-run", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -147,12 +168,11 @@ export const useSDRAgents = () => {
 
     try {
       const prefs = await sdrPreferencesService.getUserPreferences('user-1', agentId) || {};
-      await sdrPreferencesService.saveUserPreferences('user-1', agentId, {
-        ...prefs,
+      await sdrPreferencesService.saveUserPreferences('user-1', agentId, withUsagePrefs(prefs, {
         favorite: updatedAgent.favorite,
         usageCount: updatedAgent.usageCount,
         lastUsed: updatedAgent.lastUsed.toISOString()
-      });
+      }));
     } catch (error) {
       console.error('Failed to save usage stats:', error);
     }
@@ -169,10 +189,9 @@ export const useSDRAgents = () => {
 
     try {
       const prefs = await sdrPreferencesService.getUserPreferences('user-1', agentId) || {};
-      await sdrPreferencesService.saveUserPreferences('user-1', agentId, {
-        ...prefs,
+      await sdrPreferencesService.saveUserPreferences('user-1', agentId, withUsagePrefs(prefs, {
         favorite: newFavorite
-      });
+      }));
     } catch (error) {
       console.error('Failed to save favorite:', error);
       // Revert on error
@@ -236,7 +255,7 @@ export const useSDRAgents = () => {
       filtered = filtered.filter(agent =>
         agent.label.toLowerCase().includes(searchLower) ||
         agent.short.toLowerCase().includes(searchLower) ||
-        agent.tags?.some(tag => tag.toLowerCase().includes(searchLower))
+        agent.tags?.some((tag: string) => tag.toLowerCase().includes(searchLower))
       );
     }
 

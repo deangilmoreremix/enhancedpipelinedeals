@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Copy, Download, Clock, Trash2 } from 'lucide-react';
+import { Copy, Download, Clock, Trash2, FileText } from 'lucide-react';
 import { SDRRunResponse } from './types';
 
 function formatTimestamp(date?: Date) {
@@ -196,7 +196,7 @@ export function SDRResultsViewer({ response, resultHistory, error, onClearResult
             ⚠️ {error}
           </div>
         ) : response ? (
-          renderResult()
+          renderResult(response.result)
         ) : showHistory && resultHistory.length > 0 ? (
           <div style={{ maxHeight: 400, overflow: 'auto' }}>
             {resultHistory.map((item, index) => (
@@ -210,8 +210,8 @@ export function SDRResultsViewer({ response, resultHistory, error, onClearResult
                   {item.agentLabel || item.agentId} • {formatTimestamp(item.timestamp)}
                 </div>
                 <div style={{ fontSize: 13, color: '#374151' }}>
-                  {typeof item.result === 'string'
-                    ? item.result.substring(0, 100) + '...'
+                  {typeof (item.result as unknown) === 'string'
+                    ? (item.result as unknown as string).substring(0, 100) + '...'
                     : 'Object result'}
                 </div>
               </div>

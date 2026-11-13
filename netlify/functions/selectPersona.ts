@@ -1,5 +1,6 @@
 import { Handler } from '@netlify/functions';
 import { createClient } from '@supabase/supabase-js';
+import { authorize, json } from './_openai';
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -7,6 +8,7 @@ const supabase = createClient(
 );
 
 export const handler: Handler = async (event) => {
+  if (event.httpMethod === 'OPTIONS') return { ...json(204, {}), body: '' };
   if (event.httpMethod !== 'POST') {
     return {
       statusCode: 405,
@@ -14,8 +16,17 @@ export const handler: Handler = async (event) => {
     };
   }
 
+  if (!(await authorize(event.headers.authorization || event.headers.Authorization))) return json(401, { error: 'Unauthorized' });
+
+  let parsed: { agent_id?: string; persona_id?: string };
   try {
-    const { agent_id, persona_id } = JSON.parse(event.body);
+    parsed = JSON.parse(event.body || '{}');
+  } catch {
+    return { statusCode: 400, body: JSON.stringify({ error: 'Invalid JSON body' }) };
+  }
+
+  try {
+    const { agent_id, persona_id } = parsed;
 
     if (!agent_id || !persona_id) {
       return {
@@ -24,7 +35,7 @@ export const handler: Handler = async (event) => {
       };
     }
 
-    await supabase
+    const { error } = await supabase
       .from('agent_persona_selection')
       .upsert({
         agent_id,
@@ -33,6 +44,10 @@ export const handler: Handler = async (event) => {
       }, {
         onConflict: 'agent_id'
       });
+
+    if (error) {
+      return { statusCode: 500, body: JSON.stringify({ error: `Could not save persona selection: ${error.message}` }) };
+    }
 
     return {
       statusCode: 200,

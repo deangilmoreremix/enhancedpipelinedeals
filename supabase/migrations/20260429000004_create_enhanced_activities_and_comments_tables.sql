@@ -22,14 +22,16 @@ create table if not exists public.enhanced_activities (
 alter table public.enhanced_activities enable row level security;
 
 -- Simple policies
+drop policy if exists "Allow authenticated access" on public.enhanced_activities;
 create policy "Allow authenticated access" on public.enhanced_activities for select to authenticated using (true);
+drop policy if exists "Allow service role full access" on public.enhanced_activities;
 create policy "Allow service role full access" on public.enhanced_activities for all to service_role using (true);
 
 -- Indexes
-create index idx_enhanced_activities_deal_id on public.enhanced_activities(deal_id);
-create index idx_enhanced_activities_contact_id on public.enhanced_activities(contact_id);
-create index idx_enhanced_activities_user_id on public.enhanced_activities(user_id);
-create index idx_enhanced_activities_created_at on public.enhanced_activities(created_at desc);
+create index if not exists idx_enhanced_activities_deal_id on public.enhanced_activities(deal_id);
+create index if not exists idx_enhanced_activities_contact_id on public.enhanced_activities(contact_id);
+create index if not exists idx_enhanced_activities_user_id on public.enhanced_activities(user_id);
+create index if not exists idx_enhanced_activities_created_at on public.enhanced_activities(created_at desc);
 
 -- Create activity_comments table
 create table if not exists public.activity_comments (
@@ -48,12 +50,14 @@ create table if not exists public.activity_comments (
 alter table public.activity_comments enable row level security;
 
 -- Simple policies
+drop policy if exists "Allow authenticated access" on public.activity_comments;
 create policy "Allow authenticated access" on public.activity_comments for select to authenticated using (true);
+drop policy if exists "Allow service role full access" on public.activity_comments;
 create policy "Allow service role full access" on public.activity_comments for all to service_role using (true);
 
 -- Indexes
-create index idx_activity_comments_activity_id on public.activity_comments(activity_id);
-create index idx_activity_comments_user_id on public.activity_comments(user_id);
+create index if not exists idx_activity_comments_activity_id on public.activity_comments(activity_id);
+create index if not exists idx_activity_comments_user_id on public.activity_comments(user_id);
 
 -- Create activity_subscriptions table
 create table if not exists public.activity_subscriptions (
@@ -72,8 +76,9 @@ create table if not exists public.activity_subscriptions (
 alter table public.activity_subscriptions enable row level security;
 
 -- Simple policies
+drop policy if exists "Users can manage their own subscriptions" on public.activity_subscriptions;
 create policy "Users can manage their own subscriptions" on public.activity_subscriptions for all using (auth.uid() = user_id);
 
 -- Indexes
-create index idx_activity_subscriptions_user_id_entity on public.activity_subscriptions(user_id, entity_type, entity_id);
-create index idx_activity_subscriptions_entity on public.activity_subscriptions(entity_type, entity_id);
+create index if not exists idx_activity_subscriptions_user_id_entity on public.activity_subscriptions(user_id, entity_type, entity_id);
+create index if not exists idx_activity_subscriptions_entity on public.activity_subscriptions(entity_type, entity_id);

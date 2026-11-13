@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { stageIsOpen, stageIsWon } from '../utils/stageMeta';
 import { Deal } from '../types';
 import { BarChart3, TrendingUp, TrendingDown, DollarSign, Target, Clock, Users, Activity, Download, Filter, Calendar, Brain, Wand2, Sparkles, Search } from 'lucide-react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
@@ -60,20 +61,20 @@ export const DealAnalyticsDashboard: React.FC<DealAnalyticsDashboardProps> = ({ 
     if (allDeals.length === 0) {
       // Fallback to single deal metrics if no database data
       return {
-        totalRevenue: deal.stage === 'closed-won' ? deal.value : 0,
+        totalRevenue: stageIsWon(deal.stage) ? deal.value : 0,
         totalDeals: 1,
-        wonDeals: deal.stage === 'closed-won' ? 1 : 0,
-        conversionRate: deal.stage === 'closed-won' ? 100 : deal.probability,
-        avgDealSize: deal.stage === 'closed-won' ? deal.value : 0,
+        wonDeals: stageIsWon(deal.stage) ? 1 : 0,
+        conversionRate: stageIsWon(deal.stage) ? 100 : deal.probability,
+        avgDealSize: stageIsWon(deal.stage) ? deal.value : 0,
         timeToClose: Math.ceil((new Date().getTime() - deal.createdAt.getTime()) / (1000 * 60 * 60 * 24)),
         pipelineValue: deal.value
       };
     }
 
-    const wonDeals = allDeals.filter(d => d.stage === 'closed-won');
+    const wonDeals = allDeals.filter(d => stageIsWon(d.stage));
     const totalRevenue = wonDeals.reduce((sum, d) => sum + d.value, 0);
     const pipelineValue = allDeals
-      .filter(d => !['closed-won', 'closed-lost'].includes(d.stage))
+      .filter(d => stageIsOpen(d.stage))
       .reduce((sum, d) => sum + d.value, 0);
 
     return {
@@ -153,7 +154,7 @@ export const DealAnalyticsDashboard: React.FC<DealAnalyticsDashboardProps> = ({ 
 
       const exportData = {
         deal: {
-          title: sanitizeString(deal.title),
+          title: sanitizeString(deal.title ?? ""),
           company: sanitizeString(deal.company),
           value: sanitizeNumber(deal.value),
           probability: Math.max(0, Math.min(100, deal.probability)),
@@ -208,7 +209,7 @@ export const DealAnalyticsDashboard: React.FC<DealAnalyticsDashboardProps> = ({ 
       // Download JSON file
       const jsonLink = document.createElement('a');
       jsonLink.href = jsonUrl;
-      jsonLink.download = `deal-analytics-${sanitizeString(deal.title).replace(/\s+/g, '-').toLowerCase()}-${new Date().toISOString().split('T')[0]}.json`;
+      jsonLink.download = `deal-analytics-${sanitizeString(deal.title ?? "").replace(/\s+/g, '-').toLowerCase()}-${new Date().toISOString().split('T')[0]}.json`;
       jsonLink.style.display = 'none';
       document.body.appendChild(jsonLink);
       jsonLink.click();
@@ -218,7 +219,7 @@ export const DealAnalyticsDashboard: React.FC<DealAnalyticsDashboardProps> = ({ 
       setTimeout(() => {
         const csvLink = document.createElement('a');
         csvLink.href = csvUrl;
-        csvLink.download = `deal-metrics-${sanitizeString(deal.title).replace(/\s+/g, '-').toLowerCase()}-${new Date().toISOString().split('T')[0]}.csv`;
+        csvLink.download = `deal-metrics-${sanitizeString(deal.title ?? "").replace(/\s+/g, '-').toLowerCase()}-${new Date().toISOString().split('T')[0]}.csv`;
         csvLink.style.display = 'none';
         document.body.appendChild(csvLink);
         csvLink.click();

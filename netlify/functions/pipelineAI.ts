@@ -1,10 +1,6 @@
 import { Handler } from '@netlify/functions';
-import OpenAI from 'openai';
+import { respond, authorize, rateLimited, CORS_HEADERS } from './_openai';
 import { createClient } from '@supabase/supabase-js';
-
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-});
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -12,8 +8,17 @@ const supabase = createClient(
 );
 
 export const handler: Handler = async (event) => {
+  // Reads the whole pipeline with the service role and runs the deep model: must not be anonymous.
+  if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers: CORS_HEADERS, body: '' };
+  if (!(await authorize(event.headers.authorization || event.headers.Authorization))) {
+    return { statusCode: 401, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS }, body: JSON.stringify({ error: 'Unauthorized' }) };
+  }
+  if (rateLimited(String(event.headers['x-nf-client-connection-ip'] || 'anon') + ':pipelineAI', 6)) {
+    return { statusCode: 429, headers: { 'Content-Type': 'application/json', ...CORS_HEADERS }, body: JSON.stringify({ error: 'Rate limit exceeded' }) };
+  }
   try {
-    // Fetch all deals with related data
+    // Fetch open deals with related data (columns must exist: contacts has ai_score but no lead_score;
+    // activities has title/description but no message)
     const { data: deals, error: dealsError } = await supabase
       .from('deals')
       .select(`
@@ -22,15 +27,17 @@ export const handler: Handler = async (event) => {
           name,
           email,
           company,
-          lead_score,
           ai_score
         ),
         activities (
           type,
-          message,
+          title,
+          description,
           created_at
         )
-      `);
+      `)
+      .is('deleted_at', null)
+      .limit(200);
 
     if (dealsError) {
       return {
@@ -48,7 +55,7 @@ PIPELINE DATA:
 ${JSON.stringify(deals, null, 2)}
 
 For each deal, provide:
-1. Risk Score (0-100): Based on stage, age, activity, lead score
+1. Risk Score (0-100): Based on stage, age, activity, contact AI score
 2. Close Probability: Percentage likelihood with confidence level
 3. Recommended Next Action: Specific, actionable step
 4. Recommended SDR Agent: Which of our 14 agents would be best
@@ -86,17 +93,15 @@ Format as JSON with this structure:
   }
 }`;
 
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4',
-      messages: [
-        { role: 'system', content: 'You are an expert sales strategist analyzing pipeline data.' },
-        { role: 'user', content: analysisPrompt }
-      ],
-      temperature: 0.3,
-      max_tokens: 2000
+    const result = await respond({
+      tier: 'deep',
+      instructions: 'You are an expert sales strategist analyzing pipeline data. Respond with a single JSON object only.',
+      input: analysisPrompt,
+      jsonObject: true,
+      maxOutputTokens: 8000
     });
 
-    const analysis = JSON.parse(completion.choices[0].message.content || '{}');
+    const analysis = result.json ?? {};
 
     // Store analysis results in database for caching
     await supabase
@@ -108,11 +113,7 @@ Format as JSON with this structure:
 
     return {
       statusCode: 200,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Content-Type',
-        'Content-Type': 'application/json'
-      },
+      headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
       body: JSON.stringify(analysis)
     };
 

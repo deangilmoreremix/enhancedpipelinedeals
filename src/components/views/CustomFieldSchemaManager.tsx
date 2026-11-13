@@ -47,16 +47,16 @@ export const CustomFieldSchemaManager: React.FC<CustomFieldSchemaManagerProps> =
     description: ''
   });
 
-  useEffect(() => {
-    loadSchemas();
-  }, [loadSchemas]);
-
   const loadSchemas = useCallback(async () => {
     const stored = localStorage.getItem(`custom-fields-${recordType}`);
     if (stored) {
       setSchemas(JSON.parse(stored));
     }
   }, [recordType]);
+
+  useEffect(() => {
+    loadSchemas();
+  }, [loadSchemas]);
 
   const saveSchemas = (updatedSchemas: CustomFieldSchema[]) => {
     localStorage.setItem(`custom-fields-${recordType}`, JSON.stringify(updatedSchemas));

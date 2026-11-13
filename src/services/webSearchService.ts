@@ -1,9 +1,9 @@
 /**
- * Web Search Service with GPT-5 Integration
- * Advanced web search capabilities with citation extraction and source validation
+ * Web Search Service — OpenAI Responses API hosted `web_search` tool (via the Netlify gateway)
+ * Citation extraction and source credibility scoring
  */
 
-import { getAIGatewayService } from './aiGatewayService';
+import { callAI } from './aiClient';
 
 interface SearchParameters {
   query?: string;
@@ -40,14 +40,11 @@ interface WebSearchResponse {
   totalResults: number;
   searchTime: number;
   query: string;
+  findings?: string[];
+  recommendations?: string[];
 }
 
 class WebSearchService {
-  private baseUrl: string;
-  private apiKey: string;
-  private provider: 'serpapi' | 'google' | 'bing';
-
-  // Industry-specific domain mappings
   private industryDomains: Record<string, string[]> = {
     technology: [
       'techcrunch.com', 'venturebeat.com', 'wired.com', 'arstechnica.com',
@@ -91,26 +88,6 @@ class WebSearchService {
       'transportdive.com', 'aircargoworld.com', 'joc.com', 'truckinginfo.com'
     ]
   };
-
-  constructor() {
-    const config = getAPIConfigHelper();
-    this.provider = config.webSearch?.provider || 'serpapi';
-    this.apiKey = config.webSearch?.apiKey || '';
-    this.baseUrl = this.getProviderBaseUrl();
-  }
-
-  private getProviderBaseUrl(): string {
-    switch (this.provider) {
-      case 'serpapi':
-        return 'https://serpapi.com/search.json';
-      case 'google':
-        return 'https://www.googleapis.com/customsearch/v1';
-      case 'bing':
-        return 'https://api.bing.microsoft.com/v7.0/search';
-      default:
-        return 'https://serpapi.com/search.json';
-    }
-  }
 
   private getDomainCredibilityScore(domain: string): { score: number; type: string } {
     const domainLower = domain.toLowerCase();
@@ -180,194 +157,63 @@ class WebSearchService {
     options: SearchParameters = {}
   ): Promise<WebSearchResponse> {
     const startTime = Date.now();
+    if (!query) throw new Error('Search query is required');
 
     try {
-      // Perform web search
-      const searchResults = await this.performWebSearch({
-        query,
-        contextSize: options.contextSize || 'medium',
-        userLocation: options.userLocation,
-        domainFilter: options.domainFilter,
-        maxResults: options.maxResults || 10,
-        includeSources: options.includeSources || true,
-      });
+      const domainHint = options.domainFilter?.length
+        ? `Prefer these sources: ${options.domainFilter.join(', ')}.`
+        : '';
+      const depth = options.contextSize === 'high' ? 'comprehensive' : options.contextSize === 'low' ? 'brief' : 'balanced';
 
-      // Process results with GPT-5 for enhanced analysis
-      const enhancedResults = await this.enhanceResultsWithAI(
-        searchResults,
-        systemPrompt,
-        userPrompt
-      );
+      // OpenAI hosted web_search tool runs inside the Responses API call on the server.
+      const result = await callAI<{
+        findings: string[];
+        citations: Array<{ url: string; title: string }>;
+        recommendations: string[];
+      }>('web_research', {
+        instructions: systemPrompt,
+        input: `${userPrompt}\n\nSearch query: ${query}\n${domainHint}\nDepth: ${depth}. Return up to ${options.maxResults || 10} cited sources.`,
+        context: options.userLocation ? { userLocation: options.userLocation } : undefined,
+      });
+      if (!result.data) throw new Error('Search returned no structured result');
+
+      const timestamp = new Date().toISOString();
+      const results: SearchResult[] = (result.data.citations || []).map(c => {
+        const domain = this.extractDomain(c.url);
+        const cred = this.getDomainCredibilityScore(domain);
+        return {
+          title: c.title,
+          url: c.url,
+          snippet: '',
+          domain,
+          sourceType: cred.type as SearchResult['sourceType'],
+          credibilityScore: cred.score,
+          timestamp,
+        };
+      });
+      const citations: CitationData[] = results.map(r => ({
+        url: r.url,
+        title: r.title,
+        domain: r.domain,
+        sourceType: r.sourceType,
+        credibilityScore: r.credibilityScore,
+        timestamp: r.timestamp,
+      }));
 
       return {
-        ...enhancedResults,
+        results,
+        citations,
+        totalResults: results.length,
         searchTime: Date.now() - startTime,
         query,
+        findings: result.data.findings,
+        recommendations: result.data.recommendations,
       };
     } catch (error) {
       console.error('Web search with AI failed:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       throw new Error(`Web search failed: ${errorMessage}`);
     }
-  }
-
-  private async performWebSearch(params: SearchParameters): Promise<SearchResult[]> {
-    if (!this.apiKey) {
-      throw new Error('Web search API key not configured');
-    }
-
-    if (!params.query) {
-      throw new Error('Search query is required');
-    }
-
-    // Build search query with industry filtering
-    let searchQuery = params.query;
-    if (params.domainFilter && params.domainFilter.length > 0) {
-      // Add site-specific search terms for better targeting
-      const siteQueries = params.domainFilter.map(domain => `site:${domain}`).join(' OR ');
-      searchQuery = `${params.query} (${siteQueries})`;
-    }
-
-    const searchParams = new URLSearchParams({
-      q: searchQuery,
-      api_key: this.apiKey,
-      num: (params.maxResults || 10).toString(),
-    });
-
-    if (params.userLocation) {
-      searchParams.append('location', params.userLocation);
-    }
-
-    // Add context size parameter for different search depths
-    if (params.contextSize) {
-      switch (params.contextSize) {
-        case 'low':
-          searchParams.append('num', '5');
-          break;
-        case 'high':
-          searchParams.append('num', '20');
-          break;
-        default: // medium
-          searchParams.append('num', '10');
-      }
-    }
-
-    try {
-      const response = await fetch(`${this.baseUrl}?${searchParams}`);
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(`Search API error: ${data.error || response.statusText}`);
-      }
-
-      return this.parseSearchResults(data);
-    } catch (error) {
-      console.error('Web search request failed:', error);
-      throw error;
-    }
-  }
-
-  private parseSearchResults(data: any): SearchResult[] {
-    const results: SearchResult[] = [];
-
-    // Handle different provider response formats
-    const organicResults = data.organic_results || data.items || data.webPages?.value || [];
-
-    organicResults.forEach((result: any) => {
-      const url = result.link || result.url;
-      const domain = this.extractDomain(url);
-      const credibility = this.getDomainCredibilityScore(domain);
-
-      results.push({
-        title: result.title,
-        url,
-        snippet: result.snippet || result.description || '',
-        domain,
-        sourceType: credibility.type as any,
-        credibilityScore: credibility.score,
-        timestamp: new Date().toISOString(),
-      });
-    });
-
-    return results;
-  }
-
-  private async enhanceResultsWithAI(
-    results: SearchResult[],
-    systemPrompt: string,
-    userPrompt: string
-  ): Promise<WebSearchResponse> {
-    // Use GPT-5 to analyze and enhance search results
-    const enhancedPrompt = `
-${systemPrompt}
-
-Analyze these web search results and provide enhanced insights:
-
-${results.map((r, i) => `${i + 1}. ${r.title} (${r.url})
-   ${r.snippet}`).join('\n\n')}
-
-${userPrompt}
-`;
-
-    try {
-      const aiGateway = getAIGatewayService();
-      const response = await aiGateway.makeRequest(
-        aiGateway.createOpenAIRequest(
-          [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: enhancedPrompt }
-          ],
-          'gpt-4o',
-          'web-search-analysis'
-        )
-      );
-
-      // Extract citations from AI response
-      const citations = this.extractCitationsFromResponse(response, results);
-
-      return {
-        results,
-        citations,
-        totalResults: results.length,
-        searchTime: 0, // Will be set by caller
-        query: '',
-      };
-    } catch (error) {
-      console.warn('AI enhancement failed, returning raw results:', error);
-      return {
-        results,
-        citations: [],
-        totalResults: results.length,
-        searchTime: 0,
-        query: '',
-      };
-    }
-  }
-
-  private extractCitationsFromResponse(response: any, searchResults: SearchResult[]): CitationData[] {
-    const citations: CitationData[] = [];
-    const responseText = typeof response === 'string' ? response : JSON.stringify(response);
-
-    // Extract URLs from response text
-    const urlRegex = /https?:\/\/[^\s<>"']+/g;
-    const urls = responseText.match(urlRegex) || [];
-
-    urls.forEach(url => {
-      const matchingResult = searchResults.find(r => r.url === url);
-      if (matchingResult) {
-        citations.push({
-          url: matchingResult.url,
-          title: matchingResult.title,
-          domain: matchingResult.domain,
-          sourceType: matchingResult.sourceType,
-          credibilityScore: matchingResult.credibilityScore,
-          timestamp: matchingResult.timestamp,
-          snippet: matchingResult.snippet,
-        });
-      }
-    });
-
-    return citations;
   }
 
   getIndustryDomains(industry: string): string[] {
@@ -405,13 +251,6 @@ ${userPrompt}
       domainFilter: industryDomains
     });
   }
-}
-
-import { getAPIConfig } from '../config/apiConfig';
-
-// Helper function to get API config
-function getAPIConfigHelper() {
-  return getAPIConfig();
 }
 
 // Singleton instance

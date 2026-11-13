@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { callAI } from '../services/aiClient';
 
 interface PlaybooksResponse {
   dealId?: string;
@@ -28,22 +29,13 @@ export const PlaybooksPanel: React.FC = () => {
 
     setLoading(true);
     try {
-      const res = await fetch("/.netlify/functions/playbooks-ai", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contactId: contactId || undefined,
-          dealId: dealId || undefined
-        })
+      const result = await callAI<PlaybooksResponse>("playbooks", {
+        contactId: contactId || undefined,
+        dealId: dealId || undefined,
+        input: "Generate playbooks for this contact/deal. Return JSON only."
       });
-
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(text || "Playbooks AI request failed");
-      }
-
-      const json = (await res.json()) as PlaybooksResponse;
-      setData(json);
+      if (!result.data) throw new Error("Playbooks AI returned no result");
+      setData({ ...result.data, contactId: contactId || undefined, dealId: dealId || undefined });
     } catch (e: any) {
       console.error("[PlaybooksPanel] error:", e);
       setError(e.message || "Failed to generate playbooks");

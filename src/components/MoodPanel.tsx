@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { authedFetch } from "../services/aiClient";
 
 interface MoodResponse {
   contactId: string;
@@ -24,7 +25,7 @@ export const MoodPanel: React.FC = () => {
 
     setLoading(true);
     try {
-      const res = await fetch(
+      const res = await authedFetch(
         `/.netlify/functions/mood-preview?contactId=${encodeURIComponent(contactId)}`
       );
       if (!res.ok) {

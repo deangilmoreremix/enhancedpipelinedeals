@@ -9,6 +9,7 @@ import { sdrExecutionService } from '../../services/sdrExecutionService';
 import { useAuth } from '../auth/AuthProvider';
 import { getErrorReportingService } from '../../services/errorReportingService';
 
+import { openStageKeys } from '../../utils/stageMeta';
 export const DealDetailActions: React.FC<DealDetailActionsProps> = ({
   deal,
   linkedContact,
@@ -31,8 +32,9 @@ export const DealDetailActions: React.FC<DealDetailActionsProps> = ({
     } catch (error) {
       try {
         getErrorReportingService().reportError(error as Error, {
-          context: 'Context detection in DealDetailActions',
-          dealId: deal.id,
+          component: 'DealDetailActions',
+          action: 'Context detection in DealDetailActions',
+          metadata: { dealId: deal.id },
           userId: user?.id || 'anonymous'
         });
       } catch (reportError) {
@@ -48,8 +50,10 @@ export const DealDetailActions: React.FC<DealDetailActionsProps> = ({
         agents.push('sdr-competitor-aware');
       }
 
-      // Objection-handling SDR for negotiation stage
-      if (deal.stage === 'negotiation') {
+      // Objection-handling SDR for the final open stage
+      const openKeys = openStageKeys();
+      const openIdx = openKeys.indexOf(deal.stage);
+      if (openIdx > 0 && openIdx === openKeys.length - 1) {
         agents.push('sdr-objection-handling');
       }
 
@@ -65,8 +69,8 @@ export const DealDetailActions: React.FC<DealDetailActionsProps> = ({
         agents.push('sdr-follow-up');
       }
 
-      // High-intent SDR for proposal stage
-      if (deal.stage === 'proposal') {
+      // High-intent SDR for middle stages
+      if (openIdx > 0 && openIdx < openKeys.length - 1) {
         agents.push('sdr-high-intent');
       }
 

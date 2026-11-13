@@ -61,7 +61,7 @@ export const WorkflowVariablePanel: React.FC<WorkflowVariablePanelProps> = ({
     if (!editingVariable) return;
 
     const updatedVariables = variables.map(v =>
-      v.name === editingVariable.name ? { ...v, type: formData.type, ...formData } : v
+      v.name === editingVariable.name ? { ...v, ...formData } : v
     );
     updateActionVariables(updatedVariables);
     resetForm();
@@ -109,7 +109,7 @@ export const WorkflowVariablePanel: React.FC<WorkflowVariablePanelProps> = ({
     setFormData({
       name: variable.name,
       type: variable.type,
-      defaultValue: variable.defaultValue || '',
+      defaultValue: String(variable.defaultValue || ''),
       description: variable.description || ''
     });
     setShowAddForm(true);

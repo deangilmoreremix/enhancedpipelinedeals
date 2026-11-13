@@ -57,9 +57,6 @@ async function runMigration() {
 
     const phase6Features = [
       'twenty_calendar_phase6',
-      'calendar_oauth_google',
-      'calendar_oauth_outlook',
-      'calendar_bidirectional_sync',
       'calendar_meeting_scheduling',
       'calendar_event_linking',
       'deal_deadlines_calendar',
@@ -93,8 +90,7 @@ async function runMigration() {
     console.log('Next steps:');
     console.log('1. Deploy the updated Netlify functions');
     console.log('2. Update your frontend to include the new calendar components');
-    console.log('3. Configure OAuth credentials for Google Calendar and Outlook');
-    console.log('4. Test the calendar integration features');
+    console.log('3. Test the calendar integration features');
 
   } catch (error) {
     console.error('❌ Migration failed:', error);

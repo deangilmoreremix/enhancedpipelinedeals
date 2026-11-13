@@ -4,7 +4,7 @@
  * Enhances existing interactions without changing visual design
  */
 
-import OpenAI from 'openai';
+import { callAI } from './aiClient';
 
 interface AIFunction {
   name: string;
@@ -34,7 +34,6 @@ interface EnhancementResult {
 }
 
 class OpenAIFunctionCallingService {
-  private openai: OpenAI | null = null;
   private functions: AIFunction[] = [];
   private isInitialized = false;
 
@@ -43,27 +42,9 @@ class OpenAIFunctionCallingService {
   }
 
   private async initializeService(): Promise<void> {
-    try {
-      // Get API key from user settings first, then fallback to env
-      const { getOpenAIApiKey } = await import('./apiKeyProvider');
-      const apiKey = getOpenAIApiKey();
-
-      if (!apiKey || apiKey === 'placeholder-openai-key' || apiKey.startsWith('placeholder')) {
-        console.warn('⚠️ OpenAI API key not configured, function calling will be disabled');
-        return;
-      }
-
-      this.openai = new OpenAI({
-        apiKey,
-        dangerouslyAllowBrowser: true // Required for client-side usage
-      });
-
-      this.initializeFunctions();
-      this.isInitialized = true;
-      console.log('✅ OpenAI Function Calling service initialized');
-    } catch (error) {
-      console.error('❌ Failed to initialize OpenAI Function Calling service:', error);
-    }
+    // Requests go through the server-side Responses API gateway, so no API key is needed in the browser.
+    this.initializeFunctions();
+    this.isInitialized = true;
   }
 
   private initializeFunctions(): void {
@@ -286,7 +267,7 @@ class OpenAIFunctionCallingService {
     context: EnhancementContext,
     entityData: any
   ): Promise<EnhancementResult> {
-    if (!this.isInitialized || !this.openai) {
+    if (!this.isInitialized) {
       return {
         enhanced: false,
         originalAction: userAction,
@@ -298,29 +279,20 @@ class OpenAIFunctionCallingService {
       // Create natural language prompt based on existing interaction
       const prompt = this.createPromptFromAction(userAction, context, entityData);
 
-      const response = await this.openai.chat.completions.create({
-        model: 'gpt-4o',
-        messages: [
-          {
-            role: 'system',
-            content: `You are an AI assistant integrated into a CRM system. Enhance user interactions using available functions without changing the interface. Focus on providing valuable insights and automating routine tasks.`
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        functions: this.functions,
-        function_call: 'auto',
-        temperature: 0.7,
-        max_tokens: 1000
+      // Responses API function calling (flat tool definitions); the gateway returns the requested calls.
+      const response = await callAI('chat', {
+        instructions: 'You are an AI assistant integrated into a CRM system. Enhance user interactions using available functions without changing the interface. Focus on providing valuable insights and automating routine tasks.',
+        input: prompt,
+        tools: this.functions.map(f => ({ type: 'function', name: f.name, description: f.description, parameters: f.parameters })),
+        toolChoice: 'auto',
+        tier: 'default',
+        maxOutputTokens: 1500,
       });
 
-      const message = response.choices[0].message;
-
-      if (message.function_call) {
-        const functionName = message.function_call.name;
-        const functionArgs = JSON.parse(message.function_call.arguments);
+      const call = response.tool_calls?.[0];
+      if (call) {
+        const functionName = call.name;
+        const functionArgs = call.arguments;
 
         console.log(`🔧 OpenAI Function Call: ${functionName}`, functionArgs);
 
@@ -338,7 +310,7 @@ class OpenAIFunctionCallingService {
       // No function call, return direct response
       return {
         enhanced: false,
-        response: message.content || 'Action processed successfully',
+        response: response.text || 'Action processed successfully',
         originalAction: userAction
       };
 
@@ -453,7 +425,7 @@ Your CRM Team`,
 
   // Check if service is ready
   isReady(): boolean {
-    return this.isInitialized && !!this.openai;
+    return this.isInitialized;
   }
 
   // Get available functions for debugging
@@ -464,7 +436,6 @@ Your CRM Team`,
   // Force reinitialize (useful for debugging)
   async reinitialize(): Promise<void> {
     this.isInitialized = false;
-    this.openai = null;
     await this.initializeService();
   }
 }

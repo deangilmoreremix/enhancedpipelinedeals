@@ -1,5 +1,5 @@
 import { useEffect, useCallback, useRef } from 'react';
-import { supabase } from '../services/supabaseService';
+import { supabase, isSupabaseConfigured } from '../services/supabaseService';
 import { enhancedActivityService } from '../services/enhancedActivityService';
 import { Deal } from '../types';
 
@@ -63,7 +63,7 @@ export const useRealtimeSync = ({
 
   // Setup real-time subscription
   const setupRealtimeSubscription = useCallback(() => {
-    if (!enabled || !supabase) return;
+    if (!enabled || !isSupabaseConfigured) return;
 
     // Subscribe to enhanced_activities table changes
     subscriptionRef.current = supabase

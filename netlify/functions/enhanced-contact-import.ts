@@ -1,4 +1,6 @@
+import './_serverEnv';
 import { Handler } from '@netlify/functions';
+import { authorize } from './_openai';
 import { enhancedContactImportService } from '../../src/services/enhancedContactImportService';
 import { contactTemplateService } from '../../src/services/contactTemplateService';
 import { contactDuplicateService } from '../../src/services/contactDuplicateService';
@@ -44,6 +46,10 @@ export const handler: Handler = async (event) => {
     };
   }
 
+  if (!(await authorize(event.headers?.authorization || event.headers?.Authorization))) {
+    return { statusCode: 401, headers, body: JSON.stringify({ error: 'Unauthorized' }) };
+  }
+
   try {
     // Validate request
     if (!event.body) {
@@ -87,7 +93,7 @@ export const handler: Handler = async (event) => {
       generateLeadScoring: true,
       includeWebResearch: true,
       maxResearchResults: 3,
-      ...request.enrichmentOptions
+      ...((request.enrichmentOptions ?? {}) as Partial<ImportRequest['enrichmentOptions']>)
     };
 
     // Progress tracking for long-running imports

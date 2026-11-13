@@ -1,27 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useContactStore } from '../store/contactStore';
-import { Contact } from '../types/contact';
+import { Contact, Achievement, Challenge } from '../types/contact';
 import { getGamificationService } from '../services/gamificationService';
-
-interface Achievement {
-  id: string;
-  name: string;
-  description: string;
-  icon: string;
-  points: number;
-  unlocked?: boolean;
-  unlockedAt?: Date;
-}
-
-interface Challenge {
-  id: string;
-  title: string;
-  description: string;
-  target: number;
-  current: number;
-  reward: string;
-  endDate: Date;
-}
 
 interface LeaderboardEntry {
   contactId: string;
@@ -42,6 +22,8 @@ interface GamificationContextType {
   removeTeamMember: (contactId: string) => Promise<void>;
   updateTeamMemberStats: (contactId: string, updates: Partial<Contact['gamificationStats']>) => Promise<void>;
   awardAchievement: (contactId: string, achievementId: string) => Promise<void>;
+  hasAchievement: (contactId: string, achievementId: string) => boolean;
+  getAchievementsForMember: (contactId: string) => Achievement[];
 }
 
 // Create the context with default values
@@ -55,52 +37,59 @@ const GamificationContext = createContext<GamificationContextType>({
   removeTeamMember: async () => {},
   updateTeamMemberStats: async () => {},
   awardAchievement: async () => {},
+  hasAchievement: () => false,
+  getAchievementsForMember: () => [],
 });
 
 // Sample achievements data
 const sampleAchievements: Achievement[] = [
   {
     id: 'first-deal',
-    name: 'First Deal',
+    title: 'First Deal',
     description: 'Closed your first deal',
     icon: '🎯',
     points: 100,
-    unlocked: true,
+    rarity: 'common',
+    category: 'sales',
     unlockedAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
   },
   {
     id: 'deal-streak-5',
-    name: '5 Deal Streak',
+    title: '5 Deal Streak',
     description: 'Closed 5 deals in a row',
     icon: '🔥',
     points: 250,
-    unlocked: true,
+    rarity: 'common',
+    category: 'sales',
     unlockedAt: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000)
   },
   {
     id: 'revenue-milestone-100k',
-    name: '$100K Milestone',
+    title: '$100K Milestone',
     description: 'Generated $100,000 in revenue',
     icon: '💰',
     points: 500,
-    unlocked: true,
+    rarity: 'common',
+    category: 'sales',
     unlockedAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
   },
   {
     id: 'pipeline-master',
-    name: 'Pipeline Master',
+    title: 'Pipeline Master',
     description: 'Manage 10+ active deals simultaneously',
     icon: '🧠',
     points: 300,
-    unlocked: false
+    rarity: 'common',
+    category: 'sales'
   },
   {
     id: 'quick-closer',
-    name: 'Quick Closer',
+    title: 'Quick Closer',
     description: 'Close a deal in under 14 days',
     icon: '⚡',
     points: 200,
-    unlocked: false
+    rarity: 'common',
+    category: 'sales'
   }
 ];
 
@@ -111,7 +100,9 @@ const sampleChallenges: Challenge[] = [
     title: 'Weekly Revenue Push',
     description: 'Close $50,000 in deals this week',
     target: 50000,
-    current: 32500,
+    type: 'revenue',
+    startDate: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000),
+    participants: [],
     reward: '500 points + Top Closer badge',
     endDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000)
   },
@@ -120,7 +111,9 @@ const sampleChallenges: Challenge[] = [
     title: 'Qualification Sprint',
     description: 'Team goal: Qualify 20 new leads this month',
     target: 20,
-    current: 12,
+    type: 'conversion',
+    startDate: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000),
+    participants: [],
     reward: '300 points + Team bonus',
     endDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000)
   }
@@ -244,7 +237,7 @@ export const GamificationProvider: React.FC<{ children: ReactNode }> = ({ childr
     // Update achievement list to mark it as unlocked
     setAchievements(prev => prev.map(a =>
       a.id === achievementId
-        ? { ...a, unlocked: true, unlockedAt: new Date() }
+        ? { ...a, unlockedAt: new Date() }
         : a
     ));
   };

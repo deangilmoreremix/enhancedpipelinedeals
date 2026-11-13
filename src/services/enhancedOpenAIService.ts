@@ -6,7 +6,8 @@
 import { Contact } from '../types/contact';
 import { AIContactAnalysis } from '../types/contact';
 import { getAIGatewayService } from './aiGatewayService';
-import { getModelById } from '../config/aiModels';
+import { callAI, streamAI } from './aiClient';
+import { getModelById, DEFAULT_MODEL_ID } from '../config/aiModels';
 
 interface OpenAIService {
   analyzeContact: (contact: Contact, modelId?: string) => Promise<AIContactAnalysis>;
@@ -22,10 +23,10 @@ interface OpenAIService {
 
 class EnhancedOpenAIService implements OpenAIService {
   private gateway = getAIGatewayService();
-  private defaultModel = 'gpt-4o'; // Prioritize GPT-5 for enhanced reasoning
+  private defaultModel = DEFAULT_MODEL_ID;
 
   private getModelId(modelId?: string): string {
-    return modelId || import.meta.env.VITE_OPENAI_MODEL || this.defaultModel;
+    return modelId || this.defaultModel;
   }
 
   async isAvailable(): Promise<boolean> {
@@ -43,85 +44,21 @@ class EnhancedOpenAIService implements OpenAIService {
     modelId?: string,
     options: any = {}
   ): Promise<string> {
-    // Extract contact from options for Edge Function
+    // Map this task onto a gateway tier; the server picks the concrete model.
     const { contact, ...requestOptions } = options;
-    
-    // Route to specific edge function based on task type
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    if (!supabaseUrl) {
-      throw new Error('Supabase URL not configured');
-    }
+    const model = getModelById(this.getModelId(modelId));
+    const deepTasks = ['detailed-score-analysis', 'psychological-profile', 'sales-coaching', 'objection-handling'];
+    const tier = model?.tier ?? (deepTasks.includes(taskType) ? 'deep' : 'default');
 
-    const functionMap: Record<string, string> = {
-      'contact-analysis': 'contact-analyzer',
-      'psychological-profile': 'contact-analyzer',
-      'detailed-score-analysis': 'contact-analyzer',
-      'email-generation': 'email-generator',
-      'deal-summary': 'deal-analyzer',
-      'next-actions': 'deal-analyzer',
-      'insights-generation': 'contact-analyzer',
-      'sales-coaching': 'sales-coach',
-      'objection-handling': 'sales-coach'
-    };
-
-    const functionName = functionMap[taskType] || 'ai-gateway';
-    const functionUrl = `${supabaseUrl}/functions/v1/${functionName}`;
-
-    const response = await fetch(functionUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-      },
-      body: JSON.stringify({
-        messages,
-        taskType,
-        modelId: this.getModelId(modelId),
-        contact, // Include contact object for Edge Functions that need it
-        ...requestOptions
-      }),
+    const result = await callAI('chat', {
+      messages: contact
+        ? [...messages, { role: 'user', content: `CONTACT (JSON):\n${JSON.stringify(contact)}` }]
+        : messages,
+      tier,
+      maxOutputTokens: requestOptions.maxTokens || model?.maxTokens,
     });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-      console.error('❌ AI service error response:', errorData);
-      throw new Error(`AI service error: ${errorData.error || response.statusText}`);
-    }
-
-    const data = await response.json();
-    console.log('📦 AI service response format:', {
-      hasContent: !!data.content,
-      hasChoices: !!data.choices,
-      hasCandidates: !!data.candidates,
-      success: data.success
-    });
-
-    // Handle Supabase Edge Function format (contact-analyzer, deal-analyzer, etc.)
-    if (data.content) {
-      console.log('✅ Using Edge Function format (data.content)');
-      return data.content;
-    }
-
-    // Handle standard OpenAI format
-    if (data.choices && data.choices[0] && data.choices[0].message) {
-      console.log('✅ Using OpenAI format (data.choices[0].message.content)');
-      return data.choices[0].message.content;
-    }
-
-    // Handle Gemini format
-    if (data.candidates && data.candidates[0] && data.candidates[0].content) {
-      console.log('✅ Using Gemini format (data.candidates[0].content.parts[0].text)');
-      return data.candidates[0].content.parts[0].text;
-    }
-
-    // Handle error responses from Edge Functions
-    if (data.error) {
-      console.error('❌ Edge Function returned error:', data.error);
-      throw new Error(`AI service error: ${data.error}`);
-    }
-
-    console.error('❌ Invalid response format. Received:', JSON.stringify(data, null, 2));
-    throw new Error('Invalid response format from AI service');
+    if (!result.text) throw new Error('Empty response from AI service');
+    return result.text;
   }
 
   async analyzeContact(contact: Contact, modelId?: string): Promise<AIContactAnalysis> {
@@ -728,56 +665,15 @@ Begin streaming analysis immediately with initial assessment, then provide progr
     }
   }
 
-  // Streaming request method for real-time responses
+  // Streaming request method for real-time responses (Responses API typed events via SSE)
   private async makeStreamingGatewayRequest(
     messages: Array<{ role: string; content: string }>,
     taskType: string,
     modelId?: string,
     onChunk?: (chunk: string) => void
   ): Promise<string> {
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    if (!supabaseUrl) {
-      throw new Error('Supabase URL not configured');
-    }
-
-    const response = await fetch(`${supabaseUrl}/functions/v1/ai-gateway`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-      },
-      body: JSON.stringify({
-        messages,
-        taskType,
-        modelId: this.getModelId(modelId),
-        stream: true,
-        onChunk
-      }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-      throw new Error(`AI streaming error: ${errorData.error || response.statusText}`);
-    }
-
-    const data = await response.json();
-
-    // Handle Supabase Edge Function format
-    if (data.content) {
-      return data.content;
-    }
-
-    // Handle standard OpenAI format
-    if (data.choices && data.choices[0] && data.choices[0].message) {
-      return data.choices[0].message.content;
-    }
-
-    // Handle Gemini format
-    if (data.candidates && data.candidates[0] && data.candidates[0].content) {
-      return data.candidates[0].content.parts[0].text;
-    }
-
-    throw new Error('Invalid streaming response format from AI service');
+    const model = getModelById(this.getModelId(modelId));
+    return streamAI({ messages, tier: model?.tier ?? 'default' }, (delta) => onChunk?.(delta));
   }
 
   // Fallback methods for when AI gateway is unavailable

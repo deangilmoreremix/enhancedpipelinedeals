@@ -111,7 +111,8 @@ export class DealTemplateService {
       // Create a new deal based on template data
       const dealData = {
         contact_id: contactId,
-        ...template.template_data
+        // Rows come back from Supabase in snake_case
+        ...((template as DealTemplate & { template_data?: DealTemplate['templateData'] }).template_data ?? template.templateData)
       };
 
       const { data, error } = await supabase

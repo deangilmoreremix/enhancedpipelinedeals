@@ -56,32 +56,22 @@ const cspConfig: CSPDirectives = {
   'style-src': [
     "'self'",
     ...(isProduction ? [] : ["'unsafe-inline'"]),
-    "https://fonts.googleapis.com",
-    "https://cdn.jsdelivr.net"
   ],
   'img-src': [
     "'self'",
     "data:",
     "blob:",
-    "https://images.unsplash.com",
-    "https://avatars.githubusercontent.com",
-    "https://*.supabase.co",
-    "https://*.openai.com"
+    "https://*.supabase.co"
   ],
   'font-src': [
     "'self'",
-    "https://fonts.gstatic.com",
-    "https://cdn.jsdelivr.net"
+    "data:"
   ],
   'connect-src': [
     "'self'",
-    "https://api.openai.com",
-    "https://generativelanguage.googleapis.com",
+    "https://api.openai.com", // Realtime (WebRTC) voice only; all other AI calls go through Netlify functions
     "https://*.supabase.co",
-    "https://api.sendgrid.com",
-    "https://*.serpapi.com",
-    "https://*.googleapis.com",
-    "https://*.bing.com",
+    "wss://*.supabase.co",
     ...(isDevelopment ? ["http://localhost:*", "ws://localhost:*"] : [])
   ],
   'media-src': [
@@ -90,11 +80,7 @@ const cspConfig: CSPDirectives = {
     "https://*.supabase.co"
   ],
   'object-src': ["'none'"],
-  'frame-src': [
-    "'self'",
-    "https://www.youtube.com",
-    "https://player.vimeo.com"
-  ],
+  'frame-src': ["'self'"],
   'frame-ancestors': ["'self'"],
   'form-action': ["'self'"],
   'upgrade-insecure-requests': isProduction,

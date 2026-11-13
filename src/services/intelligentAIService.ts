@@ -1,174 +1,64 @@
+import { callAI } from './aiClient';
+
 interface AITask {
   type: 'contact-analysis' | 'email-generation' | 'company-research' | 'deal-summary' | 'next-actions' | 'insights' | 'contact-research';
   priority: 'speed' | 'quality' | 'cost';
   complexity: 'low' | 'medium' | 'high';
 }
 
+type Tier = 'fast' | 'default' | 'deep';
+
 interface ModelPreference {
-  primary: 'openai' | 'gemini';
-  model: string;
-  fallback: 'openai' | 'gemini';
-  fallbackModel: string;
+  tier: Tier;
   reason: string;
 }
 
+// Tasks whose answers are structured JSON; everything else returns text.
+const JSON_TASKS = new Set(['contact-analysis', 'insights', 'next-actions', 'company-research', 'contact-research']);
+
 class IntelligentAIService {
-  // Define which AI service is best for each task type
+  // Routing by task. Concrete OpenAI models (gpt-6-astra / gpt-6.1-sol / gpt-6-luna) are owned by the server.
   private taskRouting: Record<string, ModelPreference> = {
-    'contact-analysis': {
-      primary: 'openai',
-      model: 'gpt-4o', // GPT-5 for deep analysis and scoring
-      fallback: 'openai',
-      fallbackModel: 'gpt-4o',
-      reason: 'GPT-5 excels at nuanced data analysis and scoring'
-    },
-    'email-generation': {
-      primary: 'openai',
-      model: 'gpt-4o', // GPT-5 for creative writing and personalization
-      fallback: 'openai',
-      fallbackModel: 'gpt-4o',
-      reason: 'GPT-5 superior for creative writing and personalization'
-    },
-    'company-research': {
-      primary: 'openai',
-      model: 'gpt-4o', // Gemini strong for factual research
-      fallback: 'openai',
-      fallbackModel: 'gpt-4o', // Fallback to GPT-5
-      reason: 'Gemini better for factual research and comprehensive analysis'
-    },
-    'deal-summary': {
-      primary: 'openai',
-      model: 'gpt-4o', // GPT-5 for comprehensive and actionable summaries
-      fallback: 'openai',
-      fallbackModel: 'gpt-4o',
-      reason: 'GPT-5 provides comprehensive and actionable business summaries'
-    },
-    'next-actions': {
-      primary: 'openai',
-      model: 'gpt-4o-mini', // GPT-5 Mini for efficient, adaptive recommendations
-      fallback: 'openai',
-      fallbackModel: 'gpt-4o-mini',
-      reason: 'GPT-5 Mini optimized for specific, actionable recommendations'
-    },
-    'insights': {
-      primary: 'openai',
-      model: 'gpt-4o', // GPT-5 for creative insights and pattern recognition
-      fallback: 'openai',
-      fallbackModel: 'gpt-4o',
-      reason: 'GPT-5 better for creative insights and pattern recognition'
-    },
-    'contact-research': {
-      primary: 'openai',
-      model: 'gpt-4o-mini',
-      fallback: 'openai',
-      fallbackModel: 'gpt-4o-mini', // GPT-5 Nano for cost-efficient contact research
-      reason: 'Gemini faster for contact information and strategy research'
-    }
+    'contact-analysis': { tier: 'default', reason: 'Nuanced data analysis and scoring' },
+    'email-generation': { tier: 'default', reason: 'Creative writing and personalization' },
+    'company-research': { tier: 'default', reason: 'Factual research and comprehensive analysis' },
+    'deal-summary': { tier: 'default', reason: 'Comprehensive and actionable business summaries' },
+    'next-actions': { tier: 'fast', reason: 'Efficient, specific recommendations' },
+    'insights': { tier: 'default', reason: 'Pattern recognition and insights' },
+    'contact-research': { tier: 'fast', reason: 'Fast contact information and strategy research' },
   };
 
-  constructor() {
-    // No longer need individual AI services - using edge functions
-  }
-
   private getOptimalModel(taskType: string, priority: 'speed' | 'quality' | 'cost' = 'quality'): ModelPreference {
-    const basePreference = this.taskRouting[taskType];
-    
-    if (!basePreference) {
-      // Default fallback
-      return {
-        primary: 'openai',
-        model: 'gpt-4o',
-        fallback: 'openai',
-        fallbackModel: 'gpt-4o-mini',
-        reason: 'Default routing for unknown task'
-      };
-    }
-
-    // Adjust based on priority
-    if (priority === 'speed') {
-      // Prefer faster models
-      if (basePreference.primary === 'openai') {
-        return {
-          ...basePreference,
-          model: 'gpt-4o-mini', // Faster OpenAI model
-        };
-      } else {
-        return {
-          ...basePreference,
-          model: 'gpt-4o-mini', // Faster Gemini model
-        };
-      }
-    } else if (priority === 'cost') {
-      // Prefer lower cost models
-      if (basePreference.primary === 'openai') {
-        return {
-          ...basePreference,
-          model: 'gpt-4o-mini', // Lower cost OpenAI model
-        };
-      } else {
-        return {
-          ...basePreference,
-          model: 'gpt-4o-mini', // Lower cost OpenAI model
-        };
-      }
-    }
-
-    return basePreference;
+    const base = this.taskRouting[taskType] ?? { tier: 'default' as Tier, reason: 'Default routing for unknown task' };
+    if (priority === 'speed' || priority === 'cost') return { ...base, tier: 'fast' };
+    return base;
   }
 
   async executeTask(taskType: string, data: any, options: { priority?: 'speed' | 'quality' | 'cost' } = {}): Promise<any> {
-    const modelPref = this.getOptimalModel(taskType, options.priority);
-    
-    console.log(`🤖 AI Task: ${taskType} → Using ${modelPref.primary} (${modelPref.model}) - ${modelPref.reason}`);
-
+    const pref = this.getOptimalModel(taskType, options.priority);
     try {
-      // Try primary model first
-      if (modelPref.primary === 'openai') {
-        return await this.executeOpenAITask(taskType, data, modelPref.model);
-      } else {
-        return await this.executeGeminiTask(taskType, data, modelPref.model);
-      }
+      return await this.executeOpenAITask(taskType, data, pref.tier);
     } catch (error) {
-      console.warn(`❌ Primary model failed, trying fallback: ${modelPref.fallback} (${modelPref.fallbackModel})`);
-      
-      try {
-        // Try fallback model
-        if (modelPref.fallback === 'openai') {
-          return await this.executeOpenAITask(taskType, data, modelPref.fallbackModel);
-        } else {
-          return await this.executeGeminiTask(taskType, data, modelPref.fallbackModel);
-        }
-      } catch (fallbackError) {
-        console.error(`❌ Both AI services failed for task: ${taskType}`, fallbackError);
-        return this.generateFallbackResponse(taskType, data);
-      }
+      console.error(`❌ AI task failed: ${taskType}`, error);
+      return this.generateFallbackResponse(taskType, data);
     }
   }
 
-  private async executeOpenAITask(taskType: string, data: any, model: string): Promise<any> {
-    const prompt = this.generatePrompt(taskType, data);
-    const messages = [
-      { role: "system", content: "You are an AI assistant specialized in sales and business analysis." },
-      { role: "user", content: prompt }
-    ];
+  private async executeOpenAITask(taskType: string, data: any, tier: Tier): Promise<any> {
+    const wantsJSON = JSON_TASKS.has(taskType);
+    const prompt = this.generatePrompt(taskType, data) +
+      (wantsJSON && taskType !== 'contact-analysis' ? '\n\nReturn a single JSON object; list-type answers go in {"items": [...]}.' : '');
+    const result = await callAI('chat', {
+      instructions: `You are an AI assistant specialized in sales and business analysis.${wantsJSON ? ' Respond with a single JSON object only.' : ''}`,
+      input: prompt,
+      json: wantsJSON,
+      tier,
+    } as any);
 
-    return await this.callAIGateway('openai', model, taskType, { messages, temperature: 0.7 });
-  }
-
-  private async executeGeminiTask(taskType: string, data: any, model: string): Promise<any> {
-    const prompt = this.generatePrompt(taskType, data);
-
-    return await this.callAIGateway('openai', model, taskType, {
-      contents: [{
-        parts: [{ text: prompt }]
-      }],
-      generationConfig: {
-        temperature: 0.7,
-        topK: 64,
-        topP: 0.95,
-        maxOutputTokens: 2048,
-      }
-    });
+    if (!wantsJSON) return result.text;
+    const parsed = result.data;
+    if (parsed == null) throw new Error('AI response was not valid JSON');
+    return Array.isArray(parsed?.items) ? parsed.items : parsed;
   }
 
   private generatePrompt(taskType: string, data: any): string {
@@ -227,45 +117,6 @@ Provide key insights and recommendations.`;
 
       default:
         return `Process this request: ${JSON.stringify({ taskType, data }, null, 2)}`;
-    }
-  }
-
-  private async callAIGateway(provider: string, model: string, taskType: string, aiRequestData: any): Promise<any> {
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    if (!supabaseUrl) {
-      throw new Error('Supabase URL not configured');
-    }
-
-    const response = await fetch(`${supabaseUrl}/functions/v1/ai-gateway`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-      },
-      body: JSON.stringify({
-        provider,
-        model,
-        taskType,
-        aiRequestData
-      }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-      throw new Error(`AI Gateway error: ${errorData.error || response.statusText}`);
-    }
-
-    const result = await response.json();
-
-    // Extract the actual response from the AI API
-    if (result.choices && result.choices[0]) {
-      // OpenAI format
-      return JSON.parse(result.choices[0].message.content);
-    } else if (result.candidates && result.candidates[0]) {
-      // Gemini format
-      return JSON.parse(result.candidates[0].content.parts[0].text);
-    } else {
-      return result;
     }
   }
 
@@ -334,8 +185,8 @@ Best regards,
   getTaskRouting() {
     return Object.entries(this.taskRouting).map(([task, pref]) => ({
       task,
-      primaryModel: `${pref.primary} (${pref.model})`,
-      fallbackModel: `${pref.fallback} (${pref.fallbackModel})`,
+      primaryModel: `openai (${pref.tier} tier)`,
+      fallbackModel: 'static fallback',
       reason: pref.reason
     }));
   }

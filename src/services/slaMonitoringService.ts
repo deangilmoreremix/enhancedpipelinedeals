@@ -355,14 +355,14 @@ export class SLAMonitoringService {
    */
   private async executeSLAEmailAction(action: WorkflowAction, context: any): Promise<void> {
     try {
-      const { EmailService } = await import('./emailService');
+      const { getEmailService } = await import('./emailService');
 
       const recipients = action.config.recipients || [];
       const subject = this.interpolateSLAVariables(action.config.subject || 'SLA Alert', context);
       const body = this.interpolateSLAVariables(action.config.body || 'SLA condition met', context);
 
-      await EmailService.sendEmail({
-        to: recipients,
+      await getEmailService().sendEmail({
+        to: recipients.join(', '),
         subject,
         body
       });
@@ -391,6 +391,7 @@ export class SLAMonitoringService {
   private async executeSLAWebhookAction(action: WorkflowAction, context: any): Promise<void> {
     try {
       const url = action.config.webhookUrl;
+      if (!url) throw new Error('Webhook URL not configured');
       const payload = {
         ...context,
         timestamp: new Date().toISOString(),

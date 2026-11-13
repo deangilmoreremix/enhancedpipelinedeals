@@ -538,10 +538,8 @@ async function executePostProcessing(context: PostProcessingContext): Promise<st
     });
   }
 
-  // 3. Send email if we have an email address
-  if (contactEmail) {
-    tools.push({
-  }
+  // 3. Outbound email is intentionally not sent here (email service not configured).
+  void contactEmail;
 
   // Execute tools with batch processing and error isolation
   const results = await executeMCPToolBatch(tools, {

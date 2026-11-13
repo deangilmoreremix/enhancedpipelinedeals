@@ -1,6 +1,7 @@
 import { supabase } from '../services/database';
 import { DealService } from '../services/dealService';
 import { ContactService } from '../services/contactService';
+import { IntegrationService } from '../integrations/service';
 import { WebhookService } from '../webhooks/service';
 
 interface SyncConfig {
@@ -167,131 +168,39 @@ export class SyncService {
     const { source, target, mapping } = syncConfig;
 
     switch (`${source}->${target}`) {
-      case 'deals->hubspot':
-        return await this.syncDealsToHubSpot(mapping, context);
-      case 'contacts->hubspot':
-        return await this.syncContactsToHubSpot(mapping, context);
-      case 'hubspot->deals':
-        return await this.syncHubSpotToDeals(mapping, context);
-      case 'hubspot->contacts':
-        return await this.syncHubSpotToContacts(mapping, context);
-      case 'deals->google_sheets':
-        return await this.syncDealsToGoogleSheets(mapping, context);
-      case 'contacts->google_sheets':
-        return await this.syncContactsToGoogleSheets(mapping, context);
+      case 'deals->webhook':
+        return await this.syncDealsToWebhook(mapping, context);
+      case 'contacts->webhook':
+        return await this.syncContactsToWebhook(mapping, context);
       default:
         throw new Error(`Unsupported sync direction: ${source} -> ${target}`);
     }
   }
 
-  private static async syncDealsToHubSpot(mapping: any, context: any) {
-    // Get all deals
+  private static async syncDealsToWebhook(mapping: any, context: any) {
     const deals = await DealService.getDeals({}, context);
     const dealsData = deals.edges.map(edge => edge.node);
 
-    // Transform data according to mapping
-    const hubspotContacts = dealsData.map(deal => ({
-      properties: {
-        firstname: mapping.contactName ? this.extractValue(deal, mapping.contactName) : deal.contact,
-        company: deal.company,
-        deal_value: deal.value,
-        deal_stage: deal.stage,
-        probability: deal.probability,
-        // Add more mappings as needed
-      },
-    }));
+    await IntegrationService.deliverWebhook(mapping, {
+      event: 'sync.deals',
+      workspaceId: context.workspaceId,
+      data: dealsData,
+    });
 
-    // This would make actual API calls to HubSpot
-    console.log(`Would sync ${hubspotContacts.length} deals to HubSpot`);
-
-    return {
-      synced: hubspotContacts.length,
-      type: 'deals_to_hubspot',
-    };
+    return { synced: dealsData.length, type: 'deals_to_webhook' };
   }
 
-  private static async syncContactsToHubSpot(mapping: any, context: any) {
+  private static async syncContactsToWebhook(mapping: any, context: any) {
     const contacts = await ContactService.getContacts({}, context);
     const contactsData = contacts.edges.map(edge => edge.node);
 
-    const hubspotContacts = contactsData.map(contact => ({
-      properties: {
-        firstname: contact.name.split(' ')[0],
-        lastname: contact.name.split(' ').slice(1).join(' '),
-        email: contact.email,
-        company: contact.company,
-        jobtitle: contact.position,
-      },
-    }));
+    await IntegrationService.deliverWebhook(mapping, {
+      event: 'sync.contacts',
+      workspaceId: context.workspaceId,
+      data: contactsData,
+    });
 
-    console.log(`Would sync ${hubspotContacts.length} contacts to HubSpot`);
-
-    return {
-      synced: hubspotContacts.length,
-      type: 'contacts_to_hubspot',
-    };
-  }
-
-  private static async syncHubSpotToDeals(mapping: any, context: any) {
-    // This would fetch data from HubSpot and create/update deals
-    console.log('Would sync deals from HubSpot');
-
-    return {
-      synced: 0,
-      type: 'hubspot_to_deals',
-    };
-  }
-
-  private static async syncHubSpotToContacts(mapping: any, context: any) {
-    // This would fetch data from HubSpot and create/update contacts
-    console.log('Would sync contacts from HubSpot');
-
-    return {
-      synced: 0,
-      type: 'hubspot_to_contacts',
-    };
-  }
-
-  private static async syncDealsToGoogleSheets(mapping: any, context: any) {
-    const deals = await DealService.getDeals({}, context);
-    const dealsData = deals.edges.map(edge => edge.node);
-
-    const rows = dealsData.map(deal => [
-      deal.id,
-      deal.title,
-      deal.company,
-      deal.contact,
-      deal.value,
-      deal.stage,
-      deal.probability,
-    ]);
-
-    console.log(`Would sync ${rows.length} deals to Google Sheets`);
-
-    return {
-      synced: rows.length,
-      type: 'deals_to_google_sheets',
-    };
-  }
-
-  private static async syncContactsToGoogleSheets(mapping: any, context: any) {
-    const contacts = await ContactService.getContacts({}, context);
-    const contactsData = contacts.edges.map(edge => edge.node);
-
-    const rows = contactsData.map(contact => [
-      contact.id,
-      contact.name,
-      contact.email,
-      contact.company,
-      contact.position,
-    ]);
-
-    console.log(`Would sync ${rows.length} contacts to Google Sheets`);
-
-    return {
-      synced: rows.length,
-      type: 'contacts_to_google_sheets',
-    };
+    return { synced: contactsData.length, type: 'contacts_to_webhook' };
   }
 
   private static extractValue(obj: any, path: string): any {

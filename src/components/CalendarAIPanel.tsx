@@ -1,24 +1,7 @@
 import React, { useEffect, useState } from "react";
+import { listUpcomingMeetings, scheduleMeeting, type CalendarPanelEvent } from "../services/calendarAIService";
 
-interface CalendarEvent {
-  id: string;
-  contact_id: string;
-  datetime: string;
-  status: string;
-  contacts?: {
-    id: string;
-    name: string | null;
-    email: string | null;
-  };
-}
-
-interface CalendarListResponse {
-  events: CalendarEvent[];
-}
-
-interface ScheduleResponse {
-  event: CalendarEvent;
-}
+type CalendarEvent = CalendarPanelEvent;
 
 export const CalendarAIPanel: React.FC = () => {
   const [contactId, setContactId] = useState("");
@@ -32,13 +15,7 @@ export const CalendarAIPanel: React.FC = () => {
     setLoadingList(true);
     setError(null);
     try {
-      const res = await fetch("/.netlify/functions/calendar-list");
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(text || "Request failed");
-      }
-      const data = (await res.json()) as CalendarListResponse;
-      setEvents(data.events || []);
+      setEvents(await listUpcomingMeetings());
     } catch (e: any) {
       console.error("Calendar list error:", e);
       setError(e.message || "Failed to load events");
@@ -61,17 +38,8 @@ export const CalendarAIPanel: React.FC = () => {
 
     setScheduling(true);
     try {
-      const res = await fetch("/.netlify/functions/calendar-schedule", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contactId, datetime })
-      });
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(text || "Request failed");
-      }
-      const data = (await res.json()) as ScheduleResponse;
-      setEvents((prev) => [data.event, ...prev]);
+      const event = await scheduleMeeting(contactId, datetime);
+      setEvents((prev) => [event, ...prev]);
       setContactId("");
       setDatetime("");
     } catch (e: any) {

@@ -1,11 +1,10 @@
 /**
- * Enhanced Intelligent AI Service with GPT-5 Integration
- * Smart routing between OpenAI GPT-5 and Gemini 2.0 models
+ * Enhanced Intelligent AI Service with the default tier Integration
+ * Smart task routing across OpenAI model tiers
  * Routes through secure AI Gateway
  */
 
 import { useEnhancedOpenAI } from './enhancedOpenAIService';
-import { useEnhancedGemini } from './enhancedGeminiService';
 import { getAIGatewayService } from './aiGatewayService';
 import { getWebSearchService } from './webSearchService';
 import { getCitationService } from './citationService';
@@ -21,80 +20,79 @@ interface TaskRoute {
 
 class EnhancedIntelligentAIService {
   private openaiService = useEnhancedOpenAI();
-  private geminiService = useEnhancedGemini();
   private gateway = getAIGatewayService();
 
-  // Enhanced task routing with GPT-5 prioritization
+  // Enhanced task routing with the default tier prioritization
   private taskRouting: Record<string, TaskRoute> = {
     'contact-analysis': {
       primary: 'openai',
-      primaryModel: 'gpt-4o', // GPT-5 for advanced reasoning
+      primaryModel: 'gpt-6.1-sol', // the default tier for advanced reasoning
       fallback: 'openai',
-      fallbackModel: 'gpt-4o-mini',
-      reason: 'GPT-5 excels at nuanced psychological analysis and pattern recognition'
+      fallbackModel: 'gpt-6-luna',
+      reason: 'the default tier excels at nuanced psychological analysis and pattern recognition'
     },
     'email-generation': {
       primary: 'openai',
-      primaryModel: 'gpt-4o', // GPT-5 for creative and personalized writing
-      fallback: 'gemma',
-      fallbackModel: 'gpt-4o-mini',
-      reason: 'GPT-5 superior for creative writing and personalization'
+      primaryModel: 'gpt-6.1-sol', // the default tier for creative and personalized writing
+      fallback: 'openai',
+      fallbackModel: 'gpt-6-luna',
+      reason: 'the default tier superior for creative writing and personalization'
     },
     'company-research': {
       primary: 'openai',
-      primaryModel: 'gpt-4o', // GPT-5 for comprehensive research
-      fallback: 'gemma',
-      fallbackModel: 'gpt-4o-mini',
-      reason: 'GPT-5 provides comprehensive research with advanced reasoning'
+      primaryModel: 'gpt-6.1-sol', // the default tier for comprehensive research
+      fallback: 'openai',
+      fallbackModel: 'gpt-6-luna',
+      reason: 'the default tier provides comprehensive research with advanced reasoning'
     },
     'deal-summary': {
       primary: 'openai',
-      primaryModel: 'gpt-4o', // GPT-5 for comprehensive business analysis
-      fallback: 'gemma',
-      fallbackModel: 'gpt-4o-mini',
-      reason: 'GPT-5 provides comprehensive and actionable business summaries'
+      primaryModel: 'gpt-6.1-sol', // the default tier for comprehensive business analysis
+      fallback: 'openai',
+      fallbackModel: 'gpt-6-luna',
+      reason: 'the default tier provides comprehensive and actionable business summaries'
     },
     'next-actions': {
       primary: 'openai',
-      primaryModel: 'gpt-4o-mini', // GPT-5 Mini for efficient recommendations
+      primaryModel: 'gpt-6-luna', // fast tier for efficient recommendations
       fallback: 'openai',
-      fallbackModel: 'gpt-4o-mini',
-      reason: 'GPT-5 Mini optimized for specific, actionable recommendations'
+      fallbackModel: 'gpt-6-luna',
+      reason: 'fast tier optimized for specific, actionable recommendations'
     },
     'insights': {
       primary: 'openai',
-      primaryModel: 'gpt-4o', // GPT-5 for creative insights
+      primaryModel: 'gpt-6.1-sol', // the default tier for creative insights
       fallback: 'openai',
-      fallbackModel: 'gpt-4o-mini',
-      reason: 'GPT-5 better for creative insights and pattern recognition'
+      fallbackModel: 'gpt-6-luna',
+      reason: 'the default tier better for creative insights and pattern recognition'
     },
     'contact-research': {
       primary: 'openai',
-      primaryModel: 'gpt-4o-mini', // GPT-5 Mini for contact research
+      primaryModel: 'gpt-6-luna', // fast tier for contact research
       fallback: 'openai',
-      fallbackModel: 'gpt-4o-mini',
-      reason: 'GPT-5 Mini provides intelligent contact research with reasoning'
+      fallbackModel: 'gpt-6-luna',
+      reason: 'fast tier provides intelligent contact research with reasoning'
     },
     'social-media-discovery': {
       primary: 'openai',
-      primaryModel: 'gpt-4o-mini', // GPT-5 Mini for social discovery
+      primaryModel: 'gpt-6-luna', // fast tier for social discovery
       fallback: 'openai',
-      fallbackModel: 'gpt-4o-mini',
-      reason: 'GPT-5 Mini with OpenAI fallback for social media channel identification'
+      fallbackModel: 'gpt-6-luna',
+      reason: 'fast tier with OpenAI fallback for social media channel identification'
     },
     'app-enrichment': {
       primary: 'openai',
-      primaryModel: 'gpt-4o', // GPT-5 for comprehensive app analysis
+      primaryModel: 'gpt-6.1-sol', // the default tier for comprehensive app analysis
       fallback: 'openai',
-      fallbackModel: 'gpt-4o-mini',
-      reason: 'GPT-5 with OpenAI fallback for app metadata and feature analysis'
+      fallbackModel: 'gpt-6-luna',
+      reason: 'the default tier with OpenAI fallback for app metadata and feature analysis'
     },
     'channel-identification': {
       primary: 'openai',
-      primaryModel: 'gpt-4o-mini', // GPT-5 Nano for efficient channel identification
+      primaryModel: 'gpt-6-luna', // fast tier for efficient channel identification
       fallback: 'openai',
-      fallbackModel: 'gpt-4o-mini',
-      reason: 'GPT-5 Nano with OpenAI fallback for social platform identification'
+      fallbackModel: 'gpt-6-luna',
+      reason: 'fast tier with OpenAI fallback for social platform identification'
     }
   };
 
@@ -104,9 +102,9 @@ class EnhancedIntelligentAIService {
     if (!baseRoute) {
       return {
         primary: 'openai',
-        primaryModel: 'gpt-4o',
+        primaryModel: 'gpt-6.1-sol',
         fallback: 'openai',
-        fallbackModel: 'gpt-4o-mini',
+        fallbackModel: 'gpt-6-luna',
         reason: 'Default routing for unknown task'
       };
     }
@@ -114,22 +112,22 @@ class EnhancedIntelligentAIService {
     // Adjust routing based on priority
     if (priority === 'speed') {
       if (baseRoute.primary === 'openai') {
-        return { ...baseRoute, primaryModel: 'gpt-4o-mini' };
+        return { ...baseRoute, primaryModel: 'gpt-6-luna' };
       } else {
-        return { ...baseRoute, primaryModel: 'gemini-1.5-flash' };
+        return { ...baseRoute, primaryModel: 'gpt-6-luna' };
       }
     } else if (priority === 'cost') {
       if (baseRoute.primary === 'openai') {
-        return { ...baseRoute, primaryModel: 'gpt-4o-mini' };
+        return { ...baseRoute, primaryModel: 'gpt-6-luna' };
       } else {
-        return { ...baseRoute, primaryModel: 'gpt-4o' };
+        return { ...baseRoute, primaryModel: 'gpt-6.1-sol' };
       }
     }
 
     return baseRoute;
   }
 
-  private async executeTask(taskType: string, data: any, options: { priority?: 'speed' | 'quality' | 'cost' } = {}): Promise<any> {
+  async executeTask(taskType: string, data: any, options: { priority?: 'speed' | 'quality' | 'cost' } = {}): Promise<any> {
     const route = this.getOptimalRoute(taskType, options.priority);
 
     console.log(`🤖 Enhanced AI Task: ${taskType} → ${route.primary} (${route.primaryModel}) - ${route.reason}`);
@@ -295,7 +293,7 @@ Best regards,
       console.warn('System status check failed:', error);
       return {
         overall: 'down' as const,
-        availableProviders: [],
+        availableProviders: [] as string[],
         error: (error && typeof error === 'object' && 'message' in error) ? (error as any).message : 'System status check failed',
         routing: []
       };
@@ -311,7 +309,7 @@ Best regards,
     }));
   }
 
-  // GPT-5 Enhanced methods with web search and citations
+  // the default tier Enhanced methods with web search and citations
   async analyzeContactWithResearch(contact: any, includeWebSearch: boolean = false, priority: 'speed' | 'quality' | 'cost' = 'quality'): Promise<any> {
     try {
       const analysis = await this.analyzeContact(contact, priority);
@@ -378,7 +376,7 @@ Best regards,
         citations: searchResults.citations,
         searchTime: searchResults.searchTime,
         generatedAt: new Date().toISOString(),
-        aiProvider: 'GPT-5 with Web Search'
+        aiProvider: 'the default tier with Web Search'
       };
 
       // Track citations
@@ -468,7 +466,7 @@ Best regards,
           searchTime: searchResults.reduce((total, r) => total + r.searchTime, 0)
         },
         generatedAt: new Date().toISOString(),
-        aiProvider: 'GPT-5 with Market Research'
+        aiProvider: 'the default tier with Market Research'
       };
 
       // Track citations

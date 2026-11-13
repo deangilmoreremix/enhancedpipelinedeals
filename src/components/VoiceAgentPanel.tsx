@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { speak } from '../services/voiceService';
 
 interface VoiceAgentResponse {
   contactId?: string;
@@ -29,19 +30,8 @@ export const VoiceAgentPanel: React.FC = () => {
 
     setLoading(true);
     try {
-      const res = await fetch("/.netlify/functions/voice-agent", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contactId, script })
-      });
-
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(text || "Voice agent request failed");
-      }
-
-      const json = (await res.json()) as VoiceAgentResponse;
-      setResult(json);
+      const spoken = await speak(script, { contactId });
+      setResult({ contactId, script, audioUrl: spoken.url } as VoiceAgentResponse);
     } catch (e: any) {
       console.error("[VoiceAgentPanel] error:", e);
       setError(e.message || "Failed to run voice agent");

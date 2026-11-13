@@ -1,6 +1,7 @@
 import { CustomMetric, MetricValue, Deal } from '../types';
 import { getSupabaseService } from './supabaseService';
 
+import { openStageKeys, stageIsLost, stageIsOpen, stageIsWon } from '../utils/stageMeta';
 /**
  * Custom Metrics Service
  * Handles calculation and management of custom KPIs and metrics
@@ -57,19 +58,21 @@ export class CustomMetricsService {
 
       case 'conversion_rate':
         const total = filteredDeals.length;
-        const won = filteredDeals.filter(d => d.stage === 'closed-won').length;
+        const won = filteredDeals.filter(d => stageIsWon(d.stage)).length;
         return total > 0 ? (won / total) * 100 : 0;
 
       case 'sales_velocity':
         // Deals closed per month
-        const closedDeals = filteredDeals.filter(d => d.stage === 'closed-won');
+        const closedDeals = filteredDeals.filter(d => stageIsWon(d.stage));
         const now = new Date();
         const months = closedDeals.length > 0 ? 1 : 0; // Simplified - should calculate actual time span
         return months > 0 ? closedDeals.length / months : 0;
 
       case 'win_rate':
-        const qualified = filteredDeals.filter(d => ['proposal', 'negotiation', 'closed-won', 'closed-lost'].includes(d.stage));
-        const wonDealsCount = qualified.filter(d => d.stage === 'closed-won').length;
+        // "Qualified" = anything past the first open stage (including closed deals)
+        const firstOpen = openStageKeys()[0];
+        const qualified = filteredDeals.filter(d => d.stage !== firstOpen);
+        const wonDealsCount = qualified.filter(d => stageIsWon(d.stage)).length;
         return qualified.length > 0 ? (wonDealsCount / qualified.length) * 100 : 0;
 
       default:
@@ -99,12 +102,12 @@ export class CustomMetricsService {
         const now = new Date();
         const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
         return filteredDeals.filter(deal =>
-          ['closed-won', 'closed-lost'].includes(deal.stage) &&
+          (stageIsWon(deal.stage) || stageIsLost(deal.stage)) &&
           new Date(deal.updatedAt) >= startOfMonth
         ).length;
 
       case 'average_time_to_close':
-        const closedDeals = filteredDeals.filter(d => d.stage === 'closed-won');
+        const closedDeals = filteredDeals.filter(d => stageIsWon(d.stage));
         if (closedDeals.length === 0) return 0;
 
         const totalDays = closedDeals.reduce((sum, deal) => {
@@ -214,9 +217,9 @@ export class CustomMetricsService {
         total_deals: deals.length,
         total_value: deals.reduce((sum, d) => sum + d.value, 0),
         avg_deal_size: deals.length > 0 ? deals.reduce((sum, d) => sum + d.value, 0) / deals.length : 0,
-        won_deals: deals.filter(d => d.stage === 'closed-won').length,
-        lost_deals: deals.filter(d => d.stage === 'closed-lost').length,
-        active_deals: deals.filter(d => !['closed-won', 'closed-lost'].includes(d.stage)).length,
+        won_deals: deals.filter(d => stageIsWon(d.stage)).length,
+        lost_deals: deals.filter(d => stageIsLost(d.stage)).length,
+        active_deals: deals.filter(d => stageIsOpen(d.stage)).length,
         avg_probability: deals.length > 0 ? deals.reduce((sum, d) => sum + d.probability, 0) / deals.length : 0
       };
 

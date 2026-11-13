@@ -432,5 +432,4 @@ const ScheduleMeetingModal: React.FC<ScheduleMeetingModalProps> = ({
       </form>
     </Modal>
   );
-};</content>
-<parameter name="filePath">/workspaces/enhancedpipelinedeals/src/components/calendar/DealCalendarIntegration.tsx
+};

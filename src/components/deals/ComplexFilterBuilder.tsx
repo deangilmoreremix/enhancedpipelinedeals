@@ -1,391 +1,214 @@
 import React, { useState } from 'react';
-import { ViewFilter, AdvancedFilterGroup } from '../../types';
-import { Filter, X, Plus, Copy, Group } from 'lucide-react';
-
-interface FilterCondition {
-  id: string;
-  field: string;
-  operator: string;
-  value: string | number;
-}
+import { AdvancedFilterGroup, PipelineStage } from '../../types';
+import { Plus, X } from 'lucide-react';
+import { Button } from '../ui/Button';
+import { FilterBarValueInput } from '../pipeline/FilterBarValueInput';
+import {
+  BOARD_FILTER_FIELDS,
+  DraftValue,
+  defaultDraft,
+  draftFromFilter,
+  fieldDef,
+  filterFromDraft,
+  isDraftValid,
+  operatorsForKind
+} from '../pipeline/filterFieldConfig';
 
 interface ComplexFilterBuilderProps {
+  /** Receives AND/OR groups of ViewFilter conditions (groups are ANDed together). */
   onApplyFilters: (groups: AdvancedFilterGroup[]) => void;
   onClearFilters: () => void;
+  /** Restrict the selectable fields to these ids (defaults to every board field). */
   availableFields?: string[];
+  /** Groups to start from (editing existing advanced filters). */
+  initialGroups?: AdvancedFilterGroup[];
+  /** Pipeline stages (labels for the stage field). */
+  stages?: PipelineStage[];
 }
 
-interface FilterGroupProps {
-  group: AdvancedFilterGroup;
-  onGroupChange: (updatedGroup: AdvancedFilterGroup) => void;
-  onRemoveGroup: (groupId: string) => void;
+interface Row {
+  id: string;
+  field: string;
+  opKey: string;
+  draft: DraftValue;
+}
+interface DraftGroup {
+  id: string;
+  name: string;
+  logicalOperator: 'AND' | 'OR';
+  rows: Row[];
 }
 
-const filterFields = [
-  { id: 'value', label: 'Value' },
-  { id: 'probability', label: 'Probability' },
-  { id: 'stage', label: 'Stage' },
-  { id: 'priority', label: 'Priority' },
-  { id: 'company', label: 'Company' },
-  { id: 'contact', label: 'Contact' },
-  { id: 'createdAt', label: 'Created Date' },
-  { id: 'updatedAt', label: 'Updated Date' }
-];
+const uid = (p: string) => `${p}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 
-const operatorOptions: Record<string, { id: string; label: string }[]> = {
-  value: [
-    { id: 'gt', label: '>' },
-    { id: 'lt', label: '<' },
-    { id: 'eq', label: '=' },
-    { id: 'gte', label: '>=' },
-    { id: 'lte', label: '<=' },
-    { id: 'between', label: 'Between' }
-  ],
-  probability: [
-    { id: 'gt', label: '>' },
-    { id: 'lt', label: '<' },
-    { id: 'eq', label: '=' },
-    { id: 'gte', label: '>=' },
-    { id: 'lte', label: '<=' }
-  ],
-  stage: [
-    { id: 'equals', label: 'Is' },
-    { id: 'not_equals', label: 'Is Not' },
-    { id: 'in', label: 'Is One Of' }
-  ],
-  priority: [
-    { id: 'equals', label: 'Is' },
-    { id: 'not_equals', label: 'Is Not' }
-  ],
-  company: [
-    { id: 'contains', label: 'Contains' },
-    { id: 'equals', label: 'Is' },
-    { id: 'not_contains', label: 'Does Not Contain' }
-  ],
-  contact: [
-    { id: 'contains', label: 'Contains' },
-    { id: 'equals', label: 'Is' }
-  ],
-  createdAt: [
-    { id: 'after', label: 'After' },
-    { id: 'before', label: 'Before' },
-    { id: 'on', label: 'On' }
-  ],
-  updatedAt: [
-    { id: 'after', label: 'After' },
-    { id: 'before', label: 'Before' },
-    { id: 'on', label: 'On' }
-  ]
+const SELECT_CLASS =
+  'px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500';
+
+const newRow = (field: string): Row => {
+  const kind = fieldDef(field).kind;
+  const opKey = operatorsForKind(kind)[0].id;
+  return { id: uid('c'), field, opKey, draft: defaultDraft(kind, opKey) };
 };
 
-const valueOptions: Record<string, { id: string; label: string }[]> = {
-  stage: [
-    { id: 'qualification', label: 'Qualification' },
-    { id: 'proposal', label: 'Proposal' },
-    { id: 'negotiation', label: 'Negotiation' },
-    { id: 'closed-won', label: 'Closed Won' },
-    { id: 'closed-lost', label: 'Closed Lost' }
-  ],
-  priority: [
-    { id: 'high', label: 'High' },
-    { id: 'medium', label: 'Medium' },
-    { id: 'low', label: 'Low' }
-  ]
+const toDraftGroups = (groups: AdvancedFilterGroup[] | undefined, fallbackField: string): DraftGroup[] => {
+  if (!groups || groups.length === 0) {
+    return [{ id: uid('g'), name: 'Group 1', logicalOperator: 'AND', rows: [newRow(fallbackField)] }];
+  }
+  return groups.map(g => ({
+    id: g.id || uid('g'),
+    name: g.name,
+    logicalOperator: g.logicalOperator,
+    rows: g.filters.map(f => ({ id: uid('c'), field: f.field, ...draftFromFilter(f) }))
+  }));
 };
 
-const generateId = () => `filter_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-const FilterRow: React.FC<{
-  filter: FilterCondition;
-  onFilterChange: (filter: FilterCondition) => void;
-  onRemove: (id: string) => void;
-}> = ({ filter, onFilterChange, onRemove }) => {
-  return (
-    <div className="flex items-center space-x-2 p-3 bg-gray-50 rounded-md">
-      <select
-        className="border border-gray-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-        value={filter.field}
-        onChange={(e) => onFilterChange({ ...filter, field: e.target.value, operator: operatorOptions[e.target.value][0]?.id || 'eq' })}
-      >
-        {filterFields.map(field => (
-          <option key={field.id} value={field.id}>{field.label}</option>
-        ))}
-      </select>
-
-      <select
-        className="border border-gray-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-        value={filter.operator}
-        onChange={(e) => onFilterChange({ ...filter, operator: e.target.value })}
-      >
-        {operatorOptions[filter.field as keyof typeof operatorOptions]?.map(op => (
-          <option key={op.id} value={op.id}>{op.label}</option>
-        ))}
-      </select>
-
-      {valueOptions[filter.field as keyof typeof valueOptions] ? (
-        <select
-          className="border border-gray-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-          value={filter.value.toString()}
-          onChange={(e) => onFilterChange({ ...filter, value: e.target.value })}
-        >
-          {valueOptions[filter.field as keyof typeof valueOptions].map(val => (
-            <option key={val.id} value={val.id}>{val.label}</option>
-          ))}
-        </select>
-      ) : (
-        <input
-          type={filter.field === 'value' || filter.field === 'probability' ? 'number' : 'text'}
-          className="flex-1 border border-gray-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-          placeholder="Value"
-          value={filter.value.toString()}
-          onChange={(e) => onFilterChange({
-            ...filter,
-            value: filter.field === 'value' || filter.field === 'probability'
-              ? Number(e.target.value)
-              : e.target.value
-          })}
-        />
-      )}
-
-      <button
-        onClick={() => onRemove(filter.id)}
-        className="p-1 text-gray-400 hover:text-red-600 transition-colors"
-        title="Remove filter"
-      >
-        <X className="w-4 h-4" />
-      </button>
-    </div>
-  );
-};
-
-const FilterGroupComponent: React.FC<FilterGroupProps> = ({ group, onGroupChange, onRemoveGroup }) => {
-  const handleAddFilter = () => {
-    const newFilter: FilterCondition = {
-      id: generateId(),
-      field: 'value',
-      operator: 'gt',
-      value: ''
-    };
-    const viewFilter: ViewFilter = {
-      field: newFilter.field,
-      operator: newFilter.operator as ViewFilter['operator'],
-      value: newFilter.value
-    };
-    onGroupChange({
-      ...group,
-      filters: [...group.filters, viewFilter]
-    });
-  };
-
-  const handleFilterChange = (updatedFilter: FilterCondition) => {
-    const viewFilter: ViewFilter = {
-      field: updatedFilter.field,
-      operator: updatedFilter.operator as ViewFilter['operator'],
-      value: updatedFilter.value
-    };
-    const updatedFilters = group.filters.map(f =>
-      f.field === updatedFilter.field ? viewFilter : f
-    );
-    onGroupChange({ ...group, filters: updatedFilters });
-  };
-
-  const handleRemoveFilter = (filterId: string) => {
-    const updatedFilters = group.filters.filter(f => f.field !== filterId);
-    onGroupChange({ ...group, filters: updatedFilters });
-  };
-
-  const handleLogicalOperatorChange = (operator: 'AND' | 'OR') => {
-    onGroupChange({ ...group, logicalOperator: operator });
-  };
-
-  return (
-    <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center space-x-3">
-          <Group className="w-4 h-4 text-gray-500" />
-          <input
-            type="text"
-            placeholder="Group name"
-            value={group.name}
-            onChange={(e) => onGroupChange({ ...group, name: e.target.value })}
-            className="text-sm font-medium border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
-          />
-          <select
-            value={group.logicalOperator}
-            onChange={(e) => handleLogicalOperatorChange(e.target.value as 'AND' | 'OR')}
-            className="text-xs border border-gray-300 rounded px-2 py-1"
-          >
-            <option value="AND">AND</option>
-            <option value="OR">OR</option>
-          </select>
-        </div>
-        <button
-          onClick={() => onRemoveGroup(group.id)}
-          className="p-1 text-gray-400 hover:text-red-600 transition-colors"
-          title="Remove group"
-        >
-          <X className="w-4 h-4" />
-        </button>
-      </div>
-
-      <div className="space-y-2 mb-3">
-        {group.filters.map((filter, index) => (
-          <FilterRow
-            key={`${filter.field}-${index}`}
-            filter={{ ...filter, id: `${filter.field}-${index}` } as FilterCondition}
-            onFilterChange={handleFilterChange}
-            onRemove={handleRemoveFilter}
-          />
-        ))}
-      </div>
-
-      <button
-        onClick={handleAddFilter}
-        className="flex items-center space-x-1 text-xs text-blue-600 hover:text-blue-800 transition-colors"
-      >
-        <Plus className="w-3 h-3" />
-        <span>Add Condition</span>
-      </button>
-    </div>
-  );
-};
-
-const ComplexFilterBuilder: React.FC<ComplexFilterBuilderProps> = ({
+export const ComplexFilterBuilder: React.FC<ComplexFilterBuilderProps> = ({
   onApplyFilters,
-  onClearFilters
+  onClearFilters,
+  availableFields,
+  initialGroups,
+  stages = []
 }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [groups, setGroups] = useState<AdvancedFilterGroup[]>([
-    {
-      id: generateId(),
-      name: 'Group 1',
-      filters: [],
-      logicalOperator: 'AND',
-      isActive: true,
-      createdBy: 'current-user',
-      createdAt: new Date()
-    }
-  ]);
+  const fields = BOARD_FILTER_FIELDS.filter(f => !availableFields || availableFields.includes(f.id));
+  const firstField = (fields[0] ?? BOARD_FILTER_FIELDS[0]).id;
+  const [groups, setGroups] = useState<DraftGroup[]>(() => toDraftGroups(initialGroups, firstField));
 
-  const handleAddGroup = () => {
-    const newGroup: AdvancedFilterGroup = {
-      id: generateId(),
-      name: `Group ${groups.length + 1}`,
-      filters: [],
-      logicalOperator: 'AND',
-      isActive: true,
-      createdBy: 'current-user',
-      createdAt: new Date()
-    };
-    setGroups([...groups, newGroup]);
+  const patchGroup = (id: string, patch: Partial<DraftGroup>) =>
+    setGroups(gs => gs.map(g => (g.id === id ? { ...g, ...patch } : g)));
+  const patchRow = (gid: string, rid: string, patch: Partial<Row>) =>
+    setGroups(gs => gs.map(g => (g.id === gid ? { ...g, rows: g.rows.map(r => (r.id === rid ? { ...r, ...patch } : r)) } : g)));
+
+  const apply = () => {
+    const result: AdvancedFilterGroup[] = groups
+      .map(g => ({
+        id: g.id,
+        name: g.name,
+        logicalOperator: g.logicalOperator,
+        isActive: true,
+        createdBy: 'user',
+        createdAt: new Date(),
+        filters: g.rows
+          .filter(r => isDraftValid(fieldDef(r.field).kind, r.opKey, r.draft))
+          .map(r => filterFromDraft(r.field, r.opKey, r.draft))
+      }))
+      .filter(g => g.filters.length > 0);
+    onApplyFilters(result);
   };
 
-  const handleGroupChange = (updatedGroup: AdvancedFilterGroup) => {
-    setGroups(groups.map(g => g.id === updatedGroup.id ? updatedGroup : g));
-  };
-
-  const handleRemoveGroup = (groupId: string) => {
-    if (groups.length === 1) return;
-    setGroups(groups.filter(g => g.id !== groupId));
-  };
-
-  const handleApply = () => {
-    const activeGroups = groups.filter(g => g.filters.length > 0);
-    onApplyFilters(activeGroups);
-    setIsOpen(false);
-  };
-
-  const handleClear = () => {
-    setGroups([{
-      id: generateId(),
-      name: 'Group 1',
-      filters: [],
-      logicalOperator: 'AND',
-      isActive: true,
-      createdBy: 'current-user',
-      createdAt: new Date()
-    }]);
-    onClearFilters();
-  };
-
-  const totalFilters = groups.reduce((acc, g) => acc + g.filters.length, 0);
+  const incomplete = groups.some(g => g.rows.some(r => !isDraftValid(fieldDef(r.field).kind, r.opKey, r.draft)));
 
   return (
-    <div className="relative">
+    <div className="space-y-4" data-testid="complex-filter-builder">
+      <p className="text-sm text-gray-600 dark:text-gray-300">
+        A deal must match <strong>every group</strong>. Inside a group, combine conditions with AND or OR.
+      </p>
+
+      {groups.map((group, gi) => (
+        <fieldset key={group.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 space-y-2">
+          <legend className="sr-only">{group.name}</legend>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2 text-sm text-gray-700 dark:text-gray-200">
+              <span className="font-medium">Group {gi + 1}</span>
+              <span>match</span>
+              <select
+                aria-label={`Group ${gi + 1} logic`}
+                value={group.logicalOperator}
+                onChange={(e) => patchGroup(group.id, { logicalOperator: e.target.value as 'AND' | 'OR' })}
+                className={SELECT_CLASS}
+              >
+                <option value="AND">all (AND)</option>
+                <option value="OR">any (OR)</option>
+              </select>
+              <span>of:</span>
+            </div>
+            {groups.length > 1 && (
+              <button
+                type="button"
+                onClick={() => setGroups(gs => gs.filter(g => g.id !== group.id))}
+                className="text-xs text-gray-500 hover:text-red-600"
+              >
+                Remove group
+              </button>
+            )}
+          </div>
+
+          {group.rows.map((row, ri) => {
+            const kind = fieldDef(row.field).kind;
+            return (
+              <div key={row.id} className="flex flex-wrap items-start gap-2 p-2 bg-gray-50 dark:bg-gray-900/40 rounded-md">
+                <select
+                  aria-label={`Group ${gi + 1} condition ${ri + 1} field`}
+                  value={row.field}
+                  onChange={(e) => {
+                    const k = fieldDef(e.target.value).kind;
+                    const o = operatorsForKind(k)[0].id;
+                    patchRow(group.id, row.id, { field: e.target.value, opKey: o, draft: defaultDraft(k, o) });
+                  }}
+                  className={SELECT_CLASS}
+                >
+                  {fields.map(f => <option key={f.id} value={f.id}>{f.label}</option>)}
+                </select>
+                <select
+                  aria-label={`Group ${gi + 1} condition ${ri + 1} operator`}
+                  value={row.opKey}
+                  onChange={(e) => patchRow(group.id, row.id, { opKey: e.target.value, draft: defaultDraft(kind, e.target.value) })}
+                  className={SELECT_CLASS}
+                >
+                  {operatorsForKind(kind).map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
+                </select>
+                <div className="flex-1 min-w-[10rem]">
+                  <FilterBarValueInput
+                    key={`${row.field}:${row.opKey}`}
+                    field={row.field}
+                    kind={kind}
+                    opKey={row.opKey}
+                    value={row.draft}
+                    stages={stages}
+                    ariaLabel={`Group ${gi + 1} condition ${ri + 1} value`}
+                    onChange={(v) => patchRow(group.id, row.id, { draft: v })}
+                  />
+                </div>
+                <button
+                  type="button"
+                  aria-label="Remove condition"
+                  onClick={() => patchGroup(group.id, { rows: group.rows.filter(r => r.id !== row.id) })}
+                  className="p-2 text-gray-400 hover:text-red-600"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            );
+          })}
+
+          <button
+            type="button"
+            onClick={() => patchGroup(group.id, { rows: [...group.rows, newRow(firstField)] })}
+            className="inline-flex items-center space-x-1 text-sm text-blue-600 dark:text-blue-400 hover:underline"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Add condition</span>
+          </button>
+        </fieldset>
+      ))}
+
       <button
-        onClick={() => setIsOpen(!isOpen)}
-        className={`flex items-center space-x-2 px-4 py-2 border rounded-lg transition-colors ${
-          totalFilters > 0
-            ? 'bg-blue-600 text-white border-blue-600'
-            : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-        }`}
+        type="button"
+        onClick={() => setGroups(gs => [...gs, { id: uid('g'), name: `Group ${gs.length + 1}`, logicalOperator: 'AND', rows: [newRow(firstField)] }])}
+        className="inline-flex items-center space-x-1 text-sm text-blue-600 dark:text-blue-400 hover:underline"
       >
-        <Filter className="w-4 h-4" />
-        <span>Complex Filter{totalFilters > 0 ? ` (${totalFilters})` : ''}</span>
+        <Plus className="w-3.5 h-3.5" />
+        <span>Add group</span>
       </button>
 
-      {isOpen && (
-        <div className="absolute right-0 top-full mt-2 w-[500px] bg-white border border-gray-200 rounded-lg shadow-xl z-30 p-4">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900">Complex Filter Builder</h3>
-            <div className="flex items-center space-x-2">
-              <button
-                onClick={handleAddGroup}
-                className="flex items-center space-x-1 text-xs text-blue-600 hover:text-blue-800 transition-colors"
-              >
-                <Copy className="w-3 h-3" />
-                <span>Add Group</span>
-              </button>
-              <button
-                onClick={() => setIsOpen(false)}
-                className="p-1 text-gray-400 hover:text-gray-600"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-
-          <p className="text-sm text-gray-600 mb-4">
-            Combine multiple filter conditions using AND/OR logic across groups
-          </p>
-
-          <div className="space-y-4 max-h-96 overflow-y-auto">
-            {groups.map(group => (
-              <FilterGroupComponent
-                key={group.id}
-                group={group}
-                onGroupChange={handleGroupChange}
-                onRemoveGroup={handleRemoveGroup}
-              />
-            ))}
-          </div>
-
-          <div className="flex justify-between mt-6 pt-4 border-t border-gray-200">
-            <button
-              onClick={handleClear}
-              className="px-3 py-1 text-gray-600 hover:text-gray-800 transition-colors"
-              disabled={totalFilters === 0}
-            >
-              Clear All
-            </button>
-            <div className="space-x-2">
-              <button
-                onClick={() => setIsOpen(false)}
-                className="px-3 py-1 border border-gray-300 bg-white text-gray-700 rounded-md hover:bg-gray-50 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleApply}
-                className="px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-                disabled={totalFilters === 0}
-              >
-                Apply Filters
-              </button>
-            </div>
-          </div>
+      <div className="flex items-center justify-between pt-2 border-t border-gray-200 dark:border-gray-700">
+        <span className="text-xs text-amber-600 dark:text-amber-400" role="status">
+          {incomplete ? 'Incomplete conditions are ignored.' : ''}
+        </span>
+        <div className="flex space-x-2">
+          <Button variant="ghost" size="sm" type="button" onClick={onClearFilters}>Clear</Button>
+          <Button size="sm" type="button" onClick={apply}>Apply filters</Button>
         </div>
-      )}
+      </div>
     </div>
   );
 };

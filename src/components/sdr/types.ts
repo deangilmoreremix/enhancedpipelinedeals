@@ -1,5 +1,13 @@
 import React from 'react';
 
+export interface SDRAgentDetails {
+  id: string;
+  name: string;
+  description: string;
+  icon: React.ReactNode;
+  category: string;
+}
+
 export interface SDRAgentMeta {
   id: string;
   label: string;
@@ -9,7 +17,7 @@ export interface SDRAgentMeta {
   usageCount?: number;
   lastUsed?: Date;
   favorite?: boolean;
-  agent?: any;
+  agent?: SDRAgentDetails;
 }
 
 export interface SDRRunResponse {
@@ -60,5 +68,5 @@ export type SDRAgentMetadata = {
   usageCount?: number;
   lastUsed?: Date;
   favorite?: boolean;
-  agent?: any;
+  agent?: SDRAgentDetails;
 };

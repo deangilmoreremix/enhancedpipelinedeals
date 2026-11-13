@@ -36,11 +36,30 @@ import {
   Plus,
   Phone
 } from 'lucide-react';
+import { initialsAvatar } from '../utils/avatar';
+import { useStageMeta } from '../utils/stageUtils';
+import { TextCell, PriorityDotCell, DealEditScope } from './pipeline/cells/DealCells';
+import { usePermissions } from '../hooks/usePermissions';
+import DealHealthIndicator from './deals/DealHealthIndicator';
+import StaleDealIndicator from './deals/StaleDealIndicator';
+import { SLAIndicator } from './deals/SLAIndicator';
+
+/** Which compact indicators to show (driven by twenty_* feature flags in the board). */
+export interface DealCardIndicators {
+  health?: boolean;
+  stale?: boolean;
+  sla?: boolean;
+}
 
 interface AIEnhancedDealCardProps {
   deal: Deal;
   isSelected?: boolean;
+  /** Keyboard focus ring (board hotkeys). */
+  isFocused?: boolean;
   onSelect?: () => void;
+  /** Shift-click: extend the selection to this card. */
+  onRangeSelect?: () => void;
+  indicators?: DealCardIndicators;
   onClick: () => void;
   showAnalyzeButton?: boolean;
   onAnalyze?: (deal: Deal) => Promise<boolean>;
@@ -52,12 +71,17 @@ interface AIEnhancedDealCardProps {
   onDelete?: (dealId: string) => void;
   isOpenAIFunctionCalling?: boolean;
   openAIResult?: any;
+  /** Quick-edit: click the title, value or priority chip to edit in place (optimistic, rolls back on failure). */
+  onQuickUpdate?: (updates: Partial<Deal>) => Promise<unknown> | void;
 }
 
 export const AIEnhancedDealCard: React.FC<AIEnhancedDealCardProps> = ({
   deal,
   isSelected = false,
+  isFocused = false,
   onSelect,
+  onRangeSelect,
+  indicators,
   onClick,
   showAnalyzeButton = true,
   onAnalyze,
@@ -68,8 +92,13 @@ export const AIEnhancedDealCard: React.FC<AIEnhancedDealCardProps> = ({
   onEdit,
   onDelete,
   isOpenAIFunctionCalling = false,
-  openAIResult
+  openAIResult,
+  onQuickUpdate
 }) => {
+  const { meta } = useStageMeta();
+  const perms = usePermissions();
+  const canEditDeal = perms.allowed('edit', 'deal', deal);
+  const canDeleteDeal = perms.allowed('delete', 'deal', deal);
   const [showAIInsights, setShowAIInsights] = useState(false);
   const [localAnalyzing, setLocalAnalyzing] = useState(false);
   const [localEnriching, setLocalEnriching] = useState(false);
@@ -113,17 +142,6 @@ export const AIEnhancedDealCard: React.FC<AIEnhancedDealCardProps> = ({
     }
   };
 
-  const getStageColor = (stage: string) => {
-    switch (stage) {
-      case 'qualification': return 'bg-blue-500';
-      case 'proposal': return 'bg-indigo-500';
-      case 'negotiation': return 'bg-purple-500';
-      case 'closed-won': return 'bg-green-500';
-      case 'closed-lost': return 'bg-red-500';
-      default: return 'bg-gray-500';
-    }
-  };
-
   const getScoreColor = (probability: number) => {
     if (probability >= 80) return 'bg-green-500';
     if (probability >= 60) return 'bg-blue-500';
@@ -134,16 +152,28 @@ export const AIEnhancedDealCard: React.FC<AIEnhancedDealCardProps> = ({
   // Generate avatar URLs based on company and contact names
   const getCompanyAvatar = (companyName: string) => {
     const seed = companyName.toLowerCase().replace(/\s+/g, '');
-    return deal.companyAvatar || `https://api.dicebear.com/7.x/initials/svg?seed=${seed}&backgroundColor=3b82f6,8b5cf6,f59e0b,10b981,ef4444&textColor=ffffff`;
+    return deal.companyAvatar || initialsAvatar(seed);
   };
 
   const getPersonAvatar = (personName: string) => {
     const seed = personName.toLowerCase().replace(/\s+/g, '');
-    return deal.contactAvatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}&backgroundColor=3b82f6,8b5cf6,f59e0b,10b981,ef4444`;
+    return deal.contactAvatar || initialsAvatar(seed);
   };
 
   const handleCardClick = async (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest('button') || (e.target as HTMLElement).closest('input') || (e.target as HTMLElement).closest('a')) {
+      return;
+    }
+
+    // Shift/Ctrl/Cmd-click selects instead of opening
+    if (e.shiftKey && onRangeSelect) {
+      e.preventDefault();
+      onRangeSelect();
+      return;
+    }
+    if ((e.ctrlKey || e.metaKey) && onSelect) {
+      e.preventDefault();
+      onSelect();
       return;
     }
 
@@ -202,7 +232,7 @@ export const AIEnhancedDealCard: React.FC<AIEnhancedDealCardProps> = ({
 
       setLastEnrichment({
         confidence: Math.max(deal.probability, 75),
-        aiProvider: 'Hybrid AI (GPT-4o + Gemini)',
+        aiProvider: 'OpenAI (GPT-6)',
         timestamp: new Date()
       });
     } catch (error) {
@@ -364,20 +394,30 @@ export const AIEnhancedDealCard: React.FC<AIEnhancedDealCardProps> = ({
     { icon: Facebook, color: 'bg-blue-700', name: 'Facebook', key: 'facebook' },
   ];
 
+  // SLA derived from time since the last update (72h target)
+  const elapsedSlaHours = Math.max(0, Math.round((Date.now() - new Date(deal.updatedAt).getTime()) / 3600000));
+  const slaStatus: 'on-track' | 'at-risk' | 'breached' =
+    elapsedSlaHours >= 72 ? 'breached' : elapsedSlaHours >= 54 ? 'at-risk' : 'on-track';
+
   const analyzing = isAnalyzing || localAnalyzing;
   const enriching = localEnriching;
 
   return (
+    <DealEditScope deal={deal}>
     <div
       ref={cardRef}
+      data-deal-id={deal.id}
       onClick={handleCardClick}
-      className="bg-white dark:bg-gray-800 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer group relative border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 overflow-hidden"
+      className={`bg-white dark:bg-gray-800 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer group relative border hover:border-gray-300 dark:hover:border-gray-600 overflow-hidden ${
+        isSelected ? 'border-blue-500 bg-blue-50/40 dark:bg-blue-900/20' : 'border-gray-200 dark:border-gray-700'
+      } ${isFocused ? 'ring-2 ring-blue-500' : ''}`}
     >
       {/* Selection Checkbox */}
       {onSelect && (
-        <div className="absolute top-4 left-4 z-10">
+        <div className={`absolute top-4 left-4 z-10 transition-opacity ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 focus-within:opacity-100'}`}>
           <input
             type="checkbox"
+            aria-label={`Select ${deal.title || deal.company}`}
             checked={isSelected}
             onChange={(e) => {
               e.stopPropagation();
@@ -392,9 +432,9 @@ export const AIEnhancedDealCard: React.FC<AIEnhancedDealCardProps> = ({
       <ErrorBoundary fallback={<div className="p-2 text-red-500 text-xs">Header component failed</div>}>
         <DealCardHeader
           deal={deal}
-          onEdit={onEdit}
-          onDelete={onDelete}
-          onToggleFavorite={onToggleFavorite}
+          onEdit={canEditDeal ? onEdit : undefined}
+          onDelete={canDeleteDeal ? onDelete : undefined}
+          onToggleFavorite={canEditDeal ? onToggleFavorite : undefined}
           onFindNewImage={onFindNewImage}
           onAnalyze={showAnalyzeButton ? onAnalyze : undefined}
           isAnalyzing={analyzing}
@@ -407,7 +447,16 @@ export const AIEnhancedDealCard: React.FC<AIEnhancedDealCardProps> = ({
         <div className="flex items-start justify-between mb-4 mt-4 text-gray-900 dark:text-white">
           <div className="flex-1 min-w-0">
             <h3 className="text-gray-900 dark:text-white font-semibold text-lg mb-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors truncate">
-              {deal.title}
+              {onQuickUpdate ? (
+                <TextCell
+                  label="Title"
+                  value={deal.title ?? ''}
+                  required
+                  onCommit={v => onQuickUpdate({ title: v })}
+                  display={v => v || <span className="text-gray-400">Untitled</span>}
+                  className="truncate"
+                />
+              ) : deal.title}
             </h3>
             
             {/* Company Info with Avatar */}
@@ -541,6 +590,11 @@ export const AIEnhancedDealCard: React.FC<AIEnhancedDealCardProps> = ({
         )}
 
         {/* Priority Level */}
+        {onQuickUpdate ? (
+          <div className="flex items-center justify-center mb-4">
+            <PriorityDotCell label="Priority" value={deal.priority} onCommit={v => onQuickUpdate({ priority: v })} />
+          </div>
+        ) : (
         <Tooltip content={`Priority: ${getPriorityLabel(deal.priority)} - Determines urgency and resource allocation`} position="top">
           <div className="flex items-center justify-center space-x-2 mb-4">
             <div className={`w-2 h-2 rounded-full ${getPriorityColor(deal.priority)} animate-pulse`} />
@@ -549,11 +603,32 @@ export const AIEnhancedDealCard: React.FC<AIEnhancedDealCardProps> = ({
             </span>
           </div>
         </Tooltip>
+        )}
+
+        {/* Compact health / stale / SLA indicators (feature-flagged) */}
+        {indicators && (indicators.health || indicators.stale || indicators.sla) && (
+          <div className="flex flex-wrap items-center justify-center gap-1 mb-4 [&>*]:scale-90">
+            {indicators.health && deal.healthScore !== undefined && (
+              <DealHealthIndicator healthScore={deal.healthScore} healthFactors={deal.healthFactors ?? []} compact />
+            )}
+            {indicators.stale && <StaleDealIndicator deal={deal} />}
+            {indicators.sla && !meta(deal.stage).isWon && !meta(deal.stage).isLost && (
+              <SLAIndicator
+                dealId={deal.id}
+                compact
+                slaTargetHours={72}
+                elapsedHours={elapsedSlaHours}
+                status={slaStatus}
+              />
+            )}
+          </div>
+        )}
 
         {/* Deal Metadata */}
         <ErrorBoundary fallback={<div className="p-2 text-red-500 text-xs">Metadata component failed</div>}>
           <DealCardMetadata
             deal={deal}
+            onQuickUpdate={onQuickUpdate}
             onAnalyze={onAnalyze ? () => handleAnalyzeClick({ stopPropagation: () => {} } as any) : undefined}
             onAIEnrich={onAIEnrich ? () => handleAIEnrichClick({ stopPropagation: () => {} } as any) : undefined}
             isAnalyzing={analyzing}
@@ -693,5 +768,6 @@ export const AIEnhancedDealCard: React.FC<AIEnhancedDealCardProps> = ({
         </div>
       </div>
     </div>
+    </DealEditScope>
   );
 }

@@ -19,12 +19,21 @@ export async function launch() {
   return browser;
 }
 
-export async function newPage(browser, { baseURL, name, fake, viewport, acceptDownloads = true, init } = {}) {
+// A signed-in user for fake mode (supabase-js storage key for http://fake.supabase.local is sb-fake-auth-token).
+export const DEFAULT_USER = { id: 'u0000000-0000-4000-8000-0000000000aa', aud: 'authenticated', role: 'authenticated', email: 'e2e@example.com', app_metadata: {}, user_metadata: { name: 'E2E User' }, created_at: new Date().toISOString() };
+export function sessionInit(user = DEFAULT_USER) {
+  const session = { access_token: 'fake.jwt.token', refresh_token: 'rt', token_type: 'bearer', expires_in: 36000, expires_at: Math.floor(Date.now() / 1000) + 36000, user };
+  return `localStorage.setItem('sb-fake-auth-token', ${JSON.stringify(JSON.stringify(session))});`;
+}
+
+// fake mode signs in by default (real users are `authenticated`; anon has far fewer RLS policies). Pass anon: true to stay signed out.
+export async function newPage(browser, { baseURL, name, fake, viewport, acceptDownloads = true, init, anon = false } = {}) {
   const context = await browser.newContext({ baseURL, deviceScaleFactor: 1,
     viewport: viewport || { width: 1440, height: 900 }, acceptDownloads });
   const log = { console: [], pageErrors: [], failedRequests: [] };
   if (fake) await fake.install(context);
   else await context.route(/^https?:\/\/(?!localhost|127\.0\.0\.1)/, r => r.abort()); // block external
+  if (fake && !anon && !fake.session) { fake.session = { user: DEFAULT_USER }; await context.addInitScript(sessionInit()); }
   if (init) await context.addInitScript(init);
   const page = await context.newPage();
   page.on('dialog', d => { log.dialogs = (log.dialogs || []); log.dialogs.push(d.message()); d.accept().catch(() => {}); });

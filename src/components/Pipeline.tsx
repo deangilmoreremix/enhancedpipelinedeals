@@ -30,7 +30,7 @@ import {
   Search, Upload, Download, Brain, Sparkles, Plus, Filter, BarChart3,
   Settings, Grid, List, Target, Zap, TrendingUp, Users, Calendar,
   Mail, Phone, CheckCircle, AlertCircle, Clock, DollarSign, Crown,
-  Loader2, X, Table, BarChart, Activity, Heart, Trash2, RotateCcw
+  Loader2, X, Table, BarChart, Activity, Heart, RotateCcw
 } from 'lucide-react';
 
 // Twenty CRM enhanced kanban imports
@@ -54,7 +54,7 @@ import { useBoardFilters } from '../hooks/useBoardFilters';
 import { BoardViewType, presetForSorting, useBoardViewStore } from '../store/boardViewStore';
 import { isFeatureEnabled } from '../services/featureFlagService';
 import { initialsAvatar } from '../utils/avatar';
-import { BTN, BTN_DANGER, BTN_ICON, CONTROL } from './ui/buttonStyles';
+import { BTN, BTN_ICON, CONTROL } from './ui/buttonStyles';
 
 type DealViewType = BoardViewType;
 
@@ -73,7 +73,6 @@ const Pipeline: React.FC = () => {
   const fetchDeals = useDealStore(s => s.fetchDeals);
   const deleteDemoData = useDealStore(s => s.deleteDemoData);
   const restoreDemoData = useDealStore(s => s.restoreDemoData);
-  const [showDeleteDemoModal, setShowDeleteDemoModal] = useState(false);
   const [demoHidden, setDemoHidden] = useState(() => getDataSyncService().isDemoDataHidden());
   const fetchStages = useDealStore(s => s.fetchStages);
   const moveDeal = useDealStore(s => s.moveDeal);
@@ -350,6 +349,13 @@ const Pipeline: React.FC = () => {
 
   const handleClearAllData = async () => {
     setShowClearDataModal(false);
+
+    // Demo mode has no database: clearing hides the bundled sample records (the mock files are never modified)
+    if (dataSource === 'mock') {
+      await deleteDemoData();
+      setDemoHidden(true);
+      return;
+    }
 
     try {
       const supabase = getSupabaseService();
@@ -673,20 +679,8 @@ const Pipeline: React.FC = () => {
             <span className="text-sm text-gray-600 dark:text-gray-300" role="status">{exportMessage}</span>
           )}
 
-          <Tooltip content="Clear All Data - Delete all contacts, deals, and achievements from the database" position="bottom">
-            <button
-              type="button"
-              onClick={() => setShowClearDataModal(true)}
-              className={BTN}
-            >
-              <X className="w-4 h-4" />
-              <span>Clear All Data</span>
-            </button>
-          </Tooltip>
-          
-          {/* Delete / restore the bundled demo records (the mock data files are never modified) */}
-          {dataSource === 'mock' && (demoHidden ? (
-            <Tooltip content="Bring the demo deals and contacts back" position="bottom">
+          {dataSource === 'mock' && demoHidden ? (
+            <Tooltip content="Bring the sample deals and contacts back" position="bottom">
               <button
                 type="button"
                 onClick={async () => { await restoreDemoData(); setDemoHidden(false); }}
@@ -697,17 +691,22 @@ const Pipeline: React.FC = () => {
               </button>
             </Tooltip>
           ) : (
-            <Tooltip content="Remove the demo deals and contacts from view. Deals you created are kept, and you can restore the demo data later." position="bottom">
+            <Tooltip
+              content={dataSource === 'mock'
+                ? 'Clear All Data - Remove the sample deals and contacts (your own records stay; you can restore the samples)'
+                : 'Clear All Data - Delete all contacts, deals, and achievements from the database'}
+              position="bottom"
+            >
               <button
                 type="button"
-                onClick={() => setShowDeleteDemoModal(true)}
+                onClick={() => setShowClearDataModal(true)}
                 className={BTN}
               >
-                <Trash2 className="w-4 h-4" />
-                <span>Delete demo data</span>
+                <X className="w-4 h-4" />
+                <span>Clear All Data</span>
               </button>
             </Tooltip>
-          ))}
+          )}
 
           <Tooltip content="AI Score All - Analyze all visible deals with AI to generate win probability scores based on multiple factors" position="bottom">
             <button
@@ -911,11 +910,13 @@ const Pipeline: React.FC = () => {
               <div className="p-3 bg-red-100 rounded-full mr-4">
                 <AlertCircle className="w-6 h-6 text-red-600" />
               </div>
-              <h3 className="text-xl font-semibold text-gray-900">Clear All Data?</h3>
+              <h3 className="text-xl font-semibold text-gray-900">{dataSource === 'mock' ? 'Clear demo data?' : 'Clear All Data?'}</h3>
             </div>
 
             <p className="text-gray-600 mb-6">
-              This will permanently delete all contacts, deals, achievements, and activities from your database. This action cannot be undone.
+              {dataSource === 'mock'
+                ? 'This removes the sample deals and contacts from your pipeline. Deals and contacts you created stay, and you can bring the samples back with Restore demo data.'
+                : 'This will permanently delete all contacts, deals, achievements, and activities from your database. This action cannot be undone.'}
             </p>
 
             <div className="flex space-x-3">
@@ -930,34 +931,6 @@ const Pipeline: React.FC = () => {
                 className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
               >
                 Clear All Data
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Delete demo data confirmation */}
-      {showDeleteDemoModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" role="dialog" aria-modal="true" aria-label="Delete demo data">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full mx-4 p-6">
-            <div className="flex items-center mb-4">
-              <div className="p-3 bg-yellow-100 dark:bg-yellow-900/30 rounded-full mr-4">
-                <Trash2 className="w-6 h-6 text-yellow-700 dark:text-yellow-300" />
-              </div>
-              <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Delete demo data?</h3>
-            </div>
-            <p className="text-gray-600 dark:text-gray-300 mb-6">
-              This removes the sample deals and contacts from your pipeline. Deals and contacts you created stay.
-              The sample data itself is not deleted, so you can bring it back with Restore demo data.
-            </p>
-            <div className="flex space-x-3">
-              <button type="button" onClick={() => setShowDeleteDemoModal(false)} className={`${BTN} flex-1`}>Cancel</button>
-              <button
-                type="button"
-                onClick={async () => { setShowDeleteDemoModal(false); await deleteDemoData(); setDemoHidden(true); }}
-                className={`${BTN_DANGER} flex-1`}
-              >
-                Delete demo data
               </button>
             </div>
           </div>

@@ -6,8 +6,6 @@
 
 interface UserApiKeys {
   openai?: string;
-  google?: string;
-  anthropic?: string;
   supabase?: string;
 }
 

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Contact } from '../../types/contact';
+import { callAI } from '../../services/aiClient';
 import {
   Brain,
   Sparkles,
@@ -41,20 +42,20 @@ interface Insight {
   source?: string; // AI model that generated this
 }
 
-const aiModels = ['GPT-6.1 Sol', 'GPT-6 Astra'];
+const RULES_SOURCE = 'Rules engine';
 
 export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({ contact }) => {
   const [insights, setInsights] = useState<Insight[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [activeCategory, setActiveCategory] = useState<'all' | 'action' | 'opportunity' | 'risk'>('all');
-  const [aiProvider, setAiProvider] = useState<string>(aiModels[Math.floor(Math.random() * aiModels.length)]);
+  const [aiProvider, setAiProvider] = useState<string>(RULES_SOURCE);
+  const [aiError, setAiError] = useState<string | null>(null);
 
   useEffect(() => {
     // Generate insights based on contact data
     const generateInsights = async () => {
       setIsLoading(true);
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
 
       const generatedInsights: Insight[] = [];
 
@@ -70,7 +71,7 @@ export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({ contact }) => 
           priority: 'high',
           createdAt: new Date(),
           confidence: 92,
-          source: aiProvider
+          source: RULES_SOURCE
         });
       }
 
@@ -85,7 +86,7 @@ export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({ contact }) => 
           priority: 'high',
           createdAt: new Date(),
           confidence: 85,
-          source: aiProvider
+          source: RULES_SOURCE
         });
       }
 
@@ -100,7 +101,7 @@ export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({ contact }) => 
           priority: 'medium',
           createdAt: new Date(),
           confidence: 78,
-          source: aiProvider
+          source: RULES_SOURCE
         });
       }
 
@@ -115,7 +116,7 @@ export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({ contact }) => 
           priority: 'medium',
           createdAt: new Date(),
           confidence: 95,
-          source: aiProvider
+          source: RULES_SOURCE
         });
       }
 
@@ -130,7 +131,7 @@ export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({ contact }) => 
           priority: 'high',
           createdAt: new Date(),
           accuracy: contact.aiScore,
-          source: aiProvider
+          source: RULES_SOURCE
         });
       }
 
@@ -145,7 +146,7 @@ export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({ contact }) => 
           priority: 'medium',
           createdAt: new Date(),
           confidence: 88,
-          source: aiProvider
+          source: RULES_SOURCE
         });
       }
 
@@ -160,7 +161,7 @@ export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({ contact }) => 
           priority: 'low',
           createdAt: new Date(),
           confidence: 82,
-          source: aiProvider
+          source: RULES_SOURCE
         });
       }
 
@@ -175,7 +176,7 @@ export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({ contact }) => 
           priority: 'high',
           createdAt: new Date(),
           confidence: 89,
-          source: aiProvider
+          source: RULES_SOURCE
         });
       }
 
@@ -193,7 +194,7 @@ export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({ contact }) => 
           priority: 'high',
           createdAt: new Date(),
           confidence: 93,
-          source: aiProvider
+          source: RULES_SOURCE
         });
       }
 
@@ -202,13 +203,39 @@ export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({ contact }) => 
     };
 
     generateInsights();
-  }, [contact, aiProvider]);
+  }, [contact]);
 
+  /** Asks the server AI gateway (OpenAI Responses API, task `contact_analyze`) for a fresh analysis of this contact. */
   const handleRefreshInsights = async () => {
     setIsRefreshing(true);
-    setAiProvider(aiModels[Math.floor(Math.random() * aiModels.length)]);
-    await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate API call
-    setIsRefreshing(false);
+    setAiError(null);
+    try {
+      const result = await callAI<{ summary: string; score: number; next_action: string; risks: string[] }>('contact_analyze', {
+        contactId: contact.id,
+        instructions: 'Analyze this contact for the sales rep. Base the answer only on the provided contact record.',
+        input: `Contact: ${[contact.firstName, contact.lastName].filter(Boolean).join(' ') || contact.name || contact.email || contact.id}`,
+      });
+      const d = result.data;
+      if (!d) throw new Error('The AI returned no analysis');
+      const aiInsight: Insight = {
+        id: 'ai',
+        type: 'action',
+        title: 'AI recommended next action',
+        description: `${d.next_action}. ${d.summary}${d.risks?.length ? ` Risks: ${d.risks.join('; ')}.` : ''}`,
+        icon: Brain,
+        iconBg: 'bg-purple-600',
+        priority: d.score >= 70 ? 'high' : 'medium',
+        createdAt: new Date(),
+        confidence: Math.round(d.score),
+        source: result.model,
+      };
+      setAiProvider(result.model);
+      setInsights(prev => [aiInsight, ...prev.filter(i => i.id !== 'ai')]);
+    } catch (e) {
+      setAiError(e instanceof Error ? e.message : 'AI analysis failed');
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   const handleFeedback = (id: string, feedback: 'positive' | 'negative') => {
@@ -248,7 +275,8 @@ export const AIInsightsPanel: React.FC<AIInsightsPanelProps> = ({ contact }) => 
       <div className="bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 rounded-lg p-3 border border-purple-200 dark:border-purple-700 flex items-center justify-between">
         <div className="flex items-center">
           <Sparkles className="w-4 h-4 text-purple-600 dark:text-purple-400 mr-2" />
-          <span className="text-sm text-purple-900 dark:text-purple-100 font-medium">AI Insights by {aiProvider}</span>
+          <span className="text-sm text-purple-900 dark:text-purple-100 font-medium">{aiProvider === RULES_SOURCE ? 'Insights from your CRM data. Refresh for an AI analysis.' : `AI analysis by ${aiProvider}`}</span>
+          {aiError && <span className="ml-3 text-xs text-red-600 dark:text-red-400" role="alert">{aiError}</span>}
         </div>
         {contact.aiScore && (
           <div className="flex items-center bg-white dark:bg-gray-800 px-2 py-1 rounded-lg">

@@ -3,6 +3,7 @@ import { X, Save, RotateCcw, Settings, Mail, MessageCircle, Phone, Calendar, Zap
 import { ModernButton } from '../ui/ModernButton';
 import { SDRUserPreferences, SDRAgentPreferences, SDRTone, SDRStyle, SDRChannel, SDRTiming } from '../../types/sdr-config';
 import { sdrPreferencesService } from '../../services/sdrPreferencesService';
+import { AI_MODELS } from '../../config/aiModels';
 
 interface SDRAgentConfiguratorProps {
   agentId: string;
@@ -376,13 +377,13 @@ const AdvancedSettingsTab: React.FC<{
           AI Model
         </label>
         <select
-          value={config.aiModel || 'gpt-4'}
+          value={config.aiModel || 'gpt-6.1-sol'}
           onChange={(e) => onUpdate({ aiModel: e.target.value })}
           className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
         >
-          <option value="gpt-4">GPT-4 (Recommended)</option>
-          <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
-          <option value="claude-3">Claude 3</option>
+          {AI_MODELS.filter(m => m.isActive).map(m => (
+            <option key={m.id} value={m.id}>{m.name}{m.id === 'gpt-6.1-sol' ? ' (Recommended)' : ''}</option>
+          ))}
         </select>
       </div>
 

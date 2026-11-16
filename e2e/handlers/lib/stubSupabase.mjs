@@ -97,7 +97,7 @@ function testOp(value, opstr) {
 const RESERVED = new Set(['select', 'order', 'limit', 'offset', 'on_conflict', 'columns', 'or', 'and']);
 
 export function createStubSupabase({ port = 54402 } = {}) {
-  const state = { tables: {}, buckets: new Map(), objects: new Map(), log: [], rpc: {}, failNext: [] };
+  const state = { tables: {}, buckets: new Map(), objects: new Map(), log: [], rpc: {}, failNext: [], rateLimits: new Map(), rateLimitRpc: true };
   /** Never cleared by reset(): every table/column touched by any request, for the migration-contract check. */
   const audit = [];
   const stub = {
@@ -106,6 +106,8 @@ export function createStubSupabase({ port = 54402 } = {}) {
     state,
     get log() { return state.log; },
     audit,
+    /** set false to make rpc/check_rate_limit answer "function not found" (DB without the migration) */
+    set rateLimitRpc(v) { state.rateLimitRpc = v; },
     /** custom rpc: stub.rpc.name = (args, ctx) => result */
     rpc: state.rpc,
     table(name) { return (state.tables[name] ??= []); },
@@ -115,6 +117,8 @@ export function createStubSupabase({ port = 54402 } = {}) {
       state.objects = new Map();
       state.log.length = 0;
       state.failNext.length = 0;
+      state.rateLimits = new Map();
+      state.rateLimitRpc = true;
       for (const [k, rows] of Object.entries(seed)) state.tables[k] = rows.map((r) => ({ ...r }));
       stub.rpc.__reset?.();
     },
@@ -240,6 +244,15 @@ export function createStubSupabase({ port = 54402 } = {}) {
           // RLS helper: role of the caller identified by the forwarded user JWT (anon key / no token -> null)
           const tok = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
           return send(res, 200, USERS[tok]?.role ?? null);
+        }
+        if (fn === 'check_rate_limit' && state.rateLimitRpc) {
+          // persistent limiter: fixed window per key; TRUE = allowed
+          const { p_key, p_limit, p_window_seconds } = body ?? {};
+          const now = Date.now();
+          let w = state.rateLimits.get(p_key);
+          if (!w || now - w.start >= p_window_seconds * 1000) { w = { start: now, n: 0 }; state.rateLimits.set(p_key, w); }
+          w.n += 1;
+          return send(res, 200, w.n <= p_limit);
         }
         if (fn === 'claim_workflow_events') {
           const limit = body?.p_limit ?? 25, max = body?.p_max_attempts ?? 5;

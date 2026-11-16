@@ -1,5 +1,5 @@
 import { calculateColumnAggregation, getStageColor } from '../components/pipeline/kanban/kanbanUtils';
-import { Deal } from '../../types';
+import { Deal } from '../types';
 
 describe('Kanban Enhancements - Phase 2', () => {
   describe('Column Aggregation Calculations', () => {

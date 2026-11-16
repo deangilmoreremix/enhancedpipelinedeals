@@ -25,7 +25,7 @@ Ports: 54401 (OpenAI), 54402 (Supabase), 54403 (function router); override with 
   Both the plain SDK and `@openai/agents` honour `OPENAI_BASE_URL` (verified), so no `setDefaultOpenAIClient` is needed.
 * `lib/stubSupabase.mjs` is an in-memory PostgREST/GoTrue/Storage: filters (`eq neq gt gte lt lte like ilike in is not.*`, json path
   `a->>b`), order/limit/range, `Prefer` return/upsert (`on_conflict`), `single()` 406 semantics, `rpc/claim_workflow_events`
-  (incl. the 10-minute stale-claim rule) and `rpc/match_contacts`, `/auth/v1/user` (`good-jwt`), storage buckets/objects/public URLs.
+  (incl. the 10-minute stale-claim rule) and `rpc/match_contacts`, `rpc/check_rate_limit` (fixed window per key, TRUE = allowed; `supa.rateLimitRpc = false` simulates a DB without it), `/auth/v1/user` (`good-jwt`), storage buckets/objects/public URLs.
   Every table/column touched is recorded in `stub.audit`.
 * `lib/schemaCheck.mjs` parses `supabase/migrations/*.sql` and `scenarios/zz-schema-contract.mjs` fails if any handler reads/writes a
   table or column no migration creates, or omits a `NOT NULL` column without default. Known gaps are listed in that file.
@@ -44,7 +44,7 @@ Ports: 54401 (OpenAI), 54402 (Supabase), 54403 (function router); override with 
 | 04-image-voice-embed | `ai-image`, `ai-voice`, `ai-embed` |
 | 05-sdr | `_sdrAgents`, `sdr-run`, `sdr-agent` (guardrails, approval + resume, handoff), `skills-api` |
 | 06-workflows | `workflow-runner`, `workflow-run-now`, `_workflowSteps`, `scheduled-sla` |
-| 07-other | `calendar-api`, `email-api`, `pipelineAI`, `enhanced-import`, `enhanced-contact-import`, `run-agent`, autopilot trio, `selectPersona`, `memory-get`, `mood-preview` |
+| 07-other | `run-agent`, autopilot trio, `selectPersona`, `memory-get`, `mood-preview` |
 | 08-client-contract | every endpoint literal in `src/` vs. functions / `config.path` / redirects that exist |
 | zz-schema-contract | tables/columns used by handlers vs. migrations (must run last) |
 

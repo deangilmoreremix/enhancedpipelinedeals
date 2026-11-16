@@ -175,8 +175,10 @@ export default async function ({ t, openai, loadFunction }) {
   });
   await t('test-sdr-agent (CJS v1) happy path', async () => {
     const m = await loadFunction('test-sdr-agent');
-    const res = await callV1(m.handler, { body: { agentId: 'cold_email_sdr', contact: { name: 'Ada', company: 'X' }, prompt: 'hello' }, token: null });
+    const res = await callV1(m.handler, { body: { agentId: 'cold_email_sdr', contact: { name: 'Ada', company: 'X' }, prompt: 'hello' } });
     assert.equal(res.statusCode, 200, res.body);
+    assert.equal((await callV1(m.handler, { body: {}, token: null })).statusCode, 401);
+    assert.equal((await callV1(m.handler, { body: {}, token: 'bad' })).statusCode, 401);
   });
   await t('test-sdr-agent OPTIONS/405', async () => {
     const m = await loadFunction('test-sdr-agent');

@@ -1,10 +1,9 @@
-import { supabase } from '../lib/core/supabaseClient';
+import { supabase } from './supabaseService';
 import type { Deal } from '../types';
 import type { DealFieldDefinition, FieldChange } from '../types/customFields';
 import type { TimelineEvent } from './dealTimelineService';
-import { canUseRemote, getCurrentUserId, localId } from './dealRecordShared';
 import { formatMoney } from '../utils/currencyMicros';
-import { formatCustomValue, getCachedDefinitions } from './customFieldService';
+import { currentUserId, formatCustomValue, getCachedDefinitions, isRemoteDeal, localId } from './customFieldService';
 
 /**
  * Field-level history: renders `deal_activities` rows of type 'field_changed' (metadata {field,from,to},
@@ -177,8 +176,8 @@ export function diffDealUpdates(before: Partial<Deal>, updates: Partial<Deal>): 
 
 /** Keep field edits of demo/local deals in memory so the Timeline shows them. No-op for remote deals (DB trigger logs them). */
 export async function recordLocalFieldChanges(dealId: string, changes: DiffChange[], actor?: string): Promise<void> {
-  if (canUseRemote(dealId) || changes.length === 0) return;
-  const created_by = await getCurrentUserId();
+  if (isRemoteDeal(dealId) || changes.length === 0) return;
+  const created_by = await currentUserId();
   const now = Date.now();
   const rows = changes.map((c, i): RawFieldChangeRow => ({
     id: localId('fc'), type: FIELD_CHANGED, created_by, created_at: new Date(now + i).toISOString(),
@@ -204,7 +203,7 @@ async function resolveNames(ids: string[]): Promise<void> {
 /** field_changed events for a deal: remote rows (with resolved actor/owner names) plus local demo edits. */
 export async function loadFieldChangeEvents(dealId: string, ctx: FieldFormatContext = {}, limit = 200): Promise<FieldTimelineEvent[]> {
   let rows: RawFieldChangeRow[] = [];
-  if (canUseRemote(dealId)) {
+  if (isRemoteDeal(dealId)) {
     try {
       const { data, error } = await supabase.from('deal_activities').select('*').eq('deal_id', dealId).eq('type', FIELD_CHANGED)
         .order('created_at', { ascending: false }).limit(limit);
@@ -220,7 +219,7 @@ export async function loadFieldChangeEvents(dealId: string, ctx: FieldFormatCont
     await resolveNames(ids);
   }
   rows = [...rows, ...getLocalFieldChangeRows(dealId)];
-  const me = await getCurrentUserId();
+  const me = await currentUserId();
   const full: FieldFormatContext = { ...ctx, ownerName: id => ctx.ownerName?.(id) ?? profileNames.get(id) };
   const actor = (id?: string | null) => (id ? (id === me ? 'You' : profileNames.get(id)) : undefined);
   return rows.map(r => fieldChangeToEvent(r, full, actor)).filter(e => !isNaN(e.at.getTime()));

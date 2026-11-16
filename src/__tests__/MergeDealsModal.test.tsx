@@ -100,4 +100,17 @@ describe('MergeDealsModal', () => {
     expect(await screen.findByText('rpc failed')).toBeInTheDocument();
     expect(onClose).not.toHaveBeenCalled();
   });
+
+  it('offers a per-field choice for custom fields and company, sent via p_fields', async () => {
+    const x = mk('x', { company: 'Acme', customFields: { tier: 'Gold' } });
+    const y = mk('y', { company: 'Acme Inc', companyId: 'c2', customFields: { tier: 'Silver' } });
+    render(<MergeDealsModal isOpen onClose={jest.fn()} deals={[x, y]} initialIds={['x', 'y']} />);
+    fireEvent.click(screen.getByLabelText('Company: Acme Inc'));
+    fireEvent.click(screen.getByLabelText('tier: Silver'));
+    fireEvent.click(screen.getByRole('button', { name: /Merge 2 deals/ }));
+    await waitFor(() => expect(mockRpc).toHaveBeenCalledTimes(1));
+    expect(mockRpc.mock.calls[0][1]).toMatchObject({
+      keep: 'x', merge_ids: ['y'], p_fields: { company: 'Acme Inc', company_id: 'c2', custom_fields: { tier: 'Silver' } },
+    });
+  });
 });

@@ -1,9 +1,11 @@
-import { supabase, isSupabaseConfigured } from '../lib/core/supabaseClient';
+import { supabase, isSupabaseConfigured } from './supabaseService';
 import { isDemoMode } from '../config/demoMode';
 import type { Deal } from '../types';
 import { useDealStore } from '../store/dealStore';
-import { normalizeText } from './dealMergeService';
-import { isUuid } from './dealRecordShared';
+import { isUuidLike as isUuid } from './customFieldService';
+
+const normalizeText = (s: string | undefined | null): string =>
+  (s ?? '').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
 
 export interface DuplicateCandidate {
   id: string;

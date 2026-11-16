@@ -73,9 +73,8 @@ describe('DealCommunicationHub', () => {
     expect((screen.getByLabelText('Subject') as HTMLInputElement).value).toBe('Re: Pricing');
     expect((screen.getByLabelText('Message') as HTMLTextAreaElement).value).toContain('> Can you send pricing?');
     fireEvent.click(screen.getByRole('button', { name: /Queue email/ }));
-    await screen.findByRole('status');
-    expect(screen.getByRole('status')).toHaveTextContent(/Queued/);
-    expect(screen.getByRole('status')).toHaveTextContent(/not been delivered/);
+    const note = await screen.findByText(/not been delivered/);
+    expect(note).toHaveTextContent(/Queued/);
     expect(mockQueue).toHaveBeenCalledWith(expect.objectContaining({ dealId: deal.id, to: 'ada@acme.com', subject: 'Re: Pricing', threadId: 't1' }));
     await waitFor(() => expect(mockLoad).toHaveBeenCalledTimes(2));
   });

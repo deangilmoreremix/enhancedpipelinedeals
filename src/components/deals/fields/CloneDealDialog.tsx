@@ -4,7 +4,7 @@ import { Modal } from '../../ui/Modal';
 import { Button } from '../../ui/Button';
 import { useDealStore } from '../../../store/dealStore';
 import { usePermissions } from '../../../hooks/usePermissions';
-import { errorMessage } from '../../../services/dealRecordShared';
+import { errMsg as errorMessage } from '../../../services/customFieldService';
 import { pushToast } from '../../../store/dealRecordStore';
 import { toastFailure } from '../../../utils/permissionToast';
 

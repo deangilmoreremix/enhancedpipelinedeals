@@ -25,10 +25,13 @@ const sortNewest = (list: UserNotification[]) =>
   [...list].sort((a, b) => (a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0)).slice(0, NOTIFICATION_LIMIT);
 
 let users = 0;
+/** Bumped on every realtime/local change so a refresh that raced with one re-reads instead of overwriting it. */
+let changeSeq = 0;
 let teardown: (() => void) | null = null;
 
 export const useNotificationStore = create<NotificationStore>((set, get) => {
   const applyChange = (c: NotificationChange) => {
+    changeSeq += 1;
     set(s => {
       if (c.event === 'DELETE') {
         const items = s.items.filter(n => n.id !== c.id);
@@ -54,7 +57,13 @@ export const useNotificationStore = create<NotificationStore>((set, get) => {
     refresh: async () => {
       set({ loading: true });
       try {
-        const [items, unread] = await Promise.all([listNotifications(), countUnread()]);
+        let items: UserNotification[] = [];
+        let unread = 0;
+        for (let attempt = 0; attempt < 3; attempt++) {
+          const seq = changeSeq;
+          [items, unread] = await Promise.all([listNotifications(), countUnread()]);
+          if (seq === changeSeq) break; // nothing changed while we were reading
+        }
         set({ items, unread, error: null, loading: false });
       } catch (e) {
         set({ loading: false, error: errorMessage(e, 'Failed to load notifications') });

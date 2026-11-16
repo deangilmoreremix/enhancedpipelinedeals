@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { findDuplicateDeals, type DuplicateCandidate, type DuplicateQuery } from '../../../services/dealDuplicateService';
+import type { DuplicateCandidate, DuplicateQuery } from '../../../services/dealDuplicateService';
 import { pushToast } from '../../../store/dealRecordStore';
 
 /** Duplicate lookup for create flows. A failed lookup never blocks creation (it only toasts). */
@@ -10,6 +10,8 @@ export function useDuplicateCheck() {
   const check = useCallback(async (q: DuplicateQuery): Promise<DuplicateCandidate[]> => {
     setChecking(true);
     try {
+      // lazy: keeps the Supabase client out of the board's import graph
+      const { findDuplicateDeals } = await import('../../../services/dealDuplicateService');
       const found = await findDuplicateDeals(q);
       setDuplicates(found);
       return found;

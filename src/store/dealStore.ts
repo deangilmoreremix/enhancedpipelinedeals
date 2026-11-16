@@ -17,9 +17,10 @@ import { validateSchema, dealValidationSchema, sanitizeInput } from '../utils/va
 import { emitDealEvent } from '../services/dealEvents';
 import { setActiveStages } from '../utils/stageMeta';
 import { notifyIfPermissionDenied } from '../utils/permissionToast';
-import { canUseRemote } from '../services/dealRecordShared';
-import { purgeDealsRemote, restoreDealsRemote } from '../services/dealTrashService';
-import { buildCloneDraft, cloneDealRemote, copyRelatedLocal } from '../services/dealCloneService';
+// Loaded lazily: these pull in the Supabase client, which the store must not import eagerly
+const loadShared = () => import('../services/dealRecordShared');
+const loadTrash = () => import('../services/dealTrashService');
+const loadClone = () => import('../services/dealCloneService');
 
 /** Permission-denied toast + message when RLS blocked the write; otherwise the generic text. */
 const failMessage = (error: unknown, action: string, kind: string, generic: string): string =>
@@ -562,6 +563,8 @@ export const useDealStore = create<DealStore>((set, get) => ({
     const includeRelated = !!opts.includeRelated;
     const original = get().deals[id];
     if (!original) throw new Error('Deal not found');
+    const { canUseRemote } = await loadShared();
+    const { buildCloneDraft, cloneDealRemote, copyRelatedLocal } = await loadClone();
     if (canUseRemote(id) && shouldPersist(get().isConnectedToDatabase)) {
       const newId = await cloneDealRemote(id, includeRelated);
       await get().fetchDeals();
@@ -582,6 +585,8 @@ export const useDealStore = create<DealStore>((set, get) => ({
 
   purgeDeals: async (ids) => {
     const unique = [...new Set(ids)];
+    const { canUseRemote } = await loadShared();
+    const { purgeDealsRemote } = await loadTrash();
     const remote = unique.filter(canUseRemote);
     let removed = 0;
     if (remote.length) removed += await purgeDealsRemote(remote);
@@ -598,6 +603,8 @@ export const useDealStore = create<DealStore>((set, get) => ({
 
   restoreDeals: async (ids) => {
     const unique = [...new Set(ids)];
+    const { canUseRemote } = await loadShared();
+    const { restoreDealsRemote } = await loadTrash();
     const remote = unique.filter(canUseRemote);
     let restored = 0;
     if (remote.length) {

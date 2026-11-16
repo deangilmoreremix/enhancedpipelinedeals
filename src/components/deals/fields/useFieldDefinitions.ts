@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { DealFieldDefinition } from '../../../types/customFields';
-import { getCachedDefinitions, listFieldDefinitions, subscribeDefinitions } from '../../../services/customFieldService';
+import { errMsg, getCachedDefinitions, listFieldDefinitions, subscribeDefinitions } from '../../../services/customFieldService';
 import { pushToast } from '../../../store/dealRecordStore';
-import { errorMessage } from '../../../services/dealRecordShared';
 
 /** Field definitions (shared cache; loads once per mount, re-renders on any change). */
 export function useFieldDefinitions() {
@@ -11,7 +10,7 @@ export function useFieldDefinitions() {
 
   const refresh = useCallback(async () => {
     setLoading(true);
-    try { await listFieldDefinitions(); } catch (e) { pushToast('error', `Could not load custom fields: ${errorMessage(e)}`); }
+    try { await listFieldDefinitions(); } catch (e) { pushToast('error', `Could not load custom fields: ${errMsg(e)}`); }
     finally { setLoading(false); }
   }, []);
 

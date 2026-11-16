@@ -5,9 +5,8 @@ import { Button } from '../../ui/Button';
 import { usePermissions } from '../../../hooks/usePermissions';
 import { CUSTOM_FIELD_TYPES, type CustomFieldType, type DealFieldDefinition } from '../../../types/customFields';
 import {
-  createFieldDefinition, reorderFieldDefinitions, setFieldActive, updateFieldDefinition,
+  errMsg, createFieldDefinition, reorderFieldDefinitions, setFieldActive, updateFieldDefinition,
 } from '../../../services/customFieldService';
-import { errorMessage } from '../../../services/dealRecordShared';
 import { pushToast } from '../../../store/dealRecordStore';
 import { toastFailure } from '../../../utils/permissionToast';
 import { useFieldDefinitions } from './useFieldDefinitions';
@@ -43,7 +42,7 @@ export const ManageFieldsDialog: React.FC<ManageFieldsDialogProps> = ({ isOpen, 
   const run = async (fn: () => Promise<unknown>, failure: string) => {
     setBusy(true);
     try { await fn(); return true; }
-    catch (e) { toastFailure(e, 'manage_stages', 'field', `${failure}: ${errorMessage(e)}`); return false; }
+    catch (e) { toastFailure(e, 'manage_stages', 'field', `${failure}: ${errMsg(e)}`); return false; }
     finally { setBusy(false); }
   };
 

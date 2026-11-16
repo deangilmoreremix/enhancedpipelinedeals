@@ -1,7 +1,7 @@
-import { supabase, isSupabaseConfigured } from '../lib/core/supabaseClient';
+// NOTE: imports supabaseService (not the client / dealRecordShared) so UI tests that mock it keep working
+import { supabase, isSupabaseConfigured } from './supabaseService';
 import { isDemoMode } from '../config/demoMode';
 import { assertRowsAffected } from '../utils/rlsError';
-import { getCurrentUserId, localId } from './dealRecordShared';
 import type { CustomFieldType, CustomFieldValue, DealFieldDefinition } from '../types/customFields';
 
 export const DEFAULT_FIELD_GROUP = 'General';
@@ -10,6 +10,20 @@ const STORAGE_KEY = 'pipeline.dealFieldDefinitions.v1';
 
 /** Real table calls vs in-memory/localStorage (demo mode or Supabase not configured). */
 export const fieldsRemote = (): boolean => isSupabaseConfigured && !isDemoMode();
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/** Whether per-deal data for this id lives in Supabase (vs demo / local deals). */
+export const isRemoteDeal = (id: string): boolean => isSupabaseConfigured && !isDemoMode() && UUID_RE.test(id);
+export const isUuidLike = (v: string | null | undefined): v is string => !!v && UUID_RE.test(v);
+export const localId = (prefix: string) => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+export const errMsg = (e: unknown, fallback = 'Something went wrong'): string =>
+  e instanceof Error ? e.message : typeof (e as any)?.message === 'string' ? (e as any).message : fallback;
+export async function currentUserId(): Promise<string | null> {
+  try {
+    const { data } = await supabase.auth.getSession();
+    return data?.session?.user?.id ?? null;
+  } catch { return null; }
+}
 
 // ---- row mapping ------------------------------------------------------------------------------
 
@@ -116,7 +130,7 @@ export async function createFieldDefinition(input: FieldDefinitionInput): Promis
   }
   const { data, error } = await supabase.from('deal_field_definitions').insert({
     key: base.key, label: base.label, type: base.type, options: base.options, position: base.position,
-    group_name: base.groupName, is_active: true, created_by: await getCurrentUserId(),
+    group_name: base.groupName, is_active: true, created_by: await currentUserId(),
   }).select().single();
   if (error) throw error;
   const def = definitionFromRow(data);

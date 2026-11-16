@@ -1,8 +1,12 @@
-import React, { useReducer, useEffect, useCallback } from 'react';
+import React, { useReducer, useEffect, useCallback, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { DealDetailSidebar } from './DealDetailSidebar';
 import { DealDetailTabs } from './DealDetailTabs';
 import { DealDetailOverview } from './DealDetailOverview';
 import { DealDetailActions } from './DealDetailActions';
+import { SDRResultsModal, type SdrRunRequest } from './SDRResultsModal';
+import { sdrAgentLabel } from './SDRButtonGroup';
+import { visibleTabs } from './tabConfig';
 import { DealCommunicationHub } from '../DealCommunicationHub';
 import { DealAnalyticsDashboard } from '../DealAnalyticsDashboard';
 import { DealAutomationPanel } from '../DealAutomationPanel';
@@ -10,10 +14,11 @@ import DealManagementPanel from './DealManagementPanel';
 import { EmailComposer } from '../EmailComposer';
 import { ContactsModal } from '../ContactsModal';
 import { dealDetailReducer, dealDetailActions, initialDealDetailState } from './reducer';
-import { useButtonActions, type ButtonAction } from '../../hooks/useButtonActions';
+import { useButtonActions, shareDeal, type ButtonAction, type DealViewTab } from '../../hooks/useButtonActions';
 import { useContactStore } from '../../store/contactStore';
-import { aiEnrichmentService } from '../../services/aiEnrichmentService';
-import { useSmartAI } from '../../hooks/useSmartAI';
+import { useDealStore } from '../../store/dealStore';
+import { useDealViewPrefs } from '../../store/dealViewPrefsStore';
+import { useDealRecordHotkeys } from '../../hooks/useDealRecordHotkeys';
 import { DealDetailModalProps } from './types';
 import DealNotes from '../deals/DealNotes';
 import DealTasks from '../deals/DealTasks';
@@ -23,7 +28,30 @@ import DealActivityPanel from '../deals/DealActivityPanel';
 import { AIEmailComposer } from '../AIEmailComposer';
 import DealCalendarPanel from '../deals/DealCalendarPanel';
 import DealToasts from '../deals/DealToasts';
+import RecordShortcutHelp from '../deals/RecordShortcutHelp';
+import MergeDealsModal from '../deals/MergeDealsModal';
+import { DealInsightsTab, DealAssistantPanel } from '../deals/ai';
+import { ManageFieldsDialog } from '../deals/fields/ManageFieldsDialog';
+import { orderDealIds, neighbours } from '../deals/dealOrder';
+import { findDuplicatesOf } from '../../services/dealMergeService';
 import { pushToast } from '../../store/dealRecordStore';
+import { setCommandContext, onDealRecordAction } from '../commandPaletteContext';
+import type { Deal } from '../../types';
+
+const NoContactNotice: React.FC<{ icon: string; text: string; onLink: () => void }> = ({ icon, text, onLink }) => (
+  <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+    <div className="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto mb-3" aria-hidden="true">{icon}</div>
+    <h4 className="text-lg font-medium text-gray-700 dark:text-gray-300 mb-2">No Contact Linked</h4>
+    <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">{text}</p>
+    <button
+      type="button"
+      onClick={onLink}
+      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+    >
+      Link Contact
+    </button>
+  </div>
+);
 
 export const DealDetailModal: React.FC<DealDetailModalProps> = ({
   deal,
@@ -31,16 +59,34 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
   onClose,
   onUpdate,
   contactData,
+  onOpenDeal,
   variant = 'modal'
 }) => {
+  const navigate = useNavigate();
   const { contacts, updateContact } = useContactStore();
-  const { smartScoreContact } = useSmartAI();
+  const { prefs, toggleFieldGroup } = useDealViewPrefs();
 
-  // Initialize state with useReducer
   const [state, dispatch] = useReducer(
     dealDetailReducer,
     initialDealDetailState(deal, contactData)
   );
+
+  // One-shot requests to child tabs (consumed by the child, which then calls the matching *Handled callback)
+  const [noteSignal, setNoteSignal] = useState(0);
+  const [taskSignal, setTaskSignal] = useState(0);
+  const [titleSignal, setTitleSignal] = useState(0);
+  const [scheduleSignal, setScheduleSignal] = useState(0);
+  const [workflowSignal, setWorkflowSignal] = useState(0);
+  const [commsRefresh, setCommsRefresh] = useState(0);
+  const [manageFieldsOpen, setManageFieldsOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [merge, setMerge] = useState<{ deals: Deal[]; ids: string[] } | null>(null);
+  const [sdrRequest, setSdrRequest] = useState<SdrRunRequest | null>(null);
+  const [isRunningSDR, setIsRunningSDR] = useState(false);
+  const workflowsRef = useRef<HTMLDivElement>(null);
+
+  const setTab = useCallback((tab: string) => dispatch(dealDetailActions.setActiveTab(tab)), []);
+  const openDeal = useCallback((id: string) => (onOpenDeal ? onOpenDeal(id) : navigate(`/deals/${id}`)), [onOpenDeal, navigate]);
 
   // Unified button actions
   const { handleAction } = useButtonActions({
@@ -50,15 +96,20 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
     onUpdateContact: updateContact,
     onClose,
     onOpenEmailComposer: () => dispatch(dealDetailActions.setActiveModal('emailComposer')),
-    onOpenContactSelector: () => dispatch(dealDetailActions.setShowContactSelector(true))
+    onOpenContactSelector: () => dispatch(dealDetailActions.setShowContactSelector(true)),
+    onRemoveContact: () => handleRemoveContact(),
+    onShowTab: (tab: DealViewTab) => setTab(tab),
+    onEditDeal: () => { setTab('overview'); setTitleSignal(n => n + 1); },
+    onScheduleMeeting: () => { setTab('calendar'); setScheduleSignal(n => n + 1); },
+    onManageFields: () => setManageFieldsOpen(true)
   });
 
   // Child components pass plain action strings and ignore the returned promise.
   const onAction = (action: string, event?: React.MouseEvent): void => {
-    void handleAction(action as ButtonAction, event);
+    void handleAction(action as ButtonAction);
+    void event;
   };
 
-  // Update state when deal or contactData changes
   useEffect(() => {
     dispatch(dealDetailActions.resetState(deal, contactData));
   }, [deal, contactData]);
@@ -70,38 +121,70 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
       dispatch(dealDetailActions.setLinkedContact(contact || null));
     } else if (contactData) {
       dispatch(dealDetailActions.setLinkedContact(contactData));
+    } else {
+      dispatch(dealDetailActions.setLinkedContact(null));
     }
   }, [deal.contactId, contactData, contacts]);
 
-  // Business logic functions
-  const handleSave = useCallback(async () => {
-    dispatch(dealDetailActions.setSaving(true));
-    try {
-      const updated = await onUpdate(deal.id, state.editedDeal);
-      dispatch(dealDetailActions.updateEditedDeal(updated));
-      dispatch(dealDetailActions.setEditing(false));
-      dispatch(dealDetailActions.setEditingField(null));
-    } catch (error) {
-      console.error('Failed to update deal:', error);
-    } finally {
-      dispatch(dealDetailActions.setSaving(false));
-    }
-  }, [deal.id, state.editedDeal, onUpdate]);
+  // The command palette's "This deal" group follows the open record.
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    setCommandContext({ dealId: deal.id });
+    return () => setCommandContext(null);
+  }, [isOpen, deal.id]);
 
-  const handleCancel = useCallback(() => {
-    dispatch(dealDetailActions.updateEditedDeal(deal));
-    dispatch(dealDetailActions.setEditing(false));
-    dispatch(dealDetailActions.setShowAddField(false));
-    dispatch(dealDetailActions.setNewFieldName(''));
-    dispatch(dealDetailActions.setNewFieldValue(''));
-    dispatch(dealDetailActions.setEditingField(null));
-    dispatch(dealDetailActions.setShowAddSocial(false));
-    dispatch(dealDetailActions.setSocialFieldValue(''));
-    dispatch(dealDetailActions.setSelectedSocialPlatform(''));
-    dispatch(dealDetailActions.setShowAddSource(false));
-    dispatch(dealDetailActions.setAddSource(''));
-    dispatch(dealDetailActions.setEditInterestLevel(false));
-  }, [deal]);
+  // Palette actions that need this view
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    return onDealRecordAction(({ action, dealId }) => {
+      if (dealId !== deal.id) return;
+      switch (action) {
+        case 'add-note': setTab('notes'); setNoteSignal(n => n + 1); break;
+        case 'add-task': setTab('tasks'); setTaskSignal(n => n + 1); break;
+        case 'run-workflow': setTab('automation'); setWorkflowSignal(n => n + 1); break;
+        case 'merge-duplicates':
+        case 'find-duplicates': {
+          const all = Object.values(useDealStore.getState().deals);
+          const dupes = findDuplicatesOf(deal, all).map(d => d.deal.id);
+          setMerge({ deals: all, ids: dupes.length > 0 ? [deal.id, ...dupes] : [deal.id] });
+          break;
+        }
+        default:
+      }
+    });
+  }, [isOpen, deal, setTab]);
+
+  // Focus the workflows panel once the Automation tab has rendered
+  useEffect(() => {
+    if (!workflowSignal || state.activeTab !== 'automation') return;
+    workflowsRef.current?.focus();
+    workflowsRef.current?.scrollIntoView?.({ block: 'start' });
+  }, [workflowSignal, state.activeTab]);
+
+  // A tab the user hid must not stay selected
+  const tabs = visibleTabs(prefs);
+  useEffect(() => {
+    if (!tabs.some(t => t.id === state.activeTab)) setTab(tabs[0]?.id ?? 'overview');
+  }, [tabs, state.activeTab, setTab]);
+
+  const stages = useDealStore(s => s.stages);
+  const goNeighbour = (dir: 'prev' | 'next') => {
+    const nb = neighbours(orderDealIds(useDealStore.getState().deals, stages), deal.id);
+    const id = dir === 'prev' ? nb.prev : nb.next;
+    if (id) openDeal(id);
+  };
+
+  useDealRecordHotkeys(deal.id, {
+    onEditTitle: () => { setTab('overview'); setTitleSignal(n => n + 1); },
+    onNewNote: () => { setTab('notes'); setNoteSignal(n => n + 1); },
+    onNewTask: () => { setTab('tasks'); setTaskSignal(n => n + 1); },
+    onToggleFavorite: () => { void handleToggleFavorite(); },
+    onPrevious: () => goNeighbour('prev'),
+    onNext: () => goNeighbour('next'),
+    onGoPipeline: () => navigate('/'),
+    onGoContacts: () => navigate('/contacts'),
+    onClose
+  }, isOpen);
 
   const handleToggleFavorite = useCallback(async () => {
     const updatedDeal = { ...state.editedDeal, isFavorite: !state.editedDeal.isFavorite };
@@ -114,7 +197,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
       pushToast('error', 'Could not update favorite');
       dispatch(dealDetailActions.updateEditedDeal(deal));
     }
-  }, [deal.id, state.editedDeal.isFavorite, onUpdate]);
+  }, [deal, state.editedDeal, onUpdate]);
 
   // Inline field editors persist through the store (optimistic; they surface their own errors).
   const handleUpdateDeal = useCallback(
@@ -122,215 +205,79 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
     [deal.id, onUpdate]
   );
 
-  const handleAnalyzeDeal = useCallback(async () => {
-    dispatch(dealDetailActions.setAnalyzing(true));
-    try {
-      const newProbability = Math.min(state.editedDeal.probability + 15, 95);
-      const updatedDeal = { ...state.editedDeal, probability: newProbability };
-      dispatch(dealDetailActions.updateEditedDeal(updatedDeal));
-      await onUpdate(deal.id, { probability: newProbability });
-    } catch (error) {
-      console.error('Analysis failed:', error);
-    } finally {
-      dispatch(dealDetailActions.setAnalyzing(false));
-    }
-  }, [state.editedDeal, deal.id, onUpdate]);
-
-  const handleContactAnalysis = useCallback(async () => {
-    if (!state.linkedContact) return;
-
-    dispatch(dealDetailActions.setAnalyzing(true));
-    try {
-      const analysis = await smartScoreContact(state.linkedContact.id, state.linkedContact, 'medium');
-      await updateContact(state.linkedContact.id, {
-        aiScore: Math.round(analysis.score || 75),
-        notes: state.linkedContact.notes ?
-          `${state.linkedContact.notes}\n\nAI Analysis: ${analysis.insights?.join('. ') || 'Analysis completed'}` :
-          `AI Analysis: ${analysis.insights?.join('. ') || 'Analysis completed'}`
-      });
-
-      dispatch(dealDetailActions.setLinkedContact({
-        ...state.linkedContact,
-        aiScore: Math.round(analysis.score || 75)
-      }));
-    } catch (error) {
-      console.error('Contact analysis failed:', error);
-    } finally {
-      dispatch(dealDetailActions.setAnalyzing(false));
-    }
-  }, [state.linkedContact, smartScoreContact, updateContact]);
-
-  const handleContactEnrichment = useCallback(async (enrichmentData: any) => {
-    if (!state.linkedContact) return;
-
-    dispatch(dealDetailActions.setLastEnrichment(enrichmentData));
-    dispatch(dealDetailActions.setEnriching(true));
-
-    try {
-      const updates: any = {};
-
-      if (enrichmentData.phone && !state.linkedContact.phone) {
-        updates.phone = enrichmentData.phone;
-      }
-      if (enrichmentData.industry && !state.linkedContact.industry) {
-        updates.industry = enrichmentData.industry;
-      }
-      if (enrichmentData.avatar && enrichmentData.avatar !== state.linkedContact.avatarSrc) {
-        updates.avatarSrc = enrichmentData.avatar;
-      }
-      if (enrichmentData.notes) {
-        updates.notes = state.linkedContact.notes ?
-          `${state.linkedContact.notes}\n\nAI Research: ${enrichmentData.notes}` :
-          enrichmentData.notes;
-      }
-
-      if (enrichmentData.socialProfiles) {
-        const socialUpdates: any = {};
-        Object.entries(enrichmentData.socialProfiles).forEach(([key, value]) => {
-          if (value && !state.linkedContact!.socialProfiles?.[key as keyof typeof state.linkedContact.socialProfiles]) {
-            socialUpdates[key] = value;
-          }
-        });
-        if (Object.keys(socialUpdates).length > 0) {
-          updates.socialProfiles = { ...state.linkedContact.socialProfiles, ...socialUpdates };
-        }
-      }
-
-      if (enrichmentData.confidence) {
-        updates.aiScore = Math.round(enrichmentData.confidence);
-      }
-
-      const updatedContact = { ...state.linkedContact, ...updates };
-      dispatch(dealDetailActions.setLinkedContact(updatedContact));
-
-      if (Object.keys(updates).length > 0) {
-        await updateContact(state.linkedContact.id, updates);
-      }
-    } catch (error) {
-      console.error('Failed to apply enrichment:', error);
-    } finally {
-      dispatch(dealDetailActions.setEnriching(false));
-    }
-  }, [state.linkedContact, updateContact]);
-
-  const handleFindNewImage = useCallback(async () => {
-    if (!state.linkedContact) return;
-
-    dispatch(dealDetailActions.setEnriching(true));
-    try {
-      const newImageUrl = await aiEnrichmentService.findContactImage(
-        state.linkedContact.name,
-        state.linkedContact.company
-      );
-
-      const updatedContact = { ...state.linkedContact, avatarSrc: newImageUrl };
-      dispatch(dealDetailActions.setLinkedContact(updatedContact));
-
-      await updateContact(state.linkedContact.id, { avatarSrc: newImageUrl });
-    } catch (error) {
-      console.error('Failed to find new image:', error);
-    } finally {
-      dispatch(dealDetailActions.setEnriching(false));
-    }
-  }, [state.linkedContact, updateContact]);
-
   const handleSelectContact = useCallback((contact: any) => {
     dispatch(dealDetailActions.setLinkedContact(contact));
     dispatch(dealDetailActions.updateEditedDeal({
       contact: contact.name,
       contactId: contact.id
     }));
-    onUpdate(deal.id, { contact: contact.name, contactId: contact.id });
+    onUpdate(deal.id, { contact: contact.name, contactId: contact.id }).catch(e => {
+      pushToast('error', e instanceof Error ? `Could not link the contact: ${e.message}` : 'Could not link the contact');
+    });
     dispatch(dealDetailActions.setShowContactSelector(false));
   }, [deal.id, onUpdate]);
 
-  const handleRemoveContact = useCallback(() => {
+  function handleRemoveContact() {
     dispatch(dealDetailActions.setLinkedContact(null));
     dispatch(dealDetailActions.updateEditedDeal({
       contact: '',
       contactId: undefined
     }));
-    onUpdate(deal.id, { contact: '', contactId: undefined });
-  }, [deal.id, onUpdate]);
+    onUpdate(deal.id, { contact: '', contactId: undefined }).catch(e => {
+      pushToast('error', e instanceof Error ? `Could not unlink the contact: ${e.message}` : 'Could not unlink the contact');
+    });
+  }
 
   const handleShareDeal = useCallback(async () => {
-    try {
-      const shareData = {
-        title: state.editedDeal.title,
-        text: `Check out this deal: ${state.editedDeal.title} at ${state.editedDeal.company}`,
-        url: window.location.href
-      };
-
-      if (navigator.share) {
-        await navigator.share(shareData);
-        console.log('✅ Deal shared successfully via Web Share API');
-      } else {
-        const shareText = `${shareData.title}\n${shareData.text}\n${shareData.url}`;
-        await navigator.clipboard.writeText(shareText);
-        alert('Deal link copied to clipboard! You can now share it manually.');
-        console.log('✅ Deal link copied to clipboard');
-      }
-    } catch (error) {
-      console.error('Failed to share deal:', error);
-      const shareText = `${state.editedDeal.title} - ${state.editedDeal.company}\nValue: ${formatCurrency(state.editedDeal.value)}\nStage: ${state.editedDeal.stage}\n\nShared from CRM System`;
-      try {
-        await navigator.clipboard.writeText(shareText);
-        alert('Deal information copied to clipboard!');
-      } catch (clipboardError) {
-        alert(`Share this deal:\n\n${shareText}`);
-      }
-    }
+    const r = await shareDeal(state.editedDeal);
+    if (!r.success && r.error) pushToast('error', r.error);
   }, [state.editedDeal]);
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(value);
+  const handleRunSDRAgent = (agentId: string) => {
+    if (!state.linkedContact) {
+      pushToast('error', 'Link a contact to this deal to run an SDR agent');
+      return;
+    }
+    setSdrRequest({
+      nonce: Date.now(),
+      agentId,
+      agentLabel: sdrAgentLabel(agentId),
+      leadId: state.linkedContact.id,
+      goal: `Move the deal "${state.editedDeal.title ?? state.editedDeal.company}" forward`
+    });
   };
 
   if (!isOpen) return null;
 
   const isPage = variant === 'page';
+  const isPanel = variant === 'panel';
 
   const body = (
     <>
-        {/* Sidebar */}
-        <DealDetailSidebar
-          deal={deal}
-          editedDeal={state.editedDeal}
-          linkedContact={state.linkedContact}
-          isAnalyzing={state.isAnalyzing}
-          onAnalyzeDeal={handleAnalyzeDeal}
-          onContactAnalysis={handleContactAnalysis}
-          onContactEnrichment={handleContactEnrichment}
-          onFindNewImage={handleFindNewImage}
-          onToggleFavorite={handleToggleFavorite}
-          onAction={onAction}
-          onClose={onClose}
-        />
+        {/* Profile sidebar (full views only; the side panel stays compact) */}
+        {!isPanel && (
+          <DealDetailSidebar
+            deal={deal}
+            editedDeal={state.editedDeal}
+            linkedContact={state.linkedContact}
+            onToggleFavorite={handleToggleFavorite}
+            onAction={onAction}
+            onClose={onClose}
+          />
+        )}
 
         {/* Main Content Area */}
         <div className="flex-1 flex flex-col h-full min-w-0">
-          {/* Tab Navigation */}
-          <DealDetailTabs
-            activeTab={state.activeTab}
-            onTabChange={(tabId) => dispatch(dealDetailActions.setActiveTab(tabId))}
-          />
+          <DealDetailTabs activeTab={state.activeTab} onTabChange={setTab} compact={isPanel} />
 
-          {/* Action Buttons */}
           <DealDetailActions
             deal={deal}
             linkedContact={state.linkedContact}
-            isEditing={state.isEditing}
-            isSaving={state.isSaving}
-            onSave={handleSave}
-            onCancel={handleCancel}
             onToggleFavorite={handleToggleFavorite}
             onShare={handleShareDeal}
             onAction={onAction}
+            onRunSDRAgent={handleRunSDRAgent}
+            isRunningSDR={isRunningSDR}
           />
 
           {/* Tab Content */}
@@ -341,15 +288,20 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                 editedDeal={state.editedDeal}
                 linkedContact={state.linkedContact}
                 onUpdateDeal={handleUpdateDeal}
+                hiddenFieldGroups={prefs.hiddenFieldGroups}
+                onToggleFieldGroup={g => { void toggleFieldGroup(g); }}
+                editTitleSignal={titleSignal}
+                onEditTitleHandled={() => setTitleSignal(0)}
+                onContactAction={a => onAction(a)}
               />
             )}
 
             {state.activeTab === 'notes' && (
-              <div className="p-6"><DealNotes dealId={deal.id} /></div>
+              <div className="p-6"><DealNotes dealId={deal.id} composeSignal={noteSignal} onComposeHandled={() => setNoteSignal(0)} /></div>
             )}
 
             {state.activeTab === 'tasks' && (
-              <div className="p-6"><DealTasks dealId={deal.id} /></div>
+              <div className="p-6"><DealTasks dealId={deal.id} focusSignal={taskSignal} onFocusHandled={() => setTaskSignal(0)} /></div>
             )}
 
             {state.activeTab === 'files' && (
@@ -361,25 +313,11 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
             )}
 
             {state.activeTab === 'insights' && (
-              <div className="p-6">
-                {state.linkedContact ? (
-                  <div>AI Insights Panel would go here</div>
-                ) : (
-                  <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-                    <div className="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto mb-3">🤖</div>
-                    <h4 className="text-lg font-medium text-gray-700 dark:text-gray-300 mb-2">No Contact Linked</h4>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                      Link a contact to this deal to view AI insights and recommendations.
-                    </p>
-                    <button
-                      onClick={() => dispatch(dealDetailActions.setShowContactSelector(true))}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-                    >
-                      Link Contact
-                    </button>
-                  </div>
-                )}
-              </div>
+              <div className="p-6"><DealInsightsTab dealId={deal.id} /></div>
+            )}
+
+            {state.activeTab === 'assistant' && (
+              <div className="p-6"><DealAssistantPanel dealId={deal.id} /></div>
             )}
 
             {state.activeTab === 'journey' && (
@@ -390,7 +328,7 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
 
             {state.activeTab === 'communication' && (
               <div className="p-6">
-                <DealCommunicationHub deal={state.editedDeal} contact={state.linkedContact} />
+                <DealCommunicationHub deal={state.editedDeal} contact={state.linkedContact} refreshKey={commsRefresh} />
               </div>
             )}
 
@@ -402,7 +340,9 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
 
             {state.activeTab === 'automation' && (
               <div className="p-6">
-                <DealAutomationPanel deal={state.editedDeal} />
+                <div ref={workflowsRef} tabIndex={-1} aria-label="Deal workflows" className="outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded-xl">
+                  <DealAutomationPanel deal={state.editedDeal} />
+                </div>
               </div>
             )}
 
@@ -418,7 +358,12 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
 
             {state.activeTab === 'calendar' && (
               <div className="p-6">
-                <DealCalendarPanel deal={state.editedDeal} contact={state.linkedContact} />
+                <DealCalendarPanel
+                  deal={state.editedDeal}
+                  contact={state.linkedContact}
+                  scheduleSignal={scheduleSignal}
+                  onScheduleHandled={() => setScheduleSignal(0)}
+                />
               </div>
             )}
 
@@ -428,32 +373,23 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
                   <AIEmailComposer contactId={state.linkedContact.id} dealId={state.editedDeal.id} />
                 </section>
                 <EmailComposer
+                  inline
                   contact={state.linkedContact}
                   deal={state.editedDeal}
                   isOpen={true}
-                  onClose={() => {}}
-                  onSend={(emailData) => {
-                    console.log('📧 Email sent from email tab:', emailData);
-                  }}
+                  onClose={() => setTab('communication')}
+                  onQueued={() => setCommsRefresh(n => n + 1)}
                 />
               </div>
             )}
 
             {state.activeTab === 'email' && !state.linkedContact && (
               <div className="p-6">
-                <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-                  <div className="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto mb-3">📧</div>
-                  <h4 className="text-lg font-medium text-gray-700 dark:text-gray-300 mb-2">No Contact Linked</h4>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                    Link a contact to send emails directly from this deal.
-                  </p>
-                  <button
-                    onClick={() => dispatch(dealDetailActions.setShowContactSelector(true))}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-                  >
-                    Link Contact
-                  </button>
-                </div>
+                <NoContactNotice
+                  icon="📧"
+                  text="Link a contact to send emails directly from this deal."
+                  onLink={() => dispatch(dealDetailActions.setShowContactSelector(true))}
+                />
               </div>
             )}
           </div>
@@ -463,16 +399,13 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
 
   const overlays = (
     <>
-      {/* Modals */}
       {state.activeModal === 'emailComposer' && state.linkedContact && (
         <EmailComposer
           contact={state.linkedContact}
           deal={state.editedDeal}
           isOpen={true}
           onClose={() => dispatch(dealDetailActions.setActiveModal(null))}
-          onSend={(emailData) => {
-            console.log('📧 Email sent from deal detail:', emailData);
-          }}
+          onQueued={() => setCommsRefresh(n => n + 1)}
         />
       )}
 
@@ -484,9 +417,33 @@ export const DealDetailModal: React.FC<DealDetailModalProps> = ({
           selectedContactId={state.linkedContact?.id}
         />
       )}
+
+      <ManageFieldsDialog isOpen={manageFieldsOpen} onClose={() => setManageFieldsOpen(false)} />
+
+      {merge && (
+        <MergeDealsModal
+          isOpen
+          onClose={() => setMerge(null)}
+          deals={merge.deals}
+          initialIds={merge.ids}
+          onMerged={survivor => { setMerge(null); if (survivor !== deal.id) openDeal(survivor); }}
+        />
+      )}
+
+      <SDRResultsModal request={sdrRequest} onClose={() => setSdrRequest(null)} onRunningChange={setIsRunningSDR} />
+      <RecordShortcutHelp open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
       <DealToasts />
     </>
   );
+
+  if (isPanel) {
+    return (
+      <div className="flex h-full min-h-0 w-full bg-white dark:bg-gray-900">
+        {body}
+        {overlays}
+      </div>
+    );
+  }
 
   if (isPage) {
     return (

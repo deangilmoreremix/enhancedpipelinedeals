@@ -15,7 +15,7 @@ jest.mock('recharts', () => {
 });
 
 const mockSvc = {
-  listDealWorkflows: jest.fn(), lastRunByWorkflow: jest.fn(), listDealRuns: jest.fn(), setWorkflowActive: jest.fn(), runWorkflowsNow: jest.fn(),
+  listDealWorkflows: jest.fn(), lastRunByWorkflow: jest.fn(), listDealRuns: jest.fn(), setWorkflowActive: jest.fn(), runWorkflowNow: jest.fn(),
 };
 let available = true;
 jest.mock('../services/dealWorkflowRunService', () => {
@@ -27,7 +27,7 @@ jest.mock('../services/dealWorkflowRunService', () => {
     lastRunByWorkflow: (...a: any[]) => mockSvc.lastRunByWorkflow(...a),
     listDealRuns: (...a: any[]) => mockSvc.listDealRuns(...a),
     setWorkflowActive: (...a: any[]) => mockSvc.setWorkflowActive(...a),
-    runWorkflowsNow: (...a: any[]) => mockSvc.runWorkflowsNow(...a),
+    runWorkflowNow: (...a: any[]) => mockSvc.runWorkflowNow(...a),
     subscribeDealRuns: () => () => undefined,
   };
 });
@@ -76,19 +76,20 @@ describe('DealWorkflowsPanel', () => {
     expect(screen.getByRole('switch', { name: 'Disable Stale deal alert' })).toBeChecked();
   });
 
-  it('Run now reports the summary, and maps 403 / 429 to permission and rate-limit messages', async () => {
-    mockSvc.runWorkflowsNow.mockResolvedValueOnce({ events: 2, executions: 3, skipped: 0, failed: 0, resumed: 1, errors: [] });
+  it('per-row Run now POSTs one workflow for this deal, and maps 403 / 429 to messages', async () => {
+    mockSvc.runWorkflowNow.mockResolvedValueOnce({ executionId: 'e1', status: 'completed' });
     render(<DealWorkflowsPanel dealId={DEAL_ID} showDesigner={false} />);
     await screen.findByRole('switch', { name: 'Disable Stale deal alert' });
-    fireEvent.click(screen.getByRole('button', { name: /Run now/ }));
-    expect(await screen.findByText(/Processed 2 event\(s\): 3 run\(s\) started/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Run Stale deal alert now' }));
+    expect(await screen.findByText(/Ran "Stale deal alert" on this deal: completed/)).toBeInTheDocument();
+    expect(mockSvc.runWorkflowNow).toHaveBeenCalledWith('w1', DEAL_ID);
 
-    mockSvc.runWorkflowsNow.mockRejectedValueOnce(new RunNowError('forbidden', 'You do not have permission to run workflows. An admin or manager role is required.', 403));
-    fireEvent.click(screen.getByRole('button', { name: /Run now/ }));
+    mockSvc.runWorkflowNow.mockRejectedValueOnce(new RunNowError('forbidden', 'You do not have permission to run workflows. An admin or manager role is required.', 403));
+    fireEvent.click(screen.getByRole('button', { name: 'Run Stale deal alert now' }));
     expect(await screen.findByText(/do not have permission to run workflows/)).toBeInTheDocument();
 
-    mockSvc.runWorkflowsNow.mockRejectedValueOnce(new RunNowError('rate_limited', 'Rate limit reached. Please wait a minute before running workflows again.', 429));
-    fireEvent.click(screen.getByRole('button', { name: /Run now/ }));
+    mockSvc.runWorkflowNow.mockRejectedValueOnce(new RunNowError('rate_limited', 'Rate limit reached. Please wait a minute before running workflows again.', 429));
+    fireEvent.click(screen.getByRole('button', { name: 'Run Stale deal alert now' }));
     expect(await screen.findByText(/Rate limit reached/)).toBeInTheDocument();
   });
 
@@ -102,7 +103,6 @@ describe('DealWorkflowsPanel', () => {
     available = false;
     render(<DealWorkflowsPanel dealId={DEAL_ID} showDesigner={false} />);
     expect(screen.getByText(/need a connected database/)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Run now/ })).toBeDisabled();
   });
 
   it('DealAutomationPanel is the real panel (no static rules)', async () => {

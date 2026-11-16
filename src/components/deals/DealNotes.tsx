@@ -181,9 +181,12 @@ const NoteEditor: React.FC<NoteEditorProps> = ({ dealId, note, canLink, onSaved,
 
 export interface DealNotesProps {
   dealId: string;
+  /** Bump (non-zero) to open the new-note composer (palette "Add note", the N shortcut). */
+  composeSignal?: number;
+  onComposeHandled?: () => void;
 }
 
-export const DealNotes: React.FC<DealNotesProps> = ({ dealId }) => {
+export const DealNotes: React.FC<DealNotesProps> = ({ dealId, composeSignal, onComposeHandled }) => {
   const { canCreate, canModify } = useChildRecordPermissions(dealId, 'note');
   const [notes, setNotes] = useState<DealNote[]>([]);
   const [loading, setLoading] = useState(true);
@@ -206,6 +209,13 @@ export const DealNotes: React.FC<DealNotesProps> = ({ dealId }) => {
   }, [dealId, contactId, companyId]);
 
   useEffect(() => { setEditing(null); void load(); }, [load]);
+
+  useEffect(() => {
+    if (!composeSignal) return;
+    if (canCreate) setEditing({ key: `new-${Date.now()}`, note: null });
+    onComposeHandled?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [composeSignal]);
 
   const onSaved = useCallback((saved: DealNote) => {
     setNotes(prev => {

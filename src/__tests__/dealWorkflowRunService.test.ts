@@ -17,7 +17,7 @@ const mockFetch = jest.fn<(...a: any[]) => Promise<any>>();
 jest.mock('../services/aiClient', () => ({ authedFetch: (...a: any[]) => mockFetch(...a) }));
 
 import {
-  appliesToDeals, listDealWorkflows, setWorkflowActive, listDealRuns, lastRunByWorkflow, runWorkflowsNow, RunNowError, subscribeDealRuns, runNowMessage,
+  appliesToDeals, listDealWorkflows, setWorkflowActive, listDealRuns, lastRunByWorkflow, runWorkflowNow, RunNowError, subscribeDealRuns, runNowMessage,
 } from '../services/dealWorkflowRunService';
 
 const DEAL = '11111111-1111-4111-8111-111111111111';
@@ -61,18 +61,24 @@ describe('dealWorkflowRunService', () => {
     expect(last.w1.id).toBe('r2');
   });
 
-  it('POSTs /api/workflow/run and returns the summary', async () => {
-    mockFetch.mockResolvedValue({ ok: true, status: 200, json: async () => ({ ok: true, events: 2, executions: 3, skipped: 0, failed: 0, resumed: 1, errors: [] }) });
-    const s = await runWorkflowsNow();
-    expect(s).toMatchObject({ events: 2, executions: 3, resumed: 1 });
+  it('POSTs /api/workflow/run with the manual action for one workflow on one deal', async () => {
+    mockFetch.mockResolvedValue({ ok: true, status: 200, json: async () => ({ ok: true, executionId: 'manual:w1:d1:1', status: 'completed' }) });
+    const s = await runWorkflowNow('w1', 'd1');
+    expect(s).toEqual({ executionId: 'manual:w1:d1:1', status: 'completed' });
     expect(mockFetch.mock.calls[0][0]).toBe('/api/workflow/run');
     expect(mockFetch.mock.calls[0][1].method).toBe('POST');
+    expect(JSON.parse(mockFetch.mock.calls[0][1].body)).toEqual({ action: 'manual', workflowId: 'w1', dealId: 'd1' });
+  });
+
+  it('surfaces the server error of a failed manual run (422)', async () => {
+    mockFetch.mockResolvedValue({ ok: false, status: 422, json: async () => ({ ok: false, error: 'Workflow is not active' }) });
+    await expect(runWorkflowNow('w1', 'd1')).rejects.toMatchObject({ kind: 'error', message: 'Workflow is not active' });
   });
 
   it.each([[403, 'forbidden', /permission/i], [429, 'rate_limited', /rate limit/i], [401, 'unauthorized', /sign in/i], [503, 'unavailable', /not available/i]])(
     'maps %i to %s', async (status, kind, msg) => {
       mockFetch.mockResolvedValue({ ok: false, status, json: async () => ({ error: 'x' }) });
-      const err = await runWorkflowsNow().catch(e => e);
+      const err = await runWorkflowNow('w1', 'd1').catch(e => e);
       expect(err).toBeInstanceOf(RunNowError);
       expect(err.kind).toBe(kind);
       expect(err.message).toMatch(msg);
@@ -80,7 +86,7 @@ describe('dealWorkflowRunService', () => {
 
   it('reports network failure and unknown statuses', async () => {
     mockFetch.mockRejectedValue(new Error('offline'));
-    await expect(runWorkflowsNow()).rejects.toMatchObject({ kind: 'unavailable' });
+    await expect(runWorkflowNow('w1', 'd1')).rejects.toMatchObject({ kind: 'unavailable' });
     expect(runNowMessage(500, 'boom')).toEqual({ kind: 'error', message: 'boom' });
   });
 

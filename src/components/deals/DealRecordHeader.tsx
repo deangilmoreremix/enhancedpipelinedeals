@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, MoreHorizontal, Star, Trash2, GitMerge, Archive } from 'lucide-react';
+import { ChevronLeft, ChevronRight, MoreHorizontal, Star, Trash2, GitMerge, Archive, Copy, Pin, PinOff } from 'lucide-react';
 import type { Deal } from '../../types';
 import { useDealStore } from '../../store/dealStore';
 import { orderDealIds, neighbours } from './dealOrder';
@@ -10,15 +10,19 @@ import { pushToast } from '../../store/dealRecordStore';
 import { usePermissions } from '../../hooks/usePermissions';
 import { toastFailure } from '../../utils/permissionToast';
 import { BTN_ICON } from '../ui/buttonStyles';
+import NotificationBell from '../ui/NotificationBell';
+import { PinDealButton } from '../pipeline/PinnedDeals';
+import { CloneDealDialog } from './fields/CloneDealDialog';
+import { useDealViewPrefs } from '../../store/dealViewPrefsStore';
+import { dispatchDealRecordAction } from '../commandPaletteContext';
 
 interface DealRecordHeaderProps {
   deal: Deal;
-  onFindDuplicates: () => void;
   onShowDeleted: () => void;
 }
 
 /** Breadcrumb, favorite star, prev/next navigation and the "..." menu for /deals/:id. */
-export const DealRecordHeader: React.FC<DealRecordHeaderProps> = ({ deal, onFindDuplicates, onShowDeleted }) => {
+export const DealRecordHeader: React.FC<DealRecordHeaderProps> = ({ deal, onShowDeleted }) => {
   const navigate = useNavigate();
   const deals = useDealStore(s => s.deals);
   const stages = useDealStore(s => s.stages);
@@ -26,6 +30,9 @@ export const DealRecordHeader: React.FC<DealRecordHeaderProps> = ({ deal, onFind
   const canEdit = perms.allowed('edit', 'deal', deal);
   const canDelete = perms.allowed('delete', 'deal', deal);
   const [menu, setMenu] = useState(false);
+  const [cloning, setCloning] = useState(false);
+  const { prefs, pin, unpin } = useDealViewPrefs();
+  const pinned = prefs.pinnedDealIds.includes(deal.id);
   const menuRef = useRef<HTMLDivElement>(null);
 
   const order = useMemo(() => orderDealIds(deals, stages), [deals, stages]);
@@ -85,14 +92,22 @@ export const DealRecordHeader: React.FC<DealRecordHeaderProps> = ({ deal, onFind
         >
           <Star className={`h-4 w-4 ${deal.isFavorite ? 'fill-yellow-400 text-yellow-500' : ''}`} />
         </button>
+        <PinDealButton dealId={deal.id} />
+        <NotificationBell />
         <div className="relative" ref={menuRef}>
           <button type="button" aria-label="More actions" aria-haspopup="menu" aria-expanded={menu} onClick={() => setMenu(m => !m)} className={iconBtn}>
             <MoreHorizontal className="h-4 w-4" />
           </button>
           {menu && (
             <div role="menu" className="absolute right-0 z-30 mt-1 w-56 overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-800">
+              <button role="menuitem" type="button" onClick={() => { setMenu(false); void (pinned ? unpin(deal.id) : pin(deal.id)); }} className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-800 hover:bg-gray-50 dark:text-gray-100 dark:hover:bg-gray-700">
+                {pinned ? <PinOff className="h-4 w-4" /> : <Pin className="h-4 w-4" />}{pinned ? 'Unpin deal' : 'Pin deal'}
+              </button>
+              <button role="menuitem" type="button" onClick={() => { setMenu(false); setCloning(true); }} className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-800 hover:bg-gray-50 dark:text-gray-100 dark:hover:bg-gray-700">
+                <Copy className="h-4 w-4" />Duplicate deal
+              </button>
               {canEdit && canDelete && (
-              <button role="menuitem" type="button" onClick={() => { setMenu(false); onFindDuplicates(); }} className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-800 hover:bg-gray-50 dark:text-gray-100 dark:hover:bg-gray-700">
+              <button role="menuitem" type="button" onClick={() => { setMenu(false); dispatchDealRecordAction('find-duplicates', deal.id); }} className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-800 hover:bg-gray-50 dark:text-gray-100 dark:hover:bg-gray-700">
                 <GitMerge className="h-4 w-4" />Find duplicates / Merge
               </button>
               )}
@@ -111,6 +126,7 @@ export const DealRecordHeader: React.FC<DealRecordHeaderProps> = ({ deal, onFind
           )}
         </div>
       </div>
+      <CloneDealDialog dealId={deal.id} open={cloning} onClose={() => setCloning(false)} onCloned={id => navigate(`/deals/${id}`)} />
     </div>
   );
 };

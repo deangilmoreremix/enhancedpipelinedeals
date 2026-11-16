@@ -11,10 +11,13 @@ import { pushToast } from '../../store/dealRecordStore';
 interface DealCalendarPanelProps {
   deal: Deal;
   contact?: Contact | null;
+  /** Bump (non-zero) to expand the "Schedule meeting" form (sidebar Meet button). */
+  scheduleSignal?: number;
+  onScheduleHandled?: () => void;
 }
 
 /** Native calendar tab: the deal's calendar_events and deal_deadlines, plus "Schedule meeting". */
-export const DealCalendarPanel: React.FC<DealCalendarPanelProps> = ({ deal, contact }) => {
+export const DealCalendarPanel: React.FC<DealCalendarPanelProps> = ({ deal, contact, scheduleSignal, onScheduleHandled }) => {
   const remote = canUseRemote(deal.id);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [deadlines, setDeadlines] = useState<DealDeadline[]>([]);
@@ -40,6 +43,13 @@ export const DealCalendarPanel: React.FC<DealCalendarPanelProps> = ({ deal, cont
   }, [deal.id, remote]);
 
   useEffect(() => { void load(); }, [load]);
+
+  useEffect(() => {
+    if (!scheduleSignal) return;
+    setShowForm(true);
+    onScheduleHandled?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scheduleSignal]);
 
   const schedule = async (e: React.FormEvent) => {
     e.preventDefault();

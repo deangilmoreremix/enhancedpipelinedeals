@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ListChecks, Plus, Trash2, User } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
@@ -43,7 +43,13 @@ export const StatusControl: React.FC<{ task: DealTask; disabled?: boolean; onCha
   </div>
 );
 
-export const DealTasks: React.FC<{ dealId: string }> = ({ dealId }) => {
+export const DealTasks: React.FC<{
+  dealId: string;
+  /** Bump (non-zero) to focus the new-task composer (palette "Add task", the T shortcut). */
+  focusSignal?: number;
+  onFocusHandled?: () => void;
+}> = ({ dealId, focusSignal, onFocusHandled }) => {
+  const titleRef = useRef<HTMLInputElement>(null);
   const { canCreate, canModify } = useChildRecordPermissions(dealId, 'task');
   const contactId = useDealStore(s => s.deals[dealId]?.contactId);
   const companyId = useDealStore(s => s.deals[dealId]?.companyId);
@@ -63,6 +69,13 @@ export const DealTasks: React.FC<{ dealId: string }> = ({ dealId }) => {
 
   useEffect(() => { void loadUsers(); void getCurrentDirectoryUser().then(u => setMyId(u?.id ?? null)); }, [loadUsers]);
   useEffect(() => { setNewTargets([{ type: 'deal', id: dealId }]); }, [dealId]);
+  useEffect(() => {
+    if (!focusSignal) return;
+    titleRef.current?.focus();
+    titleRef.current?.scrollIntoView?.({ block: 'center' });
+    onFocusHandled?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusSignal]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -140,6 +153,7 @@ export const DealTasks: React.FC<{ dealId: string }> = ({ dealId }) => {
       <form onSubmit={add} className="space-y-2 rounded-xl border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-800">
         <div className="flex flex-wrap items-center gap-2">
           <input
+            ref={titleRef}
             aria-label="New task title"
             value={title}
             onChange={e => setTitle(e.target.value)}

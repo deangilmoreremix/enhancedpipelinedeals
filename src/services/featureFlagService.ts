@@ -1,4 +1,8 @@
 import { supabase, isSupabaseConfigured } from './supabaseService';
+import { isDemoMode } from '../config/demoMode';
+
+/** Deal management flags that are always ON in demo mode (there is no feature_flags table to read). */
+export const DEMO_ON_FLAGS: readonly string[] = ['deal_health_indicators', 'win_probability_calculator', 'deal_templates_phase3', 'deal_timeline'];
 
 export interface FeatureFlag {
   id: string;
@@ -16,6 +20,11 @@ export class FeatureFlagService {
    * Check if a feature is enabled for the current user/context
    */
   static async isFeatureEnabled(featureKey: string): Promise<boolean> {
+    // Demo mode: the four deal management flags are on so the Management tab is not empty
+    if (isDemoMode() && DEMO_ON_FLAGS.includes(featureKey)) {
+      return true;
+    }
+
     // If supabase client is not initialized, return false
     if (!isSupabaseConfigured) {
       return false;

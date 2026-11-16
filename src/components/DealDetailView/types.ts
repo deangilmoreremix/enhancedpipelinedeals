@@ -7,9 +7,13 @@ export interface DealDetailViewProps {
   onClose: () => void;
   onUpdate: (id: string, updates: Partial<Deal>) => Promise<Deal>;
   contactData?: Contact | null;
-  onAddContact?: () => void;
-  /** 'modal' (default) renders a full-screen overlay; 'page' renders inline for /deals/:id. */
-  variant?: 'modal' | 'page';
+  /** Opens another deal (prev/next hotkeys, after a merge). Defaults to navigating to /deals/:id. */
+  onOpenDeal?: (dealId: string) => void;
+  /**
+   * 'modal' (default) renders a full-screen overlay; 'page' renders inline for /deals/:id;
+   * 'panel' renders the tabbed view without the profile sidebar, to sit inside the right-hand side panel.
+   */
+  variant?: 'modal' | 'page' | 'panel';
 }
 
 export interface DealDetailModalProps extends DealDetailViewProps {}
@@ -18,12 +22,8 @@ export interface DealDetailSidebarProps {
   deal: Deal;
   editedDeal: Deal;
   linkedContact: Contact | null;
-  isAnalyzing: boolean;
-  onAnalyzeDeal: () => Promise<void>;
-  onContactAnalysis: () => Promise<void>;
-  onContactEnrichment: (enrichmentData: any) => Promise<void>;
-  onFindNewImage: () => Promise<void>;
   onToggleFavorite: () => Promise<void>;
+  /** Plain button actions (email, call, auto-enrich, ...) routed through useButtonActions. */
   onAction: (action: string, event?: React.MouseEvent) => void;
   onClose: () => void;
 }
@@ -31,6 +31,8 @@ export interface DealDetailSidebarProps {
 export interface DealDetailTabsProps {
   activeTab: string;
   onTabChange: (tabId: string) => void;
+  /** Hide the Alt+digit hint (narrow side panel). */
+  compact?: boolean;
 }
 
 export interface DealDetailOverviewProps {
@@ -41,24 +43,9 @@ export interface DealDetailOverviewProps {
   onUpdateDeal: (updates: Partial<Deal>) => Promise<unknown>;
 }
 
-export interface DealDetailContactProps {
-  linkedContact: Contact | null;
-  onSelectContact: (contact: Contact) => void;
-  onRemoveContact: () => void;
-  onContactAnalysis: () => Promise<void>;
-  onContactEnrichment: (enrichmentData: any) => Promise<void>;
-  onFindNewImage: () => Promise<void>;
-  showContactSelector: boolean;
-  onToggleContactSelector: () => void;
-}
-
 export interface DealDetailActionsProps {
   deal: Deal;
   linkedContact: Contact | null;
-  isEditing: boolean;
-  isSaving: boolean;
-  onSave: () => Promise<void>;
-  onCancel: () => void;
   onToggleFavorite: () => Promise<void>;
   onShare: () => Promise<void>;
   onAction: (action: string, event?: React.MouseEvent) => void;

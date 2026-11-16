@@ -110,6 +110,10 @@ const SDR_AGENT_CONFIG = {
   }
 };
 
+/** Display label for an SDR agent id (falls back to the id). */
+export const sdrAgentLabel = (agentId: string): string =>
+  SDR_AGENT_CONFIG[agentId as keyof typeof SDR_AGENT_CONFIG]?.label ?? agentId;
+
 export const SDRButtonGroup: React.FC<SDRButtonGroupProps> = ({
   relevantAgents,
   onRunSDRAgent,
@@ -143,13 +147,13 @@ export const SDRButtonGroup: React.FC<SDRButtonGroupProps> = ({
 
   return (
     <>
-      <div className="flex items-center space-x-2 px-3 py-2 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+      <div className="flex flex-wrap items-center gap-2 px-3 py-2 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
         <div className="flex items-center space-x-1 text-xs font-medium text-blue-700 dark:text-blue-300">
           <Brain className="w-3 h-3" />
           <span>AI SDR:</span>
         </div>
-        <div className="flex items-center space-x-1">
-          {relevantAgents.slice(0, 3).map((agentId) => {
+        <div className="flex flex-wrap items-center gap-1">
+          {relevantAgents.map((agentId) => {
             const config = SDR_AGENT_CONFIG[agentId as keyof typeof SDR_AGENT_CONFIG];
             if (!config) return null;
 
@@ -169,6 +173,8 @@ export const SDRButtonGroup: React.FC<SDRButtonGroupProps> = ({
                   <span className="hidden sm:inline">{config.label}</span>
                 </ModernButton>
                 <button
+                  type="button"
+                  aria-label={`Configure ${config.label}`}
                   onClick={() => handleConfigureAgent(agentId)}
                   className="p-1 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 rounded"
                   title={`Configure ${config.label}`}
@@ -178,11 +184,6 @@ export const SDRButtonGroup: React.FC<SDRButtonGroupProps> = ({
               </div>
             );
           })}
-          {relevantAgents.length > 3 && (
-            <span className="text-xs text-gray-500 dark:text-gray-400">
-              +{relevantAgents.length - 3} more
-            </span>
-          )}
         </div>
       </div>
 

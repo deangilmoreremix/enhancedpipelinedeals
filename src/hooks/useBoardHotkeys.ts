@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useBoardSelectionStore } from '../store/boardSelectionStore';
 import { focusSearchInput, isEditableTarget } from './useKeyboardShortcuts';
+import { getCommandContext } from '../components/commandPaletteContext';
 
 export interface BoardHotkeyColumn {
   key: string;
@@ -47,6 +48,8 @@ export function useBoardHotkeys(options: UseBoardHotkeysOptions): void {
     const onKeyDown = (event: KeyboardEvent) => {
       const { enabled = true, getColumns, onOpen, onQuickCreate, onMoveStage } = ref.current;
       if (!enabled || event.defaultPrevented) return;
+      // The record hotkeys own the keyboard while a deal is open in the side panel
+      if (getCommandContext().dealId) return;
       if (isEditableTarget(event.target)) return;
       // Alt+Arrow: keyboard stage move (works on the selection or the focused card)
       if (event.altKey && !event.metaKey && !event.ctrlKey && (event.key === 'ArrowLeft' || event.key === 'ArrowRight')) {

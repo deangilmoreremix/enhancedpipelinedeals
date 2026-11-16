@@ -8,15 +8,19 @@ import { useDealRecord, DealRecordStatus } from './deals/useDealRecord';
 import { Button } from './ui/Button';
 import { Alert } from './ui/Alert';
 
+type Variant = 'modal' | 'page' | 'panel';
+
 interface DealDetailProps {
   dealId: string;
   onClose: () => void;
-  /** 'modal' (default, used by the board) or 'page' (inline, used by /deals/:id). */
-  variant?: 'modal' | 'page';
+  /** 'modal' (full-screen overlay), 'page' (inline, /deals/:id) or 'panel' (inside the side panel). */
+  variant?: Variant;
+  /** Opens another deal (prev/next hotkeys, after a merge). */
+  onOpenDeal?: (dealId: string) => void;
 }
 
 /** Detail view for an already-loaded deal; every edit persists through useDealStore.updateDeal. */
-export const DealDetailLoaded: React.FC<{ deal: Deal; onClose: () => void; variant?: 'modal' | 'page' }> = ({ deal, onClose, variant = 'modal' }) => {
+export const DealDetailLoaded: React.FC<{ deal: Deal; onClose: () => void; variant?: Variant; onOpenDeal?: (dealId: string) => void }> = ({ deal, onClose, variant = 'modal', onOpenDeal }) => {
   const contacts = useContactStore(s => s.contacts);
   const contactData: Contact | null = deal.contactId ? contacts.find(c => c.id === deal.contactId) ?? null : null;
   const handleUpdate = React.useCallback(
@@ -30,6 +34,7 @@ export const DealDetailLoaded: React.FC<{ deal: Deal; onClose: () => void; varia
       onClose={onClose}
       onUpdate={handleUpdate}
       contactData={contactData}
+      onOpenDeal={onOpenDeal}
       variant={variant}
     />
   );
@@ -41,7 +46,7 @@ export const DealRecordState: React.FC<{
   deletedTitle?: string;
   onRestore?: () => Promise<void>;
   onClose: () => void;
-  variant?: 'modal' | 'page';
+  variant?: Variant;
 }> = ({ status, deletedTitle, onRestore, onClose, variant = 'modal' }) => {
   const [restoring, setRestoring] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -81,7 +86,7 @@ export const DealRecordState: React.FC<{
     </div>
   );
 
-  if (variant === 'page') return <div className="px-4 py-16">{content}</div>;
+  if (variant !== 'modal') return <div className="px-4 py-16">{content}</div>;
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
       {content}
@@ -89,9 +94,9 @@ export const DealRecordState: React.FC<{
   );
 };
 
-const DealDetail: React.FC<DealDetailProps> = ({ dealId, onClose, variant = 'modal' }) => {
+const DealDetail: React.FC<DealDetailProps> = ({ dealId, onClose, variant = 'modal', onOpenDeal }) => {
   const rec = useDealRecord(dealId);
-  if (rec.deal) return <DealDetailLoaded deal={rec.deal} onClose={onClose} variant={variant} />;
+  if (rec.deal) return <DealDetailLoaded deal={rec.deal} onClose={onClose} variant={variant} onOpenDeal={onOpenDeal} />;
   if (rec.status === 'ready') return null;
   return (
     <DealRecordState

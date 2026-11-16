@@ -1,7 +1,8 @@
 import React from 'react';
-import { Sparkles, Brain, Wand2, Target, BarChart3, Mail, Phone, Edit, Heart, HeartOff, Camera, User, Globe, Clock, Building2, Tag, DollarSign, TrendingUp, AlertCircle, CheckCircle, Plus, X, Zap, Calendar, FileText } from 'lucide-react';
+import { Sparkles, Brain, BarChart3, Edit, Heart, User, Clock, DollarSign, TrendingUp, Plus, X, Zap, Calendar, FileText, UserMinus, MessageSquare } from 'lucide-react';
 import { DealDetailSidebarProps } from './types';
-import { AIAnalyzeButton, EmailButton, CallButton, AIEnrichButton, AIAutoEnrichButton, FavoriteButton } from '../ui/UnifiedActionButton';
+import { EmailButton, CallButton, AIAutoEnrichButton } from '../ui/UnifiedActionButton';
+import { AIGoalsButton } from '../ui/CustomizableAIToolbar';
 import { initialsAvatar } from '../../utils/avatar';
 import { useDealStore } from '../../store/dealStore';
 import { stageChip } from '../deals/fields/stageColors';
@@ -12,12 +13,6 @@ export const DealDetailSidebar: React.FC<DealDetailSidebarProps> = ({
   deal,
   editedDeal,
   linkedContact,
-  isAnalyzing,
-  onAnalyzeDeal,
-  onContactAnalysis,
-  onContactEnrichment,
-  onFindNewImage,
-  onToggleFavorite,
   onAction,
   onClose
 }) => {
@@ -44,6 +39,8 @@ export const DealDetailSidebar: React.FC<DealDetailSidebarProps> = ({
           <Sparkles className="w-4 h-4 ml-2 text-purple-500 dark:text-purple-400" />
         </h2>
         <button
+          type="button"
+          aria-label="Close deal"
           onClick={onClose}
           className={BTN_ICON}
         >
@@ -112,7 +109,7 @@ export const DealDetailSidebar: React.FC<DealDetailSidebarProps> = ({
               <div className="flex items-center justify-center space-x-2">
                 <Sparkles className="w-3 h-3 text-purple-600" />
                 <span className="text-xs font-medium text-purple-900">
-                  AI Enhanced (75% confidence)
+                  High win probability
                 </span>
               </div>
             </div>
@@ -128,10 +125,12 @@ export const DealDetailSidebar: React.FC<DealDetailSidebarProps> = ({
 
           {/* AI Goals Button */}
           <div className="mb-3">
-            <button type="button" className={`${BTN_PRIMARY} w-full`}>
-              <Target className="w-4 h-4" />
-              AI Goals
-            </button>
+            <AIGoalsButton
+              entityType="deal"
+              entityId={deal.id}
+              entityData={editedDeal}
+              className="w-full"
+            />
           </div>
 
           {/* Quick AI Actions Grid */}
@@ -140,28 +139,22 @@ export const DealDetailSidebar: React.FC<DealDetailSidebarProps> = ({
               ai={true}
               onClick={onAction}
               disabled={!linkedContact?.email}
-              className="p-3 flex flex-col items-center justify-center rounded-lg font-medium transition-all duration-200 border shadow-sm hover:shadow-md hover:scale-105 min-h-[3.5rem] bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 text-gray-700 dark:text-gray-100 hover:from-gray-100 hover:to-gray-200 dark:hover:from-gray-600 dark:hover:to-gray-500 border-gray-200/50 dark:border-gray-600/50"
+              className="p-3 flex flex-col items-center justify-center rounded-lg font-medium transition-all duration-200 border shadow-sm hover:shadow-md min-h-[3.5rem] bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 text-gray-700 dark:text-gray-100 hover:from-gray-100 hover:to-gray-200 dark:hover:from-gray-600 dark:hover:to-gray-500 border-gray-200/50 dark:border-gray-600/50"
             />
 
-            <AIEnrichButton
-              onClick={onAction}
-              className="p-3 flex flex-col items-center justify-center rounded-lg font-medium transition-all duration-200 border shadow-sm hover:shadow-md hover:scale-105 min-h-[3.5rem] bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 text-gray-700 dark:text-gray-100 hover:from-gray-100 hover:to-gray-200 dark:hover:from-gray-600 dark:hover:to-gray-500 border-gray-200/50 dark:border-gray-600/50"
-            />
-
-            <button
-              onClick={() => {/* Navigate to insights */}}
-              className="p-3 flex flex-col items-center justify-center rounded-lg font-medium transition-all duration-200 border shadow-sm hover:shadow-md hover:scale-105 min-h-[3.5rem] bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 text-gray-700 dark:text-gray-100 hover:from-gray-100 hover:to-gray-200 dark:hover:from-gray-600 dark:hover:to-gray-500 border-gray-200/50 dark:border-gray-600/50"
-            >
+            <button type="button" onClick={() => onAction('view-insights')} className="p-3 flex flex-col items-center justify-center rounded-lg font-medium transition-all duration-200 border shadow-sm hover:shadow-md min-h-[3.5rem] bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 text-gray-700 dark:text-gray-100 hover:from-gray-100 hover:to-gray-200 dark:hover:from-gray-600 dark:hover:to-gray-500 border-gray-200/50 dark:border-gray-600/50">
               <TrendingUp className="w-4 h-4 mb-1" />
               <span className="text-xs leading-tight text-center">Insights</span>
             </button>
 
-            <button
-              onClick={() => {/* Navigate to analytics */}}
-              className="p-3 flex flex-col items-center justify-center rounded-lg font-medium transition-all duration-200 border shadow-sm hover:shadow-md hover:scale-105 min-h-[3.5rem] bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 text-gray-700 dark:text-gray-100 hover:from-gray-100 hover:to-gray-200 dark:hover:from-gray-600 dark:hover:to-gray-500 border-gray-200/50 dark:border-gray-600/50"
-            >
+            <button type="button" onClick={() => onAction('view-analytics')} className="p-3 flex flex-col items-center justify-center rounded-lg font-medium transition-all duration-200 border shadow-sm hover:shadow-md min-h-[3.5rem] bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 text-gray-700 dark:text-gray-100 hover:from-gray-100 hover:to-gray-200 dark:hover:from-gray-600 dark:hover:to-gray-500 border-gray-200/50 dark:border-gray-600/50">
               <BarChart3 className="w-4 h-4 mb-1" />
               <span className="text-xs leading-tight text-center">Analytics</span>
+            </button>
+
+            <button type="button" onClick={() => onAction('view-communication')} className="p-3 flex flex-col items-center justify-center rounded-lg font-medium transition-all duration-200 border shadow-sm hover:shadow-md min-h-[3.5rem] bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 text-gray-700 dark:text-gray-100 hover:from-gray-100 hover:to-gray-200 dark:hover:from-gray-600 dark:hover:to-gray-500 border-gray-200/50 dark:border-gray-600/50">
+              <MessageSquare className="w-4 h-4 mb-1" />
+              <span className="text-xs leading-tight text-center">Messages</span>
             </button>
           </div>
 
@@ -179,7 +172,7 @@ export const DealDetailSidebar: React.FC<DealDetailSidebarProps> = ({
             Quick Actions
           </h4>
           <div className="grid grid-cols-4 gap-2">
-            <button className="p-3 flex flex-col items-center hover:bg-blue-50 dark:hover:bg-gray-700 rounded-lg transition-all text-center">
+            <button type="button" onClick={() => onAction('edit')} className="p-3 flex flex-col items-center hover:bg-blue-50 dark:hover:bg-gray-700 rounded-lg transition-all text-center">
               <Edit className="w-4 h-4 mb-1 text-blue-600 dark:text-blue-400" />
               <span className="text-xs font-medium dark:text-gray-200">Edit</span>
             </button>
@@ -193,7 +186,7 @@ export const DealDetailSidebar: React.FC<DealDetailSidebarProps> = ({
               disabled={!linkedContact?.phone}
               className="p-3 flex flex-col items-center hover:bg-yellow-50 dark:hover:bg-gray-700 rounded-lg transition-all text-center"
             />
-            <button className="p-3 flex flex-col items-center hover:bg-indigo-50 dark:hover:bg-gray-700 rounded-lg transition-all text-center">
+            <button type="button" onClick={() => onAction('meet')} className="p-3 flex flex-col items-center hover:bg-indigo-50 dark:hover:bg-gray-700 rounded-lg transition-all text-center">
               <Calendar className="w-4 h-4 mb-1 text-indigo-600 dark:text-indigo-400" />
               <span className="text-xs font-medium dark:text-gray-200">Meet</span>
             </button>
@@ -201,11 +194,11 @@ export const DealDetailSidebar: React.FC<DealDetailSidebarProps> = ({
 
           {/* Secondary Actions */}
           <div className="grid grid-cols-2 gap-2 mt-2">
-            <button className="p-2 flex items-center justify-center hover:bg-purple-50 dark:hover:bg-gray-700 rounded-lg transition-all text-center text-xs font-medium text-purple-600 dark:text-purple-400">
+            <button type="button" onClick={() => onAction('add-field')} className="p-2 flex items-center justify-center hover:bg-purple-50 dark:hover:bg-gray-700 rounded-lg transition-all text-center text-xs font-medium text-purple-600 dark:text-purple-400">
               <Plus className="w-3 h-3 mr-1" />
               Add Field
             </button>
-            <button className="p-2 flex items-center justify-center hover:bg-orange-50 dark:hover:bg-gray-700 rounded-lg transition-all text-center text-xs font-medium text-orange-600 dark:text-orange-400">
+            <button type="button" onClick={() => onAction('view-files')} className="p-2 flex items-center justify-center hover:bg-orange-50 dark:hover:bg-gray-700 rounded-lg transition-all text-center text-xs font-medium text-orange-600 dark:text-orange-400">
               <FileText className="w-3 h-3 mr-1" />
               Files
             </button>
@@ -221,11 +214,11 @@ export const DealDetailSidebar: React.FC<DealDetailSidebarProps> = ({
                 Contact Person
               </h4>
               <div className="flex space-x-1">
-                <button className="p-1 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors">
+                <button type="button" aria-label="Change contact" title="Change contact" onClick={() => onAction('change-contact')} className="p-1 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors">
                   <Edit className="w-3 h-3" />
                 </button>
-                <button className="p-1 text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded transition-colors">
-                  <User className="w-3 h-3" />
+                <button type="button" aria-label="Unlink contact" title="Unlink contact" onClick={() => onAction('remove-contact')} className="p-1 text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 rounded transition-colors">
+                  <UserMinus className="w-3 h-3" />
                 </button>
               </div>
             </div>
@@ -258,22 +251,6 @@ export const DealDetailSidebar: React.FC<DealDetailSidebarProps> = ({
                 </div>
               </div>
 
-              {/* Engagement Metrics */}
-              <div className="grid grid-cols-3 gap-2 mb-3 pt-3 border-t border-blue-200 dark:border-gray-600">
-                <div className="text-center">
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Emails</p>
-                  <p className="text-sm font-bold text-gray-900 dark:text-white">12</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Calls</p>
-                  <p className="text-sm font-bold text-gray-900 dark:text-white">5</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Meetings</p>
-                  <p className="text-sm font-bold text-gray-900 dark:text-white">3</p>
-                </div>
-              </div>
-
               {/* Contact Actions */}
               <div className="grid grid-cols-2 gap-2">
                 <EmailButton
@@ -299,7 +276,7 @@ export const DealDetailSidebar: React.FC<DealDetailSidebarProps> = ({
             <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 border border-gray-200 dark:border-gray-600 text-center">
               <User className="w-8 h-8 text-gray-400 dark:text-gray-500 mx-auto mb-2" />
               <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">No contact assigned to this deal</p>
-              <button type="button" className={BTN_PRIMARY}>
+              <button type="button" onClick={() => onAction('add-contact')} className={BTN_PRIMARY}>
                 Add Contact
               </button>
             </div>

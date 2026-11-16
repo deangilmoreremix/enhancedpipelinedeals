@@ -1,11 +1,10 @@
 import React from 'react';
-import { Heart, HeartOff, Share2, Save, X } from 'lucide-react';
+import { Heart, HeartOff, Share2, Pencil } from 'lucide-react';
 import { ModernButton } from '../ui/ModernButton';
 import { SDRButtonGroup } from './SDRButtonGroup';
 import { EmbeddedAgentInterface } from '../agents/EmbeddedAgentInterface';
 import { DealDetailActionsProps } from './types';
 import { contextDetectionService } from '../../services/contextDetectionService';
-import { sdrExecutionService } from '../../services/sdrExecutionService';
 import { useAuth } from '../auth/AuthProvider';
 import { getErrorReportingService } from '../../services/errorReportingService';
 
@@ -13,10 +12,6 @@ import { openStageKeys } from '../../utils/stageMeta';
 export const DealDetailActions: React.FC<DealDetailActionsProps> = ({
   deal,
   linkedContact,
-  isEditing,
-  isSaving,
-  onSave,
-  onCancel,
   onToggleFavorite,
   onShare,
   onAction,
@@ -102,38 +97,15 @@ export const DealDetailActions: React.FC<DealDetailActionsProps> = ({
           <span>Share Deal</span>
         </ModernButton>
 
-        {isEditing ? (
-          <div className="flex items-center space-x-2">
-            <ModernButton
-              variant="primary"
-              size="sm"
-              onClick={onSave}
-              loading={isSaving}
-              className="flex items-center space-x-2"
-            >
-              <Save className="w-4 h-4" />
-              <span>Save</span>
-            </ModernButton>
-            <ModernButton
-              variant="outline"
-              size="sm"
-              onClick={onCancel}
-              className="flex items-center space-x-2"
-            >
-              <X className="w-4 h-4" />
-              <span>Cancel</span>
-            </ModernButton>
-          </div>
-        ) : (
-          <ModernButton
-            variant="primary"
-            size="sm"
-            onClick={() => onAction('edit')}
-            className="flex items-center space-x-2"
-          >
-            <span>Edit Deal</span>
-          </ModernButton>
-        )}
+        <ModernButton
+          variant="primary"
+          size="sm"
+          onClick={() => onAction('edit')}
+          className="flex items-center space-x-2"
+        >
+          <Pencil className="w-4 h-4" />
+          <span>Edit Deal</span>
+        </ModernButton>
       </div>
 
       {/* AI Agent Integration */}

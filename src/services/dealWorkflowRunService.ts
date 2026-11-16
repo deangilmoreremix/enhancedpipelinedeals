@@ -2,8 +2,8 @@
  * Deal-view workflow helpers over the real tables:
  *  - deal_workflows (list applicable workflows, persist the enable/disable toggle)
  *  - workflow_executions (this deal's recent runs + last run per workflow, realtime with a poll fallback)
- *  - POST /api/workflow/run (netlify/functions/workflow-run-now.ts): processes queued workflow events and due
- *    delayed steps now. It is NOT scoped to one workflow or one deal, and it needs an admin / manager role.
+ *  - POST /api/workflow/run {action:'manual', workflowId, dealId} (netlify/functions/workflow-run-now.ts): runs ONE
+ *    active workflow against ONE deal now. Needs an admin / manager role.
  */
 import { supabase, isSupabaseConfigured } from '../lib/core/supabaseClient';
 import { isDemoMode } from '../config/demoMode';
@@ -107,7 +107,7 @@ export class RunNowError extends Error {
   }
 }
 
-export interface RunNowSummary { events: number; executions: number; skipped: number; failed: number; resumed: number; errors: string[] }
+export interface RunNowResult { executionId?: string; status?: string }
 
 /** Maps an HTTP status from the run-now endpoint to a user-facing message. */
 export function runNowMessage(status: number, serverError?: string): { kind: RunNowErrorKind; message: string } {
@@ -118,11 +118,15 @@ export function runNowMessage(status: number, serverError?: string): { kind: Run
   return { kind: 'error', message: serverError || `Run failed (${status})` };
 }
 
-/** POST /api/workflow/run. Resolves with the batch summary; rejects with RunNowError. */
-export async function runWorkflowsNow(): Promise<RunNowSummary> {
+/** POST /api/workflow/run (manual): runs one workflow on one deal. Resolves with the execution; rejects with RunNowError. */
+export async function runWorkflowNow(workflowId: string, dealId: string): Promise<RunNowResult> {
   let res: Response;
   try {
-    res = await authedFetch(RUN_NOW_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+    res = await authedFetch(RUN_NOW_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'manual', workflowId, dealId }),
+    });
   } catch (e) {
     throw new RunNowError('unavailable', `Could not reach the workflow runner: ${errorMessage(e)}`);
   }
@@ -131,10 +135,7 @@ export async function runWorkflowsNow(): Promise<RunNowSummary> {
     const m = runNowMessage(res.status, body?.error);
     throw new RunNowError(m.kind, m.message, res.status);
   }
-  return {
-    events: body.events ?? 0, executions: body.executions ?? 0, skipped: body.skipped ?? 0,
-    failed: body.failed ?? 0, resumed: body.resumed ?? 0, errors: Array.isArray(body.errors) ? body.errors : [],
-  };
+  return { executionId: body.executionId, status: body.status };
 }
 
 /**

@@ -4,7 +4,10 @@ import { useGamificationUpdates } from '../hooks/useGamificationUpdates';
 import { ImageUpload } from './ui/ImageUpload';
 import { AIEnhancedDealCard } from './AIEnhancedDealCard';
 import { EnhancedAIStatusIndicator } from './ui/EnhancedAIStatusIndicator';
-import DealDetail from './DealDetail';
+import DealSidePanel from './DealDetailView/DealSidePanel';
+import NotificationBell from './ui/NotificationBell';
+import FavoriteFolders from './pipeline/FavoriteFolders';
+import PinnedDeals from './pipeline/PinnedDeals';
 import PipelineStats from './PipelineStats';
 import DealAnalytics from './DealAnalytics';
 import { useDealStore } from '../store/dealStore';
@@ -559,6 +562,8 @@ const Pipeline: React.FC = () => {
             </Tooltip>
           </div>
 
+          <FavoriteFolders onOpenDeal={setSelectedDealId} />
+          <NotificationBell />
           <DarkModeToggle />
 
           {/* Pipeline Settings - Twenty Features */}
@@ -575,6 +580,9 @@ const Pipeline: React.FC = () => {
 
         </div>
       </div>
+
+      {/* Pinned deals open in the side panel */}
+      <PinnedDeals onOpenDeal={setSelectedDealId} className="mb-4" />
 
       {/* Stats Section */}
       {showStats && (
@@ -894,11 +902,12 @@ const Pipeline: React.FC = () => {
         onMerged={() => setMergeIds(null)}
       />
 
-      {/* Deal Detail Modal */}
+      {/* Deal side panel (Expand goes to /deals/:id) */}
       {selectedDealId && (
-        <DealDetail
+        <DealSidePanel
           dealId={selectedDealId}
           onClose={() => setSelectedDealId(null)}
+          onOpenDeal={setSelectedDealId}
         />
       )}
 

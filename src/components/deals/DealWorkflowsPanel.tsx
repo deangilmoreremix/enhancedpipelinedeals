@@ -3,11 +3,12 @@ import { Play, Loader2, RefreshCw } from 'lucide-react';
 import { DealWorkflow, getAllWorkflows, assignWorkflowToDeal } from '../../services/dealWorkflowService';
 import {
   DealWorkflowRow, WorkflowRun, listDealWorkflows, listDealRuns, lastRunByWorkflow, setWorkflowActive,
-  runWorkflowsNow, RunNowError, subscribeDealRuns, workflowsAvailable,
+  runWorkflowNow, RunNowError, subscribeDealRuns, workflowsAvailable,
 } from '../../services/dealWorkflowRunService';
 import { usePermissions } from '../../hooks/usePermissions';
 import { useDealStore } from '../../store/dealStore';
 import { EnhancedWorkflowPanel } from '../workflows/EnhancedWorkflowPanel';
+import { BTN } from '../ui/buttonStyles';
 
 const statusClass = (s: string | null) => {
   switch ((s ?? '').toLowerCase()) {
@@ -30,7 +31,7 @@ export const RunStatus: React.FC<{ status: string | null }> = ({ status }) => (
 
 /**
  * Deal workflows (mountable in the deal view): workflows that apply to deals with an enable/disable toggle
- * (persisted on deal_workflows.is_active), a "Run now" button (POST /api/workflow/run) and this deal's recent runs
+ * (persisted on deal_workflows.is_active), a per-workflow "Run now" button (POST /api/workflow/run, manual: one workflow on this deal) and this deal's recent runs
  * (workflow_executions, realtime + poll). Set `showDesigner={false}` to hide the canvas editor.
  */
 export const DealWorkflowsPanel: React.FC<{
@@ -49,7 +50,7 @@ export const DealWorkflowsPanel: React.FC<{
   const [runs, setRuns] = useState<WorkflowRun[]>([]);
   const [loading, setLoading] = useState(available);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [running, setRunning] = useState(false);
+  const [running, setRunning] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
   const [toggling, setToggling] = useState<string | null>(null);
   const [selected, setSelected] = useState('');
@@ -104,20 +105,18 @@ export const DealWorkflowsPanel: React.FC<{
     }
   };
 
-  const runNow = async () => {
-    setRunning(true);
+  const runNow = async (w: DealWorkflowRow) => {
+    if (!dealId) return;
+    setRunning(w.id);
     setNotice(null);
     try {
-      const s = await runWorkflowsNow();
-      setNotice({
-        ok: s.errors.length === 0 && s.failed === 0,
-        text: `Processed ${s.events} event(s): ${s.executions} run(s) started, ${s.failed} failed, ${s.resumed} resumed.${s.errors.length ? ` Errors: ${s.errors.join('; ')}` : ''}`,
-      });
+      const r = await runWorkflowNow(w.id, dealId);
+      setNotice({ ok: r.status !== 'failed', text: `Ran "${w.name}" on this deal: ${r.status ?? 'completed'}.` });
       await loadAll();
     } catch (e) {
       setNotice({ ok: false, text: e instanceof RunNowError ? e.message : 'Run failed' });
     } finally {
-      setRunning(false);
+      setRunning(null);
     }
   };
 
@@ -141,15 +140,12 @@ export const DealWorkflowsPanel: React.FC<{
           <div>
             <h4 className="text-base font-semibold text-gray-900 dark:text-white">Workflows</h4>
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              "Run now" processes queued workflow events and due delayed steps immediately (all workflows, not only this deal). Requires an admin or manager role.
+              "Run now" runs that one workflow on this deal immediately. The workflow must be enabled; an admin or manager role is required.
             </p>
           </div>
           <div className="flex gap-2">
             <button type="button" onClick={() => void loadAll()} aria-label="Refresh workflows" className="rounded-lg border border-gray-300 p-2 text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700">
               <RefreshCw className="h-4 w-4" />
-            </button>
-            <button type="button" onClick={() => void runNow()} disabled={running || !available} className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-2 text-sm text-white hover:bg-blue-700 disabled:opacity-50">
-              {running ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}Run now
             </button>
           </div>
         </div>
@@ -178,6 +174,17 @@ export const DealWorkflowsPanel: React.FC<{
                       {last ? <>Last run <RunStatus status={last.status} /> {when(last.started_at)}</> : 'Never run'}
                     </p>
                   </div>
+                  <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    aria-label={`Run ${w.name} now`}
+                    title={!dealId ? 'Open a deal to run a workflow' : !w.is_active ? 'Enable the workflow to run it' : undefined}
+                    onClick={() => void runNow(w)}
+                    disabled={!dealId || !w.is_active || running !== null}
+                    className={BTN}
+                  >
+                    {running === w.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}Run now
+                  </button>
                   <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
                     <input
                       type="checkbox"
@@ -189,6 +196,7 @@ export const DealWorkflowsPanel: React.FC<{
                     />
                     {w.is_active ? 'Enabled' : 'Disabled'}
                   </label>
+                  </div>
                 </li>
               );
             })}

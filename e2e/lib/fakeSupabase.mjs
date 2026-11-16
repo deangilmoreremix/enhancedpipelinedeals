@@ -123,6 +123,40 @@ export class FakeSupabase {
       survivor.updated_at = now();
       return { ...survivor };
     };
+    // migration 20260811000008 RPCs
+    const norm = x => String(x ?? '').trim().replace(/\s+/g, ' ').toLowerCase();
+this.rpcHandlers.find_duplicate_deals = ({ p_title, p_company, p_contact_id = null, p_exclude = null }) => {
+    const nt = norm(p_title); const nc = norm(p_company);
+    if (!nt) return [];
+    return this.table('deals')
+      .filter(d => !d.deleted_at && d.id !== p_exclude && ((norm(d.title) === nt && norm(d.company) === nc) || (p_contact_id && d.contact_id === p_contact_id && (norm(d.title).includes(nt) || nt.includes(norm(d.title))))))
+      .map(d => ({ id: d.id, title: d.title, company: d.company, value: d.value, stage: d.stage, reason: norm(d.title) === nt && norm(d.company) === nc ? 'same_title_company' : 'same_contact_similar_title' }))
+      .slice(0, 20);
+  };
+  this.rpcHandlers.clone_deal = ({ p_id, p_include_related = false }) => {
+    const src = this.table('deals').find(d => d.id === p_id);
+    if (!src) throw Object.assign(new Error('deal not found'), { code: 'P0002' });
+    const newId = uuid();
+    const pos = Math.max(0, ...this.table('deals').filter(d => d.stage === src.stage && !d.deleted_at).map(d => Number(d.position) || 0)) + 1;
+    this.table('deals').push({ ...src, id: newId, title: `${src.title ?? ''} (copy)`, position: pos, is_favorite: false, deleted_at: null, created_at: now(), updated_at: now() });
+    if (p_include_related) {
+      for (const n of this.table('notes').filter(r => r.deal_id === p_id)) this.table('notes').push({ ...n, id: uuid(), deal_id: newId });
+      for (const t of this.table('tasks').filter(r => r.deal_id === p_id)) this.table('tasks').push({ ...t, id: uuid(), deal_id: newId, status: 'todo' });
+    }
+    return newId;
+  };
+  this.rpcHandlers.purge_deals = ({ p_ids }) => {
+    const ids = (p_ids || []).filter(id => this.table('deals').some(d => d.id === id && d.deleted_at));
+    this.tables.tasks = this.table('tasks').filter(t => !ids.includes(t.deal_id));
+    this.tables.favorites = this.table('favorites').filter(f => !(f.entity_type === 'deal' && ids.includes(f.entity_id)));
+    this.tables.deals = this.table('deals').filter(d => !ids.includes(d.id));
+    return ids.length;
+  };
+  this.rpcHandlers.restore_deals = ({ p_ids }) => {
+    let n = 0;
+    for (const d of this.table('deals')) if ((p_ids || []).includes(d.id) && d.deleted_at) { d.deleted_at = null; d.updated_at = now(); n++; }
+    return n;
+  };
     this.rpcHandlers.set_rls_mode = ({ mode }) => mode;
     this.rpcHandlers.get_workflow_run_history = ({ p_limit = 50, p_workflow_id = null } = {}) => this.runHistoryView().filter(r => !p_workflow_id || r.workflow_id === p_workflow_id).slice(0, p_limit);
   }

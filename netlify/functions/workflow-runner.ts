@@ -286,6 +286,41 @@ export async function runWorkflowBatch(deps: StepDeps, opts: { maxEvents?: numbe
   return summary;
 }
 
+/**
+ * Manually runs ONE workflow against ONE deal (the "Run now" button on the deal record).
+ * Records the run as execution `manual:<workflowId>:<dealId>:<ts>`; the workflow must be active.
+ */
+export async function runWorkflowManually(
+  deps: StepDeps,
+  input: { workflowId: string; dealId: string }
+): Promise<RunActionResult> {
+  const db = deps.db;
+  const { data: wf, error: wfError } = await db.from('deal_workflows').select('*').eq('id', input.workflowId).maybeSingle();
+  if (wfError) return { ok: false, error: wfError.message };
+  if (!wf) return { ok: false, error: 'Workflow not found' };
+  const workflow = wf as WorkflowRow & { is_active?: boolean };
+  if (workflow.is_active === false) return { ok: false, error: 'Workflow is not active' };
+  const { data: deal } = await db.from('deals').select('*').eq('id', input.dealId).is('deleted_at', null).maybeSingle();
+  if (!deal) return { ok: false, error: 'Deal not found' };
+
+  const id = `manual:${input.workflowId}:${input.dealId}:${Date.now()}`;
+  const ctx: StepContext = {
+    recordId: input.dealId,
+    recordType: 'deal',
+    inputData: { ...(deal as Record<string, unknown>), record: deal, eventType: 'manual' },
+    variables: {},
+    workflowId: workflow.id
+  };
+  const startedAt = new Date();
+  const result = await runWorkflowGraph(workflow.stages ?? [], ctx, deps);
+  await saveExecution(db, {
+    id, workflowId: workflow.id, triggerType: 'manual',
+    recordId: input.dealId, recordType: 'deal', startedAt, result, context: ctx, attempt: 1
+  });
+  if (result.resumes.length) await scheduleResumes(db, id, workflow.id, result, ctx);
+  return { ok: result.status !== 'failed', executionId: id, status: result.status, error: result.error?.message };
+}
+
 export interface RunActionResult { ok: boolean; error?: string; executionId?: string; status?: string; resumed?: number }
 
 /** Re-runs a recorded execution from its original context as a new execution (`rerun:<id>:<ts>`). */

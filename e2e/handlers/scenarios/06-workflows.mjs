@@ -313,6 +313,19 @@ export default async function ({ t, openai, supa, loadFunction }) {
     supa.reset(baseSeed()); supa.rpc.check_rate_limit = () => { throw new Error('boom'); };
     try { assert.equal((await callV2(runNow, { body: {}, token: 'manager-jwt' })).status, 503); } finally { delete supa.rpc.check_rate_limit; }
   });
+  await t('workflow-run-now manual: runs ONE workflow on ONE deal; validates input; unknown workflow/deal -> 422; non-admin 403', async () => {
+    supa.reset(baseSeed());
+    assert.equal((await asAdmin({ body: { action: 'manual' } })).status, 400);
+    assert.equal((await asAdmin({ body: { action: 'manual', workflowId: 'nope', dealId: 'd1' } })).status, 422);
+    assert.equal((await asAdmin({ body: { action: 'manual', workflowId: 'w1', dealId: 'nope' } })).status, 422);
+    assert.equal((await callV2(runNow, { body: { action: 'manual', workflowId: 'w1', dealId: 'd1' }, token: 'good-jwt' })).status, 403);
+    const r = await asAdmin({ body: { action: 'manual', workflowId: 'w1', dealId: 'd1' } });
+    const j = await jsonOf(r);
+    assert.equal(r.status, 200, JSON.stringify(j));
+    assert.match(j.executionId, /^manual:w1:d1:\d+$/);
+    const row = execs().find((x) => x.id === j.executionId);
+    assert.ok(row); assert.equal(row.record_id, 'd1'); assert.equal(row.trigger_type, 'manual');
+  });
   await t('workflow-run-now role gate: member / viewer -> 403; anon key -> 401 (or 403 when anon is allowed); manager / admin / service key -> 200; nothing executes for rejected callers', async () => {
     supa.reset(baseSeed({ workflow_events: [event()] }));
     const n0 = supa.log.length;

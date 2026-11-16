@@ -5,7 +5,7 @@
  * Scheduled invocation lives in workflow-runner.ts.
  */
 import { authUser, callerRole, rateLimited, CORS_HEADERS } from './_openai';
-import { rerunExecution, resumeExecution, runWorkflowBatch, serviceClient } from './workflow-runner';
+import { rerunExecution, resumeExecution, runWorkflowBatch, runWorkflowManually, serviceClient } from './workflow-runner';
 
 const RUN_NOW_LIMIT = 6;
 const RUN_NOW_WINDOW_SECONDS = 60;
@@ -44,7 +44,16 @@ export default async (req: Request): Promise<Response> => {
   if (allowed === null) return reply(503, { ok: false, error: 'Rate limit check unavailable' });
   if (!allowed) return reply(429, { ok: false, error: 'Rate limit exceeded' });
   // Optional body: { action: 'rerun' | 'resume', executionId } re-runs / resumes one recorded run.
-  const body = (await req.json().catch(() => ({}))) as { action?: string; executionId?: string };
+  const body = (await req.json().catch(() => ({}))) as { action?: string; executionId?: string; workflowId?: string; dealId?: string };
+  if (body.action === 'manual') {
+    if (!body.workflowId || !body.dealId) return reply(400, { ok: false, error: 'workflowId and dealId are required' });
+    try {
+      const r = await runWorkflowManually({ db }, { workflowId: body.workflowId, dealId: body.dealId });
+      return reply(r.ok ? 200 : 422, r);
+    } catch (e) {
+      return reply(500, { ok: false, error: e instanceof Error ? e.message : 'Run failed' });
+    }
+  }
   if (body.executionId && (body.action === 'rerun' || body.action === 'resume')) {
     try {
       const r = body.action === 'rerun'

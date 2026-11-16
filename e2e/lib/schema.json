@@ -2965,6 +2965,11 @@
                     "UPDATE": [
                         "Allow service role full access"
                     ]
+                },
+                "authenticated": {
+                    "SELECT": [
+                        "challenges_select_authenticated"
+                    ]
                 }
             },
             "columns": {
@@ -3055,6 +3060,14 @@
                     "name": "Allow service role full access",
                     "roles": [
                         "service_role"
+                    ],
+                    "permissive": "PERMISSIVE"
+                },
+                {
+                    "cmd": "SELECT",
+                    "name": "challenges_select_authenticated",
+                    "roles": [
+                        "authenticated"
                     ],
                     "permissive": "PERMISSIVE"
                 }
@@ -4536,6 +4549,11 @@
                     "UPDATE": [
                         "Allow service role full access"
                     ]
+                },
+                "authenticated": {
+                    "SELECT": [
+                        "achievements_select_authenticated"
+                    ]
                 }
             },
             "columns": {
@@ -4608,6 +4626,14 @@
                     "name": "Allow service role full access",
                     "roles": [
                         "service_role"
+                    ],
+                    "permissive": "PERMISSIVE"
+                },
+                {
+                    "cmd": "SELECT",
+                    "name": "achievements_select_authenticated",
+                    "roles": [
+                        "authenticated"
                     ],
                     "permissive": "PERMISSIVE"
                 }
@@ -15301,9 +15327,42 @@
             "deal-images": {
                 "public": true,
                 "file_size_limit": 10485760
+            },
+            "contact-avatars": {
+                "public": true,
+                "file_size_limit": 2097152
+            },
+            "deal-attachments": {
+                "public": false,
+                "file_size_limit": 10485760
+            },
+            "contact-documents": {
+                "public": false,
+                "file_size_limit": 10485760
             }
         },
         "policies": [
+            {
+                "cmd": "DELETE",
+                "name": "Authenticated delete contact-avatars",
+                "roles": [
+                    "authenticated"
+                ]
+            },
+            {
+                "cmd": "DELETE",
+                "name": "Authenticated delete contact-documents",
+                "roles": [
+                    "authenticated"
+                ]
+            },
+            {
+                "cmd": "DELETE",
+                "name": "Authenticated delete deal-attachments",
+                "roles": [
+                    "authenticated"
+                ]
+            },
             {
                 "cmd": "DELETE",
                 "name": "Authenticated delete deal-files",
@@ -15319,6 +15378,27 @@
                 ]
             },
             {
+                "cmd": "SELECT",
+                "name": "Authenticated read contact-documents",
+                "roles": [
+                    "authenticated"
+                ]
+            },
+            {
+                "cmd": "SELECT",
+                "name": "Authenticated read deal-attachments",
+                "roles": [
+                    "authenticated"
+                ]
+            },
+            {
+                "cmd": "UPDATE",
+                "name": "Authenticated update contact-avatars",
+                "roles": [
+                    "authenticated"
+                ]
+            },
+            {
                 "cmd": "UPDATE",
                 "name": "Authenticated update deal-files",
                 "roles": [
@@ -15328,6 +15408,27 @@
             {
                 "cmd": "UPDATE",
                 "name": "Authenticated update deal-images",
+                "roles": [
+                    "authenticated"
+                ]
+            },
+            {
+                "cmd": "INSERT",
+                "name": "Authenticated write contact-avatars",
+                "roles": [
+                    "authenticated"
+                ]
+            },
+            {
+                "cmd": "INSERT",
+                "name": "Authenticated write contact-documents",
+                "roles": [
+                    "authenticated"
+                ]
+            },
+            {
+                "cmd": "INSERT",
+                "name": "Authenticated write deal-attachments",
                 "roles": [
                     "authenticated"
                 ]
@@ -15364,6 +15465,14 @@
             },
             {
                 "cmd": "SELECT",
+                "name": "Public read contact-avatars",
+                "roles": [
+                    "anon",
+                    "authenticated"
+                ]
+            },
+            {
+                "cmd": "SELECT",
                 "name": "Public read deal-files",
                 "roles": [
                     "anon",
@@ -15388,6 +15497,27 @@
             {
                 "cmd": "ALL",
                 "name": "Service role manage ai-images",
+                "roles": [
+                    "service_role"
+                ]
+            },
+            {
+                "cmd": "ALL",
+                "name": "Service role manage contact-avatars",
+                "roles": [
+                    "service_role"
+                ]
+            },
+            {
+                "cmd": "ALL",
+                "name": "Service role manage contact-documents",
+                "roles": [
+                    "service_role"
+                ]
+            },
+            {
+                "cmd": "ALL",
+                "name": "Service role manage deal-attachments",
                 "roles": [
                     "service_role"
                 ]

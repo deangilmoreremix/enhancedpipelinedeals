@@ -524,16 +524,11 @@ class SupabaseImageService {
         return { success: false, error: 'Supabase not configured' };
       }
 
-      // Create bucket if it doesn't exist
-      const { error: bucketError } = await this.supabase.storage.createBucket(this.BUCKET_NAME, {
-        public: true,
-        allowedMimeTypes: this.ALLOWED_TYPES,
-        fileSizeLimit: this.MAX_FILE_SIZE
-      });
-
-      // If bucket already exists, that's okay
-      if (bucketError && !bucketError.message.includes('already exists')) {
-        return { success: false, error: bucketError.message };
+      // The bucket is created by the Supabase migrations (a user key cannot create buckets); only verify it exists.
+      const { data: buckets, error: listError } = await this.supabase.storage.listBuckets();
+      if (listError) return { success: false, error: listError.message };
+      if (!buckets?.some(b => b.name === this.BUCKET_NAME)) {
+        return { success: false, error: `Storage bucket ${this.BUCKET_NAME} is missing - apply the latest Supabase migrations` };
       }
 
       return { success: true };

@@ -56,8 +56,8 @@ for (const m of modes) {
         const kv = process.env.E2E_STRICT_KNOWN ? null : knownFor(v);
         if (kv) { known.set(kv.id, (known.get(kv.id) || 0) + 1); continue; } const k = `${v.kind}|${v.method}|${v.target}|${v.code}`; (uniq.get(k) || uniq.set(k, { v, n: 0 }).get(k)).n++; }
       for (const { v, n } of uniq.values()) { checks.push({ ok: false, msg: 'violation' }); notes.push(`FAIL: contract violation [${v.kind}] ${v.method} ${v.target} ${v.code}${n > 1 ? ' x' + n : ''}: ${v.message}`); }
-      for (const e of f.unmetExpectations()) { checks.push({ ok: false, msg: 'expectation' }); notes.push(`FAIL: expected violation never happened: ${String(e.match instanceof RegExp ? e.match : JSON.stringify(e.match))}`); }
-      for (const [id, n] of known) { const kv = knownFor({ ...f.violations.find(v => knownFor(v)?.id === id) }); notes.push(`KNOWN app bug ${id} x${n} (${kv.src}): ${kv.why.slice(0, 90)}...`); }
+      for (const e of f.unmetExpectations()) { checks.push({ ok: false, msg: 'expectation' }); notes.push(`FAIL: expected violation never happened: ${String(e.match instanceof RegExp ? e.match : JSON.stringify(e.match, (k, v) => (v instanceof RegExp ? String(v) : v)))}`); }
+      if (known.size) notes.push('KNOWN app bugs (see lib/knownViolations.mjs): ' + [...known].map(([id, n]) => `${id} x${n}`).join(', '));
       const nExp = f.violations.filter(v => v.expected).length; if (nExp) notes.push(`${nExp} expected violation(s) observed`);
     }
     if (checks.some(c => !c.ok)) status = 'FAIL';

@@ -4,6 +4,7 @@
 import * as B from '../lib/board.mjs';
 import { defaultSeed } from '../lib/fakeSupabase.mjs';
 import { DEFAULT_USER } from '../lib/browser.mjs';
+import { knownFor } from '../lib/knownViolations.mjs';
 const VP = { width: 1700, height: 1300 };
 const D = (n) => `00000000-0000-4000-8000-00000000000${n}`;
 const nodes = (page) => page.locator('.react-flow__node');
@@ -15,7 +16,7 @@ function seedWithWorkflow() {
   seed.deal_workflows = [{ id: 'f0000000-0000-4000-8000-000000000001', name: 'Seed WF', description: 'seeded', category: 'custom', is_active: true, version: 1, created_at: now, updated_at: now,
     stages: [
       { id: 't1', name: 'Stage changed', type: 'trigger', position: { x: 100, y: 40 }, connections: ['a1'], isActive: true, trigger: { id: 'tr', type: 'stage_changed', name: 'Stage changed', description: '', config: {} } },
-      { id: 'a1', name: 'Create task', type: 'action', position: { x: 100, y: 220 }, connections: [], isActive: true, action: { id: 'ac', type: 'create_task', name: 'Create task', description: '', config: {} } },
+      { id: 'a1', name: 'Create task', type: 'action', position: { x: 100, y: 220 }, connections: [], isActive: true, action: { id: 'ac', type: 'create_task', name: 'Create task', description: '', config: { fields: { title: 'Follow up' } } } },
     ], triggers: [], settings: null, metadata: null }];
   return seed;
 }
@@ -54,7 +55,7 @@ export default [
         ctx.check(fake.table('deal_workflows')[0].name === 'Seed WF renamed', 'fake DB has the new name: ' + fake.table('deal_workflows')[0].name);
         ctx.check(fake.requests('deal_workflows', 'PATCH').length >= 1, 'saved with PATCH');
         await page.goto('/workflows'); await page.waitForTimeout(1500);
-        ctx.check(await page.getByText('Seed WF renamed').count() > 0, 'renamed workflow listed after reload');
+        ctx.check(await page.locator('h3', { hasText: 'Seed WF renamed' }).count() > 0, 'renamed workflow listed after reload');
         await shot('edited');
         await context.close();
       });
@@ -64,7 +65,7 @@ export default [
         await page.goto('/workflows'); await page.waitForTimeout(1500);
         await page.getByLabel('Delete workflow').first().click(); await page.waitForTimeout(1200);
         ctx.check(fake.table('deal_workflows').length === 0, 'row deleted in fake DB');
-        ctx.check(await page.getByText('Seed WF').count() === 0, 'card gone from the list');
+        ctx.check(await page.locator('h3', { hasText: 'Seed WF' }).count() === 0, 'card gone from the list');
         ctx.check(await page.getByText(/No Workflows Yet/).count() > 0, 'empty state shown');
         await context.close();
         // second page: the row vanishes server-side (RLS-hidden/stale) -> DELETE matches 0 rows -> 200 [] -> UI must not pretend success
@@ -98,8 +99,10 @@ export default [
       });
       await ctx.step('anon (signed out) can also read flags (policy: Allow anon read access)', async () => {
         const fake = ctx.fake(seed()); const { page, context } = await ctx.page({ fake, viewport: VP, anon: true });
+        fake.expectViolation({ kind: 'rls', code: 'RLS-ZERO-ROWS', target: /as anon$/ }); // signed-out users see nothing on authenticated-only tables
         await page.goto('/'); await page.waitForTimeout(1500);
         ctx.check(await flag(page, 'deal_timeline') === true, 'anon sees deal_timeline');
+        await page.evaluate(() => fetch('http://fake.supabase.local/rest/v1/deal_workflows?select=id', { headers: { apikey: 'fake' } }).then(r => r.json())); // deterministic anon zero-row read
         ctx.check(fake.requests('feature_flags', 'GET').every(r => r.role === 'anon'), 'reads were anon');
         await context.close();
       });
@@ -238,8 +241,9 @@ export default [
         await page.goto('/'); await page.waitForTimeout(1000);
         const ex = [
           { kind: 'schema', code: 'PGRST205' }, { kind: 'schema', code: '42703' }, { kind: 'schema', code: 'PGRST204' },
-          { kind: 'schema', code: 'PGRST202' }, { kind: 'storage' }, { kind: 'rls', code: '42501' }, { kind: 'rls', code: 'RLS-ZERO-ROWS' }];
+          { kind: 'schema', code: 'PGRST202' }, { kind: 'storage', target: /object\/public\/deal-files/ }, { kind: 'rls', code: '42501', target: /deal_workflows INSERT as anon/ }, { kind: 'rls', code: 'RLS-ZERO-ROWS', target: /deal_workflows DELETE as anon/ }];
         ex.forEach(e => fake.expectViolation(e));
+        const declared = () => fake.unexpectedViolations().filter(v => !knownFor(v));
         const call = (path, init = {}, bearer = 'fake.jwt.token') => page.evaluate(async ([p, i, b]) => {
           const r = await fetch('http://fake.supabase.local' + p, { ...i, headers: { apikey: 'fake', authorization: 'Bearer ' + b, 'content-type': 'application/json', prefer: 'return=representation', ...(i.headers || {}) } });
           let j = null; try { j = await r.json(); } catch {} return { status: r.status, code: j && j.code, body: j };
@@ -261,7 +265,7 @@ export default [
         ctx.check(st === 400, 'public URL on private bucket rejected: ' + st);
         st = await page.evaluate(async () => (await fetch('http://fake.supabase.local/storage/v1/object/public/deal-images/x.png', { headers: { apikey: 'fake' } })).status);
         ctx.check(st === 404, 'public bucket serves public URL (404 only because object is absent): ' + st);
-        ctx.check(fake.unexpectedViolations().length === 0, 'all violations were declared: ' + JSON.stringify(fake.unexpectedViolations().map(v => v.target)));
+        ctx.check(declared().length === 0, 'all violations were declared: ' + JSON.stringify(declared().map(v => v.target)));
         await context.close();
       });
     }

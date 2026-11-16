@@ -252,7 +252,7 @@ export class FakeSupabase {
 
     if (path.startsWith('rpc/')) {
       const fn = path.slice(4);
-      this.log.push({ method: 'RPC', table: fn, body });
+      this.log.push({ method: 'RPC', table: fn, body, role });
       const args = (method === 'POST' && body && !Array.isArray(body)) ? body : Object.fromEntries(q);
       const m = S.matchRpc(fn, Object.keys(args || {}));
       if (m.error) return bad(m.error, 'schema', `rpc/${fn}`);
@@ -264,7 +264,7 @@ export class FakeSupabase {
     }
 
     const table = path;
-    this.log.push({ method, table, query: u.search, body });
+    this.log.push({ method, table, query: u.search, body, role });
     const def = S.tableDef(table);
     if (!def) return bad(S.errTable(table), 'schema', table);
     const forced = this.takeFail(table, method); if (forced) return this.json(route, forced.status, forced.body);

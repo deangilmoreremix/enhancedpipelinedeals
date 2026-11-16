@@ -70,6 +70,11 @@ export function addLocalNotification(
 export const __resetLocalNotifications = (): void => { localNotifications = []; localListeners.clear(); };
 
 // ---- API -------------------------------------------------------------------------------------
+// Notifications created locally (demo mode, or mentions in locally created deals) are merged with
+// the remote ones so the bell always shows both.
+const isLocalId = (id: string) => localNotifications.some(n => n.id === id);
+const byNewest = (a: UserNotification, b: UserNotification) => (a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0);
+
 export async function listNotifications(limit = NOTIFICATION_LIMIT): Promise<UserNotification[]> {
   if (!isNotificationsRemote()) return localNotifications.slice(0, limit);
   const { data, error } = await supabase
@@ -78,19 +83,20 @@ export async function listNotifications(limit = NOTIFICATION_LIMIT): Promise<Use
     .order('created_at', { ascending: false })
     .limit(limit);
   if (error) throw error;
-  return (data ?? []).map(notificationFromRow);
+  return [...(data ?? []).map(notificationFromRow), ...localNotifications].sort(byNewest).slice(0, limit);
 }
 
 export async function countUnread(): Promise<number> {
-  if (!isNotificationsRemote()) return localNotifications.filter(n => !n.readAt).length;
+  const local = localNotifications.filter(n => !n.readAt).length;
+  if (!isNotificationsRemote()) return local;
   const { count, error } = await supabase.from(TABLE).select('id', { count: 'exact', head: true }).is('read_at', null);
   if (error) throw error;
-  return count ?? 0;
+  return (count ?? 0) + local;
 }
 
 export async function markRead(id: string): Promise<void> {
   const now = new Date().toISOString();
-  if (!isNotificationsRemote()) {
+  if (!isNotificationsRemote() || isLocalId(id)) {
     const cur = localNotifications.find(n => n.id === id);
     if (!cur) return;
     const next = { ...cur, readAt: cur.readAt ?? now };
@@ -110,11 +116,10 @@ export async function markRead(id: string): Promise<void> {
 
 export async function markAllRead(): Promise<void> {
   const now = new Date().toISOString();
-  if (!isNotificationsRemote()) {
-    localNotifications = localNotifications.map(n => (n.readAt ? n : { ...n, readAt: now }));
-    localNotifications.forEach(n => emitLocal({ event: 'UPDATE', notification: n }));
-    return;
-  }
+  const unreadLocal = localNotifications.filter(n => !n.readAt);
+  localNotifications = localNotifications.map(n => (n.readAt ? n : { ...n, readAt: now }));
+  unreadLocal.forEach(n => emitLocal({ event: 'UPDATE', notification: { ...n, readAt: now } }));
+  if (!isNotificationsRemote()) return;
   // Zero rows is a valid outcome here (nothing unread), so no assertRowsAffected.
   const { error } = await supabase.from(TABLE).update({ read_at: now }).is('read_at', null);
   if (error) throw error;
@@ -123,22 +128,23 @@ export async function markAllRead(): Promise<void> {
 export type SubscriptionStatus = 'SUBSCRIBED' | 'CHANNEL_ERROR' | 'TIMED_OUT' | 'CLOSED' | string;
 
 /**
- * Subscribe to changes of the signed-in user's notifications. Returns an unsubscribe function.
- * `onStatus` reports channel health so callers can fall back to polling.
+ * Subscribe to changes of the signed-in user's notifications (plus local ones). Returns an
+ * unsubscribe function. `onStatus` reports channel health so callers can fall back to polling.
  */
 export async function subscribeToNotifications(
   onChange: (c: NotificationChange) => void,
   onStatus?: (s: SubscriptionStatus) => void,
 ): Promise<() => void> {
+  localListeners.add(onChange);
+  const stopLocal = () => { localListeners.delete(onChange); };
   if (!isNotificationsRemote()) {
-    localListeners.add(onChange);
     onStatus?.('SUBSCRIBED');
-    return () => { localListeners.delete(onChange); };
+    return stopLocal;
   }
   const userId = await getCurrentUserId();
   if (!userId) {
     onStatus?.('CLOSED');
-    return () => undefined;
+    return stopLocal;
   }
   const channel = supabase
     .channel(`${TABLE}:${userId}:${Math.random().toString(36).slice(2, 8)}`)
@@ -154,7 +160,7 @@ export async function subscribeToNotifications(
       },
     )
     .subscribe((status: string) => onStatus?.(status));
-  return () => { try { void supabase.removeChannel(channel); } catch { /* ignore */ } };
+  return () => { stopLocal(); try { void supabase.removeChannel(channel); } catch { /* ignore */ } };
 }
 
 export const NotificationService = { listNotifications, countUnread, markRead, markAllRead, subscribeToNotifications, addLocalNotification };

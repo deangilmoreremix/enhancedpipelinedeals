@@ -98,15 +98,18 @@ export function formatFieldValue(field: string, value: unknown, ctx: FieldFormat
 }
 
 /** "Value: $40,000 -> $55,000" */
-export const formatFieldChange = (c: FieldChange & { fromLabel?: string | null; toLabel?: string | null }, ctx: FieldFormatContext = {}): string =>
-  `${formatFieldLabel(c.field, ctx.definitions)}: ${formatFieldValue(c.field, c.from, ctx, c.fromLabel)} → ${formatFieldValue(c.field, c.to, ctx, c.toLabel)}`;
+export const formatFieldChange = (
+  c: FieldChange & { fromLabel?: string | null; toLabel?: string | null }, ctx: FieldFormatContext = {}, labelOverride?: string,
+): string =>
+  `${labelOverride || formatFieldLabel(c.field, ctx.definitions)}: ${formatFieldValue(c.field, c.from, ctx, c.fromLabel)} → ${formatFieldValue(c.field, c.to, ctx, c.toLabel)}`;
 
 export function fieldChangeToEvent(
   row: RawFieldChangeRow, ctx: FieldFormatContext = {}, actorName?: (id: string | null | undefined) => string | undefined,
 ): FieldTimelineEvent {
   const m = row.metadata ?? {};
-  const field = String(m.field ?? 'field');
-  const title = formatFieldChange({ field, from: m.from, to: m.to, fromLabel: m.from_label, toLabel: m.to_label }, ctx);
+  // Custom-field rows carry the bare custom key + custom:true + the definition label
+  const field = m.custom && m.field && !customKeyOf(String(m.field)) ? `custom_fields.${m.field}` : String(m.field ?? 'field');
+  const title = formatFieldChange({ field, from: m.from, to: m.to, fromLabel: m.from_label, toLabel: m.to_label }, ctx, typeof m.label === 'string' ? m.label : undefined);
   return {
     id: `a-${row.id}`, kind: 'activity', type: FIELD_CHANGED, title, at: new Date(row.created_at), field,
     actor: (typeof m.actor === 'string' && m.actor) || actorName?.(row.created_by) || undefined,
@@ -225,7 +228,10 @@ export async function loadFieldChangeEvents(dealId: string, ctx: FieldFormatCont
 
 /** Replace generic 'field_changed' events from the base timeline with the formatted ones, newest first. */
 export function mergeFieldChangeEvents(base: TimelineEvent[], fieldEvents: FieldTimelineEvent[]): TimelineEvent[] {
-  return [...base.filter(e => e.type !== FIELD_CHANGED), ...fieldEvents].sort((a, b) => b.at.getTime() - a.at.getTime());
+  // The audit trigger may also write a generic 'updated' row for the same edit: drop it when a field event is within the window
+  const near = (e: TimelineEvent) => fieldEvents.some(f => Math.abs(f.at.getTime() - e.at.getTime()) <= 2000);
+  const kept = base.filter(e => e.type !== FIELD_CHANGED && !(e.type === 'updated' && e.kind === 'activity' && !e.diffs && near(e)));
+  return [...kept, ...fieldEvents].sort((a, b) => b.at.getTime() - a.at.getTime());
 }
 
 export const TimelineAdapter = { formatFieldChange, formatFieldValue, diffDealUpdates, recordLocalFieldChanges, loadFieldChangeEvents, mergeFieldChangeEvents };

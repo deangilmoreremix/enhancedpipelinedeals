@@ -159,14 +159,9 @@ export const CommandPalette: React.FC<{ /** Mount already open (used when lazily
         }
         case 'duplicate': {
           if (!d) return;
-          const { id: _id, createdAt: _c, updatedAt: _u, ...rest } = d;
-          const copy = await dealStore.getState().createDeal({
-            ...rest,
-            title: `${d.title || d.company || 'Deal'} (copy)`,
-            isFavorite: false
-          } as Omit<Deal, 'id' | 'createdAt' | 'updatedAt'>);
+          const newId = await dealStore.getState().cloneDeal(id, { includeRelated: true });
           pushToast('success', 'Deal duplicated');
-          navigate(`/deals/${copy.id}`);
+          navigate(`/deals/${newId}`);
           break;
         }
         case 'open-contact':

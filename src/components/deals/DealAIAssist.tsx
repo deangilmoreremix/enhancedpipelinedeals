@@ -2,23 +2,11 @@ import React, { useState } from 'react';
 import { Sparkles, Target, Loader2 } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Alert } from '../ui/Alert';
-import { callAI } from '../../services/aiClient';
-import { canUseRemote, errorMessage } from '../../services/dealRecordShared';
+import { canUseRemote } from '../../services/dealRecordShared';
+import { AnalysisMode, DealAnalysis, aiErrorMessage, analyzeDeal } from '../../services/dealAssistantService';
+import { useDealStore } from '../../store/dealStore';
 
-interface DealAnalysis {
-  insights?: string[];
-  risks?: string[];
-  recommendations?: string[];
-  suggestedNextSteps?: string[];
-  notes?: string;
-}
-
-type Mode = 'summary' | 'next';
-
-const PROMPTS: Record<Mode, string> = {
-  summary: 'Summarize this deal for a colleague in 3-5 sentences: where it stands, key stakeholders, open risks. Put the summary in "notes" and 3-5 key points in "insights". Respond in JSON.',
-  next: 'What is the single best next action for this deal? Put it in "suggestedNextSteps" (max 3, most important first, each one concrete and time-bound) with the reasoning in "recommendations". Respond in JSON.',
-};
+export { DealAssistantPanel } from './ai/DealAssistantPanel';
 
 const List: React.FC<{ title: string; items?: string[] }> = ({ title, items }) =>
   items && items.length > 0 ? (
@@ -30,20 +18,21 @@ const List: React.FC<{ title: string; items?: string[] }> = ({ title, items }) =
     </div>
   ) : null;
 
-/** Optional OpenAI helpers (via the server gateway, which loads the deal's CRM context from dealId). */
+/** Summarize / next-best-action helpers; shares dealAssistantService with the assistant and insights tab. */
 export const DealAIAssist: React.FC<{ dealId: string }> = ({ dealId }) => {
-  const [loading, setLoading] = useState<Mode | null>(null);
-  const [result, setResult] = useState<{ mode: Mode; data: DealAnalysis; text: string } | null>(null);
+  const deal = useDealStore(s => s.deals[dealId]);
+  const [loading, setLoading] = useState<Exclude<AnalysisMode, 'insights'> | null>(null);
+  const [result, setResult] = useState<{ mode: 'summary' | 'next'; data: DealAnalysis; text: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const run = async (mode: Mode) => {
+  const run = async (mode: 'summary' | 'next') => {
     setLoading(mode);
     setError(null);
     try {
-      const res = await callAI<DealAnalysis>('deal_analyze', { dealId, instructions: PROMPTS[mode], input: PROMPTS[mode] });
-      setResult({ mode, data: res.data ?? {}, text: res.text });
+      const res = await analyzeDeal(dealId, mode, deal);
+      setResult({ mode, data: res.data, text: res.text });
     } catch (e) {
-      setError(errorMessage(e, 'AI request failed'));
+      setError(aiErrorMessage(e));
     } finally {
       setLoading(null);
     }
@@ -68,7 +57,7 @@ export const DealAIAssist: React.FC<{ dealId: string }> = ({ dealId }) => {
         </div>
       </div>
       {!canUseRemote(dealId) && (
-        <p className="mb-3 text-xs text-gray-500 dark:text-gray-400">This deal is not saved to the database, so the assistant cannot load its full CRM context.</p>
+        <p className="mb-3 text-xs text-gray-500 dark:text-gray-400">This deal is not saved to the database, so the assistant only sees the fields shown on the card, not its full CRM context.</p>
       )}
       {error && <Alert variant="error"><span className="text-sm">{error}</span></Alert>}
       {loading && <p role="status" className="text-sm text-gray-500 dark:text-gray-400">Thinking...</p>}

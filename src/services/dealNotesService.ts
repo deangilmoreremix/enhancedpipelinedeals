@@ -98,12 +98,12 @@ export async function listNotes(
   });
 }
 
-async function saveMentions(note: DealNote): Promise<void> {
+async function saveMentions(note: DealNote, body: unknown): Promise<void> {
   try {
     await syncNoteMentions({
       noteId: note.id,
       dealId: note.dealId,
-      body: note.body,
+      body,
       excerpt: note.bodyText,
       remote: !!note.dealId && canUseRemote(note.dealId),
     });
@@ -123,7 +123,7 @@ export async function createNote(dealId: string, input: NoteInput): Promise<Deal
       createdAt: now, updatedAt: now, targets,
     };
     localNotes = [note, ...localNotes];
-    await saveMentions(note);
+    await saveMentions(note, input.body);
     return note;
   }
   const cols = primaryColumns(targets);
@@ -147,7 +147,7 @@ export async function createNote(dealId: string, input: NoteInput): Promise<Deal
     if (!isMissingRelation(e)) throw e; // note_targets not deployed yet: legacy columns still link it
   }
   const note = fromRow(data, stored);
-  await saveMentions(note);
+  await saveMentions(note, input.body);
   return note;
 }
 
@@ -167,7 +167,7 @@ export async function updateNote(dealId: string, id: string, input: NoteUpdate):
       updatedAt: now,
     };
     localNotes = localNotes.map(n => (n.id === id ? updated : n));
-    if (input.body !== undefined) await saveMentions(updated);
+    if (input.body !== undefined) await saveMentions(updated, input.body);
     return updated;
   }
   const patch: Record<string, unknown> = { updated_at: now };
@@ -185,7 +185,7 @@ export async function updateNote(dealId: string, id: string, input: NoteUpdate):
     targets = (await fetchTargets('note', [id]).catch(() => ({} as Record<string, RecordTarget[]>)))[id] ?? [];
   }
   const note = fromRow(data[0], targets);
-  if (input.body !== undefined) await saveMentions(note);
+  if (input.body !== undefined) await saveMentions(note, input.body);
   return note;
 }
 

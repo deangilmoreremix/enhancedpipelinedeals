@@ -6,8 +6,16 @@ import { Bold, Italic, List, ListOrdered, Pencil, Plus, Trash2, Check, Loader2, 
 import { Button } from '../ui/Button';
 import { Alert } from '../ui/Alert';
 import {
-  DealNote, createNote, deleteNote, isNotesLocalOnly, listNotes, updateNote,
+  DealNote, createNote, deleteNote, isNotesLocalOnly, listNotes, setNoteTargets, updateNote,
 } from '../../services/dealNotesService';
+import type { RecordTarget } from '../../services/recordTargetsService';
+import { filterUsers } from '../../services/userDirectoryService';
+import { useUserDirectoryStore } from '../../store/userDirectoryStore';
+import { useDealStore } from '../../store/dealStore';
+import { Mention, MentionSuggestionState } from './collab/MentionExtension';
+import { MentionTypeahead } from './collab/MentionTypeahead';
+import { LinkedToRow, SourceBadge } from './collab/LinkedToRow';
+import { NoteBody } from './collab/renderNoteBody';
 import { errorMessage } from '../../services/dealRecordShared';
 import { pushToast } from '../../store/dealRecordStore';
 import { useChildRecordPermissions } from '../../hooks/useChildRecordPermissions';
@@ -20,11 +28,22 @@ type SaveState = 'idle' | 'saving' | 'saved' | 'error';
 interface NoteEditorProps {
   dealId: string;
   note: DealNote | null;
+  canLink: boolean;
   onSaved: (note: DealNote) => void;
   onClose: () => void;
 }
 
-const NoteEditor: React.FC<NoteEditorProps> = ({ dealId, note, onSaved, onClose }) => {
+const NoteEditor: React.FC<NoteEditorProps> = ({ dealId, note, canLink, onSaved, onClose }) => {
+  const [targets, setTargets] = useState<RecordTarget[]>(note?.targets?.length ? note.targets : [{ type: 'deal', id: dealId }]);
+  const targetsRef = useRef(targets);
+  const [suggestion, setSuggestion] = useState<MentionSuggestionState | null>(null);
+  const [activeIdx, setActiveIdx] = useState(0);
+  const users = useUserDirectoryStore(s => s.users);
+  const loadUsers = useUserDirectoryStore(s => s.load);
+  const suggestionRef = useRef<{ list: ReturnType<typeof filterUsers>; idx: number; pick: (i: number) => void }>({ list: [], idx: 0, pick: () => undefined });
+  const dismissedFrom = useRef<number | null>(null);
+  const suggestionStateRef = useRef<MentionSuggestionState | null>(null);
+  useEffect(() => { void loadUsers(); }, [loadUsers]);
   const [saveState, setSaveState] = useState<SaveState>('idle');
   const idRef = useRef<string | null>(note?.id ?? null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -45,7 +64,7 @@ const NoteEditor: React.FC<NoteEditorProps> = ({ dealId, note, onSaved, onClose 
           saved = await updateNote(dealId, idRef.current, payload);
         } else {
           if (!payload.bodyText.trim()) { if (mounted.current) setSaveState('idle'); return; }
-          saved = await createNote(dealId, payload);
+          saved = await createNote(dealId, { ...payload, targets: targetsRef.current });
           idRef.current = saved.id;
         }
         onSaved(saved);
@@ -59,7 +78,26 @@ const NoteEditor: React.FC<NoteEditorProps> = ({ dealId, note, onSaved, onClose 
   }, [dealId, onSaved]);
 
   const editor = useEditor({
-    extensions: [StarterKit, Placeholder.configure({ placeholder: 'Write a note...' })],
+    extensions: [
+      StarterKit,
+      Placeholder.configure({ placeholder: 'Write a note... (type @ to mention a teammate)' }),
+      Mention.configure({
+        onSuggestion: st => {
+          if (!st) { dismissedFrom.current = null; setSuggestion(null); return; }
+          if (dismissedFrom.current === st.range.from) return;
+          setActiveIdx(0);
+          setSuggestion(st);
+        },
+        onKeyDown: e => {
+          const cur = suggestionRef.current;
+          if (e.key === 'ArrowDown') { setActiveIdx(i => (cur.list.length ? (i + 1) % cur.list.length : 0)); return true; }
+          if (e.key === 'ArrowUp') { setActiveIdx(i => (cur.list.length ? (i - 1 + cur.list.length) % cur.list.length : 0)); return true; }
+          if (e.key === 'Enter' || e.key === 'Tab') { if (!cur.list.length) return false; cur.pick(cur.idx); return true; }
+          if (e.key === 'Escape') { dismissedFrom.current = suggestionStateRef.current?.range.from ?? null; setSuggestion(null); return true; }
+          return false;
+        },
+      }),
+    ],
     content: (note?.body as object | null) ?? (note?.bodyText ? `<p>${note.bodyText.replace(/</g, '&lt;')}</p>` : ''),
     autofocus: 'end',
     editorProps: {
@@ -75,6 +113,31 @@ const NoteEditor: React.FC<NoteEditorProps> = ({ dealId, note, onSaved, onClose 
       timer.current = setTimeout(() => { void persist(); }, NOTE_AUTOSAVE_MS);
     },
   });
+
+  const matches = suggestion ? filterUsers(users, suggestion.query).slice(0, 8) : [];
+  suggestionStateRef.current = suggestion;
+  const pickMention = (i: number) => {
+    const u = suggestionRef.current.list[i];
+    const st = suggestionStateRef.current;
+    if (!u || !st || !editor) return;
+    editor.chain().focus().insertContentAt(st.range, [{ type: 'mention', attrs: { id: u.id, label: u.name } }, { type: 'text', text: ' ' }]).run();
+    setSuggestion(null);
+  };
+  suggestionRef.current = { list: matches, idx: activeIdx, pick: pickMention };
+
+  const changeTargets = async (next: RecordTarget[]) => {
+    const prev = targetsRef.current;
+    targetsRef.current = next;
+    setTargets(next);
+    if (!idRef.current) return; // applied when the note is first created
+    try {
+      onSaved(await setNoteTargets(dealId, idRef.current, next));
+    } catch (e) {
+      targetsRef.current = prev;
+      setTargets(prev);
+      toastFailure(e, 'edit', 'note', `Could not update links: ${errorMessage(e)}`);
+    }
+  };
 
   // Flush any pending edit when the editor is closed/unmounted.
   useEffect(() => {
@@ -105,7 +168,13 @@ const NoteEditor: React.FC<NoteEditorProps> = ({ dealId, note, onSaved, onClose 
           <Button size="sm" variant="ghost" onClick={onClose} aria-label="Close editor"><X className="mr-1 h-3.5 w-3.5" />Done</Button>
         </div>
       </div>
-      <EditorContent editor={editor} />
+      <div className="relative">
+        <EditorContent editor={editor} />
+        {suggestion && (
+          <MentionTypeahead state={suggestion} users={matches} activeIndex={activeIdx} onPick={u => pickMention(matches.findIndex(m => m.id === u.id))} onHover={setActiveIdx} />
+        )}
+      </div>
+      <LinkedToRow className="border-t border-gray-200 px-3 py-2 dark:border-gray-700" targets={targets} onChange={changeTargets} disabled={!canLink} />
     </div>
   );
 };
@@ -121,18 +190,20 @@ export const DealNotes: React.FC<DealNotesProps> = ({ dealId }) => {
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState<{ key: string; note: DealNote | null } | null>(null);
   const localOnly = isNotesLocalOnly(dealId);
+  const contactId = useDealStore(s => s.deals[dealId]?.contactId);
+  const companyId = useDealStore(s => s.deals[dealId]?.companyId);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      setNotes(await listNotes(dealId));
+      setNotes(await listNotes(dealId, { contactId, companyId }));
     } catch (e) {
       setError(errorMessage(e, 'Failed to load notes'));
     } finally {
       setLoading(false);
     }
-  }, [dealId]);
+  }, [dealId, contactId, companyId]);
 
   useEffect(() => { setEditing(null); void load(); }, [load]);
 
@@ -143,6 +214,17 @@ export const DealNotes: React.FC<DealNotesProps> = ({ dealId }) => {
       return next.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
     });
   }, []);
+
+  const relink = async (note: DealNote, targets: RecordTarget[]) => {
+    try {
+      const saved = await setNoteTargets(dealId, note.id, targets);
+      // Unlinking the deal (and its contact/company) takes the note off this tab.
+      setNotes(prev => prev.map(x => (x.id === saved.id ? { ...saved, source: x.source } : x)));
+      void load();
+    } catch (e) {
+      toastFailure(e, 'edit', 'note', `Could not update links: ${errorMessage(e)}`);
+    }
+  };
 
   const remove = async (note: DealNote) => {
     if (!window.confirm('Delete this note?')) return;
@@ -175,7 +257,7 @@ export const DealNotes: React.FC<DealNotesProps> = ({ dealId }) => {
       {error && <Alert variant="error"><span className="text-sm">{error}</span></Alert>}
 
       {editing && editing.note === null && (
-        <NoteEditor key={editing.key} dealId={dealId} note={null} onSaved={onSaved} onClose={() => setEditing(null)} />
+        <NoteEditor key={editing.key} dealId={dealId} note={null} canLink={canCreate} onSaved={onSaved} onClose={() => setEditing(null)} />
       )}
 
       {loading ? (
@@ -190,7 +272,7 @@ export const DealNotes: React.FC<DealNotesProps> = ({ dealId }) => {
           {notes.map(n => (
             <li key={n.id}>
               {editing?.note?.id === n.id ? (
-                <NoteEditor key={editing.key} dealId={dealId} note={editing.note} onSaved={onSaved} onClose={() => setEditing(null)} />
+                <NoteEditor key={editing.key} dealId={dealId} note={editing.note} canLink={canModify('edit', { createdBy: editing.note.createdBy })} onSaved={onSaved} onClose={() => setEditing(null)} />
               ) : (
                 <div className="group rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
                   <div className="mb-2 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
@@ -203,7 +285,11 @@ export const DealNotes: React.FC<DealNotesProps> = ({ dealId }) => {
                       {canModify('delete', { createdBy: n.createdBy }) && <button type="button" aria-label="Delete note" onClick={() => void remove(n)} className="rounded p-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30"><Trash2 className="h-4 w-4" /></button>}
                     </span>
                   </div>
-                  <p className="whitespace-pre-line text-sm leading-relaxed text-gray-800 dark:text-gray-200">{n.bodyText || 'Empty note'}</p>
+                  <NoteBody body={n.body} fallback={n.bodyText} />
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <SourceBadge source={n.source} />
+                    <LinkedToRow targets={n.targets} disabled={!canModify('edit', { createdBy: n.createdBy })} onChange={t => relink(n, t)} />
+                  </div>
                 </div>
               )}
             </li>

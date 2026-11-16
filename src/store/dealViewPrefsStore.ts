@@ -20,11 +20,14 @@ interface DealViewPrefsState {
 }
 
 let inflight: Promise<DealViewPrefs> | null = null;
+/** Bumped on every local mutation so a slower initial load never clobbers a newer optimistic change. */
+let mutations = 0;
 
 export const useDealViewPrefsStore = create<DealViewPrefsState>((set, get) => {
   /** Optimistic apply + persist; roll back (and toast) when the save fails. */
   const mutate = async (next: DealViewPrefs) => {
     const prev = get().prefs;
+    mutations++;
     set({ prefs: next });
     try {
       await savePrefs(next);
@@ -40,8 +43,13 @@ export const useDealViewPrefsStore = create<DealViewPrefsState>((set, get) => {
     getPrefs: async (force = false) => {
       if (get().loaded && !force) return get().prefs;
       if (!inflight) {
+        const startedAt = mutations;
         inflight = loadPrefs()
-          .then(p => { set({ prefs: p, loaded: true }); return p; })
+          .then(p => {
+            if (mutations === startedAt) set({ prefs: p, loaded: true });
+            else set({ loaded: true });
+            return get().prefs;
+          })
           .catch(() => { set({ loaded: true }); return get().prefs; })
           .finally(() => { inflight = null; });
       }
@@ -70,7 +78,7 @@ export const useDealViewPrefsStore = create<DealViewPrefsState>((set, get) => {
       await mutate({ ...get().prefs, pinnedDealIds: cur.filter(x => x !== dealId) });
     },
     isPinned: dealId => get().prefs.pinnedDealIds.includes(dealId),
-    reset: () => { inflight = null; set({ prefs: normalizePrefs({}), loaded: false }); }
+    reset: () => { inflight = null; mutations = 0; set({ prefs: normalizePrefs({}), loaded: false }); }
   };
 });
 

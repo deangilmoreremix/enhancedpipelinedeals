@@ -1,16 +1,23 @@
 import { supabase } from '../lib/core/supabaseClient';
 import type { Deal } from '../types';
+import type { CustomFieldValue } from '../types/customFields';
 import { dealToRow } from './dealMapper';
 import { canUseRemote } from './dealRecordShared';
 
 export const MIN_MERGE = 2;
 export const MAX_MERGE = 9;
 
-export type MergeField = 'title' | 'value' | 'stage' | 'priority' | 'notes';
-export const MERGE_FIELDS: MergeField[] = ['title', 'value', 'stage', 'priority', 'notes'];
-export const MERGE_FIELD_LABELS: Record<MergeField, string> = {
-  title: 'Title', value: 'Value', stage: 'Stage', priority: 'Priority', notes: 'Notes',
+export type CoreMergeField = 'title' | 'company' | 'contact' | 'value' | 'stage' | 'priority' | 'probability' | 'closeDate' | 'dueDate' | 'notes';
+/** A core deal field, or `cf:<key>` for a custom field. */
+export type MergeField = CoreMergeField | `cf:${string}`;
+export const MERGE_FIELDS: CoreMergeField[] = ['title', 'company', 'contact', 'value', 'stage', 'priority', 'probability', 'closeDate', 'dueDate', 'notes'];
+export const MERGE_FIELD_LABELS: Record<CoreMergeField, string> = {
+  title: 'Title', company: 'Company', contact: 'Contact', value: 'Value', stage: 'Stage', priority: 'Priority',
+  probability: 'Probability', closeDate: 'Close date', dueDate: 'Due date', notes: 'Notes',
 };
+export const CUSTOM_PREFIX = 'cf:';
+export const isCustomMergeField = (f: string): f is `cf:${string}` => f.startsWith(CUSTOM_PREFIX);
+export const customMergeField = (key: string): MergeField => `${CUSTOM_PREFIX}${key}`;
 
 export const normalizeText = (s: string | undefined | null): string =>
   (s ?? '').toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
@@ -65,18 +72,27 @@ export function findDuplicatesOf(deal: Deal, pool: Deal[]): Array<{ deal: Deal; 
 
 export const COMBINE_NOTES = 'combine';
 
-/** Fields where the selected deals disagree. */
+const cmp = (v: unknown): string => {
+  if (v === null || v === undefined || v === '') return '';
+  if (v instanceof Date) return String(v.getTime());
+  if (typeof v === 'string') return v.trim();
+  return typeof v === 'object' ? JSON.stringify(v) : String(v);
+};
+const fieldValue = (d: Deal, f: MergeField): unknown =>
+  isCustomMergeField(f) ? d.customFields?.[f.slice(CUSTOM_PREFIX.length)] : d[f];
+
+/** Fields where the selected deals disagree (core fields first, then custom fields as `cf:<key>`). */
 export function getConflicts(deals: Deal[]): MergeField[] {
-  return MERGE_FIELDS.filter(f => {
-    const vals = new Set(deals.map(d => String(d[f] ?? '')));
-    return vals.size > 1;
-  });
+  const keys = [...new Set(deals.flatMap(d => Object.keys(d.customFields ?? {})))].sort();
+  const all: MergeField[] = [...MERGE_FIELDS, ...keys.map(customMergeField)];
+  return all.filter(f => new Set(deals.map(d => cmp(fieldValue(d, f)))).size > 1);
 }
 
 /**
  * Build the survivor's field updates from conflict choices.
  * `choices[field]` is the id of the deal whose value wins (default: survivor); for `notes`
- * it may also be COMBINE_NOTES to concatenate every distinct note.
+ * it may also be COMBINE_NOTES to concatenate every distinct note. Choosing another deal's company /
+ * contact also takes its companyId / contactId; custom fields are sent as one merged `customFields`.
  */
 export function resolveMergeUpdates(
   survivor: Deal,
@@ -85,8 +101,9 @@ export function resolveMergeUpdates(
 ): Partial<Deal> {
   const updates: Partial<Deal> = {};
   const byId = new Map(all.map(d => [d.id, d]));
-  for (const field of MERGE_FIELDS) {
-    const choice = choices[field];
+  const target = updates as Record<string, unknown>;
+  let custom: Record<string, CustomFieldValue> | undefined;
+  for (const [field, choice] of Object.entries(choices) as Array<[MergeField, string | undefined]>) {
     if (!choice || choice === survivor.id) continue;
     if (field === 'notes' && choice === COMBINE_NOTES) {
       const parts = [survivor, ...all.filter(d => d.id !== survivor.id)]
@@ -97,8 +114,18 @@ export function resolveMergeUpdates(
     }
     const src = byId.get(choice);
     if (!src) continue;
-    (updates as Record<string, unknown>)[field] = src[field];
+    if (isCustomMergeField(field)) {
+      custom = custom ?? { ...(survivor.customFields ?? {}) };
+      const key = field.slice(CUSTOM_PREFIX.length);
+      const v = src.customFields?.[key];
+      if (v === undefined || v === null || v === '') delete custom[key]; else custom[key] = v;
+      continue;
+    }
+    target[field] = src[field];
+    if (field === 'company' && src.companyId !== undefined) updates.companyId = src.companyId;
+    if (field === 'contact' && src.contactId !== undefined) updates.contactId = src.contactId;
   }
+  if (custom) updates.customFields = custom;
   return updates;
 }
 

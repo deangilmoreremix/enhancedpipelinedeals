@@ -1,24 +1,61 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { User, Mail, Phone, Calendar, FileText } from 'lucide-react';
+import { User, Mail, Phone, Calendar, FileText, Eye } from 'lucide-react';
 import { DealDetailOverviewProps } from './types';
+import type { Deal } from '../../types';
 import { daysSince } from '../../utils/dateUtils';
 import { initialsAvatar } from '../../utils/avatar';
 import { formatMoney } from '../../utils/currencyMicros';
 import {
   CompanyPicker, ContactRelationField, CurrencyField, DateField, OwnerPicker, PRIORITY_OPTIONS, SelectField, StageField, TextField,
 } from '../deals/fields';
+import { CustomFieldsSection } from '../deals/fields/CustomFieldsSection';
+import { SystemFieldsPanel } from '../deals/fields/SystemFieldsPanel';
+import { ManageFieldsDialog } from '../deals/fields/ManageFieldsDialog';
+import { useFieldDefinitions } from '../deals/fields/useFieldDefinitions';
+import { groupDefinitions } from '../../services/customFieldService';
+import { diffDealUpdates, recordLocalFieldChanges } from '../../services/timelineAdapter';
 import { RelatedCompanyCard } from './RelatedRecordCards';
 import { DealAIAssist } from '../deals/DealAIAssist';
 import { usePermissions } from '../../hooks/usePermissions';
 import StaleDealIndicator from '../deals/StaleDealIndicator';
 
-export const DealDetailOverview: React.FC<DealDetailOverviewProps> = ({
+export const CORE_FIELD_GROUP = 'Deal details';
+export const SYSTEM_FIELD_GROUP = 'System fields';
+
+export interface DealDetailOverviewExtraProps {
+  /** Field groups to hide (core 'Deal details', 'System fields' and custom-field group names). */
+  hiddenFieldGroups?: string[];
+  /** Called when a group is toggled in the Show/hide groups popover. */
+  onToggleFieldGroup?: (group: string) => void;
+}
+
+export const DealDetailOverview: React.FC<DealDetailOverviewProps & DealDetailOverviewExtraProps> = ({
   deal,
   editedDeal,
   linkedContact,
-  onUpdateDeal,
+  onUpdateDeal: persistUpdate,
+  hiddenFieldGroups,
+  onToggleFieldGroup,
 }) => {
+  const [manageOpen, setManageOpen] = useState(false);
+  const [groupsOpen, setGroupsOpen] = useState(false);
+  const [localHidden, setLocalHidden] = useState<string[]>([]);
+  const { definitions } = useFieldDefinitions();
+  const hidden = hiddenFieldGroups ?? localHidden;
+  const toggleGroup = (g: string) => {
+    if (onToggleFieldGroup) onToggleFieldGroup(g);
+    if (hiddenFieldGroups === undefined) setLocalHidden(p => (p.includes(g) ? p.filter(x => x !== g) : [...p, g]));
+  };
+  const allGroups = [CORE_FIELD_GROUP, ...groupDefinitions(definitions).map(g => g.group), SYSTEM_FIELD_GROUP];
+
+  // Demo/local deals have no audit trigger: log field edits so the Timeline shows "Value: a -> b"
+  const onUpdateDeal = async (updates: Partial<Deal>) => {
+    const changes = diffDealUpdates(editedDeal, updates);
+    const result = await persistUpdate(updates);
+    if (changes.length) void recordLocalFieldChanges(deal.id, changes);
+    return result;
+  };
   const { allowed } = usePermissions();
   const readOnly = !allowed('edit', 'deal', editedDeal);
   const currencyCode = editedDeal.currencyCode ?? 'USD';
@@ -56,7 +93,29 @@ export const DealDetailOverview: React.FC<DealDetailOverviewProps> = ({
         </div>
       </div>
 
+      <div className="relative flex justify-end">
+        <button
+          type="button"
+          onClick={() => setGroupsOpen(o => !o)}
+          aria-expanded={groupsOpen}
+          className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+        >
+          <Eye className="h-4 w-4" />Show/hide groups
+        </button>
+        {groupsOpen && (
+          <div role="menu" aria-label="Field groups" className="absolute right-0 top-full z-20 mt-1 w-56 rounded-lg border border-gray-200 bg-white p-2 shadow-lg dark:border-gray-700 dark:bg-gray-800">
+            {allGroups.map(g => (
+              <label key={g} className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-sm text-gray-800 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-700">
+                <input type="checkbox" checked={!hidden.includes(g)} onChange={() => toggleGroup(g)} aria-label={g} />
+                {g}
+              </label>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* Deal fields (click to edit; Enter/blur saves, Esc cancels) */}
+      {!hidden.includes(CORE_FIELD_GROUP) && (
       <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
         <TextField
           label="Title"
@@ -115,6 +174,11 @@ export const DealDetailOverview: React.FC<DealDetailOverviewProps> = ({
           <DateField disabled={readOnly} label="Due date" value={editedDeal.dueDate} onSave={d => onUpdateDeal({ dueDate: d ?? undefined })} />
         </div>
       </div>
+      )}
+
+      <CustomFieldsSection deal={editedDeal} disabled={readOnly} hiddenGroups={hidden} onUpdateDeal={onUpdateDeal} onManage={() => setManageOpen(true)} />
+      {!hidden.includes(SYSTEM_FIELD_GROUP) && <SystemFieldsPanel deal={editedDeal} />}
+      <ManageFieldsDialog isOpen={manageOpen} onClose={() => setManageOpen(false)} />
 
       <StaleDealIndicator deal={editedDeal} />
 

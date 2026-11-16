@@ -1,11 +1,14 @@
 import type { Handler } from "@netlify/functions";
-import { SPECIALISTS, runSpecialistOnce } from "./_sdrAgents";
-import { authorize, json } from "./_openai";
+import { SPECIALISTS, runSpecialistOnce, checkLeadAccess } from "./_sdrAgents";
+import { authUser, rateLimited, json, CORS_HEADERS } from "./_openai";
 import { superpowersSkillRegistry } from "../../skills/registry";
 
 export const handler: Handler = async (event) => {
   try {
-    if (!(await authorize(event.headers.authorization || event.headers.Authorization))) return json(401, { error: "Unauthorized" });
+    if (event.httpMethod === "OPTIONS") return { statusCode: 204, headers: CORS_HEADERS, body: "" };
+    const authHeader = event.headers.authorization || event.headers.Authorization;
+    const user = await authUser(authHeader);
+    if (!user) return json(401, { error: "Unauthorized" });
     if (event.httpMethod === "GET") {
       // List skills - combine SDR agents and superpowers skills
       const sdrSkills = SPECIALISTS.map((s) => ({
@@ -44,8 +47,13 @@ export const handler: Handler = async (event) => {
         };
       }
 
+      if (rateLimited(`skills-api:${user.id}`, 30)) return json(429, { error: "Rate limit exceeded" });
+
       // SDR agents run server-side with the OpenAI Agents SDK
       if (SPECIALISTS.some((a) => a.id === skillId)) {
+        // SDR tools run with the service role: the caller must be able to see the contact under RLS first
+        const denied = await checkLeadAccess(authHeader, contactId);
+        if (denied) return json(denied.endsWith("not found") ? 404 : 500, { error: denied });
         const result = await runSpecialistOnce(skillId, contactId, body.goal);
         return {
           statusCode: 200,

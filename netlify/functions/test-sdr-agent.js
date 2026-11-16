@@ -1,13 +1,9 @@
 // netlify/functions/test-sdr-agent.js
 import { buildSdrAgent } from "./_aiClients";
+import { CORS_HEADERS, rateLimited, json } from "./_openai";
+import { authenticate } from "./_agentAuth";
 
-function corsHeaders() {
-  return {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "POST,OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
-  };
-}
+const corsHeaders = () => CORS_HEADERS;
 
 export const handler = async (event, context) => {
   if (event.httpMethod === "OPTIONS") {
@@ -21,6 +17,10 @@ export const handler = async (event, context) => {
       body: JSON.stringify({ error: "Method not allowed" }),
     };
   }
+
+  const auth = await authenticate(event);
+  if (auth.error) return auth.error;
+  if (rateLimited(`test-sdr:${auth.user.id}`, 20)) return json(429, { error: "Rate limit exceeded" });
 
   try {
     const body = JSON.parse(event.body || "{}");

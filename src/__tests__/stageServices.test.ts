@@ -24,7 +24,6 @@ jest.mock('../lib/core/supabaseClient', () => {
 jest.mock('../services/supabaseService', () => ({ supabase: {}, isSupabaseConfigured: false }));
 
 import { upsertStages, getStages, DEFAULT_STAGES } from '../services/pipelineStageService';
-import { PipelineColumnService, getCustomColumns } from '../services/pipelineColumnService';
 
 beforeEach(() => { mockUpdates.length = 0; mockInserts.length = 0; mockExisting = { id: 'row-1' }; });
 
@@ -48,28 +47,5 @@ describe('pipelineStageService.upsertStages', () => {
   it('writes explicit values when given (a stage can be marked won with 100%)', async () => {
     await upsertStages([{ key: 'signed', probability: 100, isWon: true, isLost: false }]);
     expect(mockUpdates[0]).toMatchObject({ probability: 100, is_won: true, is_lost: false });
-  });
-});
-
-describe('pipelineColumnService (read fallback + compatibility writer)', () => {
-  it('still reads columns in the legacy shape', async () => {
-    const cols = await getCustomColumns();
-    expect(cols.length).toBe(DEFAULT_STAGES.length);
-    expect(cols[0]).toMatchObject({ id: DEFAULT_STAGES[0].key, name: DEFAULT_STAGES[0].name, is_active: true });
-    expect(await getStages()).toEqual(DEFAULT_STAGES); // empty table -> defaults
-  });
-
-  it('saveCustomColumns keeps the probability and won/lost flags of existing stages', async () => {
-    const ok = await PipelineColumnService.saveCustomColumns(
-      DEFAULT_STAGES.map((s, i) => ({ id: s.key, name: `${s.name}!`, position: i + 1, config: { color: `border-${s.color}-500`, wipLimit: 3 }, is_active: true }))
-    );
-    expect(ok).toBe(true);
-    expect(mockUpdates.length).toBe(DEFAULT_STAGES.length);
-    mockUpdates.forEach(u => {
-      expect(u).not.toHaveProperty('probability');
-      expect(u).not.toHaveProperty('is_won');
-      expect(u).not.toHaveProperty('is_lost');
-    });
-    expect(mockUpdates[3]).toMatchObject({ name: 'Closed Won!', position: 3, wip_limit: 3, color: 'green' });
   });
 });

@@ -210,6 +210,19 @@
                 "security_definer": true
             }
         ],
+        "check_rate_limit": [
+            {
+                "args": "p_key text, p_limit integer, p_window_seconds integer",
+                "execute": [
+                    "authenticated",
+                    "service_role"
+                ],
+                "returns": "boolean",
+                "identity": "p_key text, p_limit integer, p_window_seconds integer",
+                "volatility": "v",
+                "security_definer": true
+            }
+        ],
         "deals_tsv_update": [
             {
                 "args": "",
@@ -4197,6 +4210,35 @@
                     ],
                     "permissive": "PERMISSIVE"
                 }
+            ],
+            "replica_identity": "d"
+        },
+        "rate_limits": {
+            "rls": true,
+            "kind": "table",
+            "by_role": {
+            },
+            "columns": {
+                "key": {
+                    "type": "text",
+                    "default": null,
+                    "nullable": false,
+                    "generated": false
+                },
+                "count": {
+                    "type": "integer",
+                    "default": "0",
+                    "nullable": false,
+                    "generated": false
+                },
+                "window_start": {
+                    "type": "timestamp with time zone",
+                    "default": null,
+                    "nullable": false,
+                    "generated": false
+                }
+            },
+            "policies": [
             ],
             "replica_identity": "d"
         },

@@ -1,13 +1,8 @@
 // netlify/functions/update-autopilot-settings.js
-import { supabase } from "./_supabaseClient";
+import { CORS_HEADERS } from "./_openai";
+import { authenticate } from "./_agentAuth";
 
-function corsHeaders() {
-  return {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "POST,OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
-  };
-}
+const corsHeaders = () => CORS_HEADERS;
 
 export const handler = async (event, context) => {
   if (event.httpMethod === "OPTIONS") {
@@ -21,6 +16,10 @@ export const handler = async (event, context) => {
       body: JSON.stringify({ error: "Method not allowed" }),
     };
   }
+
+  const auth = await authenticate(event);
+  if (auth.error) return auth.error;
+  const supabase = auth.db; // acts as the caller: RLS decides which settings rows are writable
 
   try {
     const body = JSON.parse(event.body || "{}");
@@ -52,6 +51,14 @@ export const handler = async (event, context) => {
       .eq("contact_id", contactId)
       .select()
       .single();
+
+    if (error && error.code === "PGRST116") {
+      return {
+        statusCode: 404,
+        headers: corsHeaders(),
+        body: JSON.stringify({ error: "Settings not found" }),
+      };
+    }
 
     if (error) {
       console.error("[update-autopilot-settings] error:", error);

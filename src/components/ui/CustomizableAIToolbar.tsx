@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { callAI } from '../../services/aiClient';
 import {
   BarChart3,
   Mail,
@@ -286,48 +287,32 @@ export const AIGoalsButton: React.FC<{
 }> = ({ entityType, entityId, entityData, size = 'sm', variant = 'primary', className = '' }) => {
   const [showGoalsModal, setShowGoalsModal] = useState(false);
   const [aiGoals, setAiGoals] = useState<string[]>([]);
+  const [aiError, setAiError] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
 
   const handleClick = async () => {
     setShowGoalsModal(true);
     setIsGenerating(true);
 
+    setAiError(null);
+    setAiGoals([]);
     try {
-      // Simulate AI goal generation
-      await new Promise(resolve => setTimeout(resolve, 2000));
-
-      // Generate goals based on entity type and data
-      const goals = generateAIGoals(entityType, entityData);
+      const isDeal = entityType === 'deal';
+      const res = await callAI<{ goals?: Array<{ title: string; rationale?: string }> }>('deal_goals', {
+        input: `Generate goals for this ${entityType}. Respond in JSON.`,
+        ...(isDeal && entityId ? { dealId: entityId } : {}),
+        ...(entityType === 'contact' && entityId ? { contactId: entityId } : {}),
+        context: { entityType, record: entityData },
+      });
+      const goals = (res.data?.goals ?? []).map(g => (g.rationale ? `${g.title} - ${g.rationale}` : g.title)).filter(Boolean);
+      if (goals.length === 0) setAiError('The AI returned no goals for this record.');
       setAiGoals(goals);
     } catch (error) {
       console.error('Failed to generate AI goals:', error);
-      setAiGoals(['Failed to generate goals. Please try again.']);
+      setAiError(error instanceof Error ? `Could not generate goals: ${error.message}` : 'Could not generate goals.');
     } finally {
       setIsGenerating(false);
     }
-  };
-
-  const generateAIGoals = (type: string, data: any): string[] => {
-    if (type === 'contact') {
-      const goals = [
-        `Increase engagement with ${data.name} by scheduling a follow-up call within 3 days`,
-        `Send personalized email campaign highlighting ${data.company}'s specific needs`,
-        `Arrange a product demo tailored to ${data.industry || 'their industry'}`,
-        `Develop a customized proposal addressing their pain points`,
-        `Build relationship through LinkedIn networking and content sharing`
-      ];
-      return goals;
-    } else if (type === 'deal') {
-      const goals = [
-        `Advance ${data.title} to the next stage by ${new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString()}`,
-        `Increase deal probability to ${Math.min(data.probability + 20, 95)}% through targeted follow-up`,
-        `Secure stakeholder buy-in from ${data.contact} and decision makers`,
-        `Address any concerns and provide additional value propositions`,
-        `Close the deal within the next ${Math.ceil(data.value / 10000)} weeks`
-      ];
-      return goals;
-    }
-    return ['Generate personalized goals based on entity data'];
   };
 
   return (
@@ -393,6 +378,9 @@ export const AIGoalsButton: React.FC<{
                     </span>
                   </div>
 
+                  {aiError && (
+                    <p role="alert" className="text-sm text-red-600 dark:text-red-400">{aiError}</p>
+                  )}
                   <div className="space-y-3">
                     {aiGoals.map((goal, index) => (
                       <div
@@ -415,14 +403,14 @@ export const AIGoalsButton: React.FC<{
                       Close
                     </button>
                     <button
+                      disabled={aiGoals.length === 0}
                       onClick={() => {
-                        // Could implement goal tracking/saving functionality here
-                        console.log('Saving AI goals:', aiGoals);
+                        try { void navigator.clipboard?.writeText(aiGoals.map(g => `- ${g}`).join('\n')); } catch { /* clipboard unavailable */ }
                         setShowGoalsModal(false);
                       }}
-                      className="px-4 py-2 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-lg hover:from-indigo-600 hover:to-purple-700 transition-colors"
+                      className="px-4 py-2 disabled:opacity-50 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-lg hover:from-indigo-600 hover:to-purple-700 transition-colors"
                     >
-                      Save Goals
+                      Copy goals
                     </button>
                   </div>
                 </div>

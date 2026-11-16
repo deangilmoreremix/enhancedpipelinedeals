@@ -84,3 +84,13 @@ export function filterUsers(users: DirectoryUser[], q: string): DirectoryUser[] 
   const needle = q.trim().toLowerCase();
   return needle ? users.filter(u => u.name.toLowerCase().includes(needle)) : users;
 }
+
+/** Users matching a typeahead query (mentions / assignee pickers); empty query returns the first `limit`. */
+export function searchUsers(users: DirectoryUser[], q: string, limit = 8): DirectoryUser[] {
+  return filterUsers(users, q).slice(0, limit);
+}
+
+/** Name for a user id, or null when unknown. */
+export function userNameById(users: DirectoryUser[], id: string | null | undefined): string | null {
+  return (id ? users.find(u => u.id === id)?.name : undefined) ?? null;
+}

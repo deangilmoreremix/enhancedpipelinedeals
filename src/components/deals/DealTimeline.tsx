@@ -7,6 +7,10 @@ import { useDealStore } from '../../store/dealStore';
 import {
   TimelineEvent, TimelineValueFormatter, defaultHistoryValue, formatDiff, getDealTimeline,
 } from '../../services/dealTimelineService';
+import {
+  FIELD_CHANGED, FieldTimelineEvent, loadFieldChangeEvents, mergeFieldChangeEvents, subscribeLocalFieldChanges,
+} from '../../services/timelineAdapter';
+import { useFieldDefinitions } from './fields/useFieldDefinitions';
 
 interface DealTimelineProps {
   dealId: string;
@@ -26,6 +30,7 @@ const iconFor = (e: TimelineEvent) => {
     case 'stage_changed': return <TrendingUp className="h-4 w-4" />;
     case 'deleted': return <Trash2 className="h-4 w-4" />;
     case 'restored': return <RotateCcw className="h-4 w-4" />;
+    case 'field_changed':
     case 'updated': return <Pencil className="h-4 w-4" />;
     default: return <Clock className="h-4 w-4" />;
   }
@@ -49,6 +54,7 @@ const dayLabel = (d: Date) => (isToday(d) ? 'Today' : isYesterday(d) ? 'Yesterda
 const FILTERS: Array<{ id: string; label: string; match: (e: TimelineEvent) => boolean }> = [
   { id: 'all', label: 'All activity', match: () => true },
   { id: 'changes', label: 'Deal changes', match: e => e.kind === 'activity' },
+  { id: 'fields', label: 'Changes', match: e => e.type === FIELD_CHANGED },
   { id: 'note', label: 'Notes', match: e => e.kind === 'note' },
   { id: 'task', label: 'Tasks', match: e => e.kind === 'task' },
   { id: 'file', label: 'Files', match: e => e.kind === 'file' },
@@ -56,6 +62,10 @@ const FILTERS: Array<{ id: string; label: string; match: (e: TimelineEvent) => b
 
 const DealTimeline: React.FC<DealTimelineProps> = ({ dealId, isLoading = false, maxItems = 100, showFilters = false, refreshKey }) => {
   const stages = useDealStore(s => s.stages);
+  const currencyCode = useDealStore(s => s.deals[dealId]?.currencyCode);
+  const { definitions } = useFieldDefinitions();
+  const [localTick, setLocalTick] = useState(0);
+  useEffect(() => subscribeLocalFieldChanges(() => setLocalTick(t => t + 1)), []);
   const [events, setEvents] = useState<TimelineEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
@@ -69,11 +79,17 @@ const DealTimeline: React.FC<DealTimelineProps> = ({ dealId, isLoading = false, 
     let alive = true;
     setLoading(true);
     getDealTimeline(dealId, { limit: maxItems * 2, formatValue })
+      .then(async list => {
+        const fieldEvents = await loadFieldChangeEvents(dealId, {
+          stageName: k => stages.find(s => s.key === k)?.name ?? k, currencyCode, definitions,
+        });
+        return mergeFieldChangeEvents(list, fieldEvents);
+      })
       .then(list => { if (alive) setEvents(list); })
       .catch(err => console.error('Error loading deal timeline:', err))
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
-  }, [dealId, maxItems, formatValue, refreshKey]);
+  }, [dealId, maxItems, formatValue, refreshKey, localTick, stages, currencyCode, definitions]);
 
   const visible = useMemo(() => {
     const f = FILTERS.find(x => x.id === filter) ?? FILTERS[0];
@@ -146,6 +162,9 @@ const DealTimeline: React.FC<DealTimelineProps> = ({ dealId, isLoading = false, 
                           <h5 className="text-sm font-medium text-gray-900 dark:text-white">{e.title}</h5>
                           <time dateTime={e.at.toISOString()} className="flex-shrink-0 text-xs text-gray-500 dark:text-gray-400">{format(e.at, 'p')}</time>
                         </div>
+                        {(e as FieldTimelineEvent).actor && (
+                          <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">by {(e as FieldTimelineEvent).actor}</p>
+                        )}
                         {e.description && <p className="mt-1 whitespace-pre-line text-sm text-gray-600 dark:text-gray-300">{e.description}</p>}
                         {e.diffs && (
                           <ul className="mt-1 space-y-0.5">

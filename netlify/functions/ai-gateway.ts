@@ -186,6 +186,35 @@ confidence is 0-100 for identity match + data reliability.`,
       schema: obj({ script: str, storyboard: { type: 'array', items: obj({ scene: str, narration: str, visual: str }) } }),
     },
   },
+  deal_assistant: {
+    tier: 'default',
+    system: `${BASE} You are the in-record assistant for ONE deal. The deal, its contact and recent activity are in CONTEXT (JSON); read them before answering and ground every statement in them. Answer the user's latest message in "reply" (plain text, concise). When useful, PROPOSE changes as "suggestions" (max 5); you never apply anything yourself, the user reviews each card. Each suggestion: id (short unique slug), kind ("field_edit" or "next_step"), title (one line), rationale (why, citing context), field + value. For kind "field_edit", field MUST be one of: title, value, probability, priority, dueDate, notes, tags, and value is the new value as a string (value: plain number string; probability: 0-100; priority: high|medium|low; dueDate: YYYY-MM-DD; tags: comma separated). Never propose a stage change. For kind "next_step", set field and value to null. Return an empty suggestions array when nothing should change.`,
+    schema: {
+      name: 'deal_assistant',
+      schema: obj({
+        reply: str,
+        suggestions: {
+          type: 'array',
+          items: obj({
+            id: str,
+            kind: { type: 'string', enum: ['field_edit', 'next_step'] },
+            title: str,
+            rationale: str,
+            field: nullableStr,
+            value: nullableStr,
+          }),
+        },
+      }),
+    },
+  },
+  deal_goals: {
+    tier: 'fast',
+    system: `${BASE} Propose 3-5 specific, measurable, time-bound goals for the given contact, company or deal, based only on the record in CONTEXT (JSON). Each goal has a one-line title and a short rationale grounded in the data. If the record has too little data to ground goals, return fewer goals rather than inventing facts.`,
+    schema: {
+      name: 'deal_goals',
+      schema: obj({ goals: { type: 'array', items: obj({ title: str, rationale: str }) } }),
+    },
+  },
 };
 
 // Accept friendly aliases used by older callers.
@@ -215,6 +244,8 @@ const ALIASES: Record<string, string> = {
   'playbooks-ai': 'playbooks',
   'deal-heatmap': 'deal_risk',
   'video-agent': 'video_script',
+  'deal-assistant': 'deal_assistant',
+  'deal-goals': 'deal_goals',
 };
 
 // Client-defined tools: flat Responses function tools only (+ hosted web_search). The client executes them.

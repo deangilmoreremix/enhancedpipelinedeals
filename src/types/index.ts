@@ -1,3 +1,6 @@
+import type { CustomFieldValue } from './customFields';
+export * from './customFields';
+
 export const DEFAULT_STAGE_KEYS = ['qualification', 'proposal', 'negotiation', 'closed-won', 'closed-lost'] as const;
 export type StageKey = typeof DEFAULT_STAGE_KEYS[number];
 
@@ -42,7 +45,7 @@ export interface Deal {
 
   // AI and enhanced features
   isFavorite?: boolean;
-  customFields?: Record<string, string | number | boolean>;
+  customFields?: Record<string, CustomFieldValue>;
   socialProfiles?: {
     linkedin?: string;
     twitter?: string;
@@ -141,7 +144,7 @@ export interface ProbabilityFactor {
 export interface DealActivity {
   id: string;
   dealId: string;
-  type: 'created' | 'updated' | 'stage_changed' | 'contact_added' | 'note_added' | 'email_sent' | 'meeting_scheduled' | 'task_completed' | 'attachment_added' | 'link_added' | 'probability_updated' | 'health_updated' | 'bulk_action';
+  type: 'created' | 'updated' | 'stage_changed' | 'contact_added' | 'note_added' | 'email_sent' | 'meeting_scheduled' | 'task_completed' | 'attachment_added' | 'link_added' | 'probability_updated' | 'health_updated' | 'bulk_action' | 'field_changed';
   title: string;
   description: string;
   metadata?: Record<string, any>;

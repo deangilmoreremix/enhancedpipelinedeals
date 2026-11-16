@@ -34,6 +34,10 @@ interface DealStore {
   
   // Actions
   fetchDeals: () => Promise<void>;
+  /** Hides the bundled demo records (the mock data files are untouched); user-created deals stay. */
+  deleteDemoData: () => Promise<void>;
+  /** Brings the bundled demo records back. */
+  restoreDemoData: () => Promise<void>;
   fetchStages: () => Promise<void>;
   getDeal: (id: string) => Deal | undefined;
   /** Optimistically move a deal to `stageKey` at fractional `position`; rolls back and returns false on failure. */
@@ -140,6 +144,16 @@ export const useDealStore = create<DealStore>((set, get) => ({
         error: 'Failed to load deals - please check your database configuration'
       });
     }
+  },
+
+  deleteDemoData: async () => {
+    getDataSyncService().hideDemoData();
+    await get().fetchDeals();
+  },
+
+  restoreDemoData: async () => {
+    getDataSyncService().restoreDemoData();
+    await get().fetchDeals();
   },
 
   fetchStages: async () => {

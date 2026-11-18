@@ -1,3 +1,4 @@
+import { undoableDelete } from '../../services/undoService';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, MoreHorizontal, Star, Trash2, GitMerge, Archive, Copy, Pin, PinOff } from 'lucide-react';
@@ -6,7 +7,6 @@ import { useDealStore } from '../../store/dealStore';
 import { orderDealIds, neighbours } from './dealOrder';
 import { toggleFavorite } from '../../services/favoritesService';
 import { errorMessage } from '../../services/dealRecordShared';
-import { pushToast } from '../../store/dealRecordStore';
 import { usePermissions } from '../../hooks/usePermissions';
 import { toastFailure } from '../../utils/permissionToast';
 import { BTN_ICON } from '../ui/buttonStyles';
@@ -59,8 +59,8 @@ export const DealRecordHeader: React.FC<DealRecordHeaderProps> = ({ deal, onShow
     setMenu(false);
     if (!window.confirm(`Delete "${deal.title ?? deal.company}"? You can restore it from Deleted deals.`)) return;
     try {
-      await useDealStore.getState().softDeleteDeal(deal.id);
-      pushToast('success', 'Deal moved to Deleted deals');
+      const done = await undoableDelete([deal.id]);
+      if (done.length === 0) throw new Error('The deal could not be deleted');
       navigate(nav.next ? `/deals/${nav.next}` : nav.prev ? `/deals/${nav.prev}` : '/');
     } catch (e) {
       toastFailure(e, 'delete', 'deal', `Could not delete deal: ${errorMessage(e)}`);

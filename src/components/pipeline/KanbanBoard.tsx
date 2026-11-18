@@ -21,6 +21,7 @@ import { BoardSortKey, sortDeals } from './kanban/kanbanUtils';
 import { BoardColumn, PAGE_SIZE, UNCATEGORIZED_ID } from './BoardColumn';
 import { StageMenu } from './StageMenu';
 import { BulkActionBar } from './BulkActionBar';
+import { undoableBulkMove, undoableMoveDeal } from '../../services/undoService';
 import { DealCardIndicators } from '../AIEnhancedDealCard';
 import type { BoardGroupBy } from '../../store/boardViewStore';
 import { GroupedBoard } from './GroupedBoard';
@@ -86,8 +87,6 @@ const StageBoard: React.FC<KanbanBoardProps> = ({
   const perms = usePermissions();
   const canManageStages = perms.allowed('manage_stages', 'stage');
   const allDealsMap = useDealStore(s => s.deals);
-  const moveDeal = useDealStore(s => s.moveDeal);
-  const bulkMoveDeals = useDealStore(s => s.bulkMoveDeals);
   const createDeal = useDealStore(s => s.createDeal);
   const updateStage = useDealStore(s => s.updateStage);
   const reorderStages = useDealStore(s => s.reorderStages);
@@ -221,7 +220,7 @@ const StageBoard: React.FC<KanbanBoardProps> = ({
       }
       if (!sameColumn) {
         void dropSelectionOnStage(group, destStage.key, {
-          stages: visibleStages, deals: allDealsMap, bulkMoveDeals, notify, override: isShiftHeld()
+          stages: visibleStages, deals: allDealsMap, bulkMoveDeals: undoableBulkMove, notify, override: isShiftHeld()
         });
         return;
       }
@@ -248,14 +247,14 @@ const StageBoard: React.FC<KanbanBoardProps> = ({
         return;
       }
       // Cards are displayed sorted, so a precise slot is meaningless: append
-      void moveDeal(deal.id, destStage.key, computeDropPosition(destAll.map(d => d.position ?? 0), destAll.length));
+      void undoableMoveDeal(deal.id, destStage.key, computeDropPosition(destAll.map(d => d.position ?? 0), destAll.length));
       return;
     }
 
     const destVisible = (columns.find(c => c.stage.key === destStage.key)?.deals ?? []).filter(d => d.id !== deal.id);
     const index = getDestinationIndex(destVisible.map(d => d.id), destAll.map(d => d.id), destination.index);
     const position = computeDropPosition(destAll.map(d => d.position ?? 0), index);
-    void moveDeal(deal.id, destStage.key, position);
+    void undoableMoveDeal(deal.id, destStage.key, position);
   };
 
   const handleAddStage = async () => {

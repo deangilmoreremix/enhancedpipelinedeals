@@ -39,6 +39,7 @@ import {
 // Twenty CRM enhanced kanban imports
 import { StageManagerModal } from './pipeline/kanban/CustomColumnManager';
 import DealToasts from './deals/DealToasts';
+import { undoableDelete } from '../services/undoService';
 import { HotkeysHelp } from './pipeline/HotkeysHelp';
 import { useContactStore } from '../store/contactStore';
 import { winRate } from '../services/analyticsService';
@@ -81,7 +82,6 @@ const Pipeline: React.FC = () => {
   const moveDeal = useDealStore(s => s.moveDeal);
   const updateDealInStore = useDealStore(s => s.updateDeal);
   const createDealInStore = useDealStore(s => s.createDeal);
-  const softDeleteDeal = useDealStore(s => s.softDeleteDeal);
   const subscribeRealtime = useDealStore(s => s.subscribeRealtime);
   const dataSource: 'database' | 'mock' = isConnected && !isDemoMode() ? 'database' : 'mock';
   const [selectedDealId, setSelectedDealId] = useState<string | null>(null);
@@ -445,8 +445,7 @@ const Pipeline: React.FC = () => {
 
   const handleDealDelete = async (dealId: string) => {
     try {
-      await softDeleteDeal(dealId);
-      console.log(`✅ Deal deleted: ${dealId}`);
+      await undoableDelete([dealId]);
     } catch (error) {
       console.error('Failed to delete deal:', error);
     }

@@ -1,3 +1,4 @@
+import { notifyMergeNotUndoable } from '../../services/undoService';
 import React, { useEffect, useMemo, useState } from 'react';
 import { GitMerge } from 'lucide-react';
 import { Modal } from '../ui/Modal';
@@ -122,6 +123,7 @@ export const MergeDealsModal: React.FC<MergeDealsModalProps> = ({ isOpen, onClos
         if (Object.keys(updates).length) await store.updateDeal(survivor.id, updates);
         for (const id of mergeIds) await store.softDeleteDeal(id);
       }
+      notifyMergeNotUndoable(picked.length);
       onMerged?.(survivor.id);
       onClose();
     } catch (e) {

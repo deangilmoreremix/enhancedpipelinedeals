@@ -157,6 +157,116 @@ this.rpcHandlers.find_duplicate_deals = ({ p_title, p_company, p_contact_id = nu
     for (const d of this.table('deals')) if ((p_ids || []).includes(d.id) && d.deleted_at) { d.deleted_at = null; d.updated_at = now(); n++; }
     return n;
   };
+    // migration 20260811000009 RPCs (mirror the SQL)
+    const err = (message, code) => Object.assign(new Error(message), { code });
+    const uid = () => this.session?.user?.id ?? null;
+    const normDomain = x => { const v = String(x ?? '').trim().replace(/^[a-z]+:\/\//i, '').replace(/^www\./i, '').replace(/[/?#].*$/, '').toLowerCase(); return v || null; };
+    const normName = x => String(x ?? '').trim().replace(/\s+/g, ' ').toLowerCase() || null;
+    const roleName = () => {
+      const u = uid(); if (!u) return null;
+      const rank = { admin: 1, manager: 2, member: 3, viewer: 4 };
+      let best = null;
+      for (const ur of this.table('user_roles').filter(r => r.user_id === u)) {
+        const rn = String(this.table('roles').find(r => r.id === ur.role_id)?.name ?? '').toLowerCase();
+        const n = ['admin', 'owner', 'administrator'].includes(rn) ? 'admin' : rn === 'manager' ? 'manager' : ['viewer', 'readonly', 'read_only', 'read-only', 'agent'].includes(rn) ? 'viewer' : 'member';
+        if (!best || rank[n] < rank[best]) best = n;
+      }
+      return best ?? 'member';
+    };
+    const rlsMode = () => { const v = this.table('app_settings').find(r => r.setting_key === 'rls_mode' && !r.user_id)?.setting_value; return v === 'workspace' ? 'workspace' : 'open'; };
+    const requireAdmin = () => { if (roleName() !== 'admin') throw err('admin only', '42501'); };
+    const canWriteWorkflows = () => { if (!uid()) return false; return rlsMode() === 'open' || ['admin', 'manager'].includes(roleName()); };
+    this.rpcHandlers.find_duplicate_companies = ({ p_name, p_domain = null, p_exclude = null }) => {
+      const nn = normName(p_name); const nd = normDomain(p_domain);
+      return this.table('companies')
+        .filter(c => !c.deleted_at && c.id !== p_exclude && ((nn && normName(c.name) === nn) || (nd && normDomain(c.domain) === nd)))
+        .map(c => ({ id: c.id, name: c.name, domain: c.domain ?? null, reason: nn && normName(c.name) === nn ? 'name' : 'domain' }));
+    };
+    this.rpcHandlers.scan_duplicate_companies = () => {
+      const live = this.table('companies').filter(c => !c.deleted_at);
+      const groups = new Map();
+      for (const c of live) {
+        const nn = normName(c.name), nd = normDomain(c.domain);
+        if (nn) (groups.get(`name:${nn}`) || groups.set(`name:${nn}`, { reason: 'name', rows: [] }).get(`name:${nn}`)).rows.push(c);
+        if (nd) (groups.get(`domain:${nd}`) || groups.set(`domain:${nd}`, { reason: 'domain', rows: [] }).get(`domain:${nd}`)).rows.push(c);
+      }
+      return [...groups.entries()].filter(([, g]) => g.rows.length >= 2).sort(([a], [b]) => (a < b ? -1 : 1))
+        .map(([group_key, g]) => ({ group_key, ids: g.rows.map(r => r.id), names: g.rows.map(r => r.name), reason: g.reason }));
+    };
+    this.rpcHandlers.company_rollups = ({ p_company_ids = null } = {}) => {
+      const stages = this.table('pipeline_stages');
+      return this.table('companies').filter(c => !c.deleted_at && (!p_company_ids || p_company_ids.includes(c.id))).map(c => {
+        const deals = this.table('deals').filter(d => d.company_id === c.id && !d.deleted_at);
+        const st = d => stages.filter(s => s.key === d.stage);
+        const won = d => st(d).some(s => s.is_won); const lost = d => st(d).some(s => s.is_lost);
+        const open = deals.filter(d => !won(d) && !lost(d));
+        const contacts = this.table('contacts').filter(k => k.company_id === c.id);
+        const acts = this.table('deal_activities').filter(a => deals.some(d => d.id === a.deal_id)).map(a => a.created_at);
+        const stamps = [...deals.map(d => d.updated_at), ...acts, ...contacts.map(k => k.updated_at)].filter(Boolean).sort();
+        return { company_id: c.id, open_deal_count: open.length, open_deal_value: open.reduce((a, d) => a + (Number(d.value) || 0), 0), won_deal_value: deals.filter(won).reduce((a, d) => a + (Number(d.value) || 0), 0), contact_count: contacts.length, last_activity: stamps.length ? stamps[stamps.length - 1] : null };
+      });
+    };
+    this.rpcHandlers.revoke_api_key = ({ p_id }) => {
+      if (!uid()) throw err('not authenticated', '42501');
+      const k = this.table('api_keys').find(r => r.id === p_id && r.created_by === uid());
+      if (!k) throw err('api key not found', 'P0002');
+      k.revoked_at = k.revoked_at || now();
+      return null;
+    };
+    this.rpcHandlers.publish_workflow_version = ({ p_workflow_id, p_note = null }) => {
+      if (!canWriteWorkflows()) throw err('not allowed to publish workflows', '42501');
+      const w = this.table('deal_workflows').find(r => r.id === p_workflow_id);
+      if (!w) throw err('workflow not found', 'P0002');
+      const vs = this.table('workflow_versions').filter(r => r.workflow_id === p_workflow_id);
+      const v = Math.max(0, ...vs.map(r => r.version)) + 1;
+      for (const r of vs) if (r.status === 'published') r.status = 'archived';
+      this.table('workflow_versions').push({ id: uuid(), workflow_id: p_workflow_id, version: v, status: 'published', snapshot: { name: w.name, description: w.description ?? null, stages: w.stages ?? [], triggers: w.triggers ?? [], settings: w.settings ?? {}, category: w.category ?? null }, note: p_note, created_by: uid(), created_at: now() });
+      w.published_version = v; w.updated_at = now();
+      return v;
+    };
+    this.rpcHandlers.restore_workflow_version = ({ p_workflow_id, p_version }) => {
+      if (!canWriteWorkflows()) throw err('not allowed to restore workflows', '42501');
+      const ver = this.table('workflow_versions').find(r => r.workflow_id === p_workflow_id && r.version === p_version);
+      if (!ver) throw err('workflow version not found', 'P0002');
+      const w = this.table('deal_workflows').find(r => r.id === p_workflow_id);
+      if (w) { const s = ver.snapshot; Object.assign(w, { name: s.name ?? w.name, description: s.description ?? null, stages: s.stages ?? [], triggers: s.triggers ?? [], settings: s.settings ?? {}, category: s.category ?? null, updated_at: now() }); }
+      return null;
+    };
+    this.rpcHandlers.rotate_workflow_webhook_token = ({ p_workflow_id, p_enable = true }) => {
+      if (!canWriteWorkflows()) throw err('not allowed to change workflow webhooks', '42501');
+      const w = this.table('deal_workflows').find(r => r.id === p_workflow_id);
+      if (!w) throw err('workflow not found', 'P0002');
+      if (p_enable === false) { w.webhook_enabled = false; w.updated_at = now(); return null; }
+      w.webhook_token = (uuid() + uuid()).replace(/-/g, ''); w.webhook_enabled = true; w.updated_at = now();
+      return w.webhook_token;
+    };
+    const roleFor = (id) => {
+      const r = this.table('roles').find(x => x.id === id);
+      if (!r) throw err('role not found', 'P0002');
+      return r;
+    };
+    this.rpcHandlers.set_role_permissions = ({ p_role_id, p_permissions }) => {
+      requireAdmin();
+      const r = roleFor(p_role_id);
+      if (String(r.name).toLowerCase() === 'admin') throw err('the admin role cannot be edited', '42501');
+      r.permissions = p_permissions ?? []; r.updated_at = now();
+      return null;
+    };
+    this.rpcHandlers.assign_user_role = ({ p_user_id, p_role_id }) => {
+      requireAdmin();
+      const r = roleFor(p_role_id);
+      const ws = r.workspace_id ?? this.table('user_roles').find(x => x.user_id === uid())?.workspace_id ?? null;
+      const ex = this.table('user_roles').find(x => x.user_id === p_user_id && x.role_id === p_role_id && x.workspace_id === ws);
+      if (ex) { ex.assigned_by = uid(); ex.assigned_at = now(); } else this.table('user_roles').push({ user_id: p_user_id, role_id: p_role_id, workspace_id: ws, assigned_by: uid(), assigned_at: now(), expires_at: null });
+      return null;
+    };
+    this.rpcHandlers.remove_user_role = ({ p_user_id, p_role_id }) => {
+      requireAdmin();
+      const r = roleFor(p_role_id);
+      if (String(r.name).toLowerCase() === 'admin' && p_user_id === uid() && !this.table('user_roles').some(x => x.role_id === p_role_id && x.user_id !== p_user_id)) throw err('cannot remove the last admin', '42501');
+      this.tables.user_roles = this.table('user_roles').filter(x => !(x.user_id === p_user_id && x.role_id === p_role_id));
+      return null;
+    };
     this.rpcHandlers.set_rls_mode = ({ mode }) => mode;
     this.rpcHandlers.get_workflow_run_history = ({ p_limit = 50, p_workflow_id = null } = {}) => this.runHistoryView().filter(r => !p_workflow_id || r.workflow_id === p_workflow_id).slice(0, p_limit);
   }

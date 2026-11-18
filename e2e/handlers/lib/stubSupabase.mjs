@@ -18,8 +18,9 @@ export const GOOD_JWT = 'good-jwt';
 export const USERS = {
   'good-jwt': { id: 'user-1', role: 'member' },
   'viewer-jwt': { id: 'user-v', role: 'viewer' },
-  'manager-jwt': { id: 'user-m', role: 'manager' },
-  'admin-jwt': { id: 'user-a', role: 'admin' },
+  'manager-jwt': { id: 'user-m', role: 'manager', workspace_id: 'ws-1' },
+  'admin-jwt': { id: 'user-a', role: 'admin', workspace_id: 'ws-1' },
+  'admin2-jwt': { id: 'user-a2', role: 'admin', workspace_id: 'ws-2' },
 };
 export const SERVICE_KEY = 'service-role-key';
 export const ANON_KEY = 'anon-key';
@@ -145,6 +146,11 @@ export function createStubSupabase({ port = 54402 } = {}) {
   function applyFilters(rows, params) {
     let out = rows;
     for (const [k, v] of params) {
+      if (k === 'or') { // or=(col.op.arg,col.op.arg)
+        const terms = parseList(v).map((x) => { const i = x.indexOf('.'); return { col: x.slice(0, i), op: x.slice(i + 1) }; });
+        out = out.filter((row) => terms.some((tm) => testOp(colValue(row, tm.col), tm.op)));
+        continue;
+      }
       if (RESERVED.has(k)) continue;
       out = out.filter((row) => testOp(colValue(row, k), v));
     }
@@ -244,6 +250,10 @@ export function createStubSupabase({ port = 54402 } = {}) {
           // RLS helper: role of the caller identified by the forwarded user JWT (anon key / no token -> null)
           const tok = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
           return send(res, 200, USERS[tok]?.role ?? null);
+        }
+        if (fn === 'current_workspace_id') {
+          const tok = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+          return send(res, 200, USERS[tok]?.workspace_id ?? null);
         }
         if (fn === 'check_rate_limit' && state.rateLimitRpc) {
           // persistent limiter: fixed window per key; TRUE = allowed

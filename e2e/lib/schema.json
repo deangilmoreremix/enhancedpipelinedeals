@@ -124,6 +124,20 @@
                 "security_definer": true
             }
         ],
+        "norm_domain": [
+            {
+                "args": "p text",
+                "execute": [
+                    "anon",
+                    "authenticated",
+                    "service_role"
+                ],
+                "returns": "text",
+                "identity": "p text",
+                "volatility": "i",
+                "security_definer": false
+            }
+        ],
         "purge_deals": [
             {
                 "args": "p_ids uuid[]",
@@ -206,6 +220,19 @@
                 "security_definer": false
             }
         ],
+        "revoke_api_key": [
+            {
+                "args": "p_id uuid",
+                "execute": [
+                    "authenticated",
+                    "service_role"
+                ],
+                "returns": "void",
+                "identity": "p_id uuid",
+                "volatility": "v",
+                "security_definer": true
+            }
+        ],
         "can_edit_record": [
             {
                 "args": "owner uuid, created uuid, ws uuid",
@@ -220,6 +247,20 @@
                 "security_definer": true
             }
         ],
+        "company_rollups": [
+            {
+                "args": "p_company_ids uuid[] DEFAULT NULL::uuid[]",
+                "execute": [
+                    "anon",
+                    "authenticated",
+                    "service_role"
+                ],
+                "returns": "TABLE(company_id uuid, open_deal_count integer, open_deal_value numeric, won_deal_value numeric, contact_count integer, last_activity timestamp with time zone)",
+                "identity": "p_company_ids uuid[]",
+                "volatility": "s",
+                "security_definer": false
+            }
+        ],
         "storage_deal_id": [
             {
                 "args": "p_name text",
@@ -232,6 +273,19 @@
                 "identity": "p_name text",
                 "volatility": "i",
                 "security_definer": false
+            }
+        ],
+        "assign_user_role": [
+            {
+                "args": "p_user_id uuid, p_role_id uuid",
+                "execute": [
+                    "authenticated",
+                    "service_role"
+                ],
+                "returns": "void",
+                "identity": "p_user_id uuid, p_role_id uuid",
+                "volatility": "v",
+                "security_definer": true
             }
         ],
         "can_edit_contact": [
@@ -289,6 +343,19 @@
                 "security_definer": false
             }
         ],
+        "remove_user_role": [
+            {
+                "args": "p_user_id uuid, p_role_id uuid",
+                "execute": [
+                    "authenticated",
+                    "service_role"
+                ],
+                "returns": "void",
+                "identity": "p_user_id uuid, p_role_id uuid",
+                "volatility": "v",
+                "security_definer": true
+            }
+        ],
         "current_role_name": [
             {
                 "args": "",
@@ -298,6 +365,34 @@
                     "service_role"
                 ],
                 "returns": "text",
+                "identity": "",
+                "volatility": "s",
+                "security_definer": true
+            }
+        ],
+        "norm_company_name": [
+            {
+                "args": "p text",
+                "execute": [
+                    "anon",
+                    "authenticated",
+                    "service_role"
+                ],
+                "returns": "text",
+                "identity": "p text",
+                "volatility": "i",
+                "security_definer": false
+            }
+        ],
+        "can_write_workflows": [
+            {
+                "args": "",
+                "execute": [
+                    "anon",
+                    "authenticated",
+                    "service_role"
+                ],
+                "returns": "boolean",
                 "identity": "",
                 "volatility": "s",
                 "security_definer": true
@@ -398,6 +493,19 @@
                 "security_definer": false
             }
         ],
+        "set_role_permissions": [
+            {
+                "args": "p_role_id uuid, p_permissions jsonb",
+                "execute": [
+                    "authenticated",
+                    "service_role"
+                ],
+                "returns": "void",
+                "identity": "p_role_id uuid, p_permissions jsonb",
+                "volatility": "v",
+                "security_definer": true
+            }
+        ],
         "claim_workflow_events": [
             {
                 "args": "p_limit integer DEFAULT 25, p_max_attempts integer DEFAULT 5",
@@ -438,6 +546,20 @@
                 "security_definer": true
             }
         ],
+        "find_duplicate_companies": [
+            {
+                "args": "p_name text, p_domain text DEFAULT NULL::text, p_exclude uuid DEFAULT NULL::uuid",
+                "execute": [
+                    "anon",
+                    "authenticated",
+                    "service_role"
+                ],
+                "returns": "TABLE(id uuid, name text, domain text, reason text)",
+                "identity": "p_name text, p_domain text, p_exclude uuid",
+                "volatility": "s",
+                "security_definer": false
+            }
+        ],
         "get_workflow_run_history": [
             {
                 "args": "p_limit integer DEFAULT 50, p_workflow_id text DEFAULT NULL::text",
@@ -448,6 +570,46 @@
                 ],
                 "returns": "SETOF workflow_run_history",
                 "identity": "p_limit integer, p_workflow_id text",
+                "volatility": "s",
+                "security_definer": false
+            }
+        ],
+        "publish_workflow_version": [
+            {
+                "args": "p_workflow_id uuid, p_note text DEFAULT NULL::text",
+                "execute": [
+                    "authenticated",
+                    "service_role"
+                ],
+                "returns": "integer",
+                "identity": "p_workflow_id uuid, p_note text",
+                "volatility": "v",
+                "security_definer": true
+            }
+        ],
+        "restore_workflow_version": [
+            {
+                "args": "p_workflow_id uuid, p_version integer",
+                "execute": [
+                    "authenticated",
+                    "service_role"
+                ],
+                "returns": "void",
+                "identity": "p_workflow_id uuid, p_version integer",
+                "volatility": "v",
+                "security_definer": true
+            }
+        ],
+        "scan_duplicate_companies": [
+            {
+                "args": "",
+                "execute": [
+                    "anon",
+                    "authenticated",
+                    "service_role"
+                ],
+                "returns": "TABLE(group_key text, ids uuid[], names text[], reason text)",
+                "identity": "",
                 "volatility": "s",
                 "security_definer": false
             }
@@ -474,6 +636,19 @@
                 ],
                 "returns": "void",
                 "identity": "",
+                "volatility": "v",
+                "security_definer": true
+            }
+        ],
+        "rotate_workflow_webhook_token": [
+            {
+                "args": "p_workflow_id uuid, p_enable boolean DEFAULT true",
+                "execute": [
+                    "authenticated",
+                    "service_role"
+                ],
+                "returns": "text",
+                "identity": "p_workflow_id uuid, p_enable boolean",
                 "volatility": "v",
                 "security_definer": true
             }
@@ -1246,6 +1421,12 @@
                     "nullable": true,
                     "generated": false
                 },
+                "board_position": {
+                    "type": "numeric",
+                    "default": "0",
+                    "nullable": false,
+                    "generated": false
+                },
                 "created_by_agent": {
                     "type": "boolean",
                     "default": "false",
@@ -1581,6 +1762,112 @@
                 {
                     "cmd": "ALL",
                     "name": "Allow service role full access",
+                    "roles": [
+                        "service_role"
+                    ],
+                    "permissive": "PERMISSIVE"
+                }
+            ],
+            "replica_identity": "d"
+        },
+        "api_keys": {
+            "rls": true,
+            "kind": "table",
+            "by_role": {
+                "service_role": {
+                    "DELETE": [
+                        "api_keys_service"
+                    ],
+                    "INSERT": [
+                        "api_keys_service"
+                    ],
+                    "SELECT": [
+                        "api_keys_service"
+                    ],
+                    "UPDATE": [
+                        "api_keys_service"
+                    ]
+                },
+                "authenticated": {
+                    "SELECT": [
+                        "api_keys_select"
+                    ]
+                }
+            },
+            "columns": {
+                "id": {
+                    "type": "uuid",
+                    "default": "gen_random_uuid()",
+                    "nullable": false,
+                    "generated": false
+                },
+                "name": {
+                    "type": "text",
+                    "default": null,
+                    "nullable": false,
+                    "generated": false
+                },
+                "prefix": {
+                    "type": "text",
+                    "default": null,
+                    "nullable": false,
+                    "generated": false
+                },
+                "scopes": {
+                    "type": "ARRAY",
+                    "default": "'{read}'::text[]",
+                    "nullable": false,
+                    "generated": false
+                },
+                "key_hash": {
+                    "type": "text",
+                    "default": null,
+                    "nullable": false,
+                    "generated": false
+                },
+                "created_at": {
+                    "type": "timestamp with time zone",
+                    "default": "now()",
+                    "nullable": false,
+                    "generated": false
+                },
+                "created_by": {
+                    "type": "uuid",
+                    "default": "auth.uid()",
+                    "nullable": true,
+                    "generated": false
+                },
+                "revoked_at": {
+                    "type": "timestamp with time zone",
+                    "default": null,
+                    "nullable": true,
+                    "generated": false
+                },
+                "last_used_at": {
+                    "type": "timestamp with time zone",
+                    "default": null,
+                    "nullable": true,
+                    "generated": false
+                },
+                "workspace_id": {
+                    "type": "uuid",
+                    "default": null,
+                    "nullable": true,
+                    "generated": false
+                }
+            },
+            "policies": [
+                {
+                    "cmd": "SELECT",
+                    "name": "api_keys_select",
+                    "roles": [
+                        "authenticated"
+                    ],
+                    "permissive": "PERMISSIVE"
+                },
+                {
+                    "cmd": "ALL",
+                    "name": "api_keys_service",
                     "roles": [
                         "service_role"
                     ],
@@ -8054,6 +8341,24 @@
                     "default": null,
                     "nullable": true,
                     "generated": false
+                },
+                "webhook_token": {
+                    "type": "text",
+                    "default": null,
+                    "nullable": true,
+                    "generated": false
+                },
+                "webhook_enabled": {
+                    "type": "boolean",
+                    "default": "false",
+                    "nullable": false,
+                    "generated": false
+                },
+                "published_version": {
+                    "type": "integer",
+                    "default": null,
+                    "nullable": true,
+                    "generated": false
                 }
             },
             "policies": [
@@ -8220,6 +8525,71 @@
                 }
             ],
             "replica_identity": "d"
+        },
+        "api_keys_public": {
+            "rls": false,
+            "kind": "view",
+            "by_role": {
+            },
+            "columns": {
+                "id": {
+                    "type": "uuid",
+                    "default": null,
+                    "nullable": true,
+                    "generated": false
+                },
+                "name": {
+                    "type": "text",
+                    "default": null,
+                    "nullable": true,
+                    "generated": false
+                },
+                "prefix": {
+                    "type": "text",
+                    "default": null,
+                    "nullable": true,
+                    "generated": false
+                },
+                "scopes": {
+                    "type": "ARRAY",
+                    "default": null,
+                    "nullable": true,
+                    "generated": false
+                },
+                "created_at": {
+                    "type": "timestamp with time zone",
+                    "default": null,
+                    "nullable": true,
+                    "generated": false
+                },
+                "created_by": {
+                    "type": "uuid",
+                    "default": null,
+                    "nullable": true,
+                    "generated": false
+                },
+                "revoked_at": {
+                    "type": "timestamp with time zone",
+                    "default": null,
+                    "nullable": true,
+                    "generated": false
+                },
+                "last_used_at": {
+                    "type": "timestamp with time zone",
+                    "default": null,
+                    "nullable": true,
+                    "generated": false
+                },
+                "workspace_id": {
+                    "type": "uuid",
+                    "default": null,
+                    "nullable": true,
+                    "generated": false
+                }
+            },
+            "policies": [
+            ],
+            "replica_identity": "n"
         },
         "automated_notes": {
             "rls": true,
@@ -9259,11 +9629,8 @@
             "kind": "table",
             "by_role": {
                 "anon": {
-                    "INSERT": [
-                        "Allow anon insert"
-                    ],
                     "SELECT": [
-                        "Allow anon read access"
+                        "et_select"
                     ]
                 },
                 "service_role": {
@@ -9282,16 +9649,16 @@
                 },
                 "authenticated": {
                     "DELETE": [
-                        "Allow authenticated access"
+                        "et_delete"
                     ],
                     "INSERT": [
-                        "Allow authenticated access"
+                        "et_insert"
                     ],
                     "SELECT": [
-                        "Allow authenticated access"
+                        "et_select"
                     ],
                     "UPDATE": [
-                        "Allow authenticated access"
+                        "et_update"
                     ]
                 }
             },
@@ -9326,6 +9693,12 @@
                     "nullable": true,
                     "generated": false
                 },
+                "shortcut": {
+                    "type": "text",
+                    "default": null,
+                    "nullable": true,
+                    "generated": false
+                },
                 "is_active": {
                     "type": "boolean",
                     "default": "true",
@@ -9350,43 +9723,64 @@
                     "nullable": true,
                     "generated": false
                 },
+                "is_snippet": {
+                    "type": "boolean",
+                    "default": "false",
+                    "nullable": false,
+                    "generated": false
+                },
                 "updated_at": {
                     "type": "timestamp with time zone",
                     "default": "now()",
+                    "nullable": true,
+                    "generated": false
+                },
+                "workspace_id": {
+                    "type": "uuid",
+                    "default": null,
                     "nullable": true,
                     "generated": false
                 }
             },
             "policies": [
                 {
-                    "cmd": "INSERT",
-                    "name": "Allow anon insert",
-                    "roles": [
-                        "anon"
-                    ],
-                    "permissive": "PERMISSIVE"
-                },
-                {
-                    "cmd": "SELECT",
-                    "name": "Allow anon read access",
-                    "roles": [
-                        "anon"
-                    ],
-                    "permissive": "PERMISSIVE"
-                },
-                {
                     "cmd": "ALL",
-                    "name": "Allow authenticated access",
+                    "name": "Allow service role full access",
+                    "roles": [
+                        "service_role"
+                    ],
+                    "permissive": "PERMISSIVE"
+                },
+                {
+                    "cmd": "DELETE",
+                    "name": "et_delete",
                     "roles": [
                         "authenticated"
                     ],
                     "permissive": "PERMISSIVE"
                 },
                 {
-                    "cmd": "ALL",
-                    "name": "Allow service role full access",
+                    "cmd": "INSERT",
+                    "name": "et_insert",
                     "roles": [
-                        "service_role"
+                        "authenticated"
+                    ],
+                    "permissive": "PERMISSIVE"
+                },
+                {
+                    "cmd": "SELECT",
+                    "name": "et_select",
+                    "roles": [
+                        "anon",
+                        "authenticated"
+                    ],
+                    "permissive": "PERMISSIVE"
+                },
+                {
+                    "cmd": "UPDATE",
+                    "name": "et_update",
+                    "roles": [
+                        "authenticated"
                     ],
                     "permissive": "PERMISSIVE"
                 }
@@ -11758,6 +12152,100 @@
                     "name": "Users can insert their achievements",
                     "roles": [
                         "public"
+                    ],
+                    "permissive": "PERMISSIVE"
+                }
+            ],
+            "replica_identity": "d"
+        },
+        "workflow_versions": {
+            "rls": true,
+            "kind": "table",
+            "by_role": {
+                "service_role": {
+                    "DELETE": [
+                        "wv_service"
+                    ],
+                    "INSERT": [
+                        "wv_service"
+                    ],
+                    "SELECT": [
+                        "wv_service"
+                    ],
+                    "UPDATE": [
+                        "wv_service"
+                    ]
+                },
+                "authenticated": {
+                    "SELECT": [
+                        "wv_select"
+                    ]
+                }
+            },
+            "columns": {
+                "id": {
+                    "type": "uuid",
+                    "default": "gen_random_uuid()",
+                    "nullable": false,
+                    "generated": false
+                },
+                "note": {
+                    "type": "text",
+                    "default": null,
+                    "nullable": true,
+                    "generated": false
+                },
+                "status": {
+                    "type": "text",
+                    "default": "'draft'::text",
+                    "nullable": false,
+                    "generated": false
+                },
+                "version": {
+                    "type": "integer",
+                    "default": null,
+                    "nullable": false,
+                    "generated": false
+                },
+                "snapshot": {
+                    "type": "jsonb",
+                    "default": null,
+                    "nullable": false,
+                    "generated": false
+                },
+                "created_at": {
+                    "type": "timestamp with time zone",
+                    "default": "now()",
+                    "nullable": false,
+                    "generated": false
+                },
+                "created_by": {
+                    "type": "uuid",
+                    "default": "auth.uid()",
+                    "nullable": true,
+                    "generated": false
+                },
+                "workflow_id": {
+                    "type": "uuid",
+                    "default": null,
+                    "nullable": false,
+                    "generated": false
+                }
+            },
+            "policies": [
+                {
+                    "cmd": "SELECT",
+                    "name": "wv_select",
+                    "roles": [
+                        "authenticated"
+                    ],
+                    "permissive": "PERMISSIVE"
+                },
+                {
+                    "cmd": "ALL",
+                    "name": "wv_service",
+                    "roles": [
+                        "service_role"
                     ],
                     "permissive": "PERMISSIVE"
                 }
@@ -14627,6 +15115,12 @@
                     "type": "text",
                     "default": null,
                     "nullable": true,
+                    "generated": false
+                },
+                "entity_type": {
+                    "type": "text",
+                    "default": "'deal'::text",
+                    "nullable": false,
                     "generated": false
                 },
                 "workspace_id": {

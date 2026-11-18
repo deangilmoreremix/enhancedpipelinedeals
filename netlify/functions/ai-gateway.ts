@@ -10,6 +10,7 @@
  *        or (stream: true) buffered text/event-stream of output_text deltas.
  */
 import type { Handler } from '@netlify/functions';
+import { runWorkspaceChat, cleanMessages, WORKSPACE_CHAT_SCHEMA, WORKSPACE_CHAT_SYSTEM } from './_workspaceChat';
 import { CORS_HEADERS, json, respond, respondStream, RespondOptions, authorize, userClient, rateLimited } from './_openai';
 
 type Obj = Record<string, unknown>;
@@ -207,6 +208,8 @@ confidence is 0-100 for identity match + data reliability.`,
       }),
     },
   },
+  // Read-only workspace assistant: server-side read tools through the caller's RLS client, proposals the user must Apply (see _workspaceChat.ts).
+  workspace_chat: { tier: 'default', system: WORKSPACE_CHAT_SYSTEM, schema: WORKSPACE_CHAT_SCHEMA },
   deal_goals: {
     tier: 'fast',
     system: `${BASE} Propose 3-5 specific, measurable, time-bound goals for the given contact, company or deal, based only on the record in CONTEXT (JSON). Each goal has a one-line title and a short rationale grounded in the data. If the record has too little data to ground goals, return fewer goals rather than inventing facts.`,
@@ -246,6 +249,7 @@ const ALIASES: Record<string, string> = {
   'video-agent': 'video_script',
   'deal-assistant': 'deal_assistant',
   'deal-goals': 'deal_goals',
+  'workspace-chat': 'workspace_chat',
 };
 
 // Client-defined tools: flat Responses function tools only (+ hosted web_search). The client executes them.
@@ -286,6 +290,34 @@ function buildInput(body: Obj): string | any[] {
   return parts.join('\n\n') || 'Proceed.';
 }
 
+async function handleWorkspaceChat(body: Obj, def: TaskDef, authHeader: string | undefined) {
+  // messages: [{role, content}]; a plain `input` string is accepted as one user message
+  let messages = cleanMessages(body.messages);
+  if (!messages.length && typeof body.input === 'string' && body.input.trim()) messages = [{ role: 'user', content: body.input.trim().slice(0, 4000) }];
+  if (!messages.length || messages[messages.length - 1].role !== 'user') {
+    return json(400, { ok: false, error: 'messages must be a non-empty array of {role, content} ending with a user message' });
+  }
+  const ctx = (body.context && typeof body.context === 'object' ? body.context : {}) as Obj;
+  const dealId = typeof ctx.dealId === 'string' && ctx.dealId ? ctx.dealId.slice(0, 100) : undefined;
+  try {
+    const r = await runWorkspaceChat({
+      authHeader, messages, dealId,
+      tier: (body.tier as string) || def.tier,
+      effort: body.effort as any,
+      extraInstructions: typeof body.instructions === 'string' ? body.instructions.slice(0, 2000) : undefined,
+      maxOutputTokens: Math.min(Number(body.maxOutputTokens) || 4000, 8000),
+    });
+    const data = { reply: r.reply, proposals: r.proposals };
+    return json(200, {
+      ok: true, task: 'workspace_chat', model: r.model, id: r.id, text: r.reply, data, usage: r.usage ?? null,
+      citations: [], tool_calls: r.toolCalls.map((c, i) => ({ call_id: `srv_${i}`, name: c.name, arguments: c.arguments, executed: true })),
+    });
+  } catch (e: any) {
+    const status = typeof e?.status === 'number' && e.status >= 400 && e.status < 600 ? e.status : 500;
+    return json(status, { ok: false, error: e?.message || 'AI request failed' });
+  }
+}
+
 export const handler: Handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers: CORS_HEADERS, body: '' };
   if (event.httpMethod !== 'POST') return json(405, { ok: false, error: 'Method not allowed' });
@@ -307,6 +339,8 @@ export const handler: Handler = async (event) => {
   const task = ALIASES[requested] || requested;
   const def = TASKS[task];
   if (!def) return json(400, { ok: false, error: `Unknown task: ${requested}`, tasks: Object.keys(TASKS) });
+
+  if (task === 'workspace_chat') return handleWorkspaceChat(body, def, event.headers.authorization || event.headers.Authorization);
 
   try {
     const crm = await loadCrmContext(body, event.headers.authorization || event.headers.Authorization);

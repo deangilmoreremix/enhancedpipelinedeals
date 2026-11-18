@@ -321,6 +321,42 @@ export async function runWorkflowManually(
   return { ok: result.status !== 'failed', executionId: id, status: result.status, error: result.error?.message };
 }
 
+/**
+ * Runs ONE workflow from an inbound webhook (POST /api/workflow/hook/:token, see workflow-webhook.ts). The caller has already
+ * looked the workflow up by its token and checked is_active. Records execution `webhook:<workflowId>:<ts>` with trigger_type
+ * 'webhook'; the request payload is kept in the execution context (`inputData.payload`). With `dealId` the deal is loaded and
+ * is the run's record.
+ */
+export async function runWorkflowFromWebhook(
+  deps: StepDeps,
+  input: { workflow: WorkflowRow; payload: Record<string, unknown>; dealId?: string | null }
+): Promise<RunActionResult> {
+  const db = deps.db;
+  const workflow = input.workflow;
+  let deal: Record<string, unknown> | null = null;
+  if (input.dealId) {
+    const { data } = await db.from('deals').select('*').eq('id', input.dealId).is('deleted_at', null).maybeSingle();
+    if (!data) return { ok: false, error: 'Deal not found' };
+    deal = data as Record<string, unknown>;
+  }
+  const id = `webhook:${workflow.id}:${Date.now()}`;
+  const ctx: StepContext = {
+    recordId: input.dealId ?? undefined,
+    recordType: deal ? 'deal' : undefined,
+    inputData: { ...input.payload, ...(deal ?? {}), record: deal, payload: input.payload, eventType: 'webhook' },
+    variables: {},
+    workflowId: workflow.id
+  };
+  const startedAt = new Date();
+  const result = await runWorkflowGraph(workflow.stages ?? [], ctx, deps);
+  await saveExecution(db, {
+    id, workflowId: workflow.id, triggerType: 'webhook',
+    recordId: input.dealId ?? undefined, recordType: deal ? 'deal' : undefined, startedAt, result, context: ctx, attempt: 1
+  });
+  if (result.resumes.length) await scheduleResumes(db, id, workflow.id, result, ctx);
+  return { ok: result.status !== 'failed', executionId: id, status: result.status, error: result.error?.message };
+}
+
 export interface RunActionResult { ok: boolean; error?: string; executionId?: string; status?: string; resumed?: number }
 
 /** Re-runs a recorded execution from its original context as a new execution (`rerun:<id>:<ts>`). */

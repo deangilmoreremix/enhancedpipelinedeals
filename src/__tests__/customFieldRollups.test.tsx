@@ -37,7 +37,7 @@ describe('company rollups', () => {
   it('rollupForCompany uses the RPC for remote companies and the local numbers otherwise', async () => {
     const local = () => localRollup('x', [], [], []);
     mockRpc.mockResolvedValueOnce({ data: [], error: null });
-    expect(await rollupForCompany(A, local, true)).toMatchObject({ companyId: A === A ? 'x' : '', openDealCount: 0, contactCount: 0 });
+    expect(await rollupForCompany(A, local, true)).toMatchObject({ companyId: A, openDealCount: 0, contactCount: 0 });
     expect(mockRpc).toHaveBeenCalledTimes(1);
     mockRpc.mockClear();
     await rollupForCompany('local-co-acme', local, true);

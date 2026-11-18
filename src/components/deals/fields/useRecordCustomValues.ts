@@ -18,11 +18,12 @@ export function useRecordCustomValues(
   latest.current = values;
   const persisted = useRef(onPersisted);
   persisted.current = onPersisted;
-  const source = record?.customFields ?? record?.custom_fields;
+  // compare by content: callers may hand over a fresh (equal) object on every render
+  const signature = JSON.stringify(record?.customFields ?? record?.custom_fields ?? null);
 
   useEffect(() => { setValues(recordCustomValues(entityType, id, record)); },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [entityType, id, source]);
+    [entityType, id, signature]);
 
   const save = useCallback(async (next: Record<string, CustomFieldValue>) => {
     const prev = latest.current;

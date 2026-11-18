@@ -50,7 +50,7 @@ export function localRollup(
 export async function rollupForCompany(companyId: string, local: () => CompanyRollup, remote = isRemote()): Promise<CompanyRollup> {
   if (remote && !companyId.startsWith('local-')) {
     const map = await fetchCompanyRollups([companyId]);
-    return map.get(companyId) ?? { ...local(), openDealCount: 0, openDealValue: 0, wonDealValue: 0, contactCount: 0, lastActivity: null };
+    return map.get(companyId) ?? { companyId, openDealCount: 0, openDealValue: 0, wonDealValue: 0, contactCount: 0, lastActivity: null };
   }
   return local();
 }

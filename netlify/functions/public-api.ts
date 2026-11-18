@@ -95,7 +95,7 @@ function coerce(kind: Kind, v: unknown): unknown {
     return v;
   }
   switch (kind) {
-    case 'string': if (typeof v !== 'string' || v.length > MAX_STRING) throw `must be a string (max ${MAX_STRING} chars)`; return v;
+    case 'string': if (typeof v !== 'string' || v.length > MAX_STRING) throw `must be a string (max ${MAX_STRING} chars)`; return v.trim();
     case 'number': if (typeof v !== 'number' || !Number.isFinite(v)) throw 'must be a number'; return v;
     case 'boolean': if (typeof v !== 'boolean') throw 'must be a boolean'; return v;
     case 'email': if (typeof v !== 'string' || v.length > 320 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) throw 'must be a valid email address'; return v.trim();

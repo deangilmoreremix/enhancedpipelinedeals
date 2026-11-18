@@ -1080,6 +1080,8 @@ export interface Company {
   logoUrl?: string;
   notes?: string;
   ownerId?: string;
+  /** Custom field values (companies.custom_fields). */
+  customFields?: Record<string, CustomFieldValue>;
   createdAt: Date;
   updatedAt: Date;
 }

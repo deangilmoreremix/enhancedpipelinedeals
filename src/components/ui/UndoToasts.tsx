@@ -7,7 +7,7 @@ export const UndoToasts: React.FC = () => {
   const entries = useUndoStore(s => s.entries);
   if (entries.length === 0) return null;
   return (
-    <div className="pointer-events-none fixed bottom-4 left-4 z-[90] flex w-96 max-w-[calc(100vw-2rem)] flex-col gap-2" aria-live="polite" data-testid="undo-toasts">
+    <div className="pointer-events-none fixed bottom-4 left-4 z-[90] flex w-96 max-w-[calc(100vw-2rem)] flex-col gap-2" aria-live="polite" data-testid="undo-toasts" {...(entries.some(e => e.undo && !e.running) ? { 'data-undo-available': '' } : {})}>
       {entries.map(e => (
         <div
           key={e.id}

@@ -1,15 +1,28 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Settings2, SlidersHorizontal } from 'lucide-react';
 import type { Deal } from '../../../types';
-import type { CustomFieldValue } from '../../../types/customFields';
+import type { CustomFieldEntityType, CustomFieldValue } from '../../../types/customFields';
+import { computedForRecord } from '../../../utils/customFieldRecords';
+import type { FormulaValue } from '../../../utils/formula';
 import { groupDefinitions, withCustomValue } from '../../../services/customFieldService';
 import { CustomFieldCell } from './CustomFieldCell';
 import { useFieldDefinitions } from './useFieldDefinitions';
 
 export interface CustomFieldsSectionProps {
-  deal: Deal;
+  /** Which kind of record (default 'deal'). */
+  entityType?: CustomFieldEntityType;
+  /** Deal record (entityType 'deal'): values come from `deal.customFields`, saves go through `onUpdateDeal`. */
+  deal?: Deal;
   /** Persist a partial deal update (the section sends `{ customFields }`). */
-  onUpdateDeal: (updates: Partial<Deal>) => Promise<unknown>;
+  onUpdateDeal?: (updates: Partial<Deal>) => Promise<unknown>;
+  /** Contact / company record: built-in fields (formulas may reference them). */
+  record?: Record<string, unknown> | null;
+  /** Contact / company: current custom values. */
+  values?: Record<string, CustomFieldValue>;
+  /** Contact / company: persist the full next values map (reject to roll back). */
+  onSaveValues?: (next: Record<string, CustomFieldValue>) => Promise<unknown>;
+  /** Rollup values by definition key (company records). */
+  rollups?: Record<string, FormulaValue>;
   disabled?: boolean;
   /** Group names to hide (see `hiddenFieldGroups` on the overview). */
   hiddenGroups?: string[];
@@ -17,14 +30,23 @@ export interface CustomFieldsSectionProps {
   onManage?: () => void;
 }
 
-/** Custom field values of a deal, grouped by group_name, each editable inline. */
-export const CustomFieldsSection: React.FC<CustomFieldsSectionProps> = ({ deal, onUpdateDeal, disabled, hiddenGroups = [], onManage }) => {
-  const { definitions } = useFieldDefinitions();
+/** Custom field values of a deal / contact / company, grouped by group_name, each editable inline. */
+export const CustomFieldsSection: React.FC<CustomFieldsSectionProps> = ({
+  entityType = 'deal', deal, onUpdateDeal, record, values: valuesProp, onSaveValues, rollups, disabled, hiddenGroups = [], onManage,
+}) => {
+  const { definitions } = useFieldDefinitions(entityType);
   const groups = groupDefinitions(definitions).filter(g => !hiddenGroups.includes(g.group));
-  const values = deal.customFields ?? {};
+  const values = (entityType === 'deal' ? deal?.customFields : valuesProp) ?? {};
+  const computed = useMemo(
+    () => computedForRecord(entityType, definitions, (entityType === 'deal' ? deal : record) as Record<string, unknown> | null, values, rollups),
+    [entityType, definitions, deal, record, values, rollups],
+  );
 
-  const setValue = (key: string, value: CustomFieldValue) =>
-    onUpdateDeal({ customFields: withCustomValue(deal.customFields, key, value) });
+  const setValue = (key: string, value: CustomFieldValue) => {
+    const next = withCustomValue(values, key, value);
+    if (entityType === 'deal') return onUpdateDeal?.({ customFields: next });
+    return onSaveValues?.(next);
+  };
 
   return (
     <section aria-label="Custom fields" className="space-y-4">
@@ -47,7 +69,7 @@ export const CustomFieldsSection: React.FC<CustomFieldsSectionProps> = ({ deal, 
           <h5 className="mb-4 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">{g.group}</h5>
           <div className="grid grid-cols-1 gap-x-6 gap-y-5 md:grid-cols-2">
             {g.defs.map(d => (
-              <CustomFieldCell key={d.id} definition={d} disabled={disabled} value={values[d.key]} onChange={v => setValue(d.key, v)} />
+              <CustomFieldCell key={d.id} definition={d} disabled={disabled} value={values[d.key]} computed={computed[d.key]} onChange={v => setValue(d.key, v)} />
             ))}
           </div>
         </div>

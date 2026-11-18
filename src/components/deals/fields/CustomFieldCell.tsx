@@ -2,6 +2,7 @@ import React from 'react';
 import { ExternalLink } from 'lucide-react';
 import type { CustomFieldValue, DealFieldDefinition } from '../../../types/customFields';
 import { RATING_MAX, isEmptyValue, validateCustomValue } from '../../../services/customFieldService';
+import { ERROR_TEXT, formatComputed, type ComputedFieldValue } from '../../../utils/formula';
 import { TextField } from './TextField';
 import { SelectField } from './SelectField';
 import { DateField } from './DateField';
@@ -14,13 +15,15 @@ export interface CustomFieldCellProps {
   /** Persist the normalised value (null clears). Rejection surfaces inline + as a toast. */
   onChange: (value: CustomFieldValue) => Promise<unknown> | unknown;
   disabled?: boolean;
+  /** Computed result for `formula` / `rollup` definitions (read-only; '#ERR' + tooltip on failure). */
+  computed?: ComputedFieldValue;
 }
 
 const pad = (n: number) => String(n).padStart(2, '0');
 const toIsoDay = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
 /** Inline-edit cell for one custom field; picks the editor from the definition type. */
-export const CustomFieldCell: React.FC<CustomFieldCellProps> = ({ definition: def, value, onChange, disabled }) => {
+export const CustomFieldCell: React.FC<CustomFieldCellProps> = ({ definition: def, value, onChange, disabled, computed }) => {
   const save = (raw: unknown) => {
     const r = validateCustomValue(def, raw);
     if (!r.ok) throw new Error(r.error);
@@ -28,6 +31,22 @@ export const CustomFieldCell: React.FC<CustomFieldCellProps> = ({ definition: de
   };
 
   switch (def.type) {
+    case 'formula':
+    case 'rollup': {
+      const text = formatComputed(computed, def.config);
+      return (
+        <div data-testid={`computed-${def.key}`}>
+          <div className="mb-1 text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">{def.label}</div>
+          <div
+            title={computed?.error ?? `${def.type === 'formula' ? 'Calculated' : 'Rolled up'} automatically`}
+            aria-label={`${def.label}: ${text || 'empty'}`}
+            className={`rounded-lg px-2 py-1 text-sm ${computed?.error ? 'font-semibold text-red-600 dark:text-red-400' : text ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500'}`}
+          >
+            {text || (computed?.error ? ERROR_TEXT : '-')}
+          </div>
+        </div>
+      );
+    }
     case 'select':
       return (
         <SelectField

@@ -54,7 +54,7 @@ function colValue(row, col) {
 }
 
 const likeToRegex = (pat, flags = '') =>
-  new RegExp('^' + pat.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/%/g, '.*').replace(/\*/g, '.*').replace(/_/g, '.') + '$', flags);
+  new RegExp('^' + pat.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/[%*]/g, '.*').replace(/_/g, '.') + '$', flags);
 
 const cmp = (a, b) => {
   if (a === null || a === undefined) return 1;

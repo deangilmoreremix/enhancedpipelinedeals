@@ -14,7 +14,7 @@ export interface Contact {
   interestLevel: 'hot' | 'medium' | 'low' | 'cold';
   sources: string[];
   socialProfiles?: Record<string, string>;
-  customFields?: Record<string, string | number | boolean>;
+  customFields?: Record<string, string | number | boolean | string[] | null>;
   notes?: string;
   aiScore?: number;
   lastConnected?: string;

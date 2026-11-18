@@ -53,7 +53,7 @@ export const WORKSPACE_TOOLS = [
 const DEAL_COLS = 'id,title,value,stage,priority,probability,close_date,due_date,company,contact,contact_id,company_id,updated_at';
 const CLOSED_STAGES = '(closed-won,closed-lost,won,lost)';
 const MAX_TOOL_ROUNDS = 5;
-const MAX_CALLS_PER_ROUND = 4;
+const MAX_CALLS_PER_ROUND = 6;
 const MAX_TOOL_OUTPUT = 12_000;
 
 const term = (q: unknown) => String(q ?? '').replace(/[^\p{L}\p{N}\s@.\-+_']/gu, ' ').replace(/\s+/g, ' ').trim().slice(0, 80);

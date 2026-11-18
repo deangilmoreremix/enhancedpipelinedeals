@@ -58,6 +58,21 @@ export const PALETTE_ACTIONS: PaletteAction[] = [
     hint: 'Action',
     run: ctx => ctx.toggleDarkMode()
   },
+  {
+    id: 'ask-ai',
+    label: 'Ask AI',
+    keywords: ['assistant', 'chat', 'workspace', 'question', 'ai'],
+    hint: 'Action',
+    run: () => { void import('./ai/openWorkspaceChat').then(m => m.openWorkspaceChat()); }
+  },
+  goto('open-settings', 'Open settings', '/settings', ['preferences', 'api keys', 'roles', 'webhooks', 'templates']),
+  {
+    id: 'undo-last',
+    label: 'Undo last action',
+    keywords: ['revert', 'undo', 'restore'],
+    hint: 'Action',
+    run: () => { void import('../services/undoService').then(m => m.undoLast()); }
+  },
   goto('go-pipeline', 'Go to Pipeline', '/', ['deals', 'board', 'kanban']),
   goto('go-contacts', 'Go to Contacts', '/contacts', ['people']),
   goto('go-agents', 'Go to Agents', '/agents', ['ai', 'sdr']),

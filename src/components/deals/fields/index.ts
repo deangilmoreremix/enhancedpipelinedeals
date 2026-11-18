@@ -16,6 +16,7 @@ export { CustomFieldCell } from './CustomFieldCell';
 export { CustomFieldsSection } from './CustomFieldsSection';
 export { SystemFieldsPanel } from './SystemFieldsPanel';
 export { ManageFieldsDialog } from './ManageFieldsDialog';
+export { FieldForm, FIELD_TYPE_LABELS } from './FieldForm';
 export { CloneDealDialog } from './CloneDealDialog';
 export type { CloneDealDialogProps } from './CloneDealDialog';
 export { DuplicateDealsWarning } from './DuplicateDealsWarning';

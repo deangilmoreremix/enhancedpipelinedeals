@@ -40,6 +40,7 @@ import {
 import { StageManagerModal } from './pipeline/kanban/CustomColumnManager';
 import DealToasts from './deals/DealToasts';
 import { undoableDelete } from '../services/undoService';
+import { openWorkspaceChat } from './ai/openWorkspaceChat';
 import { HotkeysHelp } from './pipeline/HotkeysHelp';
 import { useContactStore } from '../store/contactStore';
 import { winRate } from '../services/analyticsService';
@@ -739,6 +740,11 @@ const Pipeline: React.FC = () => {
               className={BTN_ICON}
             >
               <BarChart3 className="w-4 h-4" />
+            </button>
+          </Tooltip>
+          <Tooltip content="Ask AI (Ctrl/Cmd+J) - Ask questions about your pipeline and review suggested changes" position="left">
+            <button type="button" aria-label="Ask AI" onClick={() => openWorkspaceChat()} className={BTN_ICON}>
+              <Sparkles className="w-4 h-4" />
             </button>
           </Tooltip>
           <Tooltip content="Settings - Configure pipeline preferences, notifications, and integrations" position="left">

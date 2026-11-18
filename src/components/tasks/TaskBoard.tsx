@@ -127,10 +127,10 @@ export const TaskBoard: React.FC<Props> = ({ tasks, users, deals, canCreate, can
                       )}
                     </Draggable>
                   ))}
-                  {drop.placeholder}
                   {cols[status].length === 0 && !snap.isDraggingOver && (
                     <li className="list-none px-2 py-6 text-center text-xs text-gray-500 dark:text-gray-400">No tasks</li>
                   )}
+                  {drop.placeholder}
                 </ul>
               )}
             </Droppable>

@@ -33,6 +33,7 @@ export function companyFromRow(row: Record<string, any>): Company {
     logoUrl: row.logo_url ?? undefined,
     notes: row.notes ?? undefined,
     ownerId: row.owner_id ?? undefined,
+    customFields: row.custom_fields && typeof row.custom_fields === 'object' ? row.custom_fields : undefined,
     createdAt: row.created_at ? new Date(row.created_at) : new Date(),
     updatedAt: row.updated_at ? new Date(row.updated_at) : new Date(),
   };
@@ -43,7 +44,7 @@ export function companyToRow(c: Partial<Company>): Record<string, unknown> {
   const map: Array<[keyof Company, string]> = [
     ['name', 'name'], ['industry', 'industry'], ['website', 'website'], ['domain', 'domain'], ['size', 'size'],
     ['revenue', 'revenue'], ['phone', 'phone'], ['address', 'address'], ['logoUrl', 'logo_url'],
-    ['notes', 'notes'], ['ownerId', 'owner_id'],
+    ['notes', 'notes'], ['ownerId', 'owner_id'], ['customFields', 'custom_fields'],
   ];
   const row: Record<string, unknown> = {};
   for (const [k, col] of map) if (c[k] !== undefined) row[col] = c[k];
@@ -78,6 +79,12 @@ function writeLocal(list: Company[]): void {
 }
 
 const slug = (s: string) => normalizeName(s).replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'company';
+
+/** Drop explicit local companies (after a merge); derived `local-co-*` entries vanish once nothing references them. */
+export function removeLocalCompanies(ids: string[]): void {
+  const drop = new Set(ids);
+  writeLocal(readLocal().filter(c => !drop.has(c.id)));
+}
 
 /** Test helper: reset the in-memory cache. */
 export function __resetLocalCompanies(): void { memory = null; }

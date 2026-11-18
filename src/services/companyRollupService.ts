@@ -2,13 +2,12 @@ import { supabase } from './supabaseService';
 import { isRemote, companyTotals } from './companyService';
 import type { Deal } from '../types';
 import type { Contact } from '../types/contact';
-import type { RollupMetric } from '../types/customFields';
 import type { CompanyRollup } from '../utils/rollups';
 export { ROLLUP_METRIC_LABELS, metricValue, rollupValuesForDefs, type CompanyRollup } from '../utils/rollups';
 
 const num = (v: unknown): number => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
 
-export function rollupFromRow(r: Record<string, any>): CompanyRollup {
+export function rollupFromRow(r: Record<string, unknown>): CompanyRollup {
   return {
     companyId: String(r.company_id),
     openDealCount: num(r.open_deal_count),
@@ -23,7 +22,7 @@ export function rollupFromRow(r: Record<string, any>): CompanyRollup {
 export async function fetchCompanyRollups(companyIds: string[] | null): Promise<Map<string, CompanyRollup>> {
   const { data, error } = await supabase.rpc('company_rollups', { p_company_ids: companyIds });
   if (error) throw error;
-  return new Map(((data ?? []) as Array<Record<string, any>>).map(r => { const x = rollupFromRow(r); return [x.companyId, x]; }));
+  return new Map(((data ?? []) as Array<Record<string, unknown>>).map(r => { const x = rollupFromRow(r); return [x.companyId, x]; }));
 }
 
 /** Same numbers computed client-side (demo mode / local companies). */

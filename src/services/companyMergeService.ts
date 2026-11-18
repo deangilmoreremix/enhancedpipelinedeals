@@ -26,7 +26,8 @@ export async function findDuplicateCompanies(name: string, domain?: string | nul
       p_name: name, p_domain: domain ?? null, p_exclude: excludeId && !excludeId.startsWith('local-') ? excludeId : null,
     });
     if (error) throw error;
-    return ((data ?? []) as Array<Record<string, any>>).map(r => ({ id: r.id, name: r.name, domain: r.domain ?? null, reason: r.reason }));
+    return ((data ?? []) as Array<{ id: string; name: string; domain?: string | null; reason: string }>)
+      .map(r => ({ id: r.id, name: r.name, domain: r.domain ?? null, reason: r.reason }));
   }
   return listLocal()
     .filter(c => c.id !== excludeId && ((nn && squash(c.name) === nn) || (nd && normalizeDomain(c.domain) === nd)))
@@ -38,7 +39,7 @@ export async function scanDuplicateCompanies(): Promise<DuplicateGroup[]> {
   if (isRemote()) {
     const { data, error } = await supabase.rpc('scan_duplicate_companies');
     if (error) throw error;
-    return ((data ?? []) as Array<Record<string, any>>).map(r => ({
+    return ((data ?? []) as Array<{ group_key: string; ids?: string[]; names?: string[]; reason: string }>).map(r => ({
       key: r.group_key, ids: r.ids ?? [], names: r.names ?? [], reason: r.reason,
     }));
   }

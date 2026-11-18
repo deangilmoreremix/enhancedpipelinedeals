@@ -191,3 +191,14 @@ select e2e.eq('ws/other user: api_keys isolation', e2e.cnt($$select 1 from publi
 reset role;
 update public.app_settings set setting_value = '"open"'::jsonb where setting_key='rls_mode' and user_id is null;
 rollback;
+
+-- formula/rollup field types are accepted, unknown types still rejected
+do $$ begin
+  insert into public.deal_field_definitions(key,type,label,entity_type) values ('zz_formula','formula','F','deal');
+  insert into public.deal_field_definitions(key,type,label,entity_type) values ('zz_rollup','rollup','R','company');
+  begin
+    insert into public.deal_field_definitions(key,type,label,entity_type) values ('zz_bad','bogus','B','deal');
+    raise exception 'bogus type accepted';
+  exception when check_violation then null; end;
+  delete from public.deal_field_definitions where key in ('zz_formula','zz_rollup');
+end $$;

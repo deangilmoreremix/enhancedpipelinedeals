@@ -141,6 +141,11 @@ grant execute on function public.revoke_api_key(uuid) to authenticated, service_
 -- (5) workflow versions + webhook trigger
 -- ---------------------------------------------------------------------------
 alter table public.deal_workflows add column if not exists published_version int;
+-- Field types: allow computed types added in this wave (formula, rollup). The inline CHECK from 000008 is auto-named.
+alter table public.deal_field_definitions drop constraint if exists deal_field_definitions_type_check;
+alter table public.deal_field_definitions add constraint deal_field_definitions_type_check
+  check (type in ('text','number','select','multi_select','rating','link','email','phone','date','formula','rollup'));
+
 alter table public.deal_workflows add column if not exists webhook_token text;
 alter table public.deal_workflows add column if not exists webhook_enabled boolean not null default false;
 create unique index if not exists uq_deal_workflows_webhook_token on public.deal_workflows(webhook_token) where webhook_token is not null;

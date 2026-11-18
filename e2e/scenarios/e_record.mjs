@@ -151,8 +151,9 @@ export default [{
       await B.openBoard(page);
       await B.card(page, id).click({ position: { x: 150, y: 8 } });
       await page.getByTestId('deal-side-panel').waitFor({ timeout: 8000 });
-      await tabBtn(page, 'Tasks').click(); await page.waitForTimeout(600);
-      await page.getByLabel('New task title').fill('Modal task');
+      const taskInput = page.getByLabel('New task title');
+      for (let i = 0; i < 3 && !(await taskInput.isVisible().catch(() => false)); i++) { await tabBtn(page, 'Tasks').click(); await taskInput.waitFor({ timeout: 4000 }).catch(() => {}); }
+      await taskInput.fill('Modal task');
       await page.getByRole('button', { name: 'Add', exact: true }).click(); await page.waitForTimeout(800);
       ctx.check(await page.getByText('Modal task').count() > 0, 'task added from modal');
       await shot('modal');

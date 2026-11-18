@@ -344,11 +344,12 @@ export default async function ({ t, openai, supa, loadFunction }) {
   // ======================= workflow-webhook
   const TOKEN = 'tok_abcdefghijklmnopqrstuvwx1234';
   const wfRow = (o = {}) => ({
-    id: 'w1', name: 'Hooked', is_active: true, webhook_enabled: true, webhook_token: TOKEN, settings: { isActive: true },
+    id: 'w1', name: 'Hooked', is_active: true, webhook_enabled: true, settings: { isActive: true },
     triggers: [], stages: [{ id: 's0', type: 'trigger', connections: ['sn'] }, { id: 'sn', type: 'action', action: { type: 'notification', name: 'N', config: { notificationMessage: 'Webhook {{payload.who}} on {{title}}' } } }],
     ...o,
   });
-  const seedHook = (wf = {}, extra = {}) => supa.reset({ deal_workflows: [wfRow(wf)], deals: [{ id: 'd1', title: 'Big deal', value: 5000, stage: 'proposal', contact_id: null, deleted_at: null }], ...extra });
+  const hookRow = (o = {}) => ({ workflow_id: 'w1', token: TOKEN, enabled: true, ...o });
+  const seedHook = (wf = {}, extra = {}, hk = {}) => supa.reset({ deal_workflows: [wfRow(wf)], workflow_webhooks: [hookRow(hk)], deals: [{ id: 'd1', title: 'Big deal', value: 5000, stage: 'proposal', contact_id: null, deleted_at: null }], ...extra });
   const hook = (token = TOKEN, o = {}) => callV2(hookFn, { url: `http://localhost/api/workflow/hook/${token}`, token: null, ...o });
 
   await t('workflow-webhook: config.path; POST with a valid token runs the workflow -> 202 {executionId}; payload stored in the execution', async () => {
@@ -380,14 +381,14 @@ export default async function ({ t, openai, supa, loadFunction }) {
   await t('workflow-webhook: unknown token / disabled / inactive / malformed token all answer the same 404 and run nothing', async () => {
     const bodies = [];
     const cases = [
-      [TOKEN, {}, { webhook_token: 'other_token_abcdefghijklmnop' }],
-      [TOKEN, { webhook_enabled: false }],
+      [TOKEN, {}, { token: 'other_token_abcdefghijklmnop' }],
+      [TOKEN, {}, { enabled: false }],
       [TOKEN, { is_active: false }],
       ['short', {}],
       ['bad token!', {}],
     ];
-    for (const [tok, wf, ...rest] of cases) {
-      seedHook({ ...wf, ...(rest[0] ?? {}) });
+    for (const [tok, wf, hk] of cases) {
+      seedHook(wf, {}, hk);
       const r = await hook(tok, { method: 'POST', body: {} });
       assert.equal(r.status, 404, `${tok} ${JSON.stringify(wf)}`);
       bodies.push(await r.text());
@@ -406,7 +407,8 @@ export default async function ({ t, openai, supa, loadFunction }) {
   });
   await t('workflow-webhook: rate limited per token (30/min) -> 429; another token unaffected', async () => {
     seedHook({}, {});
-    supa.table('deal_workflows').push(wfRow({ id: 'w2', webhook_token: 'second_token_abcdefghijklmnop' }));
+    supa.table('deal_workflows').push(wfRow({ id: 'w2' }));
+    supa.table('workflow_webhooks').push(hookRow({ workflow_id: 'w2', token: 'second_token_abcdefghijklmnop' }));
     let last;
     for (let i = 0; i < 31; i++) last = await hook(TOKEN, { method: 'POST', body: {} });
     assert.equal(last.status, 429);

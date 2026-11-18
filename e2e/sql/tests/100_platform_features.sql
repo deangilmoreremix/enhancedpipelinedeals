@@ -79,7 +79,8 @@ reset role;
 -- ---- (5) workflows ------------------------------------------------------------------------------------
 insert into public.deal_workflows(id, user_id, name, description, stages, triggers, category) values
  ('00000000-0000-0000-0000-00000000b001', null, 'WF', 'desc', '[{"a":1}]', '[{"t":1}]', 'sales');
-select e2e.ok('workflow cols', (select count(*) = 3 from information_schema.columns where table_name='deal_workflows' and column_name in ('published_version','webhook_token','webhook_enabled')));
+select e2e.ok('workflow cols', (select count(*) = 2 from information_schema.columns where table_name='deal_workflows' and column_name in ('published_version','webhook_enabled'))
+  and not exists (select 1 from information_schema.columns where table_schema='public' and table_name='deal_workflows' and column_name='webhook_token'));
 select e2e.as_user('authenticated', :'m1') \g /dev/null
 select e2e.eq('open/auth: publish v1', public.publish_workflow_version('00000000-0000-0000-0000-00000000b001','first'), 1);
 update public.deal_workflows set stages = '[{"a":2}]', name = 'WF2' where id = '00000000-0000-0000-0000-00000000b001';
@@ -96,14 +97,30 @@ select e2e.ok('publish: snapshot + statuses', (select (select status from public
   and (select snapshot->>'name' from public.workflow_versions where workflow_id='00000000-0000-0000-0000-00000000b001' and version=1)='WF'
   and (select snapshot ? 'settings' and snapshot ? 'category' and snapshot ? 'triggers' from public.workflow_versions where workflow_id='00000000-0000-0000-0000-00000000b001' and version=2)));
 select e2e.ok('restore: content back, published_version unchanged', (select name='WF' and stages='[{"a":1}]'::jsonb and published_version=2 from public.deal_workflows where id='00000000-0000-0000-0000-00000000b001'));
-select e2e.ok('token: enabled and stored', (select webhook_enabled and length(webhook_token)>=32 from public.deal_workflows where id='00000000-0000-0000-0000-00000000b001'));
+select e2e.ok('token: flag on deal_workflows, token stored in workflow_webhooks', (select webhook_enabled from public.deal_workflows where id='00000000-0000-0000-0000-00000000b001')
+  and (select enabled and length(token)>=32 from public.workflow_webhooks where workflow_id='00000000-0000-0000-0000-00000000b001'));
+select e2e.as_user('authenticated', :'m1') \g /dev/null
+select e2e.raises('token: authenticated select on workflow_webhooks denied', $$select * from public.workflow_webhooks$$, '42501');
+select e2e.raises('token: authenticated insert on workflow_webhooks denied', $$insert into public.workflow_webhooks(workflow_id, token) values ('00000000-0000-0000-0000-00000000b001','x')$$, '42501');
+select e2e.raises('token: authenticated update on workflow_webhooks denied', $$update public.workflow_webhooks set enabled = true$$, '42501');
+select e2e.raises('token: authenticated delete on workflow_webhooks denied', $$delete from public.workflow_webhooks$$, '42501');
+select e2e.ok('token: select * on deal_workflows exposes no token', (select not exists (select 1 from jsonb_object_keys(to_jsonb(w)) k where k like '%token%') and to_jsonb(w) ? 'webhook_enabled' from (select * from public.deal_workflows where id='00000000-0000-0000-0000-00000000b001') w));
+select e2e.ok('token: writer reads it through get_workflow_webhook', (select length(token) >= 32 and enabled from public.get_workflow_webhook('00000000-0000-0000-0000-00000000b001')));
+reset role;
+select e2e.as_user('service_role') \g /dev/null
+select e2e.ok('token: service role lookup by the rotated token finds the workflow', (select w.workflow_id = '00000000-0000-0000-0000-00000000b001' and w.enabled from public.workflow_webhooks w where w.token = (select token from public.workflow_webhooks limit 1)));
+reset role;
 select e2e.as_user('authenticated', :'m1') \g /dev/null
 select e2e.ok('token: disable returns null', (select public.rotate_workflow_webhook_token('00000000-0000-0000-0000-00000000b001', false) is null));
+select e2e.ok('token: disabled get_workflow_webhook keeps token, enabled=false', (select length(token) >= 32 and not enabled from public.get_workflow_webhook('00000000-0000-0000-0000-00000000b001')));
 reset role;
-select e2e.ok('token: disabled flag', (select not webhook_enabled from public.deal_workflows where id='00000000-0000-0000-0000-00000000b001'));
+select e2e.ok('token: disabled flag on both tables', (select not webhook_enabled from public.deal_workflows where id='00000000-0000-0000-0000-00000000b001')
+  and (select not enabled from public.workflow_webhooks where workflow_id='00000000-0000-0000-0000-00000000b001'));
 select e2e.as_user('anon') \g /dev/null
 select e2e.raises('anon: publish denied', $$select public.publish_workflow_version('00000000-0000-0000-0000-00000000b001')$$, '42501');
 select e2e.raises('anon: rotate denied', $$select public.rotate_workflow_webhook_token('00000000-0000-0000-0000-00000000b001')$$, '42501');
+select e2e.raises('anon: get_workflow_webhook denied', $$select * from public.get_workflow_webhook('00000000-0000-0000-0000-00000000b001')$$, '42501');
+select e2e.raises('anon: workflow_webhooks select denied', $$select * from public.workflow_webhooks$$, '42501');
 reset role;
 
 -- ---- (6) board_position -------------------------------------------------------------------------------
@@ -173,6 +190,7 @@ select e2e.ok('ws/member: sees api_keys own', (select count(*) = 0 from public.a
 select e2e.eq('ws/member: versions visible to workspace member', e2e.cnt($$select 1 from public.workflow_versions$$), 2::bigint);
 select e2e.raises('ws/member: publish denied', $$select public.publish_workflow_version('00000000-0000-0000-0000-00000000b001')$$, '42501');
 select e2e.raises('ws/member: rotate denied', $$select public.rotate_workflow_webhook_token('00000000-0000-0000-0000-00000000b001')$$, '42501');
+select e2e.raises('ws/member: get_workflow_webhook denied', $$select * from public.get_workflow_webhook('00000000-0000-0000-0000-00000000b001')$$, '42501');
 select e2e.raises('ws/member: restore denied', $$select public.restore_workflow_version('00000000-0000-0000-0000-00000000b001',1)$$, '42501');
 reset role;
 select e2e.as_user('authenticated', :'v1') \g /dev/null

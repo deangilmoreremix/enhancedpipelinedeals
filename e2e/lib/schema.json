@@ -493,6 +493,19 @@
                 "security_definer": false
             }
         ],
+        "get_workflow_webhook": [
+            {
+                "args": "p_workflow_id uuid",
+                "execute": [
+                    "authenticated",
+                    "service_role"
+                ],
+                "returns": "TABLE(token text, enabled boolean)",
+                "identity": "p_workflow_id uuid",
+                "volatility": "v",
+                "security_definer": true
+            }
+        ],
         "set_role_permissions": [
             {
                 "args": "p_role_id uuid, p_permissions jsonb",
@@ -8342,12 +8355,6 @@
                     "nullable": true,
                     "generated": false
                 },
-                "webhook_token": {
-                    "type": "text",
-                    "default": null,
-                    "nullable": true,
-                    "generated": false
-                },
                 "webhook_enabled": {
                     "type": "boolean",
                     "default": "false",
@@ -12249,6 +12256,47 @@
                     ],
                     "permissive": "PERMISSIVE"
                 }
+            ],
+            "replica_identity": "d"
+        },
+        "workflow_webhooks": {
+            "rls": true,
+            "kind": "table",
+            "by_role": {
+            },
+            "columns": {
+                "token": {
+                    "type": "text",
+                    "default": null,
+                    "nullable": false,
+                    "generated": false
+                },
+                "enabled": {
+                    "type": "boolean",
+                    "default": "false",
+                    "nullable": false,
+                    "generated": false
+                },
+                "rotated_at": {
+                    "type": "timestamp with time zone",
+                    "default": "now()",
+                    "nullable": true,
+                    "generated": false
+                },
+                "rotated_by": {
+                    "type": "uuid",
+                    "default": null,
+                    "nullable": true,
+                    "generated": false
+                },
+                "workflow_id": {
+                    "type": "uuid",
+                    "default": null,
+                    "nullable": false,
+                    "generated": false
+                }
+            },
+            "policies": [
             ],
             "replica_identity": "d"
         },

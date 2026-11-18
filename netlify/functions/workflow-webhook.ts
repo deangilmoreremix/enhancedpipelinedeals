@@ -1,6 +1,6 @@
 /**
  * Inbound workflow webhook (Netlify Functions v2): POST /api/workflow/hook/:token
- * The token (deal_workflows.webhook_token, minted by the RPC rotate_workflow_webhook_token) IS the credential, so every
+ * The token (workflow_webhooks.token, a service-role-only table minted by the RPC rotate_workflow_webhook_token) IS the credential, so every
  * failure to resolve it (unknown token, webhook disabled, workflow inactive) answers the same 404.
  * Body (optional JSON object): { deal_id?: string, ...anything }. The whole body is kept as the run's payload.
  * Reply 202 { ok, executionId, status }. Rate limited per token (RPC check_rate_limit).
@@ -28,11 +28,17 @@ export default async (req: Request, context?: { params?: Record<string, string> 
   if (allowed === null) return jsonResponse(503, { ok: false, error: 'Rate limit check unavailable' });
   if (!allowed) return jsonResponse(429, { ok: false, error: 'Rate limit exceeded' }, { 'Retry-After': String(RATE_WINDOW_S) });
 
+  const { data: hook, error: hookErr } = await db
+    .from('workflow_webhooks')
+    .select('workflow_id')
+    .eq('token', token)
+    .eq('enabled', true)
+    .maybeSingle();
+  if (hookErr || !hook) return jsonResponse(404, NOT_FOUND);
   const { data: wf, error } = await db
     .from('deal_workflows')
     .select('*')
-    .eq('webhook_token', token)
-    .eq('webhook_enabled', true)
+    .eq('id', (hook as { workflow_id: string }).workflow_id)
     .eq('is_active', true)
     .maybeSingle();
   if (error || !wf) return jsonResponse(404, NOT_FOUND);

@@ -146,9 +146,31 @@ alter table public.deal_field_definitions drop constraint if exists deal_field_d
 alter table public.deal_field_definitions add constraint deal_field_definitions_type_check
   check (type in ('text','number','select','multi_select','rating','link','email','phone','date','formula','rollup'));
 
-alter table public.deal_workflows add column if not exists webhook_token text;
 alter table public.deal_workflows add column if not exists webhook_enabled boolean not null default false;
-create unique index if not exists uq_deal_workflows_webhook_token on public.deal_workflows(webhook_token) where webhook_token is not null;
+
+-- The inbound-webhook token is a credential: it lives in its own table that no client role can touch.
+-- (deal_workflows is readable by every authenticated user, so the token must never be a column there.)
+create table if not exists public.workflow_webhooks (
+  workflow_id uuid primary key references public.deal_workflows(id) on delete cascade,
+  token text not null unique,
+  enabled boolean not null default false,
+  rotated_at timestamptz default now(),
+  rotated_by uuid
+);
+alter table public.workflow_webhooks enable row level security;
+revoke all on public.workflow_webhooks from public, anon, authenticated;
+grant all on public.workflow_webhooks to service_role;
+
+-- Carry over tokens from the earlier column shape, then drop it.
+do $mig$
+begin
+  if exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'deal_workflows' and column_name = 'webhook_token') then
+    execute 'insert into public.workflow_webhooks (workflow_id, token, enabled) select id, webhook_token, coalesce(webhook_enabled, false) from public.deal_workflows where webhook_token is not null on conflict (workflow_id) do nothing';
+    drop index if exists public.uq_deal_workflows_webhook_token;
+    alter table public.deal_workflows drop column webhook_token;
+  end if;
+end
+$mig$;
 
 create table if not exists public.workflow_versions (
   id uuid primary key default gen_random_uuid(),
@@ -224,18 +246,30 @@ begin
   if not public.can_write_workflows() then raise exception 'not allowed to change workflow webhooks' using errcode = '42501'; end if;
   if not exists (select 1 from public.deal_workflows where id = p_workflow_id) then raise exception 'workflow not found' using errcode = 'P0002'; end if;
   if not coalesce(p_enable, true) then
+    update public.workflow_webhooks set enabled = false, rotated_at = now(), rotated_by = auth.uid() where workflow_id = p_workflow_id;
     update public.deal_workflows set webhook_enabled = false, updated_at = now() where id = p_workflow_id;
     return null;
   end if;
   tok := replace(gen_random_uuid()::text || gen_random_uuid()::text, '-', '');
-  update public.deal_workflows set webhook_token = tok, webhook_enabled = true, updated_at = now() where id = p_workflow_id;
+  insert into public.workflow_webhooks (workflow_id, token, enabled, rotated_at, rotated_by)
+    values (p_workflow_id, tok, true, now(), auth.uid())
+    on conflict (workflow_id) do update set token = excluded.token, enabled = true, rotated_at = now(), rotated_by = auth.uid();
+  update public.deal_workflows set webhook_enabled = true, updated_at = now() where id = p_workflow_id;
   return tok;
 end
 $fn$;
+
+create or replace function public.get_workflow_webhook(p_workflow_id uuid) returns table(token text, enabled boolean)
+language plpgsql security definer set search_path = public, pg_temp as $fn$
+begin
+  if not public.can_write_workflows() then raise exception 'not allowed to read workflow webhooks' using errcode = '42501'; end if;
+  return query select w.token, w.enabled from public.workflow_webhooks w where w.workflow_id = p_workflow_id;
+end
+$fn$;
 revoke all on function public.publish_workflow_version(uuid, text), public.restore_workflow_version(uuid, int),
-  public.rotate_workflow_webhook_token(uuid, boolean) from public, anon;
+  public.rotate_workflow_webhook_token(uuid, boolean), public.get_workflow_webhook(uuid) from public, anon;
 grant execute on function public.publish_workflow_version(uuid, text), public.restore_workflow_version(uuid, int),
-  public.rotate_workflow_webhook_token(uuid, boolean) to authenticated, service_role;
+  public.rotate_workflow_webhook_token(uuid, boolean), public.get_workflow_webhook(uuid) to authenticated, service_role;
 
 -- ---------------------------------------------------------------------------
 -- (6) tasks.board_position

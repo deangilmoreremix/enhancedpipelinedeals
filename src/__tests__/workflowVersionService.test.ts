@@ -4,7 +4,7 @@ jest.mock('../config/demoMode', () => ({ isDemoMode: () => true }));
 jest.mock('../services/supabaseService', () => ({ supabase: {}, isSupabaseConfigured: false }));
 
 import {
-  __resetLocalVersions, badgeFor, diffSnapshots, getLiveMeta, listVersions, publishVersion, restoreVersion, setWebhook, snapshotOf, stableStringify,
+  __resetLocalVersions, badgeFor, diffSnapshots, getLiveMeta, listVersions, publishVersion, restoreVersion, setWebhook, getWebhook, snapshotOf, stableStringify,
   summarizeDiff, webhookCurl, webhookUrl,
 } from '../services/workflowVersionService';
 
@@ -73,6 +73,8 @@ describe('local fallback store (demo mode)', () => {
     const t2 = await setWebhook('w2', true);
     expect(t1).toBeTruthy(); expect(t2).not.toBe(t1);
     expect((await getLiveMeta('w2')).webhook_enabled).toBe(true);
+    expect(await getWebhook('w2')).toEqual({ token: t2, enabled: true });
+    expect(JSON.stringify(await getLiveMeta('w2'))).not.toContain(String(t2));
     expect(await setWebhook('w2', false)).toBeNull();
     expect((await getLiveMeta('w2')).webhook_enabled).toBe(false);
   });

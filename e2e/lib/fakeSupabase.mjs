@@ -232,13 +232,24 @@ this.rpcHandlers.find_duplicate_deals = ({ p_title, p_company, p_contact_id = nu
       if (w) { const s = ver.snapshot; Object.assign(w, { name: s.name ?? w.name, description: s.description ?? null, stages: s.stages ?? [], triggers: s.triggers ?? [], settings: s.settings ?? {}, category: s.category ?? null, updated_at: now() }); }
       return null;
     };
+    // workflow_webhooks is server-only: no client table access (schema grants deny every client role), RPCs only.
     this.rpcHandlers.rotate_workflow_webhook_token = ({ p_workflow_id, p_enable = true }) => {
       if (!canWriteWorkflows()) throw err('not allowed to change workflow webhooks', '42501');
       const w = this.table('deal_workflows').find(r => r.id === p_workflow_id);
       if (!w) throw err('workflow not found', 'P0002');
-      if (p_enable === false) { w.webhook_enabled = false; w.updated_at = now(); return null; }
-      w.webhook_token = (uuid() + uuid()).replace(/-/g, ''); w.webhook_enabled = true; w.updated_at = now();
-      return w.webhook_token;
+      const hooks = this.table('workflow_webhooks');
+      let h = hooks.find(r => r.workflow_id === p_workflow_id);
+      if (p_enable === false) { if (h) { h.enabled = false; h.rotated_at = now(); h.rotated_by = uid(); } w.webhook_enabled = false; w.updated_at = now(); return null; }
+      const token = (uuid() + uuid()).replace(/-/g, '');
+      if (h) Object.assign(h, { token, enabled: true, rotated_at: now(), rotated_by: uid() });
+      else hooks.push({ workflow_id: p_workflow_id, token, enabled: true, rotated_at: now(), rotated_by: uid() });
+      w.webhook_enabled = true; w.updated_at = now();
+      return token;
+    };
+    this.rpcHandlers.get_workflow_webhook = ({ p_workflow_id }) => {
+      if (!canWriteWorkflows()) throw err('not allowed to read workflow webhooks', '42501');
+      const h = this.table('workflow_webhooks').find(r => r.workflow_id === p_workflow_id);
+      return h ? [{ token: h.token, enabled: h.enabled }] : [];
     };
     const roleFor = (id) => {
       const r = this.table('roles').find(x => x.id === id);

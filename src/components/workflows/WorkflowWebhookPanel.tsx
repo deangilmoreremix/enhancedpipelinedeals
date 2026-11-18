@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Copy, RefreshCw, Webhook } from 'lucide-react';
 import { Modal } from '../ui/Modal';
 import { BTN, BTN_DANGER } from '../ui/buttonStyles';
-import { getLiveMeta, setWebhook, webhookCurl, webhookUrl } from '../../services/workflowVersionService';
+import { getLiveMeta, getWebhook, setWebhook, webhookCurl, webhookUrl } from '../../services/workflowVersionService';
 
 /** Inbound webhook trigger for a SAVED workflow: enable toggle, copy URL, rotate token (confirm), sample curl. */
 export const WorkflowWebhookPanel: React.FC<{ workflowId: string | undefined; canManage: boolean }> = ({ workflowId, canManage }) => {
@@ -16,8 +16,8 @@ export const WorkflowWebhookPanel: React.FC<{ workflowId: string | undefined; ca
 
   const load = useCallback(async () => {
     if (!workflowId) return;
-    try { const m = await getLiveMeta(workflowId); setEnabled(m.webhook_enabled); setToken(m.webhook_token); } catch (e) { setError(e instanceof Error ? e.message : 'Could not load webhook settings'); }
-  }, [workflowId]);
+    try { const m = await getLiveMeta(workflowId); setEnabled(m.webhook_enabled); setToken(m.webhook_enabled && canManage ? (await getWebhook(workflowId)).token : null); } catch (e) { setError(e instanceof Error ? e.message : 'Could not load webhook settings'); }
+  }, [workflowId, canManage]);
   useEffect(() => { void load(); }, [load]);
 
   // Only meaningful once the workflow exists in the database

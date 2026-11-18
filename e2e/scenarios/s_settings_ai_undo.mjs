@@ -242,6 +242,10 @@ export default [{
       ctx.check(/\/api\/workflow\/hook\/[0-9a-f]{20,}$/.test(url1), 'enable shows the inbound URL: ' + url1);
       ctx.check(await panel.getByText(/curl -X POST/).count() === 1, 'sample curl shown');
       ctx.check(fake.table('deal_workflows')[0].webhook_enabled === true, 'webhook_enabled set through rotate_workflow_webhook_token');
+      ctx.check(!('webhook_token' in fake.table('deal_workflows')[0]), 'token is not stored on deal_workflows');
+      ctx.check(fake.table('workflow_webhooks').some(h => h.workflow_id === fake.table('deal_workflows')[0].id && h.enabled && url1.endsWith(h.token)), 'token stored in workflow_webhooks and matches the shown URL');
+      ctx.check(!fake.log.some(l => l.table === 'workflow_webhooks'), 'client never queried workflow_webhooks directly');
+      ctx.check(!fake.log.some(l => l.table === 'deal_workflows' && /webhook_token/.test(l.query || '')), 'client never selected webhook_token');
       await panel.getByRole('button', { name: 'Rotate token' }).click();
       await page.getByRole('dialog', { name: 'Rotate webhook token?' }).getByRole('button', { name: 'Rotate token' }).click(); await page.waitForTimeout(800);
       const url2 = await panel.getByTestId('webhook-url').innerText();
@@ -249,8 +253,12 @@ export default [{
       await shot('webhook');
       // settings > webhooks table shows it
       await page.goto('/settings/webhooks');
-      await page.getByTestId('workflow-webhooks').getByText(/\/api\/workflow\/hook\//).first().waitFor({ timeout: 8000 });
-      ctx.check(true, 'Settings > Webhooks lists the inbound URL');
+      const wt = page.getByTestId('workflow-webhooks');
+      await wt.getByText(/^Enabled/).first().waitFor({ timeout: 8000 });
+      ctx.check(true, 'Settings > Webhooks lists the enabled workflow');
+      ctx.check(!(await wt.innerText()).includes('/api/workflow/hook/'), 'the list never shows the token URL');
+      await wt.getByRole('button', { name: /Copy URL for/ }).first().waitFor({ timeout: 5000 });
+      ctx.check(true, 'Copy URL fetches the token on demand through get_workflow_webhook');
       await context.close();
     });
 

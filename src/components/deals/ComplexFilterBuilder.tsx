@@ -13,6 +13,7 @@ import {
   isDraftValid,
   operatorsForKind
 } from '../pipeline/filterFieldConfig';
+import { useBoardFilterFields } from '../pipeline/useBoardFilterFields';
 
 interface ComplexFilterBuilderProps {
   /** Receives AND/OR groups of ViewFilter conditions (groups are ANDed together). */
@@ -69,7 +70,8 @@ export const ComplexFilterBuilder: React.FC<ComplexFilterBuilderProps> = ({
   initialGroups,
   stages = []
 }) => {
-  const fields = BOARD_FILTER_FIELDS.filter(f => !availableFields || availableFields.includes(f.id));
+  const allFields = useBoardFilterFields();
+  const fields = allFields.filter(f => !availableFields || availableFields.includes(f.id));
   const firstField = (fields[0] ?? BOARD_FILTER_FIELDS[0]).id;
   const [groups, setGroups] = useState<DraftGroup[]>(() => toDraftGroups(initialGroups, firstField));
 

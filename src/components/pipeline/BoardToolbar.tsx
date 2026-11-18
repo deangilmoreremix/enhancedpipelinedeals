@@ -9,6 +9,9 @@ import { SavedViewsPanel } from './SavedViewsPanel';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { BTN, CONTROL } from '../ui/buttonStyles';
+import { useFieldDefinitions } from '../deals/fields/useFieldDefinitions';
+import { customColumnKey, customFieldPath } from '../../utils/customFieldRecords';
+import { isGroupableField } from '../../utils/boardGrouping';
 
 export const SORT_FIELDS: Array<{ id: string; label: string }> = [
   { id: 'value', label: 'Value' },
@@ -42,8 +45,11 @@ const SortRules: React.FC = () => {
     return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey); };
   }, [open]);
 
+  const { definitions } = useFieldDefinitions('deal', { lazy: true });
+  // Active custom fields are sortable too (rollups only exist on companies); formulas sort on their computed value
+  const sortFields = [...SORT_FIELDS, ...definitions.filter(d => d.isActive && d.type !== 'rollup').map(d => ({ id: customFieldPath(d.key), label: d.label }))];
   const update = (i: number, patch: Partial<ViewSort>) => setSorting(sorting.map((s, idx) => (idx === i ? { ...s, ...patch } : s)));
-  const unused = SORT_FIELDS.filter(f => !sorting.some(s => s.field === f.id));
+  const unused = sortFields.filter(f => !sorting.some(s => s.field === f.id));
 
   return (
     <div className="relative" ref={ref}>
@@ -70,7 +76,7 @@ const SortRules: React.FC = () => {
                 onChange={(e) => update(i, { field: e.target.value })}
                 className={`${CONTROL_CLASS} flex-1 py-1`}
               >
-                {SORT_FIELDS.filter(f => f.id === s.field || unused.some(u => u.id === f.id)).map(f => <option key={f.id} value={f.id}>{f.label}</option>)}
+                {sortFields.filter(f => f.id === s.field || unused.some(u => u.id === f.id)).map(f => <option key={f.id} value={f.id}>{f.label}</option>)}
               </select>
               <button
                 type="button"
@@ -115,6 +121,11 @@ export const BoardToolbar: React.FC<{ showGroupBy?: boolean }> = ({ showGroupBy 
   const groupBy = useBoardViewStore(s => s.groupBy);
   const setGroupBy = useBoardViewStore(s => s.setGroupBy);
   const saved = useSavedBoardViews();
+  const { definitions: fieldDefs } = useFieldDefinitions('deal', { lazy: true });
+  const groupOptions = [
+    ...BOARD_GROUP_OPTIONS,
+    ...fieldDefs.filter(isGroupableField).map(d => ({ id: customColumnKey(d.key) as BoardGroupBy, label: d.label })),
+  ];
 
   const [saveOpen, setSaveOpen] = useState(false);
   const [manageOpen, setManageOpen] = useState(false);
@@ -168,7 +179,7 @@ export const BoardToolbar: React.FC<{ showGroupBy?: boolean }> = ({ showGroupBy 
           aria-label="Group board by"
           className={CONTROL_CLASS}
         >
-          {BOARD_GROUP_OPTIONS.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
+          {groupOptions.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
         </select>
       </label>
       )}

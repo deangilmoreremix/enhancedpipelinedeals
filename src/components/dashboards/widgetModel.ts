@@ -114,3 +114,14 @@ export function defaultWidgetTitle(c: WidgetConfig, defs: DealFieldDefinition[] 
 
 export interface DashboardRecord { id: string; name: string; description?: string | null }
 export interface WidgetRecord { id: string; dashboardId: string; title: string; config: WidgetConfig; order: number }
+
+/** Reorder helper moves item `id` by `dir` and renumbers `order` 0..n-1. */
+export function reorderWidgets(list: WidgetRecord[], id: string, dir: -1 | 1): WidgetRecord[] {
+  const sorted = [...list].sort((a, b) => a.order - b.order);
+  const i = sorted.findIndex(w => w.id === id);
+  const j = i + dir;
+  if (i < 0 || j < 0 || j >= sorted.length) return sorted.map((w, k) => ({ ...w, order: k }));
+  [sorted[i], sorted[j]] = [sorted[j], sorted[i]];
+  return sorted.map((w, k) => ({ ...w, order: k }));
+}
+

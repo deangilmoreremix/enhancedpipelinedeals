@@ -75,16 +75,19 @@ export async function restoreVersion(workflowId: string, version: number): Promi
 }
 
 /** Published version number + webhook settings of the live row. */
-export interface WorkflowLiveMeta { published_version: number | null; webhook_enabled: boolean; webhook_token: string | null }
+export interface WorkflowLiveMeta { published_version: number | null; webhook_enabled: boolean; webhook_token: string | null; snapshot: WorkflowSnapshot | null }
 
 export async function getLiveMeta(workflowId: string): Promise<WorkflowLiveMeta> {
   if (!canUseRemoteVersions()) {
     const pub = (localVersions[workflowId] ?? []).find(v => v.status === 'published');
-    return { published_version: pub?.version ?? null, webhook_enabled: localWebhook[workflowId]?.enabled ?? false, webhook_token: localWebhook[workflowId]?.token ?? null };
+    return { published_version: pub?.version ?? null, webhook_enabled: localWebhook[workflowId]?.enabled ?? false, webhook_token: localWebhook[workflowId]?.token ?? null, snapshot: null };
   }
-  const { data, error } = await supabase.from('deal_workflows').select('published_version,webhook_enabled,webhook_token').eq('id', workflowId).maybeSingle();
+  const { data, error } = await supabase.from('deal_workflows').select('name,description,stages,triggers,settings,category,published_version,webhook_enabled,webhook_token').eq('id', workflowId).maybeSingle();
   if (error) throw error;
-  return { published_version: data?.published_version ?? null, webhook_enabled: !!data?.webhook_enabled, webhook_token: data?.webhook_token ?? null };
+  return {
+    published_version: data?.published_version ?? null, webhook_enabled: !!data?.webhook_enabled, webhook_token: data?.webhook_token ?? null,
+    snapshot: data ? { name: data.name, description: data.description ?? null, stages: data.stages ?? [], triggers: data.triggers ?? [], settings: data.settings ?? {}, category: data.category ?? null } : null,
+  };
 }
 
 // ---- inbound webhook trigger --------------------------------------------------------------------------------
@@ -171,3 +174,13 @@ export function badgeFor(publishedVersion: number | null, liveSnapshot: Workflow
 }
 
 export const WorkflowVersionService = { listVersions, publishVersion, restoreVersion, getLiveMeta, setWebhook, diffSnapshots, summarizeDiff };
+
+export interface WorkflowWebhookRow { id: string; name: string; webhook_enabled: boolean; webhook_token: string | null }
+
+/** All workflows with their inbound webhook state (Settings > Webhooks). Empty in demo mode (no workflow store). */
+export async function listWorkflowWebhooks(): Promise<WorkflowWebhookRow[]> {
+  if (!canUseRemoteVersions()) return [];
+  const { data, error } = await supabase.from('deal_workflows').select('id,name,webhook_enabled,webhook_token').order('name');
+  if (error) throw error;
+  return (data ?? []).map((r: any) => ({ id: r.id, name: r.name, webhook_enabled: !!r.webhook_enabled, webhook_token: r.webhook_token ?? null }));
+}

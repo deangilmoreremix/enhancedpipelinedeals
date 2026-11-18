@@ -5,7 +5,7 @@ import { CUSTOM_FIELD_ENTITY_TYPES, type CustomFieldEntityType, type DealFieldDe
 import { createFieldDefinition, errMsg, reorderFieldDefinitions, setFieldActive, updateFieldDefinition } from '../../services/customFieldService';
 import { useFieldDefinitions } from '../deals/fields/useFieldDefinitions';
 import { FIELD_TYPE_LABELS, FieldForm } from '../deals/fields/FieldForm';
-import { ROLLUP_METRIC_LABELS } from '../../services/companyRollupService';
+import { ROLLUP_METRIC_LABELS } from '../../utils/rollups';
 import { pushToast } from '../../store/dealRecordStore';
 import { toastFailure } from '../../utils/permissionToast';
 import DealToasts from '../deals/DealToasts';

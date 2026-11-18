@@ -28,9 +28,10 @@ export function useIsDark(): boolean {
   return dark;
 }
 
-export function valueFormatter(cfg: WidgetConfig): (v: number) => string {
+/** `full` = exact figures for headline numbers, tables and tooltips; compact (K/M) for axis ticks. */
+export function valueFormatter(cfg: WidgetConfig, full = false): (v: number) => string {
   if (cfg.measure === 'count') return v => Math.round(v).toLocaleString();
-  if (cfg.field === 'value' || cfg.field === 'revenue') return formatCurrency;
+  if (cfg.field === 'value' || cfg.field === 'revenue') return full ? (v => '$' + Math.round(v).toLocaleString()) : formatCurrency;
   if (cfg.field === 'probability') return v => `${Math.round(v * 10) / 10}%`;
   return v => (Math.abs(v) >= 1000 ? v.toLocaleString(undefined, { maximumFractionDigits: 0 }) : String(Math.round(v * 100) / 100));
 }
@@ -43,7 +44,8 @@ const TICK = { fontSize: 11, fill: 'currentColor' };
 export const WidgetChart: React.FC<Props> = ({ cfg, result, title, measureLabel, groupLabel }) => {
   const dark = useIsDark();
   const palette = dark ? SERIES_DARK : SERIES_LIGHT;
-  const fmt = valueFormatter(cfg);
+  const fmt = valueFormatter(cfg, true);
+  const tick = valueFormatter(cfg);
   const grid = dark ? '#383835' : '#f0efec';
   const tipStyle = { background: dark ? '#1a1a19' : '#fcfcfb', border: `1px solid ${dark ? '#383835' : '#e2e1dc'}`, color: dark ? '#f0efec' : '#0b0b0b', borderRadius: 8, fontSize: 12 };
   const summary = `${title}. ${result.rows.map(r => `${r.label}: ${fmt(r.value)}`).join('; ')}`;
@@ -118,7 +120,7 @@ export const WidgetChart: React.FC<Props> = ({ cfg, result, title, measureLabel,
           <LineChart data={data} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
             <CartesianGrid stroke={grid} vertical={false} />
             <XAxis dataKey="name" tick={TICK} tickLine={false} axisLine={false} />
-            <YAxis tick={TICK} tickLine={false} axisLine={false} width={52} tickFormatter={v => fmt(Number(v))} />
+            <YAxis tick={TICK} tickLine={false} axisLine={false} width={52} tickFormatter={v => tick(Number(v))} />
             <Tooltip contentStyle={tipStyle} formatter={(v: number) => [fmt(v), measureLabel]} />
             <Line type="monotone" dataKey="value" name={measureLabel} stroke={color} strokeWidth={2} dot={{ r: 4, fill: color, stroke: dark ? '#1a1a19' : '#fcfcfb', strokeWidth: 2 }} isAnimationActive={false} />
           </LineChart>
@@ -126,7 +128,7 @@ export const WidgetChart: React.FC<Props> = ({ cfg, result, title, measureLabel,
           <BarChart data={data} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
             <CartesianGrid stroke={grid} vertical={false} />
             <XAxis dataKey="name" tick={TICK} tickLine={false} axisLine={false} interval={0} />
-            <YAxis tick={TICK} tickLine={false} axisLine={false} width={52} tickFormatter={v => fmt(Number(v))} />
+            <YAxis tick={TICK} tickLine={false} axisLine={false} width={52} tickFormatter={v => tick(Number(v))} />
             <Tooltip contentStyle={tipStyle} cursor={{ fill: dark ? '#ffffff12' : '#00000008' }} formatter={(v: number) => [fmt(v), measureLabel]} />
             <Bar dataKey="value" name={measureLabel} fill={color} radius={[4, 4, 0, 0]} maxBarSize={48} isAnimationActive={false} />
           </BarChart>

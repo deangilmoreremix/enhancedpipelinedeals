@@ -5,7 +5,7 @@ import { TASK_STATUS_LABEL } from '../../services/dealTasksService';
 import { AdvancedFilteringService, FilterGroupNode } from '../../services/advancedFilteringService';
 import { rangeStart, type AggregateRow } from '../../services/analyticsService';
 import { ownerLabel } from '../../utils/ownerLabel';
-import { GROUPS_FOR, WidgetConfig, WidgetObject, isMonthGroup } from './widgetModel';
+import { WidgetConfig, WidgetObject, isMonthGroup } from './widgetModel';
 
 export interface WidgetSources {
   deals: Deal[];
@@ -204,4 +204,3 @@ export function widgetToCsv(title: string, cfg: WidgetConfig, result: WidgetResu
   return lines.join('\r\n') + '\r\n';
 }
 
-export const widgetObjectGroups = (o: WidgetObject) => GROUPS_FOR[o];

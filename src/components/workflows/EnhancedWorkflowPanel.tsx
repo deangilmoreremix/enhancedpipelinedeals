@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { usePermissions } from '../../hooks/usePermissions';
 import { ArrowLeft, Bot, Edit, Globe, Mail, Pause, Play, Plus, Settings, Trash2, AlertTriangle, BarChart3 } from 'lucide-react';
 import { WorkflowBuilder } from './WorkflowBuilder';
+import { WorkflowVersionBar } from './WorkflowVersionBar';
+import { WorkflowWebhookPanel } from './WorkflowWebhookPanel';
 import { WorkflowRunHistory } from './WorkflowRunHistory';
 import type { AIAgentConfiguration, EmailTemplate, WebhookConfiguration, Workflow } from '../../types/workflow';
 import { enhancedWorkflowService } from '../../services/enhancedWorkflowService';
@@ -47,6 +49,16 @@ export const EnhancedWorkflowPanel: React.FC = () => {
   const [isExecuting, setIsExecuting] = useState(false);
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
   const [dirty, setDirty] = useState(false);
+  /** Bumped after each successful save/restore so the version badge re-reads the saved row. */
+  const [versionTick, setVersionTick] = useState(0);
+
+  // Unsaved-changes guard: closing the tab/window with edits asks first (the in-app back button already confirms)
+  useEffect(() => {
+    if (!dirty) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [dirty]);
 
   const loadWorkflows = useCallback(async () => {
     setWorkflows(await enhancedWorkflowService.getAllWorkflows());
@@ -84,6 +96,7 @@ export const EnhancedWorkflowPanel: React.FC = () => {
       await loadWorkflows();
       setSelectedWorkflow(saved);
       setDirty(false);
+      setVersionTick(n => n + 1);
       setNotice({ ok: true, text: 'Workflow saved.' });
     } else {
       setNotice({ ok: false, text: enhancedWorkflowService.getLastError() ?? 'Could not save the workflow. Please try again.' });
@@ -160,7 +173,23 @@ export const EnhancedWorkflowPanel: React.FC = () => {
             /> Active
           </label>
           {dirty && <span className="text-xs text-amber-600 dark:text-amber-400">Unsaved changes</span>}
+          <WorkflowVersionBar
+            workflowId={selectedWorkflow.id || undefined}
+            workflowName={selectedWorkflow.name}
+            dirty={dirty}
+            canManage={canManage}
+            refreshKey={versionTick}
+            onNotice={setNotice}
+            onRestored={async version => {
+              // Reload the restored live row (uncached) into the builder, discarding local edits
+              const fresh = (await enhancedWorkflowService.getAllWorkflows()).find(w => w.id === selectedWorkflow.id);
+              if (fresh) { setSelectedWorkflow(fresh); setDirty(false); }
+              setVersionTick(n => n + 1);
+              setNotice({ ok: true, text: `Restored version ${version} as a draft. Publish to snapshot it; runs use the saved workflow.` });
+            }}
+          />
         </div>
+        <WorkflowWebhookPanel workflowId={selectedWorkflow.id || undefined} canManage={canManage} />
         {notice && (
           <p role="status" className={`text-sm rounded-lg px-3 py-2 ${notice.ok ? 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-300' : 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300'}`}>{notice.text}</p>
         )}

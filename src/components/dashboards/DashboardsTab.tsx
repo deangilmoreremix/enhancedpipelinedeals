@@ -10,7 +10,7 @@ import { toastFailure } from '../../utils/permissionToast';
 import { pushToast } from '../../store/dealRecordStore';
 import DealToasts from '../deals/DealToasts';
 import { BTN, BTN_DANGER, BTN_PRIMARY, CONTROL } from '../ui/buttonStyles';
-import { DashboardRecord, WidgetConfig, WidgetRecord } from './widgetModel';
+import { DashboardRecord, WidgetConfig, WidgetRecord, reorderWidgets } from './widgetModel';
 import { WidgetCard } from './WidgetCard';
 import { WidgetEditor } from './WidgetEditor';
 import { useDashboardSources } from './useDashboardSources';
@@ -18,16 +18,6 @@ import { useDashboardSources } from './useDashboardSources';
 const LAST_KEY = 'pipeline.dashboards.last';
 const remember = (id: string | null) => { try { if (id) localStorage.setItem(LAST_KEY, id); } catch { /* storage blocked */ } };
 const recall = (): string | null => { try { return localStorage.getItem(LAST_KEY); } catch { return null; } };
-
-/** Reorder helper kept pure for tests: moves item `id` by `dir` and renumbers `order` 0..n-1. */
-export function reorderWidgets(list: WidgetRecord[], id: string, dir: -1 | 1): WidgetRecord[] {
-  const sorted = [...list].sort((a, b) => a.order - b.order);
-  const i = sorted.findIndex(w => w.id === id);
-  const j = i + dir;
-  if (i < 0 || j < 0 || j >= sorted.length) return sorted.map((w, k) => ({ ...w, order: k }));
-  [sorted[i], sorted[j]] = [sorted[j], sorted[i]];
-  return sorted.map((w, k) => ({ ...w, order: k }));
-}
 
 export const DashboardsTab: React.FC = () => {
   const perms = usePermissions();
@@ -152,7 +142,7 @@ export const DashboardsTab: React.FC = () => {
           </form>
         ) : canEdit && (
           <>
-            <button type="button" onClick={() => setNaming({ mode: 'new', value: '' })} className={BTN}><Plus className="h-4 w-4" /> New dashboard</button>
+            {dashboards.length > 0 && <button type="button" onClick={() => setNaming({ mode: 'new', value: '' })} className={BTN}><Plus className="h-4 w-4" /> New dashboard</button>}
             {active && <button type="button" onClick={() => setNaming({ mode: 'rename', value: active.name })} className={BTN}><Pencil className="h-4 w-4" /> Rename</button>}
             {active && !confirmDelete && <button type="button" onClick={() => setConfirmDelete(true)} className={BTN}><Trash2 className="h-4 w-4" /> Delete</button>}
             {active && confirmDelete && (

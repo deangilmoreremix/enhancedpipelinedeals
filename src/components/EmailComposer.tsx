@@ -4,6 +4,7 @@ import { Deal } from '../types';
 import { X, Send, Sparkles, CheckCircle2 } from 'lucide-react';
 import { ModernButton } from './ui/ModernButton';
 import { composeEmailDraft, queueEmail, QueueEmailResult } from '../services/dealCommunicationService';
+import { expandShortcut, listTemplates, renderTemplate, type EmailTemplateRow } from '../services/emailTemplateService';
 
 export interface EmailData {
   to: string;
@@ -59,6 +60,47 @@ export const EmailComposer: React.FC<EmailComposerProps> = ({ contact, deal, isO
   const [error, setError] = useState<string | null>(null);
   const [queued, setQueued] = useState<QueueEmailResult | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const bodyRef = useRef<HTMLTextAreaElement>(null);
+  const [templates, setTemplates] = useState<EmailTemplateRow[]>([]);
+  const [showPreview, setShowPreview] = useState(false);
+  const tplCtx = { deal, contact: { name: contact.name, firstName: contact.firstName } };
+
+  // Templates and snippets (best effort: the composer works without them)
+  useEffect(() => {
+    if (!isOpen) return;
+    let cancelled = false;
+    listTemplates().then(t => { if (!cancelled) setTemplates(t); }).catch(() => { /* picker stays empty */ });
+    return () => { cancelled = true; };
+  }, [isOpen]);
+
+  const applyTemplate = (id: string) => {
+    const t = templates.find(x => x.id === id);
+    if (!t) return;
+    setSubject(renderTemplate(t.subject, tplCtx).text);
+    setBody(renderTemplate(t.body, tplCtx).text);
+  };
+  const insertAtCursor = (text: string, replaceFrom?: number) => {
+    const el = bodyRef.current;
+    const start = replaceFrom ?? el?.selectionStart ?? body.length;
+    const end = el?.selectionEnd ?? start;
+    setBody(b => b.slice(0, start) + text + b.slice(Math.max(end, start)));
+    requestAnimationFrame(() => { el?.focus(); el?.setSelectionRange(start + text.length, start + text.length); });
+  };
+  const snippets = templates.filter(t => t.is_snippet);
+  const fullTemplates = templates.filter(t => !t.is_snippet);
+  /** Typing `/shortcut` followed by space, Tab or Enter inserts the snippet (variables resolved). */
+  const onBodyKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key !== ' ' && e.key !== 'Tab' && e.key !== 'Enter') return;
+    const el = e.currentTarget;
+    const upto = body.slice(0, el.selectionStart ?? body.length);
+    const hit = expandShortcut(upto, snippets);
+    if (!hit) return;
+    e.preventDefault();
+    insertAtCursor(renderTemplate(hit.snippet.body, tplCtx).text, hit.before.length);
+  };
+  const resolvedSubject = renderTemplate(subject, tplCtx);
+  const resolvedBody = renderTemplate(body, tplCtx);
+  const unresolved = [...new Set([...resolvedSubject.unresolved, ...resolvedBody.unresolved])];
 
   // Re-seed when switching between threads / reply targets.
   useEffect(() => {
@@ -89,8 +131,8 @@ export const EmailComposer: React.FC<EmailComposerProps> = ({ contact, deal, isO
         dealId: deal.id,
         contactId: contact.id,
         to: contact.email,
-        subject,
-        body,
+        subject: resolvedSubject.text,
+        body: resolvedBody.text,
         threadId: replyTo?.threadId ?? null,
       });
       clearDraft(key);
@@ -98,7 +140,7 @@ export const EmailComposer: React.FC<EmailComposerProps> = ({ contact, deal, isO
       setSubject(replyTo?.subject ?? `Regarding ${deal.title || deal.company}`);
       setBody('');
       onQueued?.(result);
-      onSend?.({ to: contact.email, subject: subject.trim(), body: body.trim() });
+      onSend?.({ to: contact.email, subject: resolvedSubject.text.trim(), body: resolvedBody.text.trim() });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not queue the email');
     } finally {
@@ -173,17 +215,43 @@ export const EmailComposer: React.FC<EmailComposerProps> = ({ contact, deal, isO
         <div className="p-4">
           <div className="mb-2 flex items-center justify-between">
             <label htmlFor="email-body" className="text-sm font-medium text-gray-700 dark:text-gray-300">Message</label>
+            <div className="flex items-center gap-2">
+              {fullTemplates.length > 0 && (
+                <select aria-label="Insert template" value="" onChange={e => applyTemplate(e.target.value)} className="rounded-lg border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200">
+                  <option value="">Template...</option>
+                  {fullTemplates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                </select>
+              )}
+              {snippets.length > 0 && (
+                <select aria-label="Insert snippet" value="" onChange={e => { const sn = snippets.find(x => x.id === e.target.value); if (sn) insertAtCursor(renderTemplate(sn.body, tplCtx).text); }} className="rounded-lg border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200">
+                  <option value="">Snippet...</option>
+                  {snippets.map(t => <option key={t.id} value={t.id}>/{t.shortcut} {t.name}</option>)}
+                </select>
+              )}
+              <ModernButton variant="outline" size="xs" onClick={() => setShowPreview(p => !p)} aria-pressed={showPreview}>{showPreview ? 'Hide preview' : 'Preview'}</ModernButton>
+            </div>
             <ModernButton variant="outline" size="xs" onClick={handleAI} disabled={isDrafting || !contact.id} loading={isDrafting} leftIcon={<Sparkles className="w-3.5 h-3.5" />}>
               Draft with AI
             </ModernButton>
           </div>
           <textarea
             id="email-body"
+            ref={bodyRef}
+            onKeyDown={onBodyKeyDown}
             value={body}
             onChange={e => setBody(e.target.value)}
             className="w-full h-64 px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
             placeholder="Compose your email..."
           />
+          {snippets.length > 0 && <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Tip: type /{snippets[0].shortcut} then Space to insert a snippet.</p>}
+          {showPreview && (
+            <div aria-label="Resolved preview" className="mt-3 rounded-lg border border-dashed border-gray-300 p-3 dark:border-gray-600">
+              <p className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Preview (what will be queued)</p>
+              <p className="mt-1 text-sm font-semibold text-gray-900 dark:text-white" data-testid="composer-preview-subject">{resolvedSubject.text}</p>
+              <p className="mt-1 whitespace-pre-wrap text-sm text-gray-800 dark:text-gray-200" data-testid="composer-preview-body">{resolvedBody.text}</p>
+              {unresolved.length > 0 && <p role="alert" className="mt-2 text-xs text-amber-700 dark:text-amber-300">No value for: {unresolved.map(v => `{{${v}}}`).join(', ')}. These stay as written.</p>}
+            </div>
+          )}
           {error && <p role="alert" className="mt-2 text-sm text-red-600 dark:text-red-400">{error}</p>}
           {queued && (
             <div role="status" className="mt-3 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-200">

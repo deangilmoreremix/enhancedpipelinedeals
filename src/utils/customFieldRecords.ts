@@ -19,7 +19,7 @@ export function filterKindForType(def: Pick<DealFieldDefinition, 'type' | 'confi
 export const customFieldPath = (key: string): string => `customFields.${key}`;
 export const CUSTOM_COLUMN_PREFIX = 'cf:';
 export const customColumnKey = (key: string): string => `${CUSTOM_COLUMN_PREFIX}${key}`;
-export const isCustomColumnKey = (k: unknown): k is string => typeof k === 'string' && k.startsWith(CUSTOM_COLUMN_PREFIX) && k.length > CUSTOM_COLUMN_PREFIX.length;
+export const isCustomColumnKey = (k: unknown): k is `cf:${string}` => typeof k === 'string' && k.startsWith(CUSTOM_COLUMN_PREFIX) && k.length > CUSTOM_COLUMN_PREFIX.length;
 export const customKeyOf = (columnOrGroup: string): string => columnOrGroup.slice(CUSTOM_COLUMN_PREFIX.length);
 
 type WithCustom = { customFields?: Record<string, CustomFieldValue> };

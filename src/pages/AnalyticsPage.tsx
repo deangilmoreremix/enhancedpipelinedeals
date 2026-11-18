@@ -5,7 +5,8 @@ import SLAIndicator from '../components/deals/SLAIndicator';
 import {
   FunnelChart, ForecastChart, GroupAggregateChart, TimeInStageChart, ValueByStageChart, WinRateGauge, ChartCard, formatCurrency
 } from '../components/analytics';
-import { PageContainer, PageHeader } from './PageHeader';
+import { PageContainer, PageHeader, Tabs } from './PageHeader';
+import DashboardsTab from '../components/dashboards/DashboardsTab';
 import { useDeals } from './hooks';
 import { useDealStore } from '../store/dealStore';
 import { isLostStage } from '../utils/stageMeta';
@@ -36,6 +37,7 @@ const AnalyticsPage: React.FC = () => {
   const { deals, isLoading } = useDeals();
   const stages = useDealStore(s => s.stages);
   const connected = useDealStore(s => s.isConnectedToDatabase);
+  const [tab, setTab] = useState<'analytics' | 'dashboards'>('analytics');
   const [range, setRange] = useState<DateRangeKey>('90d');
   const [history, setHistory] = useState<HistoryRow[]>([]);
   const [serverTotal, setServerTotal] = useState<number | null>(null);
@@ -103,7 +105,7 @@ const AnalyticsPage: React.FC = () => {
       <PageHeader
         title="Analytics"
         subtitle="Pipeline performance, forecasts and KPIs"
-        actions={
+        actions={tab === 'analytics' ? (
           <select
             aria-label="Date range"
             value={range}
@@ -112,8 +114,10 @@ const AnalyticsPage: React.FC = () => {
           >
             {RANGES.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}
           </select>
-        }
+        ) : undefined}
       />
+      <Tabs tabs={[{ id: 'analytics', label: 'Analytics' }, { id: 'dashboards', label: 'Dashboards' }]} active={tab} onChange={id => setTab(id as 'analytics' | 'dashboards')} />
+      {tab === 'dashboards' ? <DashboardsTab /> : (<>
       {isLoading && allDeals.length === 0 && <p className="text-sm text-gray-500 mb-4">Loading deals…</p>}
       <div className="space-y-8">
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -172,6 +176,7 @@ const AnalyticsPage: React.FC = () => {
           )}
         </div>
       </div>
+      </>)}
     </PageContainer>
   );
 };

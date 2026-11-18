@@ -1,5 +1,8 @@
 import type { PipelineStage, ViewFilter } from '../../types';
 import { RELATIVE_DATE_OPTIONS, getRelativeToken } from '../../services/advancedFilteringService';
+import { getCachedDefinitions } from '../../services/customFieldService';
+import type { DealFieldDefinition } from '../../types/customFields';
+import { customFieldPath, filterKindForType } from '../../utils/customFieldRecords';
 
 export type FieldKind = 'text' | 'number' | 'select' | 'date' | 'tags' | 'boolean';
 
@@ -8,6 +11,10 @@ export interface FilterFieldDef {
   id: string;
   label: string;
   kind: FieldKind;
+  /** Fixed choices (custom select / multi-select fields). */
+  options?: Array<{ id: string; label: string }>;
+  /** True for custom-field entries. */
+  custom?: boolean;
 }
 
 export const BOARD_FILTER_FIELDS: FilterFieldDef[] = [
@@ -32,8 +39,30 @@ export const PRIORITY_OPTIONS = [
   { id: 'low', label: 'Low' }
 ];
 
-export const fieldDef = (id: string): FilterFieldDef =>
-  BOARD_FILTER_FIELDS.find(f => f.id === id) ?? { id, label: id, kind: 'text' };
+/** Filter-builder entry for one active custom field (`customFields.<key>`). */
+export const customFilterField = (d: DealFieldDefinition): FilterFieldDef => ({
+  id: customFieldPath(d.key),
+  label: d.label,
+  kind: filterKindForType(d),
+  custom: true,
+  ...(d.type === 'select' || d.type === 'multi_select' ? { options: d.options.map(o => ({ id: o, label: o })) } : {}),
+});
+
+/** Active custom fields of the deal entity as filter fields. */
+export const customFilterFields = (defs: DealFieldDefinition[] = getCachedDefinitions('deal')): FilterFieldDef[] =>
+  defs.filter(d => d.isActive).map(customFilterField);
+
+export const fieldDef = (id: string): FilterFieldDef => {
+  const base = BOARD_FILTER_FIELDS.find(f => f.id === id);
+  if (base) return base;
+  if (id.startsWith('customFields.')) {
+    const key = id.slice('customFields.'.length);
+    const d = getCachedDefinitions('deal').find(x => x.key === key);
+    if (d) return customFilterField(d);
+    return { id, label: key, kind: 'text', custom: true };
+  }
+  return { id, label: id, kind: 'text' };
+};
 
 /** UI operator. `relative` is stored as a `between` filter whose value is `{ relative: token }`. */
 export interface OperatorDef {
@@ -153,6 +182,7 @@ export function describeFilter(f: ViewFilter, stages: PipelineStage[]): { field:
   const fmtVal = (v: unknown): string => {
     if (f.field === 'stage') return stageName(v);
     if (f.field === 'priority') return PRIORITY_OPTIONS.find(p => p.id === v)?.label ?? String(v);
+    if (def.options) return def.options.find(o => o.id === v)?.label ?? String(v);
     if (def.kind === 'date') {
       const d = new Date(String(v));
       return isNaN(d.getTime()) ? String(v) : d.toLocaleDateString();

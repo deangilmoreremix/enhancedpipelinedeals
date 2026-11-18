@@ -1,34 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Building2, ExternalLink, User } from 'lucide-react';
+import { Building2, ExternalLink } from 'lucide-react';
 import type { Company, Deal } from '../../types';
-import type { Contact } from '../../types/contact';
 import { initialsAvatar } from '../../utils/avatar';
 import { useCompanyStore } from '../../store/companyStore';
 import { normalizeName } from '../../services/companyService';
 
 const cardCls = 'rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800';
-
-export const RelatedContactCard: React.FC<{ contact: Contact | null }> = ({ contact }) => {
-  if (!contact) return null;
-  return (
-    <div className={cardCls} aria-label="Related contact">
-      <h4 className="mb-3 flex items-center text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-        <User className="mr-1.5 h-4 w-4" aria-hidden />Contact
-      </h4>
-      <div className="flex items-center gap-3">
-        <img src={contact.avatarSrc || initialsAvatar(contact.name)} alt="" className="h-10 w-10 flex-shrink-0 rounded-full object-cover" />
-        <div className="min-w-0 flex-1">
-          <Link to={`/contacts/${contact.id}`} className="block truncate font-medium text-blue-600 hover:underline dark:text-blue-400">
-            {contact.name}
-          </Link>
-          <p className="truncate text-sm text-gray-500 dark:text-gray-400">{[contact.title, contact.company].filter(Boolean).join(' at ')}</p>
-        </div>
-        <Link to={`/contacts/${contact.id}`} aria-label={`Open ${contact.name}`} className="text-gray-400 hover:text-blue-600"><ExternalLink className="h-4 w-4" /></Link>
-      </div>
-    </div>
-  );
-};
 
 /** Resolves the deal's company (by companyId, else by exact company-name match) and links to /companies/:id. */
 export const RelatedCompanyCard: React.FC<{ deal: Deal; onLinked?: (company: Company) => void }> = ({ deal, onLinked }) => {

@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import type { Deal, PipelineStage } from '../../types';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
+import { DuplicateDealsWarning } from '../deals/fields/DuplicateDealsWarning';
+import { useDuplicateCheck } from '../deals/fields/useDuplicateCheck';
 
 interface NewDealDialogProps {
   isOpen: boolean;
@@ -23,18 +25,16 @@ export const NewDealDialog: React.FC<NewDealDialogProps> = ({ isOpen, onClose, s
   const [stage, setStage] = useState(ordered[0]?.key ?? '');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const dup = useDuplicateCheck();
 
   useEffect(() => {
     if (isOpen && !ordered.some(s => s.key === stage)) setStage(ordered[0]?.key ?? '');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, stages]);
 
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const create = async () => {
     const stageDef = ordered.find(s => s.key === stage);
     const amount = value.trim() === '' ? 0 : Number(value);
-    if (!title.trim()) { setError('Enter a title'); return; }
-    if (isNaN(amount) || amount < 0) { setError('Value must be a positive number'); return; }
     setSaving(true);
     setError(null);
     try {
@@ -48,6 +48,7 @@ export const NewDealDialog: React.FC<NewDealDialogProps> = ({ isOpen, onClose, s
         priority: 'medium'
       });
       setTitle(''); setCompany(''); setContact(''); setValue('');
+      dup.clear();
       onClose();
     } catch {
       setError('Could not create the deal');
@@ -56,12 +57,27 @@ export const NewDealDialog: React.FC<NewDealDialogProps> = ({ isOpen, onClose, s
     }
   };
 
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const amount = value.trim() === '' ? 0 : Number(value);
+    if (!title.trim()) { setError('Enter a title'); return; }
+    if (isNaN(amount) || amount < 0) { setError('Value must be a positive number'); return; }
+    // Already showing the warning: a second submit means "create anyway"
+    if (dup.duplicates.length === 0) {
+      const found = await dup.check({ title: title.trim(), company: company.trim() });
+      if (found.length > 0) return;
+    }
+    await create();
+  };
+
+  const edit = (set: (v: string) => void) => (ev: React.ChangeEvent<HTMLInputElement>) => { set(ev.target.value); if (dup.duplicates.length) dup.clear(); };
+
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="New deal">
       <form onSubmit={submit} className="space-y-3">
-        <input autoFocus aria-label="Deal title" placeholder="Title" value={title} onChange={(e) => setTitle(e.target.value)} className={FIELD_CLASS} />
+        <input autoFocus aria-label="Deal title" placeholder="Title" value={title} onChange={edit(setTitle)} className={FIELD_CLASS} />
         <div className="grid grid-cols-2 gap-3">
-          <input aria-label="Company" placeholder="Company" value={company} onChange={(e) => setCompany(e.target.value)} className={FIELD_CLASS} />
+          <input aria-label="Company" placeholder="Company" value={company} onChange={edit(setCompany)} className={FIELD_CLASS} />
           <input aria-label="Contact" placeholder="Contact" value={contact} onChange={(e) => setContact(e.target.value)} className={FIELD_CLASS} />
         </div>
         <div className="grid grid-cols-2 gap-3">
@@ -70,10 +86,11 @@ export const NewDealDialog: React.FC<NewDealDialogProps> = ({ isOpen, onClose, s
             {ordered.map(s => <option key={s.key} value={s.key}>{s.name}</option>)}
           </select>
         </div>
+        {dup.duplicates.length > 0 && <DuplicateDealsWarning duplicates={dup.duplicates} creating={saving} onCreateAnyway={() => void create()} />}
         {error && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{error}</p>}
         <div className="flex justify-end space-x-2">
           <Button variant="ghost" type="button" onClick={onClose}>Cancel</Button>
-          <Button type="submit" disabled={saving}>{saving ? 'Creating...' : 'Create deal'}</Button>
+          <Button type="submit" disabled={saving || dup.checking}>{saving ? 'Creating...' : 'Create deal'}</Button>
         </div>
       </form>
     </Modal>

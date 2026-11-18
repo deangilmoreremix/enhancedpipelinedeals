@@ -1,5 +1,8 @@
 import type { Deal, PipelineStage } from '../../types';
 import { toCsv } from '../../utils/csv';
+import type { CustomFieldValue, DealFieldDefinition } from '../../types/customFields';
+import { isComputedType } from '../../types/customFields';
+import { validateCustomValue } from '../../utils/customFieldValidation';
 
 export type ImportField = 'title' | 'company' | 'contact' | 'value' | 'stage' | 'probability' | 'priority' | 'dueDate' | 'notes' | 'tags';
 
@@ -24,14 +27,21 @@ export const IMPORT_FIELDS: ImportFieldDef[] = [
   { id: 'tags', label: 'Tags', synonyms: ['tags', 'tag', 'labels', 'label', 'categories', 'category'] }
 ];
 
-/** Mapping for each file column (by index): the deal field it feeds, or '' to skip it. */
-export type ColumnMapping = Array<ImportField | ''>;
+/** `cf:<definition key>`: a file column that feeds a deal custom field. */
+export type CustomImportField = `cf:${string}`;
+
+/** Mapping for each file column (by index): the deal field (or custom field) it feeds, or '' to skip it. */
+export type ColumnMapping = Array<ImportField | CustomImportField | ''>;
+
+/** Custom fields an import can write (stored types only: formulas are computed). */
+export const importableCustomFields = (defs: DealFieldDefinition[] = []): DealFieldDefinition[] =>
+  defs.filter(d => d.isActive && !isComputedType(d.type));
 
 export const normalizeHeader = (h: string): string => h.toLowerCase().replace(/[^a-z0-9]+/g, '');
 
 const MAPPING_KEY = 'deal_import_mapping_v1';
 
-type SavedMapping = Record<string, ImportField | ''>;
+type SavedMapping = Record<string, ImportField | CustomImportField | ''>;
 
 const readSaved = (): SavedMapping => {
   try {
@@ -56,22 +66,31 @@ export function saveMappingPreference(headers: string[], mapping: ColumnMapping)
 }
 
 /** Best-guess mapping: saved preference first, then exact synonym match, then partial match. Each field is used once. */
-export function autoMapHeaders(headers: string[], useSaved = true): ColumnMapping {
+export function autoMapHeaders(headers: string[], useSaved = true, customDefs: DealFieldDefinition[] = []): ColumnMapping {
   const result: ColumnMapping = headers.map(() => '');
-  const taken = new Set<ImportField>();
+  const taken = new Set<string>();
+  const customs = importableCustomFields(customDefs);
   const norm = headers.map(normalizeHeader);
   const saved = useSaved ? readSaved() : {};
 
   // 1. saved preferences
   norm.forEach((h, i) => {
     const pref = saved[h];
-    if (pref && !taken.has(pref) && IMPORT_FIELDS.some(f => f.id === pref)) { result[i] = pref; taken.add(pref); }
+    if (pref && !taken.has(pref) && (IMPORT_FIELDS.some(f => f.id === pref) || customs.some(d => `cf:${d.key}` === pref))) { result[i] = pref; taken.add(pref); }
   });
   // 2. exact synonym
   IMPORT_FIELDS.forEach(field => {
     if (taken.has(field.id)) return;
     const idx = norm.findIndex((h, i) => result[i] === '' && field.synonyms.includes(h) && !(h in saved && saved[h] === ''));
     if (idx >= 0) { result[idx] = field.id; taken.add(field.id); }
+  });
+  // 2b. unknown headers that match a custom field label / key become custom field columns
+  customs.forEach(d => {
+    const ck = `cf:${d.key}`;
+    if (taken.has(ck)) return;
+    const labels = [normalizeHeader(d.label), normalizeHeader(d.key)];
+    const idx2 = norm.findIndex((h, i) => result[i] === '' && h.length > 0 && labels.includes(h) && !(h in saved && saved[h] === ''));
+    if (idx2 >= 0) { result[idx2] = ck as CustomImportField; taken.add(ck); }
   });
   // 3. partial (header contains a synonym of 4+ chars)
   IMPORT_FIELDS.forEach(field => {
@@ -188,6 +207,8 @@ export interface NormalizeContext {
   /** normalised unknown stage text -> existing stage key | NEW_STAGE */
   stageResolution: Record<string, string>;
   defaultStage: string;
+  /** Deal custom field definitions: columns mapped to `cf:<key>` are validated and stored in `customFields`. */
+  customFieldDefs?: DealFieldDefinition[];
 }
 
 export const NEW_STAGE = '__new__';
@@ -262,6 +283,21 @@ export function normalizeRow(raw: string[], rowNumber: number, mapping: ColumnMa
     }
   }
 
+  // custom field columns
+  const customFields: Record<string, CustomFieldValue> = {};
+  mapping.forEach((m, idx) => {
+    if (typeof m !== 'string' || !m.startsWith('cf:')) return;
+    const def = importableCustomFields(ctx.customFieldDefs).find(d => `cf:${d.key}` === m);
+    const rawCell = (raw[idx] ?? '').trim();
+    if (!def || rawCell === '') return;
+    // spreadsheet text rarely matches option casing: resolve case-insensitively to the canonical option
+    const canon = (t: string) => def.options.find(o => o.toLowerCase() === t.toLowerCase()) ?? t;
+    const input = def.type === 'multi_select' ? parseTags(rawCell).map(canon) : def.type === 'select' ? canon(rawCell) : rawCell;
+    const r = validateCustomValue(def, input);
+    if (!r.ok) errors.push(r.error.includes(def.label) ? r.error : `${def.label}: ${r.error}`);
+    else if (r.value !== null) customFields[def.key] = r.value;
+  });
+
   const stageProbability = ctx.stages.find(s => s.key === stage)?.probability;
   const tags = parseTags(get('tags') ?? '');
   const notes = get('notes') ?? '';
@@ -281,7 +317,8 @@ export function normalizeRow(raw: string[], rowNumber: number, mapping: ColumnMa
       priority,
       ...(dueDate ? { dueDate } : {}),
       ...(notes ? { notes } : {}),
-      ...(tags.length > 0 ? { tags } : {})
+      ...(tags.length > 0 ? { tags } : {}),
+      ...(Object.keys(customFields).length > 0 ? { customFields } : {})
     }
   };
 }

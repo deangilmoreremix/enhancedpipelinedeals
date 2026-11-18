@@ -8,8 +8,10 @@ import {
   normalizeSavedSorting
 } from '../services/savedPipelineViewService';
 import type { BoardSortKey } from '../components/pipeline/kanban/kanbanUtils';
+import { isCustomColumnKey } from '../utils/customFieldRecords';
 
-export type BoardGroupBy = 'stage' | 'owner' | 'priority' | 'company';
+/** Built-in groupings, or `cf:<customFieldKey>` to group by a custom field. */
+export type BoardGroupBy = 'stage' | 'owner' | 'priority' | 'company' | `cf:${string}`;
 export const BOARD_GROUP_OPTIONS: Array<{ id: BoardGroupBy; label: string }> = [
   { id: 'stage', label: 'Stage' },
   { id: 'owner', label: 'Owner' },
@@ -55,7 +57,9 @@ export const isBoardViewType = (v: unknown): v is BoardViewType => BOARD_VIEW_TY
 /** Table / list column keys, in the default order. */
 export type TableColumnKey =
   | 'title' | 'company' | 'contact' | 'owner' | 'value' | 'stage' | 'priority'
-  | 'probability' | 'closeDate' | 'dueDate' | 'updated' | 'aiScore';
+  | 'probability' | 'closeDate' | 'dueDate' | 'updated' | 'aiScore'
+  /** `cf:<customFieldKey>`: a custom field column (optional, hidden until chosen in the column menu). */
+  | `cf:${string}`;
 
 export interface TableColumnConfig {
   key: TableColumnKey;
@@ -64,7 +68,7 @@ export interface TableColumnConfig {
   width?: number;
 }
 
-export const TABLE_COLUMN_LABELS: Record<TableColumnKey, string> = {
+export const TABLE_COLUMN_LABELS: Record<Exclude<TableColumnKey, `cf:${string}`>, string> = {
   title: 'Deal Title', company: 'Company', contact: 'Contact', owner: 'Owner', value: 'Value', stage: 'Stage',
   priority: 'Priority', probability: 'Win %', closeDate: 'Close date', dueDate: 'Due date', updated: 'Updated', aiScore: 'AI Score'
 };
@@ -85,6 +89,7 @@ export const DEFAULT_TABLE_COLUMNS: TableColumnConfig[] = [
 ];
 
 const COLUMN_KEYS = Object.keys(TABLE_COLUMN_LABELS) as TableColumnKey[];
+const isKnownColumn = (k: unknown): k is TableColumnKey => COLUMN_KEYS.includes(k as TableColumnKey) || isCustomColumnKey(k);
 
 /** Coerce stored columns (saved view / persisted state) into a complete, ordered, de-duplicated list. */
 export function normalizeTableColumns(raw: unknown): TableColumnConfig[] {
@@ -93,7 +98,7 @@ export function normalizeTableColumns(raw: unknown): TableColumnConfig[] {
   const out: TableColumnConfig[] = [];
   raw.forEach(c => {
     const key = (c && typeof c === 'object' ? (c as any).key : c) as TableColumnKey;
-    if (!COLUMN_KEYS.includes(key) || seen.has(key)) return;
+    if (!isKnownColumn(key) || seen.has(key)) return;
     seen.add(key);
     const width = typeof (c as any)?.width === 'number' && (c as any).width > 0 ? Math.round((c as any).width) : undefined;
     out.push({ key, visible: typeof c === 'object' ? (c as any).visible !== false : true, ...(width ? { width } : {}) });
@@ -159,7 +164,7 @@ interface BoardViewState {
 }
 
 export const VALID_GROUPS: BoardGroupBy[] = ['stage', 'owner', 'priority', 'company'];
-export const isBoardGroupBy = (v: unknown): v is BoardGroupBy => VALID_GROUPS.includes(v as BoardGroupBy);
+export const isBoardGroupBy = (v: unknown): v is BoardGroupBy => VALID_GROUPS.includes(v as BoardGroupBy) || isCustomColumnKey(v);
 
 /** localStorage access that never throws (private mode, SSR, tests). */
 const safeStorage: StateStorage = {
@@ -211,7 +216,9 @@ export const useBoardViewStore = create<BoardViewState>()(
       setCurrentView: (currentView) => set({ currentView }),
       setTableColumns: (cols) => set({ tableColumns: normalizeTableColumns(cols) }),
       toggleTableColumn: (key) => set(s => {
-        const cols = s.tableColumns.map(c => (c.key === key ? { ...c, visible: !c.visible } : c));
+        // custom field columns are appended the first time they are shown
+        const base = s.tableColumns.some(c => c.key === key) ? s.tableColumns : [...s.tableColumns, { key, visible: false }];
+        const cols = base.map(c => (c.key === key ? { ...c, visible: !c.visible } : c));
         // Never hide the last visible column
         return cols.some(c => c.visible) ? { tableColumns: cols } : {};
       }),

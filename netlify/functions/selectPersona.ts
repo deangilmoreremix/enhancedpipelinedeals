@@ -1,11 +1,5 @@
 import { Handler } from '@netlify/functions';
-import { createClient } from '@supabase/supabase-js';
-import { authorize, json } from './_openai';
-
-const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY!
-);
+import { authUser, userClient, json } from './_openai';
 
 export const handler: Handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return { ...json(204, {}), body: '' };
@@ -16,7 +10,11 @@ export const handler: Handler = async (event) => {
     };
   }
 
-  if (!(await authorize(event.headers.authorization || event.headers.Authorization))) return json(401, { error: 'Unauthorized' });
+  const authHeader = event.headers.authorization || event.headers.Authorization;
+  if (!(await authUser(authHeader))) return json(401, { error: 'Unauthorized' });
+  // acts as the caller (anon key + their JWT) so RLS applies; never the service role
+  const supabase = userClient(authHeader);
+  if (!supabase) return json(500, { error: 'SUPABASE_URL / SUPABASE_ANON_KEY are not configured on the server' });
 
   let parsed: { agent_id?: string; persona_id?: string };
   try {

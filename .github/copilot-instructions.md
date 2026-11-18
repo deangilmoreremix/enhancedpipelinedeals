@@ -280,9 +280,7 @@ npm run lint:fix            # Auto-fix ESLint issues
 
 ### Netlify Functions (`/netlify/functions/`)
 Serverless functions deployed to production:
-- `pipelineAI.ts` - Full pipeline AI analysis
 - `sdr-run.ts` - SDR agent execution engine
-- `agentmail-webhook.ts` - AgentMail webhook handler
 - Functions use `OPENAI_API_KEY` and `SUPABASE_SERVICE_KEY` (no VITE_ prefix)
 
 ## Component Patterns

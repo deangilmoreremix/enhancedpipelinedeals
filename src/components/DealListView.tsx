@@ -13,6 +13,10 @@ import { useViewSelection } from '../hooks/useViewSelection';
 import { BulkActionBar } from './pipeline/BulkActionBar';
 import { usePermissions } from '../hooks/usePermissions';
 import { useViewToasts } from './pipeline/ViewToasts';
+import { CustomFieldCell } from './deals/fields/CustomFieldCell';
+import { useFieldDefinitions } from './deals/fields/useFieldDefinitions';
+import { withCustomValue } from '../services/customFieldService';
+import { computedForRecord, customKeyOf, isCustomColumnKey } from '../utils/customFieldRecords';
 import {
   CompanyCell, DateCell, NumberCell, OwnerCell, PriorityCell, StageCell, TextCell,
   DealEditScope
@@ -54,6 +58,21 @@ export const DealListView: React.FC<DealListViewProps> = ({ deals, onDealClick, 
   // The list shares the table's column choice for its optional fields
   const show = (key: string) => tableColumns.some(c => c.key === key && c.visible);
   const activeSort = sorting[0];
+  const { definitions: fieldDefs } = useFieldDefinitions('deal', { lazy: true });
+  const customCols = useMemo(
+    () => tableColumns
+      .filter(c => c.visible && isCustomColumnKey(c.key))
+      .map(c => fieldDefs.find(d => d.isActive && d.key === customKeyOf(c.key)))
+      .filter((d): d is NonNullable<typeof d> => !!d),
+    [tableColumns, fieldDefs]
+  );
+  const computedById = useMemo(() => {
+    const m = new Map<string, ReturnType<typeof computedForRecord>>();
+    if (customCols.some(d => d.type === 'formula' || d.type === 'rollup')) {
+      deals.forEach(d => m.set(d.id, computedForRecord('deal', fieldDefs, d as unknown as Record<string, unknown>, d.customFields)));
+    }
+    return m;
+  }, [customCols, deals, fieldDefs]);
 
   const SortButton: React.FC<{ s: typeof SORTS[number] }> = ({ s }) => {
     const active = !!activeSort && activeSort.field === s.field;
@@ -184,6 +203,17 @@ export const DealListView: React.FC<DealListViewProps> = ({ deals, onDealClick, 
                             <DateCell label="Due date" value={deal.dueDate} onCommit={d => save({ dueDate: d ?? undefined })} placeholder="Due date" />
                           </div>
                         )}
+                        {customCols.map(def => (
+                          <div key={def.key} className="min-w-0 text-sm text-gray-600 dark:text-gray-400" data-testid={`list-cf-${def.key}`} onClick={e => e.stopPropagation()}>
+                            <CustomFieldCell
+                              definition={def}
+                              value={deal.customFields?.[def.key]}
+                              computed={computedById.get(deal.id)?.[def.key]}
+                              disabled={!perms.allowed('edit', 'deal', deal)}
+                              onChange={v => save({ customFields: withCustomValue(deal.customFields, def.key, v) })}
+                            />
+                          </div>
+                        ))}
                       </div>
                     </div>
                   </div>

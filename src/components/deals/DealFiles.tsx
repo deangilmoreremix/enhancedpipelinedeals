@@ -1,10 +1,10 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useDropzone, FileRejection } from 'react-dropzone';
-import { Download, Eye, File as FileIcon, FileImage, FileText, Paperclip, Trash2, UploadCloud, X } from 'lucide-react';
+import { Check, Download, Eye, File as FileIcon, FileImage, FileText, Paperclip, Pencil, Trash2, UploadCloud, X } from 'lucide-react';
 import { Alert } from '../ui/Alert';
-import { Button } from '../ui/Button';
+import { FilePreviewModal } from './collab/FilePreviewModal';
 import {
-  DealFile, MAX_DEAL_FILE_BYTES, deleteFile, formatFileSize, getFileUrl, isFilesLocalOnly, isPreviewable, listFiles, uploadFile,
+  DealFile, MAX_DEAL_FILE_BYTES, deleteFile, formatFileSize, getFileUrl, isFilesLocalOnly, listFiles, previewKind, renameFile, uploadFile,
 } from '../../services/dealFilesService';
 import { errorMessage } from '../../services/dealRecordShared';
 import { pushToast } from '../../store/dealRecordStore';
@@ -17,7 +17,8 @@ export const DealFiles: React.FC<{ dealId: string }> = ({ dealId }) => {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(0);
-  const [preview, setPreview] = useState<{ file: DealFile; url: string } | null>(null);
+  const [preview, setPreview] = useState<DealFile | null>(null);
+  const [renaming, setRenaming] = useState<{ id: string; value: string } | null>(null);
   const localOnly = isFilesLocalOnly(dealId);
 
   const load = useCallback(async () => {
@@ -45,14 +46,9 @@ export const DealFiles: React.FC<{ dealId: string }> = ({ dealId }) => {
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({ onDrop, maxSize: MAX_DEAL_FILE_BYTES, disabled: !canCreate });
 
-  const open = async (f: DealFile) => {
-    const url = await getFileUrl(f);
-    if (!url) { pushToast('error', 'File URL is unavailable'); return; }
-    setPreview({ file: f, url });
-  };
-
   const download = async (f: DealFile) => {
-    const url = await getFileUrl(f);
+    let url: string | null = null;
+    try { url = await getFileUrl(f, { download: true }); } catch (e) { pushToast('error', `Could not download file: ${errorMessage(e)}`); return; }
     if (!url) { pushToast('error', 'File URL is unavailable'); return; }
     const a = document.createElement('a');
     a.href = url;
@@ -68,15 +64,28 @@ export const DealFiles: React.FC<{ dealId: string }> = ({ dealId }) => {
     if (!window.confirm(`Delete ${f.name}?`)) return;
     const before = files;
     setFiles(prev => prev.filter(x => x.id !== f.id));
-    if (preview?.file.id === f.id) setPreview(null);
+    if (preview?.id === f.id) setPreview(null);
     try { await deleteFile(f); } catch (e) {
       setFiles(before);
       toastFailure(e, 'delete', 'file', `Could not delete file: ${errorMessage(e)}`);
     }
   };
 
+  const commitRename = async (f: DealFile) => {
+    if (!renaming) return;
+    const value = renaming.value;
+    setRenaming(null);
+    if (value.trim() === f.name) return;
+    try {
+      const saved = await renameFile(f, value);
+      setFiles(prev => prev.map(x => (x.id === saved.id ? { ...x, name: saved.name } : x)));
+    } catch (e) {
+      toastFailure(e, 'edit', 'file', `Could not rename file: ${errorMessage(e)}`);
+    }
+  };
+
   const iconFor = (f: DealFile) => {
-    const kind = isPreviewable(f);
+    const kind = previewKind(f);
     return kind === 'image' ? <FileImage className="h-5 w-5 text-purple-500" /> : kind === 'pdf' ? <FileText className="h-5 w-5 text-red-500" /> : <FileIcon className="h-5 w-5 text-gray-400" />;
   };
 
@@ -110,12 +119,26 @@ export const DealFiles: React.FC<{ dealId: string }> = ({ dealId }) => {
             <li key={f.id} className="flex items-center gap-3 px-4 py-3">
               {iconFor(f)}
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-gray-900 dark:text-white">{f.name}</p>
+                {renaming?.id === f.id ? (
+                  <form className="flex items-center gap-1" onSubmit={e => { e.preventDefault(); void commitRename(f); }}>
+                    <input
+                      autoFocus
+                      aria-label={`New name for ${f.name}`}
+                      value={renaming.value}
+                      onChange={e => setRenaming({ id: f.id, value: e.target.value })}
+                      onKeyDown={e => { if (e.key === 'Escape') setRenaming(null); }}
+                      className="min-w-0 flex-1 rounded border border-gray-300 bg-white px-2 py-0.5 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                    />
+                    <button type="submit" aria-label="Save name" className="rounded p-1 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30"><Check className="h-4 w-4" /></button>
+                    <button type="button" aria-label="Cancel rename" onClick={() => setRenaming(null)} className="rounded p-1 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700"><X className="h-4 w-4" /></button>
+                  </form>
+                ) : (
+                  <p className="truncate text-sm font-medium text-gray-900 dark:text-white">{f.name}</p>
+                )}
                 <p className="text-xs text-gray-500 dark:text-gray-400">{formatFileSize(f.size)} - {new Date(f.createdAt).toLocaleString()}</p>
               </div>
-              {isPreviewable(f) && (
-                <button type="button" aria-label={`Preview ${f.name}`} onClick={() => void open(f)} className="rounded p-1.5 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700"><Eye className="h-4 w-4" /></button>
-              )}
+              <button type="button" aria-label={`Preview ${f.name}`} onClick={() => setPreview(f)} className="rounded p-1.5 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700"><Eye className="h-4 w-4" /></button>
+              {canModify('edit', { createdBy: f.uploadedBy }) && <button type="button" aria-label={`Rename ${f.name}`} onClick={() => setRenaming({ id: f.id, value: f.name })} className="rounded p-1.5 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700"><Pencil className="h-4 w-4" /></button>}
               <button type="button" aria-label={`Download ${f.name}`} onClick={() => void download(f)} className="rounded p-1.5 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700"><Download className="h-4 w-4" /></button>
               {canModify('delete', { createdBy: f.uploadedBy }) && <button type="button" aria-label={`Delete ${f.name}`} onClick={() => void remove(f)} className="rounded p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30"><Trash2 className="h-4 w-4" /></button>}
             </li>
@@ -123,19 +146,7 @@ export const DealFiles: React.FC<{ dealId: string }> = ({ dealId }) => {
         </ul>
       )}
 
-      {preview && (
-        <div className="rounded-xl border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-800">
-          <div className="mb-2 flex items-center justify-between">
-            <span className="truncate text-sm font-medium text-gray-900 dark:text-white">{preview.file.name}</span>
-            <Button size="sm" variant="ghost" aria-label="Close preview" onClick={() => setPreview(null)}><X className="h-4 w-4" /></Button>
-          </div>
-          {isPreviewable(preview.file) === 'image' ? (
-            <img src={preview.url} alt={preview.file.name} className="max-h-[28rem] w-auto rounded-lg" />
-          ) : (
-            <iframe title={preview.file.name} src={preview.url} className="h-[32rem] w-full rounded-lg border-0" />
-          )}
-        </div>
-      )}
+      {preview && <FilePreviewModal file={preview} onClose={() => setPreview(null)} onDownload={f => void download(f)} />}
     </div>
   );
 };

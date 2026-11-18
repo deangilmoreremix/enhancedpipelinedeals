@@ -1,7 +1,7 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import {
-  Users, BarChart3, Bot, Calendar, Mail, Filter, Workflow, LineChart, Grid3X3,
+  Users, BarChart3, Bot, Calendar, Mail, Filter, Workflow, LineChart, Grid3X3, CheckSquare, Settings as SettingsIcon,
 } from 'lucide-react';
 
 export interface NavItem {
@@ -19,8 +19,10 @@ export const NAV_ITEMS: NavItem[] = [
   { to: '/email', label: 'Email', icon: Mail },
   { to: '/views', label: 'Views', icon: Filter },
   { to: '/workflows', label: 'Workflows', icon: Workflow },
+  { to: '/tasks', label: 'Tasks', icon: CheckSquare },
   { to: '/analytics', label: 'Analytics', icon: LineChart },
   { to: '/apps', label: 'Apps', icon: Grid3X3 },
+  { to: '/settings', label: 'Settings', icon: SettingsIcon },
 ];
 
 /** Router-based primary navigation (works under BrowserRouter and MemoryRouter). */

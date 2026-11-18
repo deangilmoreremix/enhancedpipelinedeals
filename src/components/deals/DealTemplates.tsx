@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { DealTemplate, Deal } from '../../types';
 import { getAllTemplates, createTemplate, applyTemplate } from '../../services/dealTemplateService';
 import { isFeatureEnabled } from '../../services/featureFlagService';
+import { pushToast } from '../../store/dealRecordStore';
 import { FileText, Plus, Star, Copy, Eye, Loader } from 'lucide-react';
 
 interface DealTemplatesProps {
@@ -45,7 +46,7 @@ const DealTemplates: React.FC<DealTemplatesProps> = ({
 
   const handleApplyTemplate = async (template: DealTemplate) => {
     if (!contactId) {
-      alert('Please select a contact first');
+      pushToast('error', 'Link a contact to this deal before applying a template');
       return;
     }
 
@@ -64,7 +65,7 @@ const DealTemplates: React.FC<DealTemplatesProps> = ({
       }
     } catch (error) {
       console.error('Error applying template:', error);
-      alert('Error applying template. Please try again.');
+      pushToast('error', 'Could not apply the template. Please try again.');
     } finally {
       setApplyingTemplate(null);
     }
@@ -104,7 +105,7 @@ const DealTemplates: React.FC<DealTemplatesProps> = ({
       }
     } catch (error) {
       console.error('Error creating template:', error);
-      alert('Error creating template. Please try again.');
+      pushToast('error', 'Could not create the template. Please try again.');
     }
   };
 

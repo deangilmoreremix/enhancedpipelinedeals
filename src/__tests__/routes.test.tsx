@@ -26,7 +26,7 @@ jest.mock('../pages/AppsPage', () => ({ __esModule: true, default: () => <h2>App
 
 import App from '../App';
 
-const LABELS = ['Pipeline', 'Contacts', 'Agents', 'Calendar', 'Email', 'Views', 'Workflows', 'Analytics', 'Apps'];
+const LABELS = ['Pipeline', 'Contacts', 'Agents', 'Calendar', 'Email', 'Views', 'Workflows', 'Tasks', 'Analytics', 'Apps', 'Settings'];
 
 describe('app routes', () => {
   it('hides the top app bar on the Pipeline page', () => {

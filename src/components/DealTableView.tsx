@@ -19,6 +19,10 @@ import { useViewSelection } from '../hooks/useViewSelection';
 import { BulkActionBar } from './pipeline/BulkActionBar';
 import { usePermissions } from '../hooks/usePermissions';
 import { useViewToasts } from './pipeline/ViewToasts';
+import { CustomFieldCell } from './deals/fields/CustomFieldCell';
+import { useFieldDefinitions } from './deals/fields/useFieldDefinitions';
+import { withCustomValue } from '../services/customFieldService';
+import { computedForRecord, customFieldPath, customKeyOf, isCustomColumnKey } from '../utils/customFieldRecords';
 import {
   CompanyCell, DateCell, NumberCell, OwnerCell, PriorityCell, StageCell, TextCell,
   DealEditScope
@@ -71,7 +75,26 @@ export const DealTableView: React.FC<DealTableViewProps> = ({ deals, onDealClick
     return () => document.removeEventListener('mousedown', onDown);
   }, [columnsOpen]);
 
-  const visibleColumns = useMemo(() => tableColumns.filter(c => c.visible), [tableColumns]);
+  const { definitions: fieldDefs } = useFieldDefinitions('deal', { lazy: true });
+  const activeDefs = useMemo(() => fieldDefs.filter(d => d.isActive), [fieldDefs]);
+  const defByKey = useMemo(() => new Map(activeDefs.map(d => [d.key, d])), [activeDefs]);
+  const labelOf = (key: TableColumnKey): string =>
+    isCustomColumnKey(key) ? defByKey.get(customKeyOf(key))?.label ?? customKeyOf(key) : TABLE_COLUMN_LABELS[key];
+  /** Chooser rows: built-in columns, saved custom columns that still exist, then the remaining active custom fields. */
+  const chooserColumns = useMemo<TableColumnConfig[]>(() => {
+    const known = tableColumns.filter(c => !isCustomColumnKey(c.key) || defByKey.has(customKeyOf(c.key)));
+    const missing = activeDefs
+      .filter(d => !known.some(c => c.key === `cf:${d.key}`))
+      .map(d => ({ key: `cf:${d.key}` as TableColumnKey, visible: false }));
+    return [...known, ...missing];
+  }, [tableColumns, activeDefs, defByKey]);
+  const visibleColumns = useMemo(() => tableColumns.filter(c => c.visible && (!isCustomColumnKey(c.key) || defByKey.has(customKeyOf(c.key)))), [tableColumns, defByKey]);
+  const hasComputedColumn = visibleColumns.some(c => isCustomColumnKey(c.key) && ['formula', 'rollup'].includes(defByKey.get(customKeyOf(c.key))?.type ?? ''));
+  const computedById = useMemo(() => {
+    const m = new Map<string, ReturnType<typeof computedForRecord>>();
+    if (hasComputedColumn) deals.forEach(d => m.set(d.id, computedForRecord('deal', fieldDefs, d as unknown as Record<string, unknown>, d.customFields)));
+    return m;
+  }, [hasComputedColumn, deals, fieldDefs]);
   const activeSort = sorting.length > 0 ? sorting[0] : null;
 
   const save = (deal: Deal) => (updates: Partial<Deal>) => onDealUpdate(deal.id, updates);
@@ -100,9 +123,12 @@ export const DealTableView: React.FC<DealTableViewProps> = ({ deals, onDealClick
   const widthOf = (c: TableColumnConfig) => (resizing?.key === c.key ? resizing.width : c.width);
 
   const renderHeader = (col: TableColumnConfig) => {
-    const label = TABLE_COLUMN_LABELS[col.key];
-    const field = SORT_FIELD_FOR_COLUMN[col.key];
-    const sortable = SORTABLE.includes(col.key);
+    const label = labelOf(col.key);
+    const custom = isCustomColumnKey(col.key);
+    const cdef = custom ? defByKey.get(customKeyOf(col.key)) : undefined;
+    const field = custom ? customFieldPath(customKeyOf(col.key)) : SORT_FIELD_FOR_COLUMN[col.key];
+    // rollups are not stored on deals; everything else (incl. formulas) is sortable
+    const sortable = custom ? cdef?.type !== 'rollup' : SORTABLE.includes(col.key);
     const isActive = !!activeSort && activeSort.field === field;
     const w = widthOf(col);
     return (
@@ -110,7 +136,7 @@ export const DealTableView: React.FC<DealTableViewProps> = ({ deals, onDealClick
         key={col.key}
         style={w ? { width: w, minWidth: w, maxWidth: w } : undefined}
         aria-sort={isActive ? (activeSort!.direction === 'asc' ? 'ascending' : 'descending') : undefined}
-        onClick={sortable ? () => toggleSortField(field, col.key === 'title' || col.key === 'company' || col.key === 'contact' || col.key === 'owner' ? 'asc' : 'desc') : undefined}
+        onClick={sortable ? () => toggleSortField(field, custom || col.key === 'title' || col.key === 'company' || col.key === 'contact' || col.key === 'owner' ? 'asc' : 'desc') : undefined}
         className={`relative ${th} ${sortable ? 'cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors' : ''}`}
       >
         <div className="flex items-center space-x-1">
@@ -135,7 +161,26 @@ export const DealTableView: React.FC<DealTableViewProps> = ({ deals, onDealClick
     const w = widthOf(col);
     const cellStyle = w ? { width: w, minWidth: w, maxWidth: w } : undefined;
     let body: React.ReactNode;
-    switch (col.key) {
+    if (isCustomColumnKey(col.key)) {
+      const def = defByKey.get(customKeyOf(col.key));
+      body = def ? (
+        <div className="min-w-[8rem] text-sm [&_div.uppercase]:sr-only" onClick={e => e.stopPropagation()}>
+          <CustomFieldCell
+            definition={def}
+            value={deal.customFields?.[def.key]}
+            computed={computedById.get(deal.id)?.[def.key]}
+            disabled={!perms.allowed('edit', 'deal', deal)}
+            onChange={v => s({ customFields: withCustomValue(deal.customFields, def.key, v) })}
+          />
+        </div>
+      ) : null;
+      return (
+        <td key={col.key} style={cellStyle} className="px-4 py-2 whitespace-nowrap overflow-hidden text-ellipsis">
+          <DealEditScope deal={deal}>{body}</DealEditScope>
+        </td>
+      );
+    }
+    switch (col.key as Exclude<TableColumnKey, `cf:${string}`>) {
       case 'title':
         body = (
           <TextCell label="Title" value={deal.title ?? ''} required onCommit={v => s({ title: v })}
@@ -254,21 +299,21 @@ export const DealTableView: React.FC<DealTableViewProps> = ({ deals, onDealClick
           </button>
           {columnsOpen && (
             <div role="menu" aria-label="Choose columns" className="absolute right-0 top-full mt-1 z-30 w-60 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg py-1">
-              {tableColumns.map((c, i) => (
+              {chooserColumns.map((c, i) => (
                 <div key={c.key} className="flex items-center justify-between px-3 py-1.5 text-sm text-gray-700 dark:text-gray-200">
                   <label className="flex items-center space-x-2 flex-1 min-w-0">
                     <input
                       type="checkbox"
                       checked={c.visible}
                       onChange={() => toggleTableColumn(c.key)}
-                      aria-label={`Show ${TABLE_COLUMN_LABELS[c.key]}`}
+                      aria-label={`Show ${labelOf(c.key)}`}
                       className="w-4 h-4 text-blue-600 border-gray-300 rounded dark:border-gray-600 dark:bg-gray-700"
                     />
-                    <span className="truncate">{TABLE_COLUMN_LABELS[c.key]}</span>
+                    <span className="truncate">{labelOf(c.key)}</span>
                   </label>
                   <div className="flex items-center">
-                    <button type="button" disabled={i === 0} onClick={() => moveTableColumn(c.key, -1)} aria-label={`Move ${TABLE_COLUMN_LABELS[c.key]} up`} className="p-1 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 disabled:opacity-30"><ArrowUp className="w-3.5 h-3.5" /></button>
-                    <button type="button" disabled={i === tableColumns.length - 1} onClick={() => moveTableColumn(c.key, 1)} aria-label={`Move ${TABLE_COLUMN_LABELS[c.key]} down`} className="p-1 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 disabled:opacity-30"><ArrowDown className="w-3.5 h-3.5" /></button>
+                    <button type="button" disabled={i === 0 || !tableColumns.some(t => t.key === c.key)} onClick={() => moveTableColumn(c.key, -1)} aria-label={`Move ${labelOf(c.key)} up`} className="p-1 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 disabled:opacity-30"><ArrowUp className="w-3.5 h-3.5" /></button>
+                    <button type="button" disabled={i === chooserColumns.length - 1 || !tableColumns.some(t => t.key === c.key)} onClick={() => moveTableColumn(c.key, 1)} aria-label={`Move ${labelOf(c.key)} down`} className="p-1 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 disabled:opacity-30"><ArrowDown className="w-3.5 h-3.5" /></button>
                   </div>
                 </div>
               ))}

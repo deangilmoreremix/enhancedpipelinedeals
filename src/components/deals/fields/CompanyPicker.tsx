@@ -5,6 +5,8 @@ import { initialsAvatar } from '../../../utils/avatar';
 import type { Company } from '../../../types';
 import { useInlineField } from './useInlineField';
 import { PickerOption, PickerPopover } from './PickerPopover';
+import { findDuplicateCompanies } from '../../../services/companyMergeService';
+import { pushToast } from '../../../store/dealRecordStore';
 
 export interface CompanyPickerProps {
   /** Linked company id (undefined = free-text / none). */
@@ -73,6 +75,10 @@ export const CompanyPicker: React.FC<CompanyPickerProps> = ({
     if (o.key === CREATE_KEY) {
       try {
         const c = await create(query.trim());
+        // Warn (never block) when the new company collides with an existing one by name / domain
+        void findDuplicateCompanies(c.name, c.domain, c.id)
+          .then(hits => { if (hits.length > 0) pushToast('info', `Possible duplicate company: ${hits.map(h => h.name).join(', ')}`); })
+          .catch(() => undefined);
         await f.commit({ id: c.id, name: c.name });
       } catch (e) {
         f.setError(e instanceof Error ? e.message : 'Could not create company');

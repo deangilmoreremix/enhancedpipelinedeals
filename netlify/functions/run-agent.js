@@ -1,6 +1,6 @@
 // netlify/functions/run-agent.js
-import { supabase } from "./_supabaseClient";
-import { respond } from "./_openai";
+import { respond, rateLimited, json, CORS_HEADERS } from "./_openai";
+import { authenticate } from "./_agentAuth";
 
 async function generateMessageWithAI({ agentId, personaId, sequenceLength, step, contact }) {
   try {
@@ -59,6 +59,11 @@ export const handler = async (event, context) => {
       body: JSON.stringify({ error: "Method not allowed" })
     };
   }
+
+  const auth = await authenticate(event);
+  if (auth.error) return auth.error;
+  if (rateLimited(`run-agent:${auth.user.id}`, 20)) return json(429, { error: "Rate limit exceeded" });
+  const supabase = auth.db; // acts as the caller: RLS scopes contacts / settings / logs
 
   try {
     const body = JSON.parse(event.body || "{}");
@@ -174,9 +179,5 @@ export const handler = async (event, context) => {
 };
 
 function corsHeaders() {
-  return {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "POST,OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type"
-  };
+  return CORS_HEADERS;
 }

@@ -7,6 +7,10 @@ import { Deal, ViewFilter, ViewColumn, ExportTemplate } from '../types';
 import { Contact } from '../types/contact';
 import * as ExcelJS from 'exceljs';
 import jsPDF from 'jspdf';
+import type { Company } from '../types';
+import type { DealFieldDefinition } from '../types/customFields';
+import type { CompanyRollup } from '../utils/rollups';
+import { customExportColumns, exportDefinitions } from './customFieldExport';
 import 'jspdf-autotable';
 
 export interface ExportOptions {
@@ -19,7 +23,16 @@ export interface ExportOptions {
   template?: ExportTemplate;
   customColumns?: ViewColumn[];
   filters?: ViewFilter[];
+  /** Custom field definitions to export as extra columns (default: the active ones of the exported record type). */
+  customFieldDefs?: DealFieldDefinition[];
+  /** Company rollup rows by company id (companies export). */
+  rollups?: Map<string, CompanyRollup>;
 }
+
+const csvCell = (cell: unknown): string => {
+  const str = String(cell ?? '');
+  return str.includes(',') || str.includes('"') || str.includes('\n') ? `"${str.replace(/"/g, '""')}"` : str;
+};
 
 export interface ExportProgress {
   current: number;
@@ -93,6 +106,33 @@ class ExportService {
     }
   }
 
+  /** Export companies (csv | json | xlsx base64) with one column per active custom field (rollups computed). */
+  async exportCompanies(companies: Company[], options: ExportOptions): Promise<string> {
+    const custom = customExportColumns<Company>('company', await exportDefinitions('company', options.customFieldDefs), { rollups: options.rollups });
+    const base = ['id', 'name', 'industry', 'website', 'domain', 'size', 'revenue', 'phone', 'address', 'notes', 'ownerId', 'createdAt', 'updatedAt'] as const;
+    const baseCell = (c: Company, k: (typeof base)[number]): string => {
+      const v = c[k];
+      return v instanceof Date ? v.toISOString() : v === undefined || v === null ? '' : String(v).replace(/\r?\n/g, ' ');
+    };
+    const rows = companies.map(c => [...base.map(k => baseCell(c, k)), ...custom.cells(c)]);
+    const headers = [...base, ...custom.headers];
+    if (options.format === 'json') {
+      return JSON.stringify({
+        metadata: options.includeMetadata ? { exportDate: new Date().toISOString(), totalRecords: companies.length, version: '1.0' } : undefined,
+        companies: rows.map(r => Object.fromEntries(headers.map((h, i) => [h, r[i]]))),
+      }, null, 2);
+    }
+    if (options.format === 'xlsx') {
+      const workbook = new ExcelJS.Workbook();
+      const sheet = workbook.addWorksheet('Companies');
+      sheet.addRow(headers);
+      sheet.getRow(1).font = { bold: true };
+      rows.forEach(r => sheet.addRow(r));
+      return this.arrayBufferToBase64(await workbook.xlsx.writeBuffer() as ArrayBuffer);
+    }
+    return [headers, ...rows].map(r => r.map(csvCell).join(',')).join('\n');
+  }
+
   private async exportToJSON(
     deals: Deal[], 
     options: ExportOptions, 
@@ -144,10 +184,11 @@ class ExportService {
     options: ExportOptions, 
     onProgress?: (progress: ExportProgress) => void
   ): Promise<string> {
+    const custom = customExportColumns<Deal>('deal', await exportDefinitions('deal', options.customFieldDefs));
     const headers = [
       'id', 'title', 'company', 'contact', 'contactId', 'value', 'stage', 
       'probability', 'priority', 'dueDate', 'notes', 'tags', 'lastActivity',
-      'isFavorite', 'createdAt', 'updatedAt'
+      'isFavorite', 'createdAt', 'updatedAt', ...custom.headers
     ];
 
     const rows = deals.map((deal, index) => {
@@ -174,12 +215,13 @@ class ExportService {
         deal.lastActivity || '',
         deal.isFavorite || false,
         deal.createdAt.toISOString(),
-        deal.updatedAt.toISOString()
+        deal.updatedAt.toISOString(),
+        ...custom.cells(deal)
       ];
     });
 
     const csvContent = [
-      headers.join(','),
+      headers.map(csvCell).join(','),
       ...rows.map(row => row.map(cell => {
         const cellStr = String(cell);
         return cellStr.includes(',') || cellStr.includes('"') || cellStr.includes('\n')
@@ -209,12 +251,13 @@ class ExportService {
       'priority', 'dueDate', 'notes', 'createdAt', 'updatedAt'
     ];
 
-    // Set up worksheet columns
-    worksheet.columns = columns.map(col => ({
-      header: this.formatColumnHeader(col),
-      key: col,
-      width: this.getColumnWidth(col)
-    }));
+    const custom = customExportColumns<Deal>('deal', await exportDefinitions('deal', options.customFieldDefs));
+
+    // Set up worksheet columns (custom fields follow the built-in ones)
+    worksheet.columns = [
+      ...columns.map(col => ({ header: this.formatColumnHeader(col), key: col, width: this.getColumnWidth(col) })),
+      ...custom.columns.map(c => ({ header: c.header, key: `cf:${c.key}`, width: 18 })),
+    ];
 
     // Add data rows
     deals.forEach((deal, index) => {
@@ -229,6 +272,8 @@ class ExportService {
       columns.forEach(col => {
         rowData[col] = this.formatCellValue(deal, col);
       });
+      const customCells = custom.cells(deal);
+      custom.columns.forEach((c, i) => { rowData[`cf:${c.key}`] = customCells[i]; });
       worksheet.addRow(rowData);
     });
 
@@ -412,10 +457,11 @@ class ExportService {
     options: ExportOptions, 
     onProgress?: (progress: ExportProgress) => void
   ): Promise<string> {
+    const custom = customExportColumns<Contact>('contact', await exportDefinitions('contact', options.customFieldDefs));
     const headers = [
       'id', 'firstName', 'lastName', 'name', 'email', 'phone', 'title', 'company',
       'industry', 'status', 'interestLevel', 'sources', 'notes', 'tags', 'aiScore',
-      'lastConnected', 'isFavorite', 'isTeamMember', 'role', 'createdAt', 'updatedAt'
+      'lastConnected', 'isFavorite', 'isTeamMember', 'role', 'createdAt', 'updatedAt', ...custom.headers
     ];
 
     const rows = contacts.map((contact, index) => {
@@ -447,12 +493,13 @@ class ExportService {
         contact.isTeamMember || false,
         contact.role || '',
         contact.createdAt.toISOString(),
-        contact.updatedAt.toISOString()
+        contact.updatedAt.toISOString(),
+        ...custom.cells(contact)
       ];
     });
 
     const csvContent = [
-      headers.join(','),
+      headers.map(csvCell).join(','),
       ...rows.map(row => row.map(cell => {
         const cellStr = String(cell);
         return cellStr.includes(',') || cellStr.includes('"') || cellStr.includes('\n')

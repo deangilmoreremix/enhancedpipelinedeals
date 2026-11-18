@@ -78,9 +78,9 @@ export default [{
       if (fake) ctx.check(fake.table('deals').filter(d => d.deleted_at).length === 2, 'fake DB: deleted_at set on two rows (soft delete)');
       // open trash through command palette action
       await page.keyboard.press('Control+k'); await page.getByLabel('Search deals, contacts and actions').fill('deleted'); await page.waitForTimeout(400); await page.keyboard.press('Enter');
-      await page.getByRole('button', { name: /Restore/ }).first().waitFor({ timeout: 6000 });
+      await page.getByRole('button', { name: /^Restore$/ }).first().waitFor({ timeout: 6000 });
       await shot('trash');
-      await page.getByRole('button', { name: /Restore/ }).first().click(); await page.waitForTimeout(1000);
+      await page.getByRole('button', { name: /^Restore$/ }).first().click(); await page.waitForTimeout(1000);
       ctx.check((await B.dealsState(page)).length === total - 1, 'restore brings one deal back');
       if (fake) ctx.check(fake.table('deals').filter(d => d.deleted_at).length === 1, 'fake DB: deleted_at cleared on restore');
       await context.close();

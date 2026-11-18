@@ -33,11 +33,24 @@ const fromRow = (r: Record<string, any>): DealFile => ({
   createdAt: r.created_at ?? new Date().toISOString(),
 });
 
-export const isPreviewable = (f: Pick<DealFile, 'mimeType' | 'name'>): 'image' | 'pdf' | null => {
+export type PreviewKind = 'image' | 'pdf' | 'text';
+
+const TEXT_EXT = /\.(txt|csv|tsv|md|markdown|json|log|xml|ya?ml|html?|css|js|ts)$/i;
+
+/** How a file can be previewed in the modal; null means download only. */
+export const previewKind = (f: Pick<DealFile, 'mimeType' | 'name'>): PreviewKind | null => {
   const mime = f.mimeType ?? '';
-  if (mime.startsWith('image/')) return 'image';
+  if (mime.startsWith('image/') && mime !== 'image/svg+xml') return 'image';
   if (mime === 'application/pdf' || /\.pdf$/i.test(f.name)) return 'pdf';
+  if (mime.startsWith('text/') || mime === 'application/json' || mime === 'text/csv' || TEXT_EXT.test(f.name)) return 'text';
+  if (/\.(png|jpe?g|gif|webp|avif|bmp)$/i.test(f.name)) return 'image';
   return null;
+};
+
+/** Back-compat: image/pdf only (what an <img>/<iframe> can show directly). */
+export const isPreviewable = (f: Pick<DealFile, 'mimeType' | 'name'>): 'image' | 'pdf' | null => {
+  const k = previewKind(f);
+  return k === 'image' || k === 'pdf' ? k : null;
 };
 
 export function validateDealFile(file: Pick<File, 'size' | 'name'>): string | null {
@@ -93,17 +106,56 @@ export async function uploadFile(dealId: string, file: File): Promise<DealFile> 
   return fromRow(data);
 }
 
-/** Signed URL (private-bucket safe) with a public-URL fallback. */
-export async function getFileUrl(file: DealFile): Promise<string | null> {
+/**
+ * Signed URL (the deal-files bucket is private). Pass `download` to get a URL that forces a
+ * download with that file name. Falls back to the public URL if signing fails.
+ */
+export async function getFileUrl(file: DealFile, opts: { download?: boolean } = {}): Promise<string | null> {
   if (file.localUrl) return file.localUrl;
   if (!canUseRemote(file.dealId)) return null;
   try {
-    const { data } = await supabase.storage.from(DEAL_FILES_BUCKET).createSignedUrl(file.path, 3600);
+    const { data } = await supabase.storage
+      .from(DEAL_FILES_BUCKET)
+      .createSignedUrl(file.path, 3600, opts.download ? { download: file.name } : undefined);
     if (data?.signedUrl) return data.signedUrl;
   } catch {
     /* fall through to public URL */
   }
   return supabase.storage.from(DEAL_FILES_BUCKET).getPublicUrl(file.path).data?.publicUrl ?? null;
+}
+
+export const TEXT_PREVIEW_LINES = 50;
+const TEXT_PREVIEW_BYTES = 64 * 1024;
+
+/** First lines of a text/CSV file (reads only the first 64KB where the server honours Range). */
+export async function fetchTextPreview(file: DealFile, maxLines = TEXT_PREVIEW_LINES): Promise<{ text: string; truncated: boolean }> {
+  const url = await getFileUrl(file);
+  if (!url) throw new Error('File URL is unavailable');
+  const res = await fetch(url, { headers: { Range: `bytes=0-${TEXT_PREVIEW_BYTES - 1}` } });
+  if (!res.ok) throw new Error(`Could not load preview (${res.status})`);
+  const raw = await res.text();
+  const lines = raw.split(/\r?\n/);
+  const truncated = lines.length > maxLines || raw.length >= TEXT_PREVIEW_BYTES;
+  return { text: lines.slice(0, maxLines).join('\n'), truncated };
+}
+
+export const MAX_FILE_NAME = 255;
+
+/** Rename the display name only: the storage path stays the same. */
+export async function renameFile(file: DealFile, newName: string): Promise<DealFile> {
+  const name = newName.trim();
+  if (!name) throw new Error('File name cannot be empty');
+  if (name.length > MAX_FILE_NAME) throw new Error(`File name is too long (max ${MAX_FILE_NAME} characters)`);
+  if (name === file.name) return file;
+  if (!canUseRemote(file.dealId)) {
+    const next = { ...file, name };
+    localFiles.set(file.dealId, (localFiles.get(file.dealId) ?? []).map(f => (f.id === file.id ? next : f)));
+    return next;
+  }
+  const { data, error } = await supabase.from('deal_files').update({ name }).eq('id', file.id).select();
+  if (error) throw error;
+  assertRowsAffected(data); // RLS filters silently (0 rows)
+  return fromRow(data[0]);
 }
 
 export async function deleteFile(file: DealFile): Promise<void> {
@@ -125,4 +177,4 @@ export const formatFileSize = (bytes: number): string => {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 };
 
-export const DealFilesService = { listFiles, uploadFile, getFileUrl, deleteFile };
+export const DealFilesService = { listFiles, uploadFile, getFileUrl, renameFile, fetchTextPreview, deleteFile };

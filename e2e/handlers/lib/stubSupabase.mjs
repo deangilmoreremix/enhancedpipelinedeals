@@ -18,8 +18,9 @@ export const GOOD_JWT = 'good-jwt';
 export const USERS = {
   'good-jwt': { id: 'user-1', role: 'member' },
   'viewer-jwt': { id: 'user-v', role: 'viewer' },
-  'manager-jwt': { id: 'user-m', role: 'manager' },
-  'admin-jwt': { id: 'user-a', role: 'admin' },
+  'manager-jwt': { id: 'user-m', role: 'manager', workspace_id: 'ws-1' },
+  'admin-jwt': { id: 'user-a', role: 'admin', workspace_id: 'ws-1' },
+  'admin2-jwt': { id: 'user-a2', role: 'admin', workspace_id: 'ws-2' },
 };
 export const SERVICE_KEY = 'service-role-key';
 export const ANON_KEY = 'anon-key';
@@ -53,7 +54,7 @@ function colValue(row, col) {
 }
 
 const likeToRegex = (pat, flags = '') =>
-  new RegExp('^' + pat.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/%/g, '.*').replace(/\*/g, '.*').replace(/_/g, '.') + '$', flags);
+  new RegExp('^' + pat.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/[%*]/g, '.*').replace(/_/g, '.') + '$', flags);
 
 const cmp = (a, b) => {
   if (a === null || a === undefined) return 1;
@@ -97,7 +98,7 @@ function testOp(value, opstr) {
 const RESERVED = new Set(['select', 'order', 'limit', 'offset', 'on_conflict', 'columns', 'or', 'and']);
 
 export function createStubSupabase({ port = 54402 } = {}) {
-  const state = { tables: {}, buckets: new Map(), objects: new Map(), log: [], rpc: {}, failNext: [] };
+  const state = { tables: {}, buckets: new Map(), objects: new Map(), log: [], rpc: {}, failNext: [], rateLimits: new Map(), rateLimitRpc: true };
   /** Never cleared by reset(): every table/column touched by any request, for the migration-contract check. */
   const audit = [];
   const stub = {
@@ -106,6 +107,8 @@ export function createStubSupabase({ port = 54402 } = {}) {
     state,
     get log() { return state.log; },
     audit,
+    /** set false to make rpc/check_rate_limit answer "function not found" (DB without the migration) */
+    set rateLimitRpc(v) { state.rateLimitRpc = v; },
     /** custom rpc: stub.rpc.name = (args, ctx) => result */
     rpc: state.rpc,
     table(name) { return (state.tables[name] ??= []); },
@@ -115,6 +118,8 @@ export function createStubSupabase({ port = 54402 } = {}) {
       state.objects = new Map();
       state.log.length = 0;
       state.failNext.length = 0;
+      state.rateLimits = new Map();
+      state.rateLimitRpc = true;
       for (const [k, rows] of Object.entries(seed)) state.tables[k] = rows.map((r) => ({ ...r }));
       stub.rpc.__reset?.();
     },
@@ -141,6 +146,11 @@ export function createStubSupabase({ port = 54402 } = {}) {
   function applyFilters(rows, params) {
     let out = rows;
     for (const [k, v] of params) {
+      if (k === 'or') { // or=(col.op.arg,col.op.arg)
+        const terms = parseList(v).map((x) => { const i = x.indexOf('.'); return { col: x.slice(0, i), op: x.slice(i + 1) }; });
+        out = out.filter((row) => terms.some((tm) => testOp(colValue(row, tm.col), tm.op)));
+        continue;
+      }
       if (RESERVED.has(k)) continue;
       out = out.filter((row) => testOp(colValue(row, k), v));
     }
@@ -240,6 +250,19 @@ export function createStubSupabase({ port = 54402 } = {}) {
           // RLS helper: role of the caller identified by the forwarded user JWT (anon key / no token -> null)
           const tok = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
           return send(res, 200, USERS[tok]?.role ?? null);
+        }
+        if (fn === 'current_workspace_id') {
+          const tok = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+          return send(res, 200, USERS[tok]?.workspace_id ?? null);
+        }
+        if (fn === 'check_rate_limit' && state.rateLimitRpc) {
+          // persistent limiter: fixed window per key; TRUE = allowed
+          const { p_key, p_limit, p_window_seconds } = body ?? {};
+          const now = Date.now();
+          let w = state.rateLimits.get(p_key);
+          if (!w || now - w.start >= p_window_seconds * 1000) { w = { start: now, n: 0 }; state.rateLimits.set(p_key, w); }
+          w.n += 1;
+          return send(res, 200, w.n <= p_limit);
         }
         if (fn === 'claim_workflow_events') {
           const limit = body?.p_limit ?? 25, max = body?.p_max_attempts ?? 5;

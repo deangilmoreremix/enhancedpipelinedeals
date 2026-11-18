@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DragDropContext, DropResult, useMouseSensor, useTouchSensor } from '@hello-pangea/dnd';
 import type { Deal } from '../../types';
+import type { BoardGroupBy } from '../../store/boardViewStore';
 import { useDealStore } from '../../store/dealStore';
 import { useBoardSelectionStore } from '../../store/boardSelectionStore';
 import { useBoardHotkeys } from '../../hooks/useBoardHotkeys';
@@ -11,6 +12,7 @@ import { sortDeals } from './kanban/kanbanUtils';
 import { BoardColumn, PAGE_SIZE } from './BoardColumn';
 import { BulkActionBar } from './BulkActionBar';
 import { usePermissions } from '../../hooks/usePermissions';
+import { useFieldDefinitions } from '../deals/fields/useFieldDefinitions';
 import type { BoardCardContext, KanbanBoardProps } from './KanbanBoard';
 
 const sensors = [useMouseSensor, useTouchSensor];
@@ -19,7 +21,8 @@ const PRIORITY_COLORS: Record<string, string> = { high: 'red', medium: 'yellow',
 
 /** Board grouped by owner / priority / company. Dragging between columns edits that field (company is read-only). */
 export const GroupedBoard: React.FC<KanbanBoardProps> = ({ deals, sortBy, isLoading, indicators, onOpenDeal, renderCard, grouping }) => {
-  const groupBy = (grouping?.groupBy ?? 'owner') as 'owner' | 'priority' | 'company';
+  const groupBy = (grouping?.groupBy ?? 'owner') as Exclude<BoardGroupBy, 'stage'>;
+  const { definitions: fieldDefs } = useFieldDefinitions('deal', { lazy: true });
   const perms = usePermissions();
   const updateDeal = useDealStore(s => s.updateDeal);
   const allDealsMap = useDealStore(s => s.deals);
@@ -48,8 +51,8 @@ export const GroupedBoard: React.FC<KanbanBoardProps> = ({ deals, sortBy, isLoad
   );
 
   const columns = useMemo(
-    () => buildGroupColumns(deals, groupBy).map(c => ({ ...c, deals: applySort(c.deals) })),
-    [deals, groupBy, applySort]
+    () => buildGroupColumns(deals, groupBy, fieldDefs).map(c => ({ ...c, deals: applySort(c.deals) })),
+    [deals, groupBy, fieldDefs, applySort]
   );
 
   const limitFor = (key: string) => limits[key] ?? PAGE_SIZE;

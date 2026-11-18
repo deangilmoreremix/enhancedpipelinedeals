@@ -1,6 +1,6 @@
 // netlify/functions/trigger-autopilot.js
-import { supabase } from "./_supabaseClient";
-import { authorize } from "./_openai";
+import { CORS_HEADERS } from "./_openai";
+import { authenticate } from "./_agentAuth";
 import { SPECIALISTS, runSpecialistOnce } from "./_sdrAgents";
 
 // Statuses (contacts.status check constraint: lead | prospect | customer | churned)
@@ -11,7 +11,7 @@ const aiSdrAvailable = () =>
   Boolean(process.env.SUPABASE_URL) &&
   Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY);
 
-async function writeLog(contactId, level, message, metadata) {
+async function writeLog(supabase, contactId, level, message, metadata) {
   await supabase.from("agent_logs").insert({ contact_id: contactId, level, message, ...(metadata ? { metadata } : {}) });
 }
 
@@ -19,7 +19,7 @@ async function writeLog(contactId, level, message, metadata) {
  * Runs the AI SDR (OpenAI Agents SDK specialist from _sdrAgents.ts) for the next step of the contact's sequence and
  * stores the DRAFT in agent_logs. Nothing is sent or queued automatically: sending needs human approval.
  */
-async function runSdrStepForContact(contact, settings) {
+async function runSdrStepForContact(supabase, contact, settings) {
   const personaId = settings.persona_id || "friendly";
   const sequenceLength = settings.sequence_length || 30;
   const currentStep = settings.current_step || 0;
@@ -28,12 +28,12 @@ async function runSdrStepForContact(contact, settings) {
   const label = settings.agent_id || agentId;
 
   if (nextStep > sequenceLength) {
-    await writeLog(contact.id, "info", `[${label}] Sequence already complete. No further steps.`);
+    await writeLog(supabase, contact.id, "info", `[${label}] Sequence already complete. No further steps.`);
     return { done: true };
   }
 
   if (!aiSdrAvailable()) {
-    await writeLog(contact.id, "warn", `[Autopilot -> ${label}] Step ${nextStep}/${sequenceLength} not run: AI SDR is not available (OPENAI_API_KEY / Supabase service credentials missing on the server). No draft was generated.`);
+    await writeLog(supabase, contact.id, "warn", `[Autopilot -> ${label}] Step ${nextStep}/${sequenceLength} not run: AI SDR is not available (OPENAI_API_KEY / Supabase service credentials missing on the server). No draft was generated.`);
     return { skipped: true, reason: "AI SDR not available" };
   }
 
@@ -44,19 +44,19 @@ async function runSdrStepForContact(contact, settings) {
     run = await runSpecialistOnce(agentId, contact.id, goal);
   } catch (err) {
     const reason = err?.message || String(err);
-    await writeLog(contact.id, "error", `[Autopilot -> ${label}] Step ${nextStep}/${sequenceLength} failed: ${reason}`);
+    await writeLog(supabase, contact.id, "error", `[Autopilot -> ${label}] Step ${nextStep}/${sequenceLength} failed: ${reason}`);
     return { error: reason };
   }
 
   if (run.status === "approval_required") {
-    await writeLog(contact.id, "info", `[Autopilot -> ${label}] Step ${nextStep}/${sequenceLength} is waiting for human approval before anything is sent.`, {
+    await writeLog(supabase, contact.id, "info", `[Autopilot -> ${label}] Step ${nextStep}/${sequenceLength} is waiting for human approval before anything is sent.`, {
       step: nextStep, agent_id: agentId, persona_id: personaId, requires_approval: true, approvals: run.approvals,
     });
     return { awaitingApproval: true, step: nextStep, approvals: run.approvals };
   }
 
   const draft = run.output;
-  await writeLog(contact.id, "info", `[Autopilot -> ${label}] Step ${nextStep}/${sequenceLength} draft prepared (not sent: needs human approval).`, {
+  await writeLog(supabase, contact.id, "info", `[Autopilot -> ${label}] Step ${nextStep}/${sequenceLength} draft prepared (not sent: needs human approval).`, {
     step: nextStep, agent_id: agentId, persona_id: personaId, requires_approval: true, draft,
   });
 
@@ -85,13 +85,9 @@ export const handler = async (event, context) => {
     };
   }
 
-  if (!(await authorize(event.headers?.authorization || event.headers?.Authorization))) {
-    return {
-      statusCode: 401,
-      headers: corsHeaders(),
-      body: JSON.stringify({ error: "Unauthorized" })
-    };
-  }
+  const auth = await authenticate(event);
+  if (auth.error) return { ...auth.error, headers: corsHeaders() };
+  const supabase = auth.db; // acts as the caller: RLS scopes contacts / settings / logs
 
   try {
     const body = JSON.parse(event.body || "{}");
@@ -153,9 +149,9 @@ export const handler = async (event, context) => {
 
     let result;
     if (OUTREACH_STATUSES.has(status)) {
-      result = await runSdrStepForContact(contact, settings);
+      result = await runSdrStepForContact(supabase, contact, settings);
     } else {
-      await writeLog(contact.id, "info", `[Autopilot] No action for status '${status}'.`);
+      await writeLog(supabase, contact.id, "info", `[Autopilot] No action for status '${status}'.`);
       result = { skipped: true, reason: `No action for status ${status}` };
     }
 
@@ -175,9 +171,5 @@ export const handler = async (event, context) => {
 };
 
 function corsHeaders() {
-  return {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "POST,OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization"
-  };
+  return CORS_HEADERS;
 }

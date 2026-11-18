@@ -284,7 +284,7 @@ export default async function ({ t, openai, supa, loadFunction }) {
   });
 
   // ======================= workflow-run-now
-  // run-now is admin/manager only (or the service key); its rate limit is per user (in-memory, per warm instance: 6/min)
+  // run-now is admin/manager only (or the service key); its rate limit is per user and persistent (RPC check_rate_limit, 6/min); in-memory fallback only if the RPC is missing
   const asAdmin = (o = {}) => callV2(runNow, { token: 'admin-jwt', ...o });
   await t('workflow-run-now: OPTIONS/405/401; per-user rate limit 429 after 6 runs', async () => {
     assert.equal((await callV2(runNow, { method: 'OPTIONS' })).status, 204);
@@ -295,6 +295,36 @@ export default async function ({ t, openai, supa, loadFunction }) {
     assert.equal(r.status, 429);
     // a different IP does not reset the per-user counter
     assert.equal((await callV2(runNow, { body: {}, token: 'manager-jwt', ip: freshIp() })).status, 429);
+  });
+  await t('workflow-run-now: limiter goes through the check_rate_limit RPC (key run-now:<user>, 6 / 60s, service role); falls back to in-memory only when the RPC is missing; other RPC errors -> 503', async () => {
+    supa.reset(baseSeed());
+    for (let i = 0; i < 6; i++) assert.equal((await callV2(runNow, { body: {}, token: 'manager-jwt' })).status, 200);
+    assert.equal((await callV2(runNow, { body: {}, token: 'manager-jwt' })).status, 429);
+    const calls = supa.requests({ method: 'POST', path: '/rpc/check_rate_limit' });
+    assert.equal(calls.length, 7);
+    assert.deepEqual([calls[0].body.p_key, calls[0].body.p_limit, calls[0].body.p_window_seconds], ['run-now:user-m', 6, 60]);
+    // a different user has their own counter
+    assert.equal((await callV2(runNow, { body: {}, token: 'admin-jwt' })).status, 200);
+    // RPC not migrated yet -> in-memory fallback (still limits)
+    supa.reset(baseSeed()); supa.rateLimitRpc = false;
+    let r; for (let i = 0; i < 7; i++) r = await callV2(runNow, { body: {}, token: 'admin-jwt', ip: freshIp() });
+    assert.equal(r.status, 429, 'in-memory fallback limits');
+    // any other RPC error fails closed
+    supa.reset(baseSeed()); supa.rpc.check_rate_limit = () => { throw new Error('boom'); };
+    try { assert.equal((await callV2(runNow, { body: {}, token: 'manager-jwt' })).status, 503); } finally { delete supa.rpc.check_rate_limit; }
+  });
+  await t('workflow-run-now manual: runs ONE workflow on ONE deal; validates input; unknown workflow/deal -> 422; non-admin 403', async () => {
+    supa.reset(baseSeed());
+    assert.equal((await asAdmin({ body: { action: 'manual' } })).status, 400);
+    assert.equal((await asAdmin({ body: { action: 'manual', workflowId: 'nope', dealId: 'd1' } })).status, 422);
+    assert.equal((await asAdmin({ body: { action: 'manual', workflowId: 'w1', dealId: 'nope' } })).status, 422);
+    assert.equal((await callV2(runNow, { body: { action: 'manual', workflowId: 'w1', dealId: 'd1' }, token: 'good-jwt' })).status, 403);
+    const r = await asAdmin({ body: { action: 'manual', workflowId: 'w1', dealId: 'd1' } });
+    const j = await jsonOf(r);
+    assert.equal(r.status, 200, JSON.stringify(j));
+    assert.match(j.executionId, /^manual:w1:d1:\d+$/);
+    const row = execs().find((x) => x.id === j.executionId);
+    assert.ok(row); assert.equal(row.record_id, 'd1'); assert.equal(row.trigger_type, 'manual');
   });
   await t('workflow-run-now role gate: member / viewer -> 403; anon key -> 401 (or 403 when anon is allowed); manager / admin / service key -> 200; nothing executes for rejected callers', async () => {
     supa.reset(baseSeed({ workflow_events: [event()] }));

@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Check, X } from 'lucide-react';
+import { DuplicateDealsWarning } from '../deals/fields/DuplicateDealsWarning';
+import { useDuplicateCheck } from '../deals/fields/useDuplicateCheck';
 
 interface QuickCreateDealProps {
   stageName: string;
@@ -13,15 +15,12 @@ export const QuickCreateDeal: React.FC<QuickCreateDealProps> = ({ stageName, onC
   const [value, setValue] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const dup = useDuplicateCheck();
   const titleRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { titleRef.current?.focus(); }, []);
 
-  const submit = async () => {
-    const name = title.trim();
-    if (!name) { setError('Enter a deal title'); return; }
-    const amount = value.trim() === '' ? 0 : Number(value.replace(/[$,\s]/g, ''));
-    if (!Number.isFinite(amount) || amount < 0) { setError('Value must be a positive number'); return; }
+  const create = async (name: string, amount: number) => {
     setSaving(true);
     setError(null);
     try {
@@ -32,6 +31,23 @@ export const QuickCreateDeal: React.FC<QuickCreateDealProps> = ({ stageName, onC
     } finally {
       setSaving(false);
     }
+  };
+
+  const submit = async () => {
+    const name = title.trim();
+    if (!name) { setError('Enter a deal title'); return; }
+    const amount = value.trim() === '' ? 0 : Number(value.replace(/[$,\s]/g, ''));
+    if (!Number.isFinite(amount) || amount < 0) { setError('Value must be a positive number'); return; }
+    if (dup.duplicates.length === 0) {
+      const found = await dup.check({ title: name });
+      if (found.length > 0) return; // non-blocking: user picks Open / Create anyway (or Add again)
+    }
+    await create(name, amount);
+  };
+
+  const createAnyway = () => {
+    const amount = value.trim() === '' ? 0 : Number(value.replace(/[$,\s]/g, ''));
+    void create(title.trim(), Number.isFinite(amount) ? amount : 0);
   };
 
   const onKeyDown = (e: React.KeyboardEvent) => {
@@ -47,7 +63,7 @@ export const QuickCreateDeal: React.FC<QuickCreateDealProps> = ({ stageName, onC
       <input
         ref={titleRef}
         value={title}
-        onChange={(e) => setTitle(e.target.value)}
+        onChange={(e) => { setTitle(e.target.value); if (dup.duplicates.length) dup.clear(); }}
         placeholder={`New deal in ${stageName}`}
         aria-label="Deal title"
         className={inputClass}
@@ -62,6 +78,7 @@ export const QuickCreateDeal: React.FC<QuickCreateDealProps> = ({ stageName, onC
         className={inputClass}
         disabled={saving}
       />
+      {dup.duplicates.length > 0 && <DuplicateDealsWarning duplicates={dup.duplicates} creating={saving} onCreateAnyway={createAnyway} />}
       {error && <p className="text-xs text-red-600 dark:text-red-400" role="alert">{error}</p>}
       <div className="flex justify-end space-x-2">
         <button

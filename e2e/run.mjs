@@ -6,6 +6,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { startVite } from './lib/server.mjs';
 import { launch, newPage, errorsOf, RESULTS_DIR } from './lib/browser.mjs';
 import { FakeSupabase, defaultSeed } from './lib/fakeSupabase.mjs';
+import { knownFor } from './lib/knownViolations.mjs';
 
 const dir = path.dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
@@ -34,9 +35,10 @@ for (const m of modes) {
     const started = Date.now();
     const notes = [];
     const checks = [];
+    const fakes = [];
     const ctx = {
       mode: m.id, url: m.url, browser, notes,
-      fake: (seed) => (m.id === 'fake' ? new FakeSupabase(seed || defaultSeed()) : null),
+      fake: (seed) => { if (m.id !== 'fake') return null; const f = new FakeSupabase(seed || defaultSeed()); fakes.push(f); return f; },
       ids: m.id === 'fake' ? { deal: '00000000-0000-4000-8000-000000000001', contact: 'c0000000-0000-4000-8000-000000000001', dealTitle: 'Enterprise Software License' } : { deal: 'deal-1', contact: 'contact-1', dealTitle: 'Enterprise Software License' },
       page: (opts = {}) => newPage(browser, { baseURL: m.url, name: `${sc.id}-${m.id}`, ...opts }),
       // soft check: records failures but continues
@@ -47,6 +49,17 @@ for (const m of modes) {
     };
     let status = 'PASS';
     try { await sc.run(ctx); } catch (e) { status = 'FAIL'; notes.push('EXCEPTION: ' + String(e.message || e).split('\n').slice(0, 3).join(' | ')); }
+    // strict contract gate: any schema/RLS/storage violation the scenario did not declare with fake.expectViolation(...) fails it
+    for (const f of fakes) {
+      const uniq = new Map(); const known = new Map();
+      for (const v of f.unexpectedViolations()) {
+        const kv = process.env.E2E_STRICT_KNOWN ? null : knownFor(v);
+        if (kv) { known.set(kv.id, (known.get(kv.id) || 0) + 1); continue; } const k = `${v.kind}|${v.method}|${v.target}|${v.code}`; (uniq.get(k) || uniq.set(k, { v, n: 0 }).get(k)).n++; }
+      for (const { v, n } of uniq.values()) { checks.push({ ok: false, msg: 'violation' }); notes.push(`FAIL: contract violation [${v.kind}] ${v.method} ${v.target} ${v.code}${n > 1 ? ' x' + n : ''}: ${v.message}`); }
+      for (const e of f.unmetExpectations()) { checks.push({ ok: false, msg: 'expectation' }); notes.push(`FAIL: expected violation never happened: ${String(e.match instanceof RegExp ? e.match : JSON.stringify(e.match, (k, v) => (v instanceof RegExp ? String(v) : v)))}`); }
+      if (known.size) notes.push('KNOWN app bugs (see lib/knownViolations.mjs): ' + [...known].map(([id, n]) => `${id} x${n}`).join(', '));
+      const nExp = f.violations.filter(v => v.expected).length; if (nExp) notes.push(`${nExp} expected violation(s) observed`);
+    }
     if (checks.some(c => !c.ok)) status = 'FAIL';
     else if (status === 'PASS' && checks.length && checks.every(c => c.skip)) status = 'SKIP';
     rows.push({ id: sc.id, name: sc.name, mode: m.id, status, secs: ((Date.now() - started) / 1000).toFixed(1), notes });

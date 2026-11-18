@@ -30,7 +30,7 @@ export function loadSchema(dir) {
   const get = (t) => { if (!tables.has(t)) tables.set(t, new Set()); return tables.get(t); };
   for (const f of files) {
     const sql = fs.readFileSync(path.join(dir, f), 'utf8').replace(/--[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, '');
-    for (const m of sql.matchAll(/create\s+(?:or\s+replace\s+)?(?:unlogged\s+)?(table|view|materialized\s+view)\s+(?:if\s+not\s+exists\s+)?([\w."]+)\s*(\(|as\b)/gi)) {
+    for (const m of sql.matchAll(/create\s+(?:or\s+replace\s+)?(?:unlogged\s+)?(table|view|materialized\s+view)\s+(?:if\s+not\s+exists\s+)?([\w."]+)\s*(\(|as\b|with\s*\()/gi)) {
       const name = ident(m[2]);
       if (m[1].toLowerCase() !== 'table') { get(name).add('*'); continue; } // views: not column-checked
       let i = m.index + m[0].length - 1, depth = 0, j = i;

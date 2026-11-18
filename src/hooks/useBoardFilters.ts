@@ -7,6 +7,9 @@ import type { BoardSortKey } from '../components/pipeline/kanban/kanbanUtils';
 import type { BoardGrouping } from '../components/pipeline/KanbanBoard';
 import { DEFAULT_STAGES } from '../utils/defaultStages';
 import { sortViewDeals } from '../utils/viewDeals';
+import type { DealFieldDefinition } from '../types/customFields';
+import { decorateFormulas } from '../utils/customFieldRecords';
+import { useFieldDefinitions } from '../components/deals/fields/useFieldDefinitions';
 
 export const SEARCH_DEBOUNCE_MS = 200;
 
@@ -16,10 +19,16 @@ export interface BoardFilterInput {
   favoritesOnly: boolean;
   /** When set, only deals whose id is in this set are kept (search hits). */
   matchIds?: Set<string> | null;
+  /** Deal custom-field definitions: formula results become filterable (`customFields.<key>`). */
+  customFieldDefs?: DealFieldDefinition[];
 }
 
 /** Pure: applies search hits, favorites, filter chips (AND) and advanced groups (AND of AND/OR groups). */
 export function applyBoardFilters(deals: Deal[], input: BoardFilterInput): Deal[] {
+  if (input.customFieldDefs?.some(d => d.isActive && d.type === 'formula')) {
+    const { decorated, restore } = decorateFormulas('deal', deals, input.customFieldDefs);
+    return restore(applyBoardFilters(decorated, { ...input, customFieldDefs: undefined }));
+  }
   let result = deals;
   if (input.matchIds) result = result.filter(d => input.matchIds!.has(d.id));
   if (input.favoritesOnly) result = result.filter(d => d.isFavorite);
@@ -42,6 +51,10 @@ export function computeViewDeals(
   sorting: ViewSort[],
   stages: PipelineStage[]
 ): Deal[] {
+  if (input.customFieldDefs?.some(d => d.isActive && d.type === 'formula')) {
+    const { decorated, restore } = decorateFormulas('deal', deals, input.customFieldDefs);
+    return restore(sortViewDeals(applyBoardFilters(decorated, { ...input, customFieldDefs: undefined }), sorting, stages));
+  }
   return sortViewDeals(applyBoardFilters(deals, input), sorting, stages);
 }
 
@@ -82,6 +95,7 @@ export function useBoardFilters(dealsMap: Record<string, Deal>, stages: Pipeline
   const sorting = useBoardViewStore(s => s.sorting);
   const groupBy = useBoardViewStore(s => s.groupBy);
 
+  const { definitions: fieldDefs } = useFieldDefinitions('deal', { lazy: true });
   const all = useMemo(() => Object.values(dealsMap), [dealsMap]);
   const allRef = useRef(all);
   allRef.current = all;
@@ -101,20 +115,33 @@ export function useBoardFilters(dealsMap: Record<string, Deal>, stages: Pipeline
 
   const matchIds = query && hits ? hits.ids : null;
 
-  const filtered = useMemo(
-    () => applyBoardFilters(all, { filters, groups, favoritesOnly, matchIds }),
-    [all, filters, groups, favoritesOnly, matchIds]
+  // Formula results are merged into customFields copies once, so filter + sort treat computed fields like stored ones;
+  // every list handed to the views is mapped back to the original deal objects.
+  const hasFormulas = useMemo(() => fieldDefs.some(d => d.isActive && d.type === 'formula'), [fieldDefs]);
+  const dec = useMemo(
+    () => (hasFormulas ? decorateFormulas('deal', all, fieldDefs) : { decorated: all, restore: (l: Deal[]) => l }),
+    [hasFormulas, all, fieldDefs]
   );
-
-  const viewDeals = useMemo(() => sortViewDeals(filtered, sorting, stages), [filtered, sorting, stages]);
+  const filteredDec = useMemo(
+    () => applyBoardFilters(dec.decorated, { filters, groups, favoritesOnly, matchIds }),
+    [dec, filters, groups, favoritesOnly, matchIds]
+  );
+  const filtered = useMemo(() => dec.restore(filteredDec), [dec, filteredDec]);
+  const viewDeals = useMemo(() => dec.restore(sortViewDeals(filteredDec, sorting, stages)), [dec, filteredDec, sorting, stages]);
 
   const preset = presetForSorting(sorting);
   const grouping = useMemo<BoardGrouping>(
     () => ({
       groupBy,
-      sortFn: preset === 'custom' ? (list: Deal[]) => AdvancedFilteringService.sortDeals(list, sorting) : undefined
+      sortFn: preset === 'custom'
+        ? (list: Deal[]) => {
+            if (!hasFormulas) return AdvancedFilteringService.sortDeals(list, sorting);
+            const d = decorateFormulas('deal', list, fieldDefs);
+            return d.restore(AdvancedFilteringService.sortDeals(d.decorated, sorting));
+          }
+        : undefined
     }),
-    [groupBy, preset, sorting]
+    [groupBy, preset, sorting, hasFormulas, fieldDefs]
   );
 
   const groupConditions = groups.reduce((n, g) => n + g.filters.length, 0);

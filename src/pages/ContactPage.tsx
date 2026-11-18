@@ -11,6 +11,10 @@ import { getContactTimeline, TimelineEvent } from '../services/dealTimelineServi
 import { normalizeName } from '../services/companyService';
 import { useCompanyStore } from '../store/companyStore';
 import { CompanyPicker, SelectField, TextField } from '../components/deals/fields';
+import { CustomFieldsSection } from '../components/deals/fields/CustomFieldsSection';
+import { ManageFieldsDialog } from '../components/deals/fields/ManageFieldsDialog';
+import { useRecordCustomValues } from '../components/deals/fields/useRecordCustomValues';
+import DealToasts from '../components/deals/DealToasts';
 import { AddDealButton, RelatedDealsList, SectionCard } from '../components/contacts/RelatedDeals';
 import { PageContainer } from './PageHeader';
 
@@ -31,6 +35,10 @@ const ContactPage: React.FC = () => {
   const searchCompanies = useCompanyStore(s => s.search);
 
   const contact = contacts.find(c => c.id === id);
+  const [manageOpen, setManageOpen] = useState(false);
+  const custom = useRecordCustomValues('contact', id, contact, values => {
+    useContactStore.setState(s => ({ contacts: s.contacts.map(c => (c.id === id ? { ...c, customFields: values } : c)) }));
+  });
   const [events, setEvents] = useState<TimelineEvent[]>([]);
   const [companyLinkId, setCompanyLinkId] = useState<string | undefined>(undefined);
   const [enriching, setEnriching] = useState(false);
@@ -168,6 +176,13 @@ const ContactPage: React.FC = () => {
           <SectionCard title="Notes">
             <TextField multiline label="" value={contact.notes ?? ''} placeholder="Add notes about this contact" onSave={notes => save({ notes })} />
           </SectionCard>
+          <CustomFieldsSection
+            entityType="contact"
+            record={contact as unknown as Record<string, unknown>}
+            values={custom.values}
+            onSaveValues={custom.save}
+            onManage={() => setManageOpen(true)}
+          />
         </div>
 
         <div className="space-y-6 lg:col-span-2">
@@ -193,6 +208,8 @@ const ContactPage: React.FC = () => {
           </SectionCard>
         </div>
       </div>
+      <ManageFieldsDialog isOpen={manageOpen} onClose={() => setManageOpen(false)} entityType="contact" />
+      <DealToasts />
     </PageContainer>
   );
 };

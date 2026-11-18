@@ -17,6 +17,10 @@ import { validateSchema, dealValidationSchema, sanitizeInput } from '../utils/va
 import { emitDealEvent } from '../services/dealEvents';
 import { setActiveStages } from '../utils/stageMeta';
 import { notifyIfPermissionDenied } from '../utils/permissionToast';
+// Loaded lazily: these pull in the Supabase client, which the store must not import eagerly
+const loadShared = () => import('../services/dealRecordShared');
+const loadTrash = () => import('../services/dealTrashService');
+const loadClone = () => import('../services/dealCloneService');
 
 /** Permission-denied toast + message when RLS blocked the write; otherwise the generic text. */
 const failMessage = (error: unknown, action: string, kind: string, generic: string): string =>
@@ -34,6 +38,10 @@ interface DealStore {
   
   // Actions
   fetchDeals: () => Promise<void>;
+  /** Hides the bundled demo records (the mock data files are untouched); user-created deals stay. */
+  deleteDemoData: () => Promise<void>;
+  /** Brings the bundled demo records back. */
+  restoreDemoData: () => Promise<void>;
   fetchStages: () => Promise<void>;
   getDeal: (id: string) => Deal | undefined;
   /** Optimistically move a deal to `stageKey` at fractional `position`; rolls back and returns false on failure. */
@@ -60,6 +68,12 @@ interface DealStore {
   createDeal: (deal: Omit<Deal, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Deal>;
   updateDeal: (id: string, updates: Partial<Deal>) => Promise<Deal>;
   deleteDeal: (id: string) => Promise<void>;
+  /** Duplicate a deal (RPC clone_deal, or an in-memory copy in demo mode). Returns the new deal id. */
+  cloneDeal: (id: string, opts?: { includeRelated?: boolean }) => Promise<string>;
+  /** Permanently delete soft-deleted deals (RPC purge_deals / local trash). Returns how many were removed. */
+  purgeDeals: (ids: string[]) => Promise<number>;
+  /** Restore many soft-deleted deals (RPC restore_deals / local trash). Returns how many were restored. */
+  restoreDeals: (ids: string[]) => Promise<number>;
   selectDeal: (deal: Deal | null) => void;
   
   // Bulk operations
@@ -140,6 +154,16 @@ export const useDealStore = create<DealStore>((set, get) => ({
         error: 'Failed to load deals - please check your database configuration'
       });
     }
+  },
+
+  deleteDemoData: async () => {
+    getDataSyncService().hideDemoData();
+    await get().fetchDeals();
+  },
+
+  restoreDemoData: async () => {
+    getDataSyncService().restoreDemoData();
+    await get().fetchDeals();
   },
 
   fetchStages: async () => {
@@ -533,6 +557,70 @@ export const useDealStore = create<DealStore>((set, get) => ({
       set({ error: failMessage(error, 'delete', 'deal', 'Failed to delete deal'), isLoading: false });
       throw error;
     }
+  },
+
+  cloneDeal: async (id, opts = {}) => {
+    const includeRelated = !!opts.includeRelated;
+    const original = get().deals[id];
+    if (!original) throw new Error('Deal not found');
+    const { canUseRemote } = await loadShared();
+    const { buildCloneDraft, cloneDealRemote, copyRelatedLocal } = await loadClone();
+    if (canUseRemote(id) && shouldPersist(get().isConnectedToDatabase)) {
+      const newId = await cloneDealRemote(id, includeRelated);
+      await get().fetchDeals();
+      return newId;
+    }
+    const now = new Date();
+    const draft = buildCloneDraft(original);
+    const copy = {
+      ...draft,
+      position: maxPosition(get().deals, original.stage) + 1,
+      id: newLocalId(), createdAt: now, updatedAt: now,
+    } as Deal;
+    set(st => ({ deals: { ...st.deals, [copy.id]: copy }, error: null }));
+    if (includeRelated) await copyRelatedLocal(id, copy.id);
+    emitDealEvent({ type: 'created', deal: copy });
+    return copy.id;
+  },
+
+  purgeDeals: async (ids) => {
+    const unique = [...new Set(ids)];
+    const { canUseRemote } = await loadShared();
+    const { purgeDealsRemote } = await loadTrash();
+    const remote = unique.filter(canUseRemote);
+    let removed = 0;
+    if (remote.length) removed += await purgeDealsRemote(remote);
+    const trash = get().trash;
+    const local = unique.filter(i => !remote.includes(i) && trash[i]);
+    removed += local.length;
+    set(st => {
+      const next = { ...st.trash };
+      unique.forEach(i => { delete next[i]; });
+      return { trash: next };
+    });
+    return removed;
+  },
+
+  restoreDeals: async (ids) => {
+    const unique = [...new Set(ids)];
+    const { canUseRemote } = await loadShared();
+    const { restoreDealsRemote } = await loadTrash();
+    const remote = unique.filter(canUseRemote);
+    let restored = 0;
+    if (remote.length) {
+      restored += await restoreDealsRemote(remote);
+      set(st => {
+        const next = { ...st.trash };
+        remote.forEach(i => { delete next[i]; });
+        return { trash: next };
+      });
+      await get().fetchDeals();
+    }
+    for (const i of unique.filter(x => !remote.includes(x) && get().trash[x])) {
+      await get().restoreDeal(i);
+      restored++;
+    }
+    return restored;
   },
 
   selectDeal: (deal) => {

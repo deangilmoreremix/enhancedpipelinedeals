@@ -20,6 +20,8 @@ export interface SyncStatus {
   lastSync: Date | null;
 }
 
+const DEMO_DATA_HIDDEN_KEY = 'demo_data_hidden';
+
 class DataSyncService {
   private syncStatus: SyncStatus = {
     contactsConnected: false,
@@ -32,6 +34,38 @@ class DataSyncService {
   // Local storage for user-created data when database is not available
   private localContacts: Contact[] = [];
   private localDeals: Record<string, Deal> = {};
+
+  /**
+   * Demo data is bundled (src/data/*) and never modified. "Delete demo data" only sets a flag so the bundled
+   * records are not served; records the user created stay, and restoreDemoData() brings the demo records back.
+   */
+  isDemoDataHidden(): boolean {
+    try {
+      return typeof localStorage !== 'undefined' && localStorage.getItem(DEMO_DATA_HIDDEN_KEY) === '1';
+    } catch {
+      return false;
+    }
+  }
+
+  hideDemoData(): void {
+    try { localStorage.setItem(DEMO_DATA_HIDDEN_KEY, '1'); } catch { /* storage unavailable: hide for this session only */ this.hiddenInMemory = true; }
+  }
+
+  restoreDemoData(): void {
+    this.hiddenInMemory = false;
+    try { localStorage.removeItem(DEMO_DATA_HIDDEN_KEY); } catch { /* ignore */ }
+  }
+
+  private hiddenInMemory = false;
+
+  private mockContacts(): Contact[] {
+    return this.hiddenInMemory || this.isDemoDataHidden() ? [] : mockContacts;
+  }
+
+  private mockDeals(): Record<string, Deal> {
+    if (this.hiddenInMemory || this.isDemoDataHidden()) return {};
+    return isDemoMode() ? mockDeals : {};
+  }
 
   /**
    * Get contacts - combines mock data with user-created data
@@ -57,7 +91,7 @@ class DataSyncService {
       }
 
       // Combine mock data with database data and local user-created data
-      const allContacts = [...mockContacts, ...databaseContacts, ...this.localContacts];
+      const allContacts = [...this.mockContacts(), ...databaseContacts, ...this.localContacts];
 
       // Remove duplicates based on ID
       const uniqueContacts = allContacts.filter((contact, index, self) =>
@@ -77,7 +111,7 @@ class DataSyncService {
       console.error('❌ Failed to load contacts:', error);
 
       // Fallback to mock + local data
-      const fallbackContacts = [...mockContacts, ...this.localContacts];
+      const fallbackContacts = [...this.mockContacts(), ...this.localContacts];
       const uniqueContacts = fallbackContacts.filter((contact, index, self) =>
         index === self.findIndex(c => c.id === contact.id)
       );
@@ -119,7 +153,7 @@ class DataSyncService {
       }
 
       // Mock deals are only merged in demo mode (Supabase not configured or demo_mode flag)
-      const allDeals = { ...(isDemoMode() ? mockDeals : {}), ...databaseDeals, ...this.localDeals };
+      const allDeals = { ...this.mockDeals(), ...databaseDeals, ...this.localDeals };
 
       const totalCount = Object.keys(allDeals).length;
       this.updateSyncStatus({ dealsCount: totalCount });
@@ -134,7 +168,7 @@ class DataSyncService {
       console.error('❌ Failed to load deals:', error);
 
       // Fallback to mock + local data
-      const fallbackDeals = { ...(isDemoMode() ? mockDeals : {}), ...this.localDeals };
+      const fallbackDeals = { ...this.mockDeals(), ...this.localDeals };
       const totalCount = Object.keys(fallbackDeals).length;
 
       this.updateSyncStatus({ dealsConnected: false, dealsCount: totalCount });

@@ -53,25 +53,3 @@ describe('authHeader anon fallback', () => {
     expect(await authHeader()).toEqual({});
   });
 });
-
-describe('enhancedActivityService', () => {
-  it('writes deal activities to deal_activities and never calls the get_deal_activities RPC', async () => {
-    jest.resetModules();
-    const tables: string[] = [];
-    const rpc = jest.fn();
-    jest.doMock('../../services/supabaseService', () => ({
-      isSupabaseConfigured: true,
-      supabase: {
-        rpc,
-        from: (t: string) => { tables.push(t); return chain({ data: [{ id: 'a', deal_id: 'd', type: 'call', title: 'T', metadata: {}, created_at: 'x' }], error: null }); },
-      },
-    }));
-    jest.doMock('../../services/dealRecordShared', () => ({ getCurrentUserId: async () => null, isUuid: () => false }));
-    const { enhancedActivityService } = require('../../services/enhancedActivityService');
-    const a = await enhancedActivityService.createActivity({ dealId: 'd', activityType: 'call', title: 'T' });
-    expect(a.activityType).toBe('call');
-    await enhancedActivityService.getActivitiesForDeal('d');
-    expect(tables[0]).toBe('deal_activities');
-    expect(rpc).not.toHaveBeenCalled();
-  });
-});

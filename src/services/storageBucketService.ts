@@ -80,20 +80,9 @@ class StorageBucketService {
         const { data: existingBuckets } = await this.supabase.storage.listBuckets();
         const bucketExists = existingBuckets?.some(b => b.name === bucketConfig.name);
 
+        // Buckets are created by the Supabase migrations (a user key cannot create buckets); only verify here.
         if (!bucketExists) {
-          const { error } = await this.supabase.storage.createBucket(bucketConfig.name, {
-            public: bucketConfig.public,
-            fileSizeLimit: bucketConfig.fileSizeLimit,
-            allowedMimeTypes: bucketConfig.allowedMimeTypes
-          });
-
-          if (error) {
-            errors.push(`Failed to create bucket ${bucketConfig.name}: ${error.message}`);
-          } else {
-            console.log(`Created storage bucket: ${bucketConfig.name}`);
-          }
-        } else {
-          console.log(`Storage bucket already exists: ${bucketConfig.name}`);
+          errors.push(`Storage bucket ${bucketConfig.name} is missing - apply the latest Supabase migrations`);
         }
       } catch (error) {
         errors.push(`Error initializing bucket ${bucketConfig.name}: ${error instanceof Error ? error.message : 'Unknown error'}`);

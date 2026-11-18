@@ -7,6 +7,7 @@ import { BoardExportFormat, downloadDeals } from './exportDeals';
 import { OwnerPicker } from '../deals/fields/OwnerPicker';
 import { usePermissions } from '../../hooks/usePermissions';
 import { BTN, BTN_ICON, BTN_DANGER, CONTROL } from '../ui/buttonStyles';
+import { undoableBulkMove, undoableBulkUpdate, undoableDelete, undoableTagChange } from '../../services/undoService';
 
 interface BulkActionBarProps {
   onNotify?: (message: string, type?: 'info' | 'success' | 'warning' | 'error') => void;
@@ -20,14 +21,11 @@ export const BulkActionBar: React.FC<BulkActionBarProps> = ({ onNotify }) => {
   const clearSelection = useBoardSelectionStore(s => s.clearSelection);
   const stages = useDealStore(s => s.stages);
   const deals = useDealStore(s => s.deals);
-  const bulkMoveDeals = useDealStore(s => s.bulkMoveDeals);
   const bulkUpdateDeals = useDealStore(s => s.bulkUpdateDeals);
-  const bulkSoftDelete = useDealStore(s => s.bulkSoftDelete);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [tagsOpen, setTagsOpen] = useState(false);
   const [tagText, setTagText] = useState('');
-  const updateDeal = useDealStore(s => s.updateDeal);
   const [busy, setBusy] = useState(false);
   const shiftRef = useRef(false);
 
@@ -83,19 +81,19 @@ export const BulkActionBar: React.FC<BulkActionBarProps> = ({ onNotify }) => {
         return;
       }
     }
-    await run(`Moved to ${stage?.name ?? stageKey}`, () => bulkMoveDeals(ids, stageKey));
+    await run(`Moved to ${stage?.name ?? stageKey}`, () => undoableBulkMove(ids, stageKey));
   };
 
   const handlePriority = async (priority: string) => {
     if (!priority) return;
-    await run(`Priority set to ${priority}`, () => bulkUpdateDeals(ids, { priority: priority as Deal['priority'] }));
+    await run(`Priority set to ${priority}`, () => undoableBulkUpdate(ids, { priority: priority as Deal['priority'] }, 'Priority changed'));
   };
 
   const handleOwner = async (ownerId: string | undefined, name: string) => {
     // null clears the columns (dealMapper writes explicit nulls)
     const nul = null as unknown as undefined;
     await run(ownerId ? `Owner set to ${name}` : 'Owner cleared', () =>
-      bulkUpdateDeals(ids, { ownerId: ownerId ?? nul, assignedToId: ownerId ?? nul, assignedTo: name || nul }));
+      undoableBulkUpdate(ids, { ownerId: ownerId ?? nul, assignedToId: ownerId ?? nul, assignedTo: name || nul }, 'Owner changed'));
   };
 
   // Tags (folded in from the legacy BulkDealActions): per-deal because each deal keeps its other tags
@@ -104,24 +102,18 @@ export const BulkActionBar: React.FC<BulkActionBarProps> = ({ onNotify }) => {
     if (!tag) return;
     setTagsOpen(false);
     setTagText('');
-    await run(mode === 'add' ? `Tag "${tag}" added` : `Tag "${tag}" removed`, async () => {
-      const results = await Promise.all(ids.map(id => {
-        const current = deals[id]?.tags ?? [];
-        const next = mode === 'add' ? Array.from(new Set([...current, tag])) : current.filter(t => t !== tag);
-        return updateDeal(id, { tags: next }).then(() => id, () => null);
-      }));
-      return results.filter((x): x is string => x !== null);
-    });
+    await run(mode === 'add' ? `Tag "${tag}" added` : `Tag "${tag}" removed`, () =>
+      undoableTagChange(ids, current => (mode === 'add' ? Array.from(new Set([...current, tag])) : current.filter(t => t !== tag)), mode === 'add' ? 'Tag added' : 'Tag removed'));
   };
 
   const handleFollowUp = async (value: string) => {
     if (!value) return;
-    await run('Follow-up scheduled', () => bulkUpdateDeals(ids, { nextFollowUp: value }));
+    await run('Follow-up scheduled', () => undoableBulkUpdate(ids, { nextFollowUp: value }, 'Follow-up changed'));
   };
 
   const handleDelete = async () => {
     setConfirmDelete(false);
-    const done = await run('Deleted', () => bulkSoftDelete(ids));
+    const done = await run('Deleted', () => undoableDelete(ids));
     if (done.length > 0) clearSelection();
   };
 

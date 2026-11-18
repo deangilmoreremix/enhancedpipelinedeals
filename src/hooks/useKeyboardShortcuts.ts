@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { openCommandPalette } from '../components/commandPaletteEvents';
+import { toggleWorkspaceChat } from '../components/ai/openWorkspaceChat';
 
 export interface KeyboardShortcut {
   key: string;
@@ -46,6 +47,8 @@ export const globalShortcuts: KeyboardShortcut[] = [
     },
     description: 'Command palette'
   },
+  { key: 'j', ctrl: true, action: () => toggleWorkspaceChat(), description: 'Ask AI' },
+  { key: 'j', meta: true, action: () => toggleWorkspaceChat(), description: 'Ask AI' },
   {
     key: 'n',
     ctrl: true,
@@ -74,7 +77,26 @@ export const globalShortcuts: KeyboardShortcut[] = [
   }
 ];
 
+/**
+ * Ctrl/Cmd+Z undoes the newest undoable action while an Undo toast is on screen (marked data-undo-available).
+ * Never in text fields (native undo keeps working there) and never without a toast.
+ */
+function useUndoShortcut() {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key.toLowerCase() !== 'z' || e.shiftKey || e.altKey || !(e.ctrlKey || e.metaKey)) return;
+      if (isEditableTarget(e.target) || isEditableTarget(document.activeElement)) return;
+      if (!document.querySelector('[data-undo-available]')) return;
+      e.preventDefault();
+      void import('../services/undoService').then(m => m.undoLast());
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, []);
+}
+
 export function useKeyboardShortcuts(shortcuts: KeyboardShortcut[]) {
+  useUndoShortcut();
   useEffect(() => {
     const handleKeyPress = (event: KeyboardEvent) => {
       // Plain-key shortcuts (like "/") must not hijack typing in form fields

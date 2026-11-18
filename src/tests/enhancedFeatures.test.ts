@@ -146,17 +146,6 @@ import { getCitationService } from '../services/citationService';
 import { getCacheService } from '../services/cacheService';
 import { getEnhancedIntelligentAI } from '../services/enhancedIntelligentAIService';
 
-// Mock external dependencies
-jest.mock('../config/apiConfig', () => ({
-  getAPIConfig: () => ({
-    webSearch: {
-      enabled: true,
-      provider: 'serpapi',
-      apiKey: 'test-api-key'
-    }
-  })
-}));
-
 describe('GPT-5 Enhanced Features', () => {
   let webSearchService: any;
   let citationService: any;

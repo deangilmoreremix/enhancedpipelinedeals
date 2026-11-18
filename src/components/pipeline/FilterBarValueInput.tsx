@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import type { PipelineStage } from '../../types';
 import { RELATIVE_DATE_OPTIONS } from '../../services/advancedFilteringService';
 import { ViewFilterValueInput } from '../views/ViewFilterValueInput';
-import { DraftValue, FieldKind, PRIORITY_OPTIONS } from './filterFieldConfig';
+import { DraftValue, FieldKind, PRIORITY_OPTIONS, fieldDef } from './filterFieldConfig';
 
 const INPUT_CLASS =
   'w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent';
@@ -71,7 +71,7 @@ export const FilterBarValueInput: React.FC<Props> = ({ field, kind, opKey, value
     ? stages.map(s => ({ id: s.key, label: s.name, value: s.key }))
     : field === 'priority'
       ? PRIORITY_OPTIONS.map(p => ({ ...p, value: p.id }))
-      : undefined;
+      : fieldDef(field).options?.map(o => ({ ...o, value: o.id }));
 
   if (opKey === 'in' || opKey === 'not_in') {
     const selected = Array.isArray(value) ? value : [];
@@ -123,7 +123,7 @@ export const FilterBarValueInput: React.FC<Props> = ({ field, kind, opKey, value
     return <ViewFilterValueInput field={field} operator={opKey} value={scalar} fieldType="date" hideOperator ariaLabel={ariaLabel ?? 'Date'} onChange={(v) => onChange(dayString(v))} />;
   }
 
-  if (kind === 'select' && options) {
+  if ((kind === 'select' || kind === 'tags') && options) {
     return <ViewFilterValueInput field={field} operator={opKey} value={scalar} fieldType="select" options={options} hideOperator ariaLabel={ariaLabel ?? 'Value'} onChange={(v) => onChange(dayString(v))} />;
   }
 

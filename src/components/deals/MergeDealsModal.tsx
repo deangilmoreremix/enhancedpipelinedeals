@@ -1,3 +1,4 @@
+import { notifyMergeNotUndoable } from '../../services/undoService';
 import React, { useEffect, useMemo, useState } from 'react';
 import { GitMerge } from 'lucide-react';
 import { Modal } from '../ui/Modal';
@@ -7,11 +8,12 @@ import { Badge } from '../ui/Badge';
 import type { Deal } from '../../types';
 import { useDealStore } from '../../store/dealStore';
 import {
-  COMBINE_NOTES, MAX_MERGE, MERGE_FIELDS, MERGE_FIELD_LABELS, MIN_MERGE, MergeField,
+  COMBINE_NOTES, CUSTOM_PREFIX, MAX_MERGE, MERGE_FIELD_LABELS, MIN_MERGE, MergeField, isCustomMergeField,
   canMergeRemote, findDuplicatesOf, getConflicts, mergeDeals, resolveMergeUpdates,
 } from '../../services/dealMergeService';
 import { errorMessage } from '../../services/dealRecordShared';
 import { formatMoney } from '../../utils/currencyMicros';
+import { formatCustomValue, getCachedDefinitions } from '../../services/customFieldService';
 
 export interface MergeDealsModalProps {
   isOpen: boolean;
@@ -24,14 +26,34 @@ export interface MergeDealsModalProps {
   onMerged?: (survivorId: string) => void;
 }
 
+const EMPTY = '(empty)';
+const short = (t: string) => (t.length > 80 ? `${t.slice(0, 80)}...` : t);
+const day = (v?: Date | null) => (v ? v.toLocaleDateString() : EMPTY);
+
 const display = (d: Deal, field: MergeField, stageName: (k: string) => string): string => {
+  if (isCustomMergeField(field)) {
+    const key = field.slice(CUSTOM_PREFIX.length);
+    const def = getCachedDefinitions().find(x => x.key === key);
+    return formatCustomValue(def, d.customFields?.[key]) || EMPTY;
+  }
   switch (field) {
     case 'value': return formatMoney(d.value, d.currencyCode ?? 'USD');
     case 'stage': return stageName(d.stage);
     case 'priority': return d.priority;
-    case 'notes': return d.notes?.trim() ? (d.notes.length > 80 ? `${d.notes.slice(0, 80)}...` : d.notes) : '(empty)';
+    case 'probability': return `${d.probability}%`;
+    case 'closeDate': return day(d.closeDate);
+    case 'dueDate': return day(d.dueDate);
+    case 'company': return d.company || EMPTY;
+    case 'contact': return d.contact || EMPTY;
+    case 'notes': return d.notes?.trim() ? short(d.notes) : EMPTY;
     default: return d.title ?? '(untitled)';
   }
+};
+
+const fieldLabel = (f: MergeField): string => {
+  if (!isCustomMergeField(f)) return MERGE_FIELD_LABELS[f];
+  const key = f.slice(CUSTOM_PREFIX.length);
+  return getCachedDefinitions().find(d => d.key === key)?.label ?? key;
 };
 
 export const MergeDealsModal: React.FC<MergeDealsModalProps> = ({ isOpen, onClose, deals, initialIds = [], onMerged }) => {
@@ -101,6 +123,7 @@ export const MergeDealsModal: React.FC<MergeDealsModalProps> = ({ isOpen, onClos
         if (Object.keys(updates).length) await store.updateDeal(survivor.id, updates);
         for (const id of mergeIds) await store.softDeleteDeal(id);
       }
+      notifyMergeNotUndoable(picked.length);
       onMerged?.(survivor.id);
       onClose();
     } catch (e) {
@@ -162,11 +185,11 @@ export const MergeDealsModal: React.FC<MergeDealsModalProps> = ({ isOpen, onClos
                 <p className="text-sm text-gray-500 dark:text-gray-400">No field conflicts.</p>
               ) : (
                 <div className="space-y-3">
-                  {MERGE_FIELDS.filter(f => conflicts.includes(f)).map(field => {
+                  {conflicts.map(field => {
                     const chosen = choices[field] ?? survivor.id;
                     return (
                       <fieldset key={field} className="rounded-xl border border-gray-200 p-3 dark:border-gray-700">
-                        <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-gray-500">{MERGE_FIELD_LABELS[field]}</legend>
+                        <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-gray-500">{fieldLabel(field)}</legend>
                         <div className="space-y-1">
                           {picked.map(d => (
                             <label key={d.id} className="flex cursor-pointer items-start gap-2 text-sm text-gray-800 dark:text-gray-200">
@@ -175,7 +198,7 @@ export const MergeDealsModal: React.FC<MergeDealsModalProps> = ({ isOpen, onClos
                                 name={`conflict-${field}`}
                                 checked={chosen === d.id}
                                 onChange={() => setChoices(c => ({ ...c, [field]: d.id }))}
-                                aria-label={`${MERGE_FIELD_LABELS[field]}: ${display(d, field, stageName)}`}
+                                aria-label={`${fieldLabel(field)}: ${display(d, field, stageName)}`}
                               />
                               <span>{display(d, field, stageName)}</span>
                             </label>

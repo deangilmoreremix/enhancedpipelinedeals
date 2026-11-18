@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
-import { ChevronRight, Sparkles } from 'lucide-react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { ChevronRight, GitMerge, Sparkles } from 'lucide-react';
 import type { Company, Deal } from '../types';
 import { useCompanyStore } from '../store/companyStore';
 import { useDealStore } from '../store/dealStore';
@@ -10,6 +10,16 @@ import { getAIEnrichmentService } from '../services/aiEnrichmentService';
 import { formatMoney } from '../utils/currencyMicros';
 import { initialsAvatar } from '../utils/avatar';
 import { OwnerPicker, TextField } from '../components/deals/fields';
+import { CustomFieldsSection } from '../components/deals/fields/CustomFieldsSection';
+import { ManageFieldsDialog } from '../components/deals/fields/ManageFieldsDialog';
+import { useFieldDefinitions } from '../components/deals/fields/useFieldDefinitions';
+import { useRecordCustomValues } from '../components/deals/fields/useRecordCustomValues';
+import DuplicateCompaniesDialog from '../components/companies/DuplicateCompaniesDialog';
+import DealToasts from '../components/deals/DealToasts';
+import { findDuplicateCompanies, type DuplicateHit } from '../services/companyMergeService';
+import { localRollup, rollupForCompany, rollupValuesForDefs, type CompanyRollup } from '../services/companyRollupService';
+import { pushToast } from '../store/dealRecordStore';
+import { BTN } from '../components/ui/buttonStyles';
 import { AddDealButton, RelatedDealsList, SectionCard } from '../components/contacts/RelatedDeals';
 import { PageContainer } from './PageHeader';
 import type { Contact } from '../types/contact';
@@ -17,6 +27,7 @@ import type { Contact } from '../types/contact';
 /** /companies/:id - company record: editable details, related contacts & deals, totals, research, notes. */
 const CompanyPage: React.FC = () => {
   const { id = '' } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const getById = useCompanyStore(s => s.getById);
   const updateCompany = useCompanyStore(s => s.update);
   const cached = useCompanyStore(s => s.companies[id]);
@@ -33,6 +44,14 @@ const CompanyPage: React.FC = () => {
   const [related, setRelated] = useState<{ deals: Deal[]; contacts: Contact[] }>({ deals: [], contacts: [] });
 
   const company: Company | undefined = cached;
+  const { definitions: fieldDefs } = useFieldDefinitions('company');
+  const [manageOpen, setManageOpen] = useState(false);
+  const [dupOpen, setDupOpen] = useState(false);
+  const [dupWarning, setDupWarning] = useState<DuplicateHit[]>([]);
+  const [rollup, setRollup] = useState<CompanyRollup | undefined>(undefined);
+  const custom = useRecordCustomValues('company', id, company, values => {
+    useCompanyStore.setState(s => (s.companies[id] ? { companies: { ...s.companies, [id]: { ...s.companies[id], customFields: values } } } : s));
+  });
 
   useEffect(() => {
     if (Object.keys(dealsMap).length === 0) void fetchDeals();
@@ -55,6 +74,17 @@ const CompanyPage: React.FC = () => {
     return () => { alive = false; };
   }, [company?.id, company?.name, dealsMap, contactList]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const needsRollup = fieldDefs.some(d => d.isActive && d.type === 'rollup');
+  useEffect(() => {
+    if (!company || !needsRollup) { setRollup(undefined); return; }
+    let alive = true;
+    const local = () => localRollup(company.id, related.deals, related.contacts, stages);
+    rollupForCompany(company.id, local)
+      .then(r => { if (alive) setRollup(r); })
+      .catch(e => { if (alive) { setRollup(local()); pushToast('error', `Could not load company rollups: ${e instanceof Error ? e.message : 'unknown error'}`); } });
+    return () => { alive = false; };
+  }, [company?.id, needsRollup, related, stages]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const totals = useMemo(() => companyTotals(related.deals, stages), [related.deals, stages]);
 
   if (!company) {
@@ -69,6 +99,15 @@ const CompanyPage: React.FC = () => {
   }
 
   const save = (updates: Partial<Omit<Company, 'id'>>) => updateCompany(company.id, updates);
+
+  /** Warn (never block) when a new name / domain collides with another company. */
+  const checkDuplicates = async (name: string, domain?: string | null) => {
+    try {
+      const hits = await findDuplicateCompanies(name, domain, company.id);
+      setDupWarning(hits);
+      if (hits.length > 0) pushToast('info', `Possible duplicate company: ${hits.map(h => h.name).join(', ')}`);
+    } catch { setDupWarning([]); }
+  };
 
   const research = async () => {
     setResearching(true); setResearchError(null); setResearchMsg(null);
@@ -128,10 +167,19 @@ const CompanyPage: React.FC = () => {
             className="flex items-center gap-1 rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100 disabled:opacity-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">
             <Sparkles className="h-4 w-4" aria-hidden />{researching ? 'Researching...' : 'Research company'}
           </button>
+          <button type="button" onClick={() => setDupOpen(true)} className={BTN}>
+            <GitMerge className="h-4 w-4" aria-hidden />Find duplicate companies
+          </button>
           <AddDealButton preset={{ company: company.name, companyId: company.id, contact: '' }} />
         </div>
       </div>
 
+      {dupWarning.length > 0 && (
+        <div role="status" data-testid="duplicate-warning" className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-200">
+          <span>Possible duplicate: {dupWarning.map(h => `${h.name} (same ${h.reason})`).join(', ')}.</span>
+          <button type="button" onClick={() => setDupOpen(true)} className="font-medium underline">Review duplicates</button>
+        </div>
+      )}
       {researchError && <p role="alert" className="mb-4 text-sm text-red-600">{researchError}</p>}
       {researchMsg && <p role="status" className="mb-4 text-sm text-gray-700 dark:text-gray-300">{researchMsg}</p>}
 
@@ -146,10 +194,10 @@ const CompanyPage: React.FC = () => {
         <div className="space-y-6 lg:col-span-1">
           <SectionCard title="Details">
             <div className="space-y-4">
-              <TextField label="Name" value={company.name} required onSave={name => save({ name })} />
+              <TextField label="Name" value={company.name} required onSave={async name => { await checkDuplicates(name, company.domain ?? company.website); return save({ name }); }} />
               <TextField label="Industry" value={company.industry ?? ''} placeholder="Add industry" onSave={industry => save({ industry })} />
               <TextField label="Website" value={company.website ?? ''} placeholder="Add website" onSave={website => save({ website })} />
-              <TextField label="Domain" value={company.domain ?? ''} placeholder="Add domain" onSave={domain => save({ domain })} />
+              <TextField label="Domain" value={company.domain ?? ''} placeholder="Add domain" onSave={async domain => { if (domain) await checkDuplicates(company.name, domain); return save({ domain }); }} />
               <TextField label="Size" value={company.size ?? ''} placeholder="Add size" onSave={size => save({ size })} />
               <TextField label="Phone" value={company.phone ?? ''} placeholder="Add phone" onSave={phone => save({ phone })} />
               <TextField label="Address" value={company.address ?? ''} placeholder="Add address" onSave={address => save({ address })} />
@@ -159,6 +207,14 @@ const CompanyPage: React.FC = () => {
           <SectionCard title="Notes">
             <TextField multiline label="" value={company.notes ?? ''} placeholder="Add notes about this company" onSave={notes => save({ notes })} />
           </SectionCard>
+          <CustomFieldsSection
+            entityType="company"
+            record={company as unknown as Record<string, unknown>}
+            values={custom.values}
+            onSaveValues={custom.save}
+            rollups={rollupValuesForDefs(fieldDefs, rollup)}
+            onManage={() => setManageOpen(true)}
+          />
         </div>
 
         <div className="space-y-6 lg:col-span-2">
@@ -184,6 +240,9 @@ const CompanyPage: React.FC = () => {
           </SectionCard>
         </div>
       </div>
+      <ManageFieldsDialog isOpen={manageOpen} onClose={() => setManageOpen(false)} entityType="company" />
+      <DuplicateCompaniesDialog isOpen={dupOpen} onClose={() => setDupOpen(false)} onMerged={res => { if (res.mergedIds.includes(company.id)) navigate('/'); }} />
+      <DealToasts />
     </PageContainer>
   );
 };

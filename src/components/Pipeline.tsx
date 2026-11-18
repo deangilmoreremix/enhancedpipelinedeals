@@ -4,7 +4,10 @@ import { useGamificationUpdates } from '../hooks/useGamificationUpdates';
 import { ImageUpload } from './ui/ImageUpload';
 import { AIEnhancedDealCard } from './AIEnhancedDealCard';
 import { EnhancedAIStatusIndicator } from './ui/EnhancedAIStatusIndicator';
-import DealDetail from './DealDetail';
+import DealSidePanel from './DealDetailView/DealSidePanel';
+import NotificationBell from './ui/NotificationBell';
+import FavoriteFolders from './pipeline/FavoriteFolders';
+import PinnedDeals from './pipeline/PinnedDeals';
 import PipelineStats from './PipelineStats';
 import DealAnalytics from './DealAnalytics';
 import { useDealStore } from '../store/dealStore';
@@ -24,17 +27,20 @@ import { Contact } from '../types/contact';
 import { Deal } from '../types';
 import { Tooltip } from './ui/Tooltip';
 import { DarkModeToggle } from './ui/DarkModeToggle';
+import { getDataSyncService } from '../services/dataSyncService';
 import { openSettings } from './settingsEvents';
 import {
   Search, Upload, Download, Brain, Sparkles, Plus, Filter, BarChart3,
   Settings, Grid, List, Target, Zap, TrendingUp, Users, Calendar,
   Mail, Phone, CheckCircle, AlertCircle, Clock, DollarSign, Crown,
-  Loader2, X, Table, BarChart, Activity, Heart
+  Loader2, X, Table, BarChart, Activity, Heart, RotateCcw
 } from 'lucide-react';
 
 // Twenty CRM enhanced kanban imports
 import { StageManagerModal } from './pipeline/kanban/CustomColumnManager';
 import DealToasts from './deals/DealToasts';
+import { undoableDelete } from '../services/undoService';
+import { openWorkspaceChat } from './ai/openWorkspaceChat';
 import { HotkeysHelp } from './pipeline/HotkeysHelp';
 import { useContactStore } from '../store/contactStore';
 import { winRate } from '../services/analyticsService';
@@ -70,11 +76,13 @@ const Pipeline: React.FC = () => {
   const dataError = useDealStore(s => s.error);
   const isConnected = useDealStore(s => s.isConnectedToDatabase);
   const fetchDeals = useDealStore(s => s.fetchDeals);
+  const deleteDemoData = useDealStore(s => s.deleteDemoData);
+  const restoreDemoData = useDealStore(s => s.restoreDemoData);
+  const [demoHidden, setDemoHidden] = useState(() => getDataSyncService().isDemoDataHidden());
   const fetchStages = useDealStore(s => s.fetchStages);
   const moveDeal = useDealStore(s => s.moveDeal);
   const updateDealInStore = useDealStore(s => s.updateDeal);
   const createDealInStore = useDealStore(s => s.createDeal);
-  const softDeleteDeal = useDealStore(s => s.softDeleteDeal);
   const subscribeRealtime = useDealStore(s => s.subscribeRealtime);
   const dataSource: 'database' | 'mock' = isConnected && !isDemoMode() ? 'database' : 'mock';
   const [selectedDealId, setSelectedDealId] = useState<string | null>(null);
@@ -346,6 +354,13 @@ const Pipeline: React.FC = () => {
   const handleClearAllData = async () => {
     setShowClearDataModal(false);
 
+    // Demo mode has no database: clearing hides the bundled sample records (the mock files are never modified)
+    if (dataSource === 'mock') {
+      await deleteDemoData();
+      setDemoHidden(true);
+      return;
+    }
+
     try {
       const supabase = getSupabaseService();
 
@@ -431,8 +446,7 @@ const Pipeline: React.FC = () => {
 
   const handleDealDelete = async (dealId: string) => {
     try {
-      await softDeleteDeal(dealId);
-      console.log(`✅ Deal deleted: ${dealId}`);
+      await undoableDelete([dealId]);
     } catch (error) {
       console.error('Failed to delete deal:', error);
     }
@@ -548,6 +562,8 @@ const Pipeline: React.FC = () => {
             </Tooltip>
           </div>
 
+          <FavoriteFolders onOpenDeal={setSelectedDealId} />
+          <NotificationBell />
           <DarkModeToggle />
 
           {/* Pipeline Settings - Twenty Features */}
@@ -564,6 +580,9 @@ const Pipeline: React.FC = () => {
 
         </div>
       </div>
+
+      {/* Pinned deals open in the side panel */}
+      <PinnedDeals onOpenDeal={setSelectedDealId} className="mb-4" />
 
       {/* Stats Section */}
       {showStats && (
@@ -668,17 +687,35 @@ const Pipeline: React.FC = () => {
             <span className="text-sm text-gray-600 dark:text-gray-300" role="status">{exportMessage}</span>
           )}
 
-          <Tooltip content="Clear All Data - Delete all contacts, deals, and achievements from the database" position="bottom">
-            <button
-              type="button"
-              onClick={() => setShowClearDataModal(true)}
-              className={BTN}
+          {dataSource === 'mock' && demoHidden ? (
+            <Tooltip content="Bring the sample deals and contacts back" position="bottom">
+              <button
+                type="button"
+                onClick={async () => { await restoreDemoData(); setDemoHidden(false); }}
+                className={BTN}
+              >
+                <RotateCcw className="w-4 h-4" />
+                <span>Restore demo data</span>
+              </button>
+            </Tooltip>
+          ) : (
+            <Tooltip
+              content={dataSource === 'mock'
+                ? 'Clear All Data - Remove the sample deals and contacts (your own records stay; you can restore the samples)'
+                : 'Clear All Data - Delete all contacts, deals, and achievements from the database'}
+              position="bottom"
             >
-              <X className="w-4 h-4" />
-              <span>Clear All Data</span>
-            </button>
-          </Tooltip>
-          
+              <button
+                type="button"
+                onClick={() => setShowClearDataModal(true)}
+                className={BTN}
+              >
+                <X className="w-4 h-4" />
+                <span>Clear All Data</span>
+              </button>
+            </Tooltip>
+          )}
+
           <Tooltip content="AI Score All - Analyze all visible deals with AI to generate win probability scores based on multiple factors" position="bottom">
             <button
               type="button"
@@ -703,6 +740,11 @@ const Pipeline: React.FC = () => {
               className={BTN_ICON}
             >
               <BarChart3 className="w-4 h-4" />
+            </button>
+          </Tooltip>
+          <Tooltip content="Ask AI (Ctrl/Cmd+J) - Ask questions about your pipeline and review suggested changes" position="left">
+            <button type="button" aria-label="Ask AI" onClick={() => openWorkspaceChat()} className={BTN_ICON}>
+              <Sparkles className="w-4 h-4" />
             </button>
           </Tooltip>
           <Tooltip content="Settings - Configure pipeline preferences, notifications, and integrations" position="left">
@@ -865,11 +907,12 @@ const Pipeline: React.FC = () => {
         onMerged={() => setMergeIds(null)}
       />
 
-      {/* Deal Detail Modal */}
+      {/* Deal side panel (Expand goes to /deals/:id) */}
       {selectedDealId && (
-        <DealDetail
+        <DealSidePanel
           dealId={selectedDealId}
           onClose={() => setSelectedDealId(null)}
+          onOpenDeal={setSelectedDealId}
         />
       )}
 
@@ -881,11 +924,13 @@ const Pipeline: React.FC = () => {
               <div className="p-3 bg-red-100 rounded-full mr-4">
                 <AlertCircle className="w-6 h-6 text-red-600" />
               </div>
-              <h3 className="text-xl font-semibold text-gray-900">Clear All Data?</h3>
+              <h3 className="text-xl font-semibold text-gray-900">{dataSource === 'mock' ? 'Clear demo data?' : 'Clear All Data?'}</h3>
             </div>
 
             <p className="text-gray-600 mb-6">
-              This will permanently delete all contacts, deals, achievements, and activities from your database. This action cannot be undone.
+              {dataSource === 'mock'
+                ? 'This removes the sample deals and contacts from your pipeline. Deals and contacts you created stay, and you can bring the samples back with Restore demo data.'
+                : 'This will permanently delete all contacts, deals, achievements, and activities from your database. This action cannot be undone.'}
             </p>
 
             <div className="flex space-x-3">

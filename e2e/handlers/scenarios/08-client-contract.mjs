@@ -48,7 +48,7 @@ export default async function ({ t, REPO }) {
   // Every endpoint the client calls must exist (the dead ones were converted to direct Supabase queries / removed).
   await t(`all client endpoint literals are served (${seen.size} unresolved)`, async () => assert.deepEqual(missing.map((m) => `${m.url} (${m.where})`), []));
   // Calls to protected functions must carry the Supabase bearer token (authedFetch / authHeader), not a bare fetch().
-  const PROTECTED = ['selectPersona', 'autopilot-run', 'memory-get', 'mood-preview', 'calendar-api', 'email-api'];
+  const PROTECTED = ['selectPersona', 'autopilot-run', 'memory-get', 'mood-preview', 'test-sdr-agent', 'skills-api'];
   const bare = [];
   for (const file of walk(path.join(REPO, 'src'))) {
     const src = fs.readFileSync(file, 'utf8');

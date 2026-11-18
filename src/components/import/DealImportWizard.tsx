@@ -13,6 +13,8 @@ import {
   NEW_STAGE,
   NormalizedRow,
   autoMapHeaders,
+  CustomImportField,
+  importableCustomFields,
   buildErrorCsv,
   buildTemplateCsv,
   dealKey,
@@ -20,6 +22,7 @@ import {
   saveMappingPreference
 } from './dealImportMapping';
 import { downloadTextFile } from './downloadFile';
+import { useFieldDefinitions } from '../deals/fields/useFieldDefinitions';
 
 type Step = 'upload' | 'map' | 'preview' | 'importing' | 'result';
 type DuplicatePolicy = 'skip' | 'update' | 'import';
@@ -62,6 +65,8 @@ export const DealImportWizard: React.FC<DealImportWizardProps> = ({ isOpen, onCl
   const createDeal = useDealStore(s => s.createDeal);
   const updateDeal = useDealStore(s => s.updateDeal);
   const addStage = useDealStore(s => s.addStage);
+  const { definitions: fieldDefs } = useFieldDefinitions('deal', { lazy: true });
+  const customFieldDefs = useMemo(() => importableCustomFields(fieldDefs), [fieldDefs]);
 
   const [step, setStep] = useState<Step>('upload');
   const [fileName, setFileName] = useState('');
@@ -97,7 +102,7 @@ export const DealImportWizard: React.FC<DealImportWizardProps> = ({ isOpen, onCl
       const parsed = await parseImportFile(file);
       setTable(parsed);
       setFileName(file.name);
-      setMapping(autoMapHeaders(parsed.headers));
+      setMapping(autoMapHeaders(parsed.headers, true, customFieldDefs));
       setStep('map');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not read the file');
@@ -106,14 +111,14 @@ export const DealImportWizard: React.FC<DealImportWizardProps> = ({ isOpen, onCl
     }
   };
 
-  const setColumnField = (col: number, field: ImportField | '') => {
+  const setColumnField = (col: number, field: ImportField | CustomImportField | '') => {
     setMapping(prev => prev.map((f, i) => (i === col ? field : field !== '' && f === field ? '' : f)));
   };
 
   // ---- preview model ----------------------------------------------------------
   const preview = useMemo(() => {
     if (!table || step === 'upload' || step === 'map') return null;
-    const ctx = { stages: sortedStages, stageResolution, defaultStage };
+    const ctx = { stages: sortedStages, stageResolution, defaultStage, customFieldDefs };
     const rows: NormalizedRow[] = table.rows.map((r, i) => normalizeRow(r, i + 1, mapping, ctx));
 
     const existing = new Map<string, Deal>();
@@ -135,7 +140,7 @@ export const DealImportWizard: React.FC<DealImportWizardProps> = ({ isOpen, onCl
       if (r.unknownStage) unknownStages.set(r.unknownStage.toLowerCase().replace(/[^a-z0-9]+/g, ''), r.unknownStage);
     });
     return { rows, statuses, existing, unknownStages };
-  }, [table, step, mapping, sortedStages, stageResolution, defaultStage, dealsMap]);
+  }, [table, step, mapping, sortedStages, stageResolution, defaultStage, dealsMap, customFieldDefs]);
 
   const counts = useMemo(() => {
     const c = { ok: 0, error: 0, duplicate: 0, 'file-duplicate': 0 };
@@ -184,6 +189,7 @@ export const DealImportWizard: React.FC<DealImportWizardProps> = ({ isOpen, onCl
         const prop = UPDATE_PROPS[field];
         if (prop) (updates as Record<string, unknown>)[prop] = (deal as unknown as Record<string, unknown>)[prop];
       });
+      if (deal.customFields) updates.customFields = { ...(existing.customFields ?? {}), ...deal.customFields };
       items.push({ row: r.row, action: 'update', existingId: existing.id, data: updates });
     });
 
@@ -289,11 +295,16 @@ export const DealImportWizard: React.FC<DealImportWizardProps> = ({ isOpen, onCl
                       <select
                         aria-label={`Map column ${h || i + 1}`}
                         value={mapping[i] ?? ''}
-                        onChange={(e) => setColumnField(i, e.target.value as ImportField | '')}
+                        onChange={(e) => setColumnField(i, e.target.value as ImportField | CustomImportField | '')}
                         className={SELECT_CLASS}
                       >
                         <option value="">Do not import</option>
                         {IMPORT_FIELDS.map(f => <option key={f.id} value={f.id}>{f.label}{f.required ? ' *' : ''}</option>)}
+                        {customFieldDefs.length > 0 && (
+                          <optgroup label="Custom fields">
+                            {customFieldDefs.map(d => <option key={d.key} value={`cf:${d.key}`}>{d.label}</option>)}
+                          </optgroup>
+                        )}
                       </select>
                     </td>
                   </tr>

@@ -74,29 +74,11 @@ jest.mock('../services/dealTimelineService', () => ({
   }
 }));
 
-jest.mock('../services/bulkDealActionsService', () => ({
-  bulkDealActionsService: {
-    validateAction: jest.fn().mockReturnValue(true),
-    executeBulkAction: jest.fn().mockImplementation((action) => {
-      const dealCount = action.deals?.length || 0;
-      const results = dealCount === 0 ? [] : [{ dealId: 'deal-1', success: true }];
-      return Promise.resolve({
-        success: true,
-        results,
-        total: dealCount,
-        progress: 100,
-        errors: []
-      });
-    })
-  }
-}));
-
 // Import after mocking
 import { dealHealthService } from '../services/dealHealthService';
 import { dealProbabilityService } from '../services/dealProbabilityService';
 import { dealTemplateService } from '../services/dealTemplateService';
 import { dealTimelineService } from '../services/dealTimelineService';
-import { bulkDealActionsService } from '../services/bulkDealActionsService';
 import { Deal } from '../types';
 
 describe('Deal Management Enhancements - Phase 3', () => {
@@ -297,71 +279,6 @@ describe('Deal Management Enhancements - Phase 3', () => {
     });
   });
 
-  describe('Bulk Deal Actions Service', () => {
-    it('should validate bulk action parameters', () => {
-      const validAction = {
-        action: 'stage_change',
-        deals: ['deal-1', 'deal-2'],
-        parameters: { newStage: 'qualified' }
-      };
-
-      expect(bulkDealActionsService.validateAction(validAction)).toBe(true);
-    });
-
-    it('should execute bulk stage change', async () => {
-      const action = {
-        action: 'stage_change',
-        deals: ['bulk-deal-1', 'bulk-deal-2'],
-        parameters: { newStage: 'proposal' }
-      };
-
-      const result = await bulkDealActionsService.executeBulkAction(action, 'user-1');
-      expect(result).toBeDefined();
-      expect(result.success).toBeDefined();
-      expect(result.results).toBeDefined();
-    });
-
-    it('should handle bulk assignment', async () => {
-      const action = {
-        action: 'assign_owner',
-        deals: ['assign-deal-1', 'assign-deal-2'],
-        parameters: { newOwner: 'user-2' }
-      };
-
-      const result = await bulkDealActionsService.executeBulkAction(action, 'user-1');
-      expect(result.success).toBeDefined();
-    });
-
-    it('should provide progress tracking', async () => {
-      const action = {
-        action: 'update_field',
-        deals: ['progress-deal-1', 'progress-deal-2', 'progress-deal-3'],
-        parameters: { field: 'priority', value: 'high' }
-      };
-
-      const result = await bulkDealActionsService.executeBulkAction(action, 'user-1');
-      expect(result.progress).toBeDefined();
-      expect(result.total).toBe(3);
-    });
-
-    it('should handle partial failures', async () => {
-      const action = {
-        action: 'complex_update',
-        deals: ['success-deal', 'fail-deal'],
-        parameters: { updates: { value: 100000 } }
-      };
-
-      const result = await bulkDealActionsService.executeBulkAction(action, 'user-1');
-      expect(result.results).toBeDefined();
-      expect(result.errors).toBeDefined();
-
-      // Check that we have results for both success and failure cases
-      const hasSuccess = result.results.some(r => r.success);
-      const hasFailure = result.results.some(r => !r.success);
-      expect(hasSuccess || hasFailure).toBe(true);
-    });
-  });
-
   describe('Integration Tests', () => {
     it('should provide end-to-end deal management workflow', async () => {
       // Create a deal
@@ -394,15 +311,6 @@ describe('Deal Management Enhancements - Phase 3', () => {
         type: 'created_from_template',
         description: 'Deal created from template'
       });
-
-      // Bulk action test
-      const bulkResult = await bulkDealActionsService.executeBulkAction({
-        action: 'stage_change',
-        deals: [newDeal.id],
-        parameters: { newStage: 'contacted' }
-      }, 'user-1');
-
-      expect(bulkResult.success).toBeDefined();
     });
 
     it('should handle error scenarios gracefully', async () => {
@@ -413,15 +321,6 @@ describe('Deal Management Enhancements - Phase 3', () => {
       // Test with empty activities
       const probability = await dealProbabilityService.calculateProbability({} as Deal, [], {});
       expect(probability.score).toBeGreaterThanOrEqual(0);
-
-      // Test bulk action with empty deals array
-      const bulkResult = await bulkDealActionsService.executeBulkAction({
-        action: 'stage_change',
-        deals: [],
-        parameters: { newStage: 'qualified' }
-      }, 'user-1');
-
-      expect(bulkResult.results).toEqual([]);
     });
   });
 });

@@ -1,5 +1,18 @@
 {
     "rpc": {
+        "_dvf_sim": [
+            {
+                "args": "a text, b text",
+                "execute": [
+                    "authenticated",
+                    "service_role"
+                ],
+                "returns": "numeric",
+                "identity": "a text, b text",
+                "volatility": "s",
+                "security_definer": false
+            }
+        ],
         "is_admin": [
             {
                 "args": "",
@@ -56,6 +69,19 @@
                 "security_definer": true
             }
         ],
+        "clone_deal": [
+            {
+                "args": "p_id uuid, p_include_related boolean DEFAULT false",
+                "execute": [
+                    "authenticated",
+                    "service_role"
+                ],
+                "returns": "uuid",
+                "identity": "p_id uuid, p_include_related boolean",
+                "volatility": "v",
+                "security_definer": false
+            }
+        ],
         "deal_audit": [
             {
                 "args": "",
@@ -94,6 +120,33 @@
                 ],
                 "returns": "jsonb",
                 "identity": "keep uuid, merge_ids uuid[], p_fields jsonb",
+                "volatility": "v",
+                "security_definer": true
+            }
+        ],
+        "norm_domain": [
+            {
+                "args": "p text",
+                "execute": [
+                    "anon",
+                    "authenticated",
+                    "service_role"
+                ],
+                "returns": "text",
+                "identity": "p text",
+                "volatility": "i",
+                "security_definer": false
+            }
+        ],
+        "purge_deals": [
+            {
+                "args": "p_ids uuid[]",
+                "execute": [
+                    "authenticated",
+                    "service_role"
+                ],
+                "returns": "integer",
+                "identity": "p_ids uuid[]",
                 "volatility": "v",
                 "security_definer": true
             }
@@ -154,6 +207,32 @@
                 "security_definer": true
             }
         ],
+        "restore_deals": [
+            {
+                "args": "p_ids uuid[]",
+                "execute": [
+                    "authenticated",
+                    "service_role"
+                ],
+                "returns": "integer",
+                "identity": "p_ids uuid[]",
+                "volatility": "v",
+                "security_definer": false
+            }
+        ],
+        "revoke_api_key": [
+            {
+                "args": "p_id uuid",
+                "execute": [
+                    "authenticated",
+                    "service_role"
+                ],
+                "returns": "void",
+                "identity": "p_id uuid",
+                "volatility": "v",
+                "security_definer": true
+            }
+        ],
         "can_edit_record": [
             {
                 "args": "owner uuid, created uuid, ws uuid",
@@ -168,6 +247,20 @@
                 "security_definer": true
             }
         ],
+        "company_rollups": [
+            {
+                "args": "p_company_ids uuid[] DEFAULT NULL::uuid[]",
+                "execute": [
+                    "anon",
+                    "authenticated",
+                    "service_role"
+                ],
+                "returns": "TABLE(company_id uuid, open_deal_count integer, open_deal_value numeric, won_deal_value numeric, contact_count integer, last_activity timestamp with time zone)",
+                "identity": "p_company_ids uuid[]",
+                "volatility": "s",
+                "security_definer": false
+            }
+        ],
         "storage_deal_id": [
             {
                 "args": "p_name text",
@@ -180,6 +273,19 @@
                 "identity": "p_name text",
                 "volatility": "i",
                 "security_definer": false
+            }
+        ],
+        "assign_user_role": [
+            {
+                "args": "p_user_id uuid, p_role_id uuid",
+                "execute": [
+                    "authenticated",
+                    "service_role"
+                ],
+                "returns": "void",
+                "identity": "p_user_id uuid, p_role_id uuid",
+                "volatility": "v",
+                "security_definer": true
             }
         ],
         "can_edit_contact": [
@@ -210,6 +316,19 @@
                 "security_definer": true
             }
         ],
+        "check_rate_limit": [
+            {
+                "args": "p_key text, p_limit integer, p_window_seconds integer",
+                "execute": [
+                    "authenticated",
+                    "service_role"
+                ],
+                "returns": "boolean",
+                "identity": "p_key text, p_limit integer, p_window_seconds integer",
+                "volatility": "v",
+                "security_definer": true
+            }
+        ],
         "deals_tsv_update": [
             {
                 "args": "",
@@ -222,6 +341,19 @@
                 "identity": "",
                 "volatility": "v",
                 "security_definer": false
+            }
+        ],
+        "remove_user_role": [
+            {
+                "args": "p_user_id uuid, p_role_id uuid",
+                "execute": [
+                    "authenticated",
+                    "service_role"
+                ],
+                "returns": "void",
+                "identity": "p_user_id uuid, p_role_id uuid",
+                "volatility": "v",
+                "security_definer": true
             }
         ],
         "current_role_name": [
@@ -238,6 +370,34 @@
                 "security_definer": true
             }
         ],
+        "norm_company_name": [
+            {
+                "args": "p text",
+                "execute": [
+                    "anon",
+                    "authenticated",
+                    "service_role"
+                ],
+                "returns": "text",
+                "identity": "p text",
+                "volatility": "i",
+                "security_definer": false
+            }
+        ],
+        "can_write_workflows": [
+            {
+                "args": "",
+                "execute": [
+                    "anon",
+                    "authenticated",
+                    "service_role"
+                ],
+                "returns": "boolean",
+                "identity": "",
+                "volatility": "s",
+                "security_definer": true
+            }
+        ],
         "is_manager_or_admin": [
             {
                 "args": "",
@@ -249,6 +409,18 @@
                 "returns": "boolean",
                 "identity": "",
                 "volatility": "s",
+                "security_definer": true
+            }
+        ],
+        "note_mention_notify": [
+            {
+                "args": "",
+                "execute": [
+                    "service_role"
+                ],
+                "returns": "trigger",
+                "identity": "",
+                "volatility": "v",
                 "security_definer": true
             }
         ],
@@ -308,6 +480,45 @@
                 "security_definer": true
             }
         ],
+        "find_duplicate_deals": [
+            {
+                "args": "p_title text, p_company text, p_contact_id uuid DEFAULT NULL::uuid, p_exclude uuid DEFAULT NULL::uuid",
+                "execute": [
+                    "authenticated",
+                    "service_role"
+                ],
+                "returns": "TABLE(id uuid, title text, company text, value numeric, stage text, reason text)",
+                "identity": "p_title text, p_company text, p_contact_id uuid, p_exclude uuid",
+                "volatility": "s",
+                "security_definer": false
+            }
+        ],
+        "get_workflow_webhook": [
+            {
+                "args": "p_workflow_id uuid",
+                "execute": [
+                    "authenticated",
+                    "service_role"
+                ],
+                "returns": "TABLE(token text, enabled boolean)",
+                "identity": "p_workflow_id uuid",
+                "volatility": "v",
+                "security_definer": true
+            }
+        ],
+        "set_role_permissions": [
+            {
+                "args": "p_role_id uuid, p_permissions jsonb",
+                "execute": [
+                    "authenticated",
+                    "service_role"
+                ],
+                "returns": "void",
+                "identity": "p_role_id uuid, p_permissions jsonb",
+                "volatility": "v",
+                "security_definer": true
+            }
+        ],
         "claim_workflow_events": [
             {
                 "args": "p_limit integer DEFAULT 25, p_max_attempts integer DEFAULT 5",
@@ -348,6 +559,20 @@
                 "security_definer": true
             }
         ],
+        "find_duplicate_companies": [
+            {
+                "args": "p_name text, p_domain text DEFAULT NULL::text, p_exclude uuid DEFAULT NULL::uuid",
+                "execute": [
+                    "anon",
+                    "authenticated",
+                    "service_role"
+                ],
+                "returns": "TABLE(id uuid, name text, domain text, reason text)",
+                "identity": "p_name text, p_domain text, p_exclude uuid",
+                "volatility": "s",
+                "security_definer": false
+            }
+        ],
         "get_workflow_run_history": [
             {
                 "args": "p_limit integer DEFAULT 50, p_workflow_id text DEFAULT NULL::text",
@@ -358,6 +583,46 @@
                 ],
                 "returns": "SETOF workflow_run_history",
                 "identity": "p_limit integer, p_workflow_id text",
+                "volatility": "s",
+                "security_definer": false
+            }
+        ],
+        "publish_workflow_version": [
+            {
+                "args": "p_workflow_id uuid, p_note text DEFAULT NULL::text",
+                "execute": [
+                    "authenticated",
+                    "service_role"
+                ],
+                "returns": "integer",
+                "identity": "p_workflow_id uuid, p_note text",
+                "volatility": "v",
+                "security_definer": true
+            }
+        ],
+        "restore_workflow_version": [
+            {
+                "args": "p_workflow_id uuid, p_version integer",
+                "execute": [
+                    "authenticated",
+                    "service_role"
+                ],
+                "returns": "void",
+                "identity": "p_workflow_id uuid, p_version integer",
+                "volatility": "v",
+                "security_definer": true
+            }
+        ],
+        "scan_duplicate_companies": [
+            {
+                "args": "",
+                "execute": [
+                    "anon",
+                    "authenticated",
+                    "service_role"
+                ],
+                "returns": "TABLE(group_key text, ids uuid[], names text[], reason text)",
+                "identity": "",
                 "volatility": "s",
                 "security_definer": false
             }
@@ -384,6 +649,19 @@
                 ],
                 "returns": "void",
                 "identity": "",
+                "volatility": "v",
+                "security_definer": true
+            }
+        ],
+        "rotate_workflow_webhook_token": [
+            {
+                "args": "p_workflow_id uuid, p_enable boolean DEFAULT true",
+                "execute": [
+                    "authenticated",
+                    "service_role"
+                ],
+                "returns": "text",
+                "identity": "p_workflow_id uuid, p_enable boolean",
                 "volatility": "v",
                 "security_definer": true
             }
@@ -636,7 +914,7 @@
                 "custom_fields": {
                     "type": "jsonb",
                     "default": "'{}'::jsonb",
-                    "nullable": true,
+                    "nullable": false,
                     "generated": false
                 },
                 "last_activity": {
@@ -1110,8 +1388,8 @@
                 },
                 "status": {
                     "type": "text",
-                    "default": "'open'::text",
-                    "nullable": true,
+                    "default": "'todo'::text",
+                    "nullable": false,
                     "generated": false
                 },
                 "deal_id": {
@@ -1148,6 +1426,18 @@
                     "type": "timestamp with time zone",
                     "default": "now()",
                     "nullable": true,
+                    "generated": false
+                },
+                "assignee_id": {
+                    "type": "uuid",
+                    "default": null,
+                    "nullable": true,
+                    "generated": false
+                },
+                "board_position": {
+                    "type": "numeric",
+                    "default": "0",
+                    "nullable": false,
                     "generated": false
                 },
                 "created_by_agent": {
@@ -1485,6 +1775,112 @@
                 {
                     "cmd": "ALL",
                     "name": "Allow service role full access",
+                    "roles": [
+                        "service_role"
+                    ],
+                    "permissive": "PERMISSIVE"
+                }
+            ],
+            "replica_identity": "d"
+        },
+        "api_keys": {
+            "rls": true,
+            "kind": "table",
+            "by_role": {
+                "service_role": {
+                    "DELETE": [
+                        "api_keys_service"
+                    ],
+                    "INSERT": [
+                        "api_keys_service"
+                    ],
+                    "SELECT": [
+                        "api_keys_service"
+                    ],
+                    "UPDATE": [
+                        "api_keys_service"
+                    ]
+                },
+                "authenticated": {
+                    "SELECT": [
+                        "api_keys_select"
+                    ]
+                }
+            },
+            "columns": {
+                "id": {
+                    "type": "uuid",
+                    "default": "gen_random_uuid()",
+                    "nullable": false,
+                    "generated": false
+                },
+                "name": {
+                    "type": "text",
+                    "default": null,
+                    "nullable": false,
+                    "generated": false
+                },
+                "prefix": {
+                    "type": "text",
+                    "default": null,
+                    "nullable": false,
+                    "generated": false
+                },
+                "scopes": {
+                    "type": "ARRAY",
+                    "default": "'{read}'::text[]",
+                    "nullable": false,
+                    "generated": false
+                },
+                "key_hash": {
+                    "type": "text",
+                    "default": null,
+                    "nullable": false,
+                    "generated": false
+                },
+                "created_at": {
+                    "type": "timestamp with time zone",
+                    "default": "now()",
+                    "nullable": false,
+                    "generated": false
+                },
+                "created_by": {
+                    "type": "uuid",
+                    "default": "auth.uid()",
+                    "nullable": true,
+                    "generated": false
+                },
+                "revoked_at": {
+                    "type": "timestamp with time zone",
+                    "default": null,
+                    "nullable": true,
+                    "generated": false
+                },
+                "last_used_at": {
+                    "type": "timestamp with time zone",
+                    "default": null,
+                    "nullable": true,
+                    "generated": false
+                },
+                "workspace_id": {
+                    "type": "uuid",
+                    "default": null,
+                    "nullable": true,
+                    "generated": false
+                }
+            },
+            "policies": [
+                {
+                    "cmd": "SELECT",
+                    "name": "api_keys_select",
+                    "roles": [
+                        "authenticated"
+                    ],
+                    "permissive": "PERMISSIVE"
+                },
+                {
+                    "cmd": "ALL",
+                    "name": "api_keys_service",
                     "roles": [
                         "service_role"
                     ],
@@ -2952,6 +3348,11 @@
                     "UPDATE": [
                         "Allow service role full access"
                     ]
+                },
+                "authenticated": {
+                    "SELECT": [
+                        "challenges_select_authenticated"
+                    ]
                 }
             },
             "columns": {
@@ -3042,6 +3443,14 @@
                     "name": "Allow service role full access",
                     "roles": [
                         "service_role"
+                    ],
+                    "permissive": "PERMISSIVE"
+                },
+                {
+                    "cmd": "SELECT",
+                    "name": "challenges_select_authenticated",
+                    "roles": [
+                        "authenticated"
                     ],
                     "permissive": "PERMISSIVE"
                 }
@@ -4200,6 +4609,35 @@
             ],
             "replica_identity": "d"
         },
+        "rate_limits": {
+            "rls": true,
+            "kind": "table",
+            "by_role": {
+            },
+            "columns": {
+                "key": {
+                    "type": "text",
+                    "default": null,
+                    "nullable": false,
+                    "generated": false
+                },
+                "count": {
+                    "type": "integer",
+                    "default": "0",
+                    "nullable": false,
+                    "generated": false
+                },
+                "window_start": {
+                    "type": "timestamp with time zone",
+                    "default": null,
+                    "nullable": false,
+                    "generated": false
+                }
+            },
+            "policies": [
+            ],
+            "replica_identity": "d"
+        },
         "saved_views": {
             "rls": true,
             "kind": "table",
@@ -4494,6 +4932,11 @@
                     "UPDATE": [
                         "Allow service role full access"
                     ]
+                },
+                "authenticated": {
+                    "SELECT": [
+                        "achievements_select_authenticated"
+                    ]
                 }
             },
             "columns": {
@@ -4566,6 +5009,14 @@
                     "name": "Allow service role full access",
                     "roles": [
                         "service_role"
+                    ],
+                    "permissive": "PERMISSIVE"
+                },
+                {
+                    "cmd": "SELECT",
+                    "name": "achievements_select_authenticated",
+                    "roles": [
+                        "authenticated"
                     ],
                     "permissive": "PERMISSIVE"
                 }
@@ -5289,6 +5740,91 @@
             ],
             "replica_identity": "d"
         },
+        "note_targets": {
+            "rls": true,
+            "kind": "table",
+            "by_role": {
+                "anon": {
+                    "INSERT": [
+                        "nt_insert"
+                    ],
+                    "SELECT": [
+                        "nt_select"
+                    ]
+                },
+                "authenticated": {
+                    "DELETE": [
+                        "nt_delete"
+                    ],
+                    "INSERT": [
+                        "nt_insert"
+                    ],
+                    "SELECT": [
+                        "nt_select"
+                    ],
+                    "UPDATE": [
+                        "nt_update"
+                    ]
+                }
+            },
+            "columns": {
+                "note_id": {
+                    "type": "uuid",
+                    "default": null,
+                    "nullable": false,
+                    "generated": false
+                },
+                "target_id": {
+                    "type": "uuid",
+                    "default": null,
+                    "nullable": false,
+                    "generated": false
+                },
+                "target_type": {
+                    "type": "text",
+                    "default": null,
+                    "nullable": false,
+                    "generated": false
+                }
+            },
+            "policies": [
+                {
+                    "cmd": "DELETE",
+                    "name": "nt_delete",
+                    "roles": [
+                        "authenticated"
+                    ],
+                    "permissive": "PERMISSIVE"
+                },
+                {
+                    "cmd": "INSERT",
+                    "name": "nt_insert",
+                    "roles": [
+                        "anon",
+                        "authenticated"
+                    ],
+                    "permissive": "PERMISSIVE"
+                },
+                {
+                    "cmd": "SELECT",
+                    "name": "nt_select",
+                    "roles": [
+                        "anon",
+                        "authenticated"
+                    ],
+                    "permissive": "PERMISSIVE"
+                },
+                {
+                    "cmd": "UPDATE",
+                    "name": "nt_update",
+                    "roles": [
+                        "authenticated"
+                    ],
+                    "permissive": "PERMISSIVE"
+                }
+            ],
+            "replica_identity": "d"
+        },
         "sdr_personas": {
             "rls": true,
             "kind": "table",
@@ -5682,6 +6218,91 @@
                     "name": "Allow service role full access",
                     "roles": [
                         "service_role"
+                    ],
+                    "permissive": "PERMISSIVE"
+                }
+            ],
+            "replica_identity": "d"
+        },
+        "task_targets": {
+            "rls": true,
+            "kind": "table",
+            "by_role": {
+                "anon": {
+                    "INSERT": [
+                        "tt_insert"
+                    ],
+                    "SELECT": [
+                        "tt_select"
+                    ]
+                },
+                "authenticated": {
+                    "DELETE": [
+                        "tt_delete"
+                    ],
+                    "INSERT": [
+                        "tt_insert"
+                    ],
+                    "SELECT": [
+                        "tt_select"
+                    ],
+                    "UPDATE": [
+                        "tt_update"
+                    ]
+                }
+            },
+            "columns": {
+                "task_id": {
+                    "type": "uuid",
+                    "default": null,
+                    "nullable": false,
+                    "generated": false
+                },
+                "target_id": {
+                    "type": "uuid",
+                    "default": null,
+                    "nullable": false,
+                    "generated": false
+                },
+                "target_type": {
+                    "type": "text",
+                    "default": null,
+                    "nullable": false,
+                    "generated": false
+                }
+            },
+            "policies": [
+                {
+                    "cmd": "DELETE",
+                    "name": "tt_delete",
+                    "roles": [
+                        "authenticated"
+                    ],
+                    "permissive": "PERMISSIVE"
+                },
+                {
+                    "cmd": "INSERT",
+                    "name": "tt_insert",
+                    "roles": [
+                        "anon",
+                        "authenticated"
+                    ],
+                    "permissive": "PERMISSIVE"
+                },
+                {
+                    "cmd": "SELECT",
+                    "name": "tt_select",
+                    "roles": [
+                        "anon",
+                        "authenticated"
+                    ],
+                    "permissive": "PERMISSIVE"
+                },
+                {
+                    "cmd": "UPDATE",
+                    "name": "tt_update",
+                    "roles": [
+                        "authenticated"
                     ],
                     "permissive": "PERMISSIVE"
                 }
@@ -6666,6 +7287,82 @@
                     "name": "Allow service role full access",
                     "roles": [
                         "service_role"
+                    ],
+                    "permissive": "PERMISSIVE"
+                }
+            ],
+            "replica_identity": "d"
+        },
+        "note_mentions": {
+            "rls": true,
+            "kind": "table",
+            "by_role": {
+                "authenticated": {
+                    "DELETE": [
+                        "nm_delete"
+                    ],
+                    "INSERT": [
+                        "nm_insert"
+                    ],
+                    "SELECT": [
+                        "nm_select"
+                    ]
+                }
+            },
+            "columns": {
+                "id": {
+                    "type": "uuid",
+                    "default": "gen_random_uuid()",
+                    "nullable": false,
+                    "generated": false
+                },
+                "note_id": {
+                    "type": "uuid",
+                    "default": null,
+                    "nullable": false,
+                    "generated": false
+                },
+                "created_at": {
+                    "type": "timestamp with time zone",
+                    "default": "now()",
+                    "nullable": true,
+                    "generated": false
+                },
+                "created_by": {
+                    "type": "uuid",
+                    "default": "auth.uid()",
+                    "nullable": true,
+                    "generated": false
+                },
+                "mentioned_user_id": {
+                    "type": "uuid",
+                    "default": null,
+                    "nullable": false,
+                    "generated": false
+                }
+            },
+            "policies": [
+                {
+                    "cmd": "DELETE",
+                    "name": "nm_delete",
+                    "roles": [
+                        "authenticated"
+                    ],
+                    "permissive": "PERMISSIVE"
+                },
+                {
+                    "cmd": "INSERT",
+                    "name": "nm_insert",
+                    "roles": [
+                        "authenticated"
+                    ],
+                    "permissive": "PERMISSIVE"
+                },
+                {
+                    "cmd": "SELECT",
+                    "name": "nm_select",
+                    "roles": [
+                        "authenticated"
                     ],
                     "permissive": "PERMISSIVE"
                 }
@@ -7657,6 +8354,18 @@
                     "default": null,
                     "nullable": true,
                     "generated": false
+                },
+                "webhook_enabled": {
+                    "type": "boolean",
+                    "default": "false",
+                    "nullable": false,
+                    "generated": false
+                },
+                "published_version": {
+                    "type": "integer",
+                    "default": null,
+                    "nullable": true,
+                    "generated": false
                 }
             },
             "policies": [
@@ -7823,6 +8532,71 @@
                 }
             ],
             "replica_identity": "d"
+        },
+        "api_keys_public": {
+            "rls": false,
+            "kind": "view",
+            "by_role": {
+            },
+            "columns": {
+                "id": {
+                    "type": "uuid",
+                    "default": null,
+                    "nullable": true,
+                    "generated": false
+                },
+                "name": {
+                    "type": "text",
+                    "default": null,
+                    "nullable": true,
+                    "generated": false
+                },
+                "prefix": {
+                    "type": "text",
+                    "default": null,
+                    "nullable": true,
+                    "generated": false
+                },
+                "scopes": {
+                    "type": "ARRAY",
+                    "default": null,
+                    "nullable": true,
+                    "generated": false
+                },
+                "created_at": {
+                    "type": "timestamp with time zone",
+                    "default": null,
+                    "nullable": true,
+                    "generated": false
+                },
+                "created_by": {
+                    "type": "uuid",
+                    "default": null,
+                    "nullable": true,
+                    "generated": false
+                },
+                "revoked_at": {
+                    "type": "timestamp with time zone",
+                    "default": null,
+                    "nullable": true,
+                    "generated": false
+                },
+                "last_used_at": {
+                    "type": "timestamp with time zone",
+                    "default": null,
+                    "nullable": true,
+                    "generated": false
+                },
+                "workspace_id": {
+                    "type": "uuid",
+                    "default": null,
+                    "nullable": true,
+                    "generated": false
+                }
+            },
+            "policies": [
+            ],
+            "replica_identity": "n"
         },
         "automated_notes": {
             "rls": true,
@@ -8667,6 +9441,75 @@
             ],
             "replica_identity": "d"
         },
+        "deal_view_prefs": {
+            "rls": true,
+            "kind": "table",
+            "by_role": {
+                "authenticated": {
+                    "DELETE": [
+                        "dvp_all"
+                    ],
+                    "INSERT": [
+                        "dvp_all"
+                    ],
+                    "SELECT": [
+                        "dvp_all"
+                    ],
+                    "UPDATE": [
+                        "dvp_all"
+                    ]
+                }
+            },
+            "columns": {
+                "user_id": {
+                    "type": "uuid",
+                    "default": null,
+                    "nullable": false,
+                    "generated": false
+                },
+                "tab_order": {
+                    "type": "ARRAY",
+                    "default": "'{}'::text[]",
+                    "nullable": false,
+                    "generated": false
+                },
+                "updated_at": {
+                    "type": "timestamp with time zone",
+                    "default": "now()",
+                    "nullable": true,
+                    "generated": false
+                },
+                "hidden_tabs": {
+                    "type": "ARRAY",
+                    "default": "'{}'::text[]",
+                    "nullable": false,
+                    "generated": false
+                },
+                "pinned_deal_ids": {
+                    "type": "ARRAY",
+                    "default": "'{}'::uuid[]",
+                    "nullable": false,
+                    "generated": false
+                },
+                "hidden_field_groups": {
+                    "type": "ARRAY",
+                    "default": "'{}'::text[]",
+                    "nullable": false,
+                    "generated": false
+                }
+            },
+            "policies": [
+                {
+                    "cmd": "ALL",
+                    "name": "dvp_all",
+                    "roles": [
+                        "authenticated"
+                    ],
+                    "permissive": "PERMISSIVE"
+                }
+            ],
+            "replica_identity": "d"
+        },
         "email_crm_links": {
             "rls": true,
             "kind": "table",
@@ -8793,11 +9636,8 @@
             "kind": "table",
             "by_role": {
                 "anon": {
-                    "INSERT": [
-                        "Allow anon insert"
-                    ],
                     "SELECT": [
-                        "Allow anon read access"
+                        "et_select"
                     ]
                 },
                 "service_role": {
@@ -8816,16 +9656,16 @@
                 },
                 "authenticated": {
                     "DELETE": [
-                        "Allow authenticated access"
+                        "et_delete"
                     ],
                     "INSERT": [
-                        "Allow authenticated access"
+                        "et_insert"
                     ],
                     "SELECT": [
-                        "Allow authenticated access"
+                        "et_select"
                     ],
                     "UPDATE": [
-                        "Allow authenticated access"
+                        "et_update"
                     ]
                 }
             },
@@ -8860,6 +9700,12 @@
                     "nullable": true,
                     "generated": false
                 },
+                "shortcut": {
+                    "type": "text",
+                    "default": null,
+                    "nullable": true,
+                    "generated": false
+                },
                 "is_active": {
                     "type": "boolean",
                     "default": "true",
@@ -8884,43 +9730,64 @@
                     "nullable": true,
                     "generated": false
                 },
+                "is_snippet": {
+                    "type": "boolean",
+                    "default": "false",
+                    "nullable": false,
+                    "generated": false
+                },
                 "updated_at": {
                     "type": "timestamp with time zone",
                     "default": "now()",
+                    "nullable": true,
+                    "generated": false
+                },
+                "workspace_id": {
+                    "type": "uuid",
+                    "default": null,
                     "nullable": true,
                     "generated": false
                 }
             },
             "policies": [
                 {
-                    "cmd": "INSERT",
-                    "name": "Allow anon insert",
-                    "roles": [
-                        "anon"
-                    ],
-                    "permissive": "PERMISSIVE"
-                },
-                {
-                    "cmd": "SELECT",
-                    "name": "Allow anon read access",
-                    "roles": [
-                        "anon"
-                    ],
-                    "permissive": "PERMISSIVE"
-                },
-                {
                     "cmd": "ALL",
-                    "name": "Allow authenticated access",
+                    "name": "Allow service role full access",
+                    "roles": [
+                        "service_role"
+                    ],
+                    "permissive": "PERMISSIVE"
+                },
+                {
+                    "cmd": "DELETE",
+                    "name": "et_delete",
                     "roles": [
                         "authenticated"
                     ],
                     "permissive": "PERMISSIVE"
                 },
                 {
-                    "cmd": "ALL",
-                    "name": "Allow service role full access",
+                    "cmd": "INSERT",
+                    "name": "et_insert",
                     "roles": [
-                        "service_role"
+                        "authenticated"
+                    ],
+                    "permissive": "PERMISSIVE"
+                },
+                {
+                    "cmd": "SELECT",
+                    "name": "et_select",
+                    "roles": [
+                        "anon",
+                        "authenticated"
+                    ],
+                    "permissive": "PERMISSIVE"
+                },
+                {
+                    "cmd": "UPDATE",
+                    "name": "et_update",
+                    "roles": [
+                        "authenticated"
                     ],
                     "permissive": "PERMISSIVE"
                 }
@@ -10213,6 +11080,69 @@
             ],
             "replica_identity": "d"
         },
+        "favorite_folders": {
+            "rls": true,
+            "kind": "table",
+            "by_role": {
+                "authenticated": {
+                    "DELETE": [
+                        "ff_all"
+                    ],
+                    "INSERT": [
+                        "ff_all"
+                    ],
+                    "SELECT": [
+                        "ff_all"
+                    ],
+                    "UPDATE": [
+                        "ff_all"
+                    ]
+                }
+            },
+            "columns": {
+                "id": {
+                    "type": "uuid",
+                    "default": "gen_random_uuid()",
+                    "nullable": false,
+                    "generated": false
+                },
+                "name": {
+                    "type": "text",
+                    "default": null,
+                    "nullable": false,
+                    "generated": false
+                },
+                "user_id": {
+                    "type": "uuid",
+                    "default": null,
+                    "nullable": false,
+                    "generated": false
+                },
+                "position": {
+                    "type": "integer",
+                    "default": "0",
+                    "nullable": false,
+                    "generated": false
+                },
+                "created_at": {
+                    "type": "timestamp with time zone",
+                    "default": "now()",
+                    "nullable": true,
+                    "generated": false
+                }
+            },
+            "policies": [
+                {
+                    "cmd": "ALL",
+                    "name": "ff_all",
+                    "roles": [
+                        "authenticated"
+                    ],
+                    "permissive": "PERMISSIVE"
+                }
+            ],
+            "replica_identity": "d"
+        },
         "forecast_results": {
             "rls": true,
             "kind": "table",
@@ -11235,6 +12165,141 @@
             ],
             "replica_identity": "d"
         },
+        "workflow_versions": {
+            "rls": true,
+            "kind": "table",
+            "by_role": {
+                "service_role": {
+                    "DELETE": [
+                        "wv_service"
+                    ],
+                    "INSERT": [
+                        "wv_service"
+                    ],
+                    "SELECT": [
+                        "wv_service"
+                    ],
+                    "UPDATE": [
+                        "wv_service"
+                    ]
+                },
+                "authenticated": {
+                    "SELECT": [
+                        "wv_select"
+                    ]
+                }
+            },
+            "columns": {
+                "id": {
+                    "type": "uuid",
+                    "default": "gen_random_uuid()",
+                    "nullable": false,
+                    "generated": false
+                },
+                "note": {
+                    "type": "text",
+                    "default": null,
+                    "nullable": true,
+                    "generated": false
+                },
+                "status": {
+                    "type": "text",
+                    "default": "'draft'::text",
+                    "nullable": false,
+                    "generated": false
+                },
+                "version": {
+                    "type": "integer",
+                    "default": null,
+                    "nullable": false,
+                    "generated": false
+                },
+                "snapshot": {
+                    "type": "jsonb",
+                    "default": null,
+                    "nullable": false,
+                    "generated": false
+                },
+                "created_at": {
+                    "type": "timestamp with time zone",
+                    "default": "now()",
+                    "nullable": false,
+                    "generated": false
+                },
+                "created_by": {
+                    "type": "uuid",
+                    "default": "auth.uid()",
+                    "nullable": true,
+                    "generated": false
+                },
+                "workflow_id": {
+                    "type": "uuid",
+                    "default": null,
+                    "nullable": false,
+                    "generated": false
+                }
+            },
+            "policies": [
+                {
+                    "cmd": "SELECT",
+                    "name": "wv_select",
+                    "roles": [
+                        "authenticated"
+                    ],
+                    "permissive": "PERMISSIVE"
+                },
+                {
+                    "cmd": "ALL",
+                    "name": "wv_service",
+                    "roles": [
+                        "service_role"
+                    ],
+                    "permissive": "PERMISSIVE"
+                }
+            ],
+            "replica_identity": "d"
+        },
+        "workflow_webhooks": {
+            "rls": true,
+            "kind": "table",
+            "by_role": {
+            },
+            "columns": {
+                "token": {
+                    "type": "text",
+                    "default": null,
+                    "nullable": false,
+                    "generated": false
+                },
+                "enabled": {
+                    "type": "boolean",
+                    "default": "false",
+                    "nullable": false,
+                    "generated": false
+                },
+                "rotated_at": {
+                    "type": "timestamp with time zone",
+                    "default": "now()",
+                    "nullable": true,
+                    "generated": false
+                },
+                "rotated_by": {
+                    "type": "uuid",
+                    "default": null,
+                    "nullable": true,
+                    "generated": false
+                },
+                "workflow_id": {
+                    "type": "uuid",
+                    "default": null,
+                    "nullable": false,
+                    "generated": false
+                }
+            },
+            "policies": [
+            ],
+            "replica_identity": "d"
+        },
         "activity_templates": {
             "rls": true,
             "kind": "table",
@@ -11645,6 +12710,95 @@
                     "name": "Allow service role full access",
                     "roles": [
                         "service_role"
+                    ],
+                    "permissive": "PERMISSIVE"
+                }
+            ],
+            "replica_identity": "d"
+        },
+        "user_notifications": {
+            "rls": true,
+            "kind": "table",
+            "by_role": {
+                "authenticated": {
+                    "SELECT": [
+                        "un_select"
+                    ],
+                    "UPDATE": [
+                        "un_update"
+                    ]
+                }
+            },
+            "columns": {
+                "id": {
+                    "type": "uuid",
+                    "default": "gen_random_uuid()",
+                    "nullable": false,
+                    "generated": false
+                },
+                "body": {
+                    "type": "text",
+                    "default": null,
+                    "nullable": true,
+                    "generated": false
+                },
+                "data": {
+                    "type": "jsonb",
+                    "default": "'{}'::jsonb",
+                    "nullable": false,
+                    "generated": false
+                },
+                "link": {
+                    "type": "text",
+                    "default": null,
+                    "nullable": true,
+                    "generated": false
+                },
+                "type": {
+                    "type": "text",
+                    "default": null,
+                    "nullable": false,
+                    "generated": false
+                },
+                "title": {
+                    "type": "text",
+                    "default": null,
+                    "nullable": false,
+                    "generated": false
+                },
+                "read_at": {
+                    "type": "timestamp with time zone",
+                    "default": null,
+                    "nullable": true,
+                    "generated": false
+                },
+                "user_id": {
+                    "type": "uuid",
+                    "default": null,
+                    "nullable": false,
+                    "generated": false
+                },
+                "created_at": {
+                    "type": "timestamp with time zone",
+                    "default": "now()",
+                    "nullable": true,
+                    "generated": false
+                }
+            },
+            "policies": [
+                {
+                    "cmd": "SELECT",
+                    "name": "un_select",
+                    "roles": [
+                        "authenticated"
+                    ],
+                    "permissive": "PERMISSIVE"
+                },
+                {
+                    "cmd": "UPDATE",
+                    "name": "un_update",
+                    "roles": [
+                        "authenticated"
                     ],
                     "permissive": "PERMISSIVE"
                 }
@@ -13528,6 +14682,57 @@
             ],
             "replica_identity": "d"
         },
+        "favorite_folder_items": {
+            "rls": true,
+            "kind": "table",
+            "by_role": {
+                "authenticated": {
+                    "DELETE": [
+                        "ffi_all"
+                    ],
+                    "INSERT": [
+                        "ffi_all"
+                    ],
+                    "SELECT": [
+                        "ffi_all"
+                    ],
+                    "UPDATE": [
+                        "ffi_all"
+                    ]
+                }
+            },
+            "columns": {
+                "deal_id": {
+                    "type": "uuid",
+                    "default": null,
+                    "nullable": false,
+                    "generated": false
+                },
+                "position": {
+                    "type": "integer",
+                    "default": "0",
+                    "nullable": false,
+                    "generated": false
+                },
+                "folder_id": {
+                    "type": "uuid",
+                    "default": null,
+                    "nullable": false,
+                    "generated": false
+                }
+            },
+            "policies": [
+                {
+                    "cmd": "ALL",
+                    "name": "ffi_all",
+                    "roles": [
+                        "authenticated"
+                    ],
+                    "permissive": "PERMISSIVE"
+                }
+            ],
+            "replica_identity": "d"
+        },
         "sdr_agent_performance": {
             "rls": true,
             "kind": "table",
@@ -13867,6 +15072,141 @@
                 {
                     "cmd": "UPDATE",
                     "name": "rls_update",
+                    "roles": [
+                        "authenticated"
+                    ],
+                    "permissive": "PERMISSIVE"
+                }
+            ],
+            "replica_identity": "d"
+        },
+        "deal_field_definitions": {
+            "rls": true,
+            "kind": "table",
+            "by_role": {
+                "anon": {
+                    "SELECT": [
+                        "dfd_select"
+                    ]
+                },
+                "authenticated": {
+                    "DELETE": [
+                        "dfd_delete"
+                    ],
+                    "INSERT": [
+                        "dfd_insert"
+                    ],
+                    "SELECT": [
+                        "dfd_select"
+                    ],
+                    "UPDATE": [
+                        "dfd_update"
+                    ]
+                }
+            },
+            "columns": {
+                "id": {
+                    "type": "uuid",
+                    "default": "gen_random_uuid()",
+                    "nullable": false,
+                    "generated": false
+                },
+                "key": {
+                    "type": "text",
+                    "default": null,
+                    "nullable": false,
+                    "generated": false
+                },
+                "type": {
+                    "type": "text",
+                    "default": null,
+                    "nullable": true,
+                    "generated": false
+                },
+                "label": {
+                    "type": "text",
+                    "default": null,
+                    "nullable": false,
+                    "generated": false
+                },
+                "options": {
+                    "type": "jsonb",
+                    "default": "'[]'::jsonb",
+                    "nullable": false,
+                    "generated": false
+                },
+                "position": {
+                    "type": "integer",
+                    "default": "0",
+                    "nullable": false,
+                    "generated": false
+                },
+                "is_active": {
+                    "type": "boolean",
+                    "default": "true",
+                    "nullable": false,
+                    "generated": false
+                },
+                "created_at": {
+                    "type": "timestamp with time zone",
+                    "default": "now()",
+                    "nullable": true,
+                    "generated": false
+                },
+                "created_by": {
+                    "type": "uuid",
+                    "default": null,
+                    "nullable": true,
+                    "generated": false
+                },
+                "group_name": {
+                    "type": "text",
+                    "default": null,
+                    "nullable": true,
+                    "generated": false
+                },
+                "entity_type": {
+                    "type": "text",
+                    "default": "'deal'::text",
+                    "nullable": false,
+                    "generated": false
+                },
+                "workspace_id": {
+                    "type": "uuid",
+                    "default": null,
+                    "nullable": true,
+                    "generated": false
+                }
+            },
+            "policies": [
+                {
+                    "cmd": "DELETE",
+                    "name": "dfd_delete",
+                    "roles": [
+                        "authenticated"
+                    ],
+                    "permissive": "PERMISSIVE"
+                },
+                {
+                    "cmd": "INSERT",
+                    "name": "dfd_insert",
+                    "roles": [
+                        "authenticated"
+                    ],
+                    "permissive": "PERMISSIVE"
+                },
+                {
+                    "cmd": "SELECT",
+                    "name": "dfd_select",
+                    "roles": [
+                        "anon",
+                        "authenticated"
+                    ],
+                    "permissive": "PERMISSIVE"
+                },
+                {
+                    "cmd": "UPDATE",
+                    "name": "dfd_update",
                     "roles": [
                         "authenticated"
                     ],
@@ -15259,9 +16599,42 @@
             "deal-images": {
                 "public": true,
                 "file_size_limit": 10485760
+            },
+            "contact-avatars": {
+                "public": true,
+                "file_size_limit": 2097152
+            },
+            "deal-attachments": {
+                "public": false,
+                "file_size_limit": 10485760
+            },
+            "contact-documents": {
+                "public": false,
+                "file_size_limit": 10485760
             }
         },
         "policies": [
+            {
+                "cmd": "DELETE",
+                "name": "Authenticated delete contact-avatars",
+                "roles": [
+                    "authenticated"
+                ]
+            },
+            {
+                "cmd": "DELETE",
+                "name": "Authenticated delete contact-documents",
+                "roles": [
+                    "authenticated"
+                ]
+            },
+            {
+                "cmd": "DELETE",
+                "name": "Authenticated delete deal-attachments",
+                "roles": [
+                    "authenticated"
+                ]
+            },
             {
                 "cmd": "DELETE",
                 "name": "Authenticated delete deal-files",
@@ -15277,6 +16650,27 @@
                 ]
             },
             {
+                "cmd": "SELECT",
+                "name": "Authenticated read contact-documents",
+                "roles": [
+                    "authenticated"
+                ]
+            },
+            {
+                "cmd": "SELECT",
+                "name": "Authenticated read deal-attachments",
+                "roles": [
+                    "authenticated"
+                ]
+            },
+            {
+                "cmd": "UPDATE",
+                "name": "Authenticated update contact-avatars",
+                "roles": [
+                    "authenticated"
+                ]
+            },
+            {
                 "cmd": "UPDATE",
                 "name": "Authenticated update deal-files",
                 "roles": [
@@ -15286,6 +16680,27 @@
             {
                 "cmd": "UPDATE",
                 "name": "Authenticated update deal-images",
+                "roles": [
+                    "authenticated"
+                ]
+            },
+            {
+                "cmd": "INSERT",
+                "name": "Authenticated write contact-avatars",
+                "roles": [
+                    "authenticated"
+                ]
+            },
+            {
+                "cmd": "INSERT",
+                "name": "Authenticated write contact-documents",
+                "roles": [
+                    "authenticated"
+                ]
+            },
+            {
+                "cmd": "INSERT",
+                "name": "Authenticated write deal-attachments",
                 "roles": [
                     "authenticated"
                 ]
@@ -15315,6 +16730,14 @@
             {
                 "cmd": "SELECT",
                 "name": "Public read ai-images",
+                "roles": [
+                    "anon",
+                    "authenticated"
+                ]
+            },
+            {
+                "cmd": "SELECT",
+                "name": "Public read contact-avatars",
                 "roles": [
                     "anon",
                     "authenticated"
@@ -15352,6 +16775,27 @@
             },
             {
                 "cmd": "ALL",
+                "name": "Service role manage contact-avatars",
+                "roles": [
+                    "service_role"
+                ]
+            },
+            {
+                "cmd": "ALL",
+                "name": "Service role manage contact-documents",
+                "roles": [
+                    "service_role"
+                ]
+            },
+            {
+                "cmd": "ALL",
+                "name": "Service role manage deal-attachments",
+                "roles": [
+                    "service_role"
+                ]
+            },
+            {
+                "cmd": "ALL",
                 "name": "Service role manage deal-files",
                 "roles": [
                     "service_role"
@@ -15370,6 +16814,7 @@
     "realtime_tables": [
         "deals",
         "pipeline_stages",
+        "user_notifications",
         "workflow_events",
         "workflow_executions"
     ]

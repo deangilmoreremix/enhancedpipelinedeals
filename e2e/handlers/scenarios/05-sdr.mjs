@@ -392,4 +392,13 @@ export default async function ({ t, openai, supa, loadFunction }) {
     assert.equal(sd.statusCode, 200, sd.body); assert.equal(sd.json.result.status, 'final');
     assert.equal((await callV1(skills.handler, { method: 'DELETE' })).statusCode, 405);
   });
+  await t('skills-api: OPTIONS needs no token; SDR skill on a contact the caller cannot see -> 404 and the agent never runs; 401 POST makes no DB call', async () => {
+    seed(supa); openai.reset(); const n0 = supa.log.length;
+    assert.equal((await callV1(skills.handler, { method: 'OPTIONS', token: null })).statusCode, 204);
+    assert.equal((await callV1(skills.handler, { body: { skillId: 'sdr-cold-email', contactId: 'c1' }, token: 'bad' })).statusCode, 401);
+    assert.ok(!supa.log.slice(n0).some((l) => /\/rest\/v1\//.test(l.path ?? '')));
+    const r = await callV1(skills.handler, { body: { skillId: 'sdr-cold-email', contactId: 'no-such-contact' } });
+    assert.equal(r.statusCode, 404, r.body);
+    assert.equal(openai.requests('/v1/responses').length, 0);
+  });
 }

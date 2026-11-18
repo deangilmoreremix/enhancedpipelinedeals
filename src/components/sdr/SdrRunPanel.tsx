@@ -247,7 +247,7 @@ export const SdrRunPanel: React.FC = () => {
   );
 };
 
-const DraftView: React.FC<{ draft: SdrOutput }> = ({ draft }) => (
+export const DraftView: React.FC<{ draft: SdrOutput }> = ({ draft }) => (
   <div className="space-y-4 text-sm">
     <section>
       <h4 className="font-medium">Strategy</h4>

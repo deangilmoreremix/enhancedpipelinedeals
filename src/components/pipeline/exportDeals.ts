@@ -1,5 +1,6 @@
 import { Deal } from '../../types';
 import { toCsv } from '../../utils/csv';
+import { customExportColumns, exportDefinitions } from '../../services/customFieldExport';
 
 export type BoardExportFormat = 'csv' | 'xlsx' | 'json';
 
@@ -75,7 +76,13 @@ function saveBlob(blob: Blob, filename: string) {
 
 /** Build the export file content for a chosen column selection (csv/json as text, xlsx as bytes). */
 export async function buildColumnExport(deals: Deal[], format: BoardExportFormat, columnIds: string[]): Promise<string | Uint8Array> {
-  const cols = columnIds.map(id => DEAL_EXPORT_COLUMNS.find(c => c.id === id)).filter((c): c is DealExportColumn => !!c);
+  const base = columnIds.map(id => DEAL_EXPORT_COLUMNS.find(c => c.id === id)).filter((c): c is DealExportColumn => !!c);
+  // Every active custom field follows the chosen built-in columns (label as header, formulas computed)
+  const custom = customExportColumns<Deal>('deal', await exportDefinitions('deal'));
+  const cols: DealExportColumn[] = [
+    ...base,
+    ...custom.columns.map((c, i) => ({ id: `cf:${c.key}`, label: c.header, value: (d: Deal) => custom.cells(d)[i] })),
+  ];
   if (format === 'csv') {
     return toCsv([cols.map(c => c.label), ...deals.map(d => cols.map(c => c.value(d)))]);
   }

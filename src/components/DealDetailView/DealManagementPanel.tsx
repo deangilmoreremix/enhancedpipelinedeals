@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Deal } from '../../types';
 import { isFeatureEnabled } from '../../services/featureFlagService';
-import { updateDealHealth } from '../../services/dealHealthService';
-import { updateDealProbability } from '../../services/dealProbabilityService';
+import { DealHealthService } from '../../services/dealHealthService';
+import { DealProbabilityService } from '../../services/dealProbabilityService';
 import DealHealthIndicator from '../deals/DealHealthIndicator';
 import WinProbabilityCalculator from '../deals/WinProbabilityCalculator';
 import DealTimeline from '../deals/DealTimeline';
 import DealTemplates from '../deals/DealTemplates';
+import { pushToast } from '../../store/dealRecordStore';
 
 interface DealManagementPanelProps {
   deal: Deal;
@@ -19,6 +21,7 @@ const DealManagementPanel: React.FC<DealManagementPanelProps> = ({
   onUpdate,
   linkedContactId
 }) => {
+  const navigate = useNavigate();
   const [featuresEnabled, setFeaturesEnabled] = useState({
     deal_health: false,
     win_probability: false,
@@ -27,62 +30,58 @@ const DealManagementPanel: React.FC<DealManagementPanelProps> = ({
   });
 
   useEffect(() => {
-    checkFeatureFlags();
-  }, []);
-
-  const checkFeatureFlags = async () => {
-    const [
-      dealHealth,
-      winProbability,
-      dealTemplates,
-      bulkActions,
-      dealTimeline
-    ] = await Promise.all([
+    let alive = true;
+    void Promise.all([
       isFeatureEnabled('deal_health_indicators'),
       isFeatureEnabled('win_probability_calculator'),
       isFeatureEnabled('deal_templates_phase3'),
-      isFeatureEnabled('bulk_deal_actions'),
       isFeatureEnabled('deal_timeline')
-    ]);
-
-    setFeaturesEnabled({
-      deal_health: dealHealth,
-      win_probability: winProbability,
-      deal_templates: dealTemplates,
-      deal_timeline: dealTimeline
+    ]).then(([dealHealth, winProbability, dealTemplates, dealTimeline]) => {
+      if (alive) setFeaturesEnabled({ deal_health: dealHealth, win_probability: winProbability, deal_templates: dealTemplates, deal_timeline: dealTimeline });
     });
-  };
+    return () => { alive = false; };
+  }, []);
+
+  // Scores are computed from the deal itself (stage, age, value, close date); a refresh recomputes and stores them.
+  const healthFactors = deal.healthFactors?.length ? deal.healthFactors : DealHealthService.analyzeHealthFactors(deal);
+  const healthScore = deal.healthScore ?? DealHealthService.calculateHealthScore(deal);
+  const probabilityFactors = deal.probabilityFactors?.length ? deal.probabilityFactors : DealProbabilityService.analyzeProbabilityFactors(deal);
+  const winProbability = deal.winProbability ?? DealProbabilityService.calculateWinProbability(deal);
 
   const handleHealthRefresh = async () => {
     try {
-      await updateDealHealth(deal.id);
-      // Refresh the deal data
-      await onUpdate(deal.id, {});
+      await onUpdate(deal.id, {
+        healthScore: DealHealthService.calculateHealthScore(deal),
+        healthFactors: DealHealthService.analyzeHealthFactors(deal)
+      });
+      pushToast('success', 'Deal health recalculated');
     } catch (error) {
-      console.error('Error refreshing deal health:', error);
+      pushToast('error', error instanceof Error ? `Could not refresh deal health: ${error.message}` : 'Could not refresh deal health');
     }
   };
 
   const handleProbabilityRefresh = async () => {
     try {
-      await updateDealProbability(deal.id);
-      // Refresh the deal data
-      await onUpdate(deal.id, {});
+      await onUpdate(deal.id, {
+        winProbability: DealProbabilityService.calculateWinProbability(deal),
+        probabilityFactors: DealProbabilityService.analyzeProbabilityFactors(deal)
+      });
+      pushToast('success', 'Win probability recalculated');
     } catch (error) {
-      console.error('Error refreshing deal probability:', error);
+      pushToast('error', error instanceof Error ? `Could not refresh win probability: ${error.message}` : 'Could not refresh win probability');
     }
   };
 
   const handleTemplateApplied = (newDeal: Deal) => {
-    // This would typically navigate to the new deal or update the current view
-    console.log('Template applied, new deal:', newDeal);
+    pushToast('success', `Created "${newDeal.title ?? newDeal.company}" from the template`);
+    navigate(`/deals/${newDeal.id}`);
   };
 
   if (!Object.values(featuresEnabled).some(enabled => enabled)) {
     return (
       <div className="p-8 text-center text-gray-500">
-        <p>Management features are not yet available.</p>
-        <p className="text-sm mt-2">They will be enabled through feature flags when ready.</p>
+        <p>No management tools are enabled for this workspace.</p>
+        <p className="text-sm mt-2">An administrator can turn them on with the deal_health_indicators, win_probability_calculator, deal_templates_phase3 and deal_timeline feature flags.</p>
       </div>
     );
   }
@@ -92,8 +91,8 @@ const DealManagementPanel: React.FC<DealManagementPanelProps> = ({
       {/* Deal Health Indicators */}
       {featuresEnabled.deal_health && (
         <DealHealthIndicator
-          healthScore={deal.healthScore || 50}
-          healthFactors={deal.healthFactors || []}
+          healthScore={healthScore}
+          healthFactors={healthFactors}
           onRefresh={handleHealthRefresh}
         />
       )}
@@ -101,8 +100,8 @@ const DealManagementPanel: React.FC<DealManagementPanelProps> = ({
       {/* Win Probability Calculator */}
       {featuresEnabled.win_probability && (
         <WinProbabilityCalculator
-          winProbability={deal.winProbability || deal.probability || 50}
-          probabilityFactors={deal.probabilityFactors || []}
+          winProbability={winProbability}
+          probabilityFactors={probabilityFactors}
           onRefresh={handleProbabilityRefresh}
         />
       )}

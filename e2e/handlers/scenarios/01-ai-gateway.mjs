@@ -74,7 +74,7 @@ export default async function ({ t, openai, supa, loadFunction }) {
       const def = TASKS[task];
       const req = lastResp();
       assert.ok(req.instructions.includes('SmartCRM'), 'instructions carry system prompt');
-      assert.ok(req.input && String(req.input).includes('CONTEXT (JSON)'), 'context serialised into input');
+      if (task !== 'workspace_chat') assert.ok(req.input && String(req.input).includes('CONTEXT (JSON)'), 'context serialised into input');
       assert.equal(req.store, false);
       assert.ok(req.max_output_tokens > 0);
       // reasoning rules
@@ -103,6 +103,9 @@ export default async function ({ t, openai, supa, loadFunction }) {
           assert.equal(r.json.citations.filter((c) => c.url === 'https://example.com/profile').length, 1, 'citations de-duplicated');
           assert.equal(r.json.citations.find((c) => c.url === 'https://example.com/profile').title, 'Profile');
         }
+      } else if (task === 'workspace_chat') {
+        assert.equal(req.include, undefined);
+        assert.ok(req.tools.every((tl) => tl.type === 'function'), 'read function tools only');
       } else {
         assert.equal(req.include, undefined);
         assert.equal(req.tools, undefined);

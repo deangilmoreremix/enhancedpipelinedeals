@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import type { PipelineStage, ViewFilter } from '../../types';
 import { Button } from '../ui/Button';
 import { FilterBarValueInput } from './FilterBarValueInput';
+import { useBoardFilterFields } from './useBoardFilterFields';
 import {
   BOARD_FILTER_FIELDS,
   DraftValue,
@@ -28,6 +29,7 @@ const SELECT_CLASS =
 
 /** Popover body for adding/editing a single filter condition. */
 export const FilterBarEditor: React.FC<Props> = ({ stages, initial, initialField, onSave, onCancel }) => {
+  const allFields = useBoardFilterFields();
   const start = initial ? draftFromFilter(initial) : null;
   const [field, setField] = useState(initial?.field ?? initialField ?? BOARD_FILTER_FIELDS[0].id);
   const kind = fieldDef(field).kind;
@@ -62,7 +64,7 @@ export const FilterBarEditor: React.FC<Props> = ({ stages, initial, initialField
       <label className="block text-xs font-medium text-gray-600 dark:text-gray-300">
         Field
         <select value={field} onChange={(e) => changeField(e.target.value)} className={`${SELECT_CLASS} mt-1`}>
-          {BOARD_FILTER_FIELDS.map(f => <option key={f.id} value={f.id}>{f.label}</option>)}
+          {allFields.map(f => <option key={f.id} value={f.id}>{f.label}</option>)}
         </select>
       </label>
       <label className="block text-xs font-medium text-gray-600 dark:text-gray-300">

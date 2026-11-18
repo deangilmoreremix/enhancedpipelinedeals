@@ -1,462 +1,200 @@
-// Mock the service module
-jest.mock('../services/supabaseService');
+import { chain } from '../test-utils/chain';
 
-import { getSupabaseService, SupabaseService } from '../services/supabaseService';
-import { Contact } from '../types/contact';
-import { Deal } from '../types';
+let mockFrom: jest.Mock;
+const mockClient: any = {
+  from: (...a: unknown[]) => mockFrom(...a),
+  auth: { getUser: jest.fn(), signOut: jest.fn() },
+  channel: jest.fn(),
+};
 
-// Mock Supabase client
-jest.mock('@supabase/supabase-js', () => ({
-  createClient: jest.fn(() => ({
-    from: jest.fn(() => ({
-      select: jest.fn().mockReturnThis(),
-      insert: jest.fn().mockReturnThis(),
-      update: jest.fn().mockReturnThis(),
-      delete: jest.fn().mockReturnThis(),
-      eq: jest.fn().mockReturnThis(),
-      order: jest.fn().mockReturnThis(),
-      limit: jest.fn().mockReturnThis(),
-      single: jest.fn().mockReturnThis(),
-      upsert: jest.fn().mockReturnThis(),
-      ilike: jest.fn().mockReturnThis(),
-      or: jest.fn().mockReturnThis(),
-      gte: jest.fn().mockReturnThis(),
-      lte: jest.fn().mockReturnThis(),
-      in: jest.fn().mockReturnThis(),
-      rpc: jest.fn().mockReturnThis(),
-    })),
-    channel: jest.fn(() => ({
-      on: jest.fn().mockReturnThis(),
-      subscribe: jest.fn().mockReturnThis(),
-      unsubscribe: jest.fn(),
-    })),
-    auth: {
-      getUser: jest.fn(),
-      signOut: jest.fn(),
-      getSession: jest.fn(),
-    },
-  })),
+jest.mock('../lib/core/supabaseClient', () => ({
+  get supabase() { return mockClient; },
+  isSupabaseConfigured: true,
 }));
+jest.mock('@supabase/supabase-js', () => ({ createClient: jest.fn(() => mockClient) }));
+
+import { SupabaseService } from '../services/supabaseService';
+import { PermissionDeniedError } from '../utils/rlsError';
+
+const ok = (data: any) => chain({ data, error: null });
+const fail = (message: string) => chain({ data: null, error: { message } });
 
 describe('SupabaseService', () => {
+  const origUrl = process.env.VITE_SUPABASE_URL;
+  const origKey = process.env.VITE_SUPABASE_ANON_KEY;
   let service: SupabaseService;
-  let mockSupabase: any;
 
   beforeEach(() => {
-    // Clear singleton instance
-    (global as any).supabaseService = null;
-    service = getSupabaseService();
-    mockSupabase = (service as any).supabase;
+    process.env.VITE_SUPABASE_URL = 'https://test.supabase.co';
+    process.env.VITE_SUPABASE_ANON_KEY = 'test-anon-key';
+    mockFrom = jest.fn();
+    jest.clearAllMocks();
+    jest.spyOn(console, 'log').mockImplementation(() => {});
+    jest.spyOn(console, 'warn').mockImplementation(() => {});
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+    service = new SupabaseService();
   });
 
   afterEach(() => {
-    jest.clearAllMocks();
+    jest.restoreAllMocks();
+    if (origUrl === undefined) delete process.env.VITE_SUPABASE_URL; else process.env.VITE_SUPABASE_URL = origUrl;
+    if (origKey === undefined) delete process.env.VITE_SUPABASE_ANON_KEY; else process.env.VITE_SUPABASE_ANON_KEY = origKey;
   });
 
-  describe('Singleton Pattern', () => {
-    it('should return the same instance', () => {
-      const service1 = getSupabaseService();
-      const service2 = getSupabaseService();
-      expect(service1).toBe(service2);
-    });
-  });
-
-  describe('Connection Testing', () => {
-    it('should test connection successfully', async () => {
-      mockSupabase.from.mockReturnValue({
-        select: jest.fn().mockResolvedValue({ data: [{ id: 1 }], error: null }),
-      });
-
-      const result = await service.checkConnection();
-      expect(result).toBe(true);
+  describe('configuration', () => {
+    it('connects through the shared client when env is present', () => {
+      expect(service.isConnectedToDatabase()).toBe(true);
+      expect(service.client).toBe(mockClient);
     });
 
-    it('should handle connection failure', async () => {
-      mockSupabase.from.mockReturnValue({
-        select: jest.fn().mockResolvedValue({ data: null, error: { message: 'Connection failed' } }),
-      });
-
-      const result = await service.checkConnection();
-      expect(result).toBe(false);
+    it('is disconnected and refuses calls without env', async () => {
+      delete process.env.VITE_SUPABASE_URL;
+      delete process.env.VITE_SUPABASE_ANON_KEY;
+      const s = new SupabaseService();
+      expect(s.isConnectedToDatabase()).toBe(false);
+      await expect(s.getContacts()).rejects.toThrow(/not configured/);
+      await expect(s.getDeals()).rejects.toThrow(/not configured/);
+      expect(await s.getCurrentUser()).toBeNull();
+      expect(await s.checkConnection()).toBe(false);
     });
   });
 
-  describe('Contact Operations', () => {
-    const mockContact: Contact = {
-      id: 'contact-1',
-      name: 'John Doe',
-      email: 'john@example.com',
-      company: 'Test Corp',
-      phone: '+1234567890',
-      userId: 'user-1',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-
-    describe('getContacts', () => {
-      it('should return contacts successfully', async () => {
-        mockSupabase.from.mockReturnValue({
-          select: jest.fn().mockResolvedValue({ data: [mockContact], error: null }),
-        });
-
-        const result = await service.getContacts();
-        expect(result).toEqual([mockContact]);
-      });
-
-      it('should handle errors gracefully', async () => {
-        mockSupabase.from.mockReturnValue({
-          select: jest.fn().mockResolvedValue({ data: null, error: { message: 'Database error' } }),
-        });
-
-        const result = await service.getContacts();
-        expect(result).toEqual([]);
-      });
+  describe('contacts', () => {
+    it('getContacts maps gamification_stats / is_team_member', async () => {
+      mockFrom.mockReturnValue(ok([{ id: 'c1', name: 'A', gamification_stats: { xp: 1 }, is_team_member: true }, { id: 'c2', name: 'B' }]));
+      const rows = await service.getContacts();
+      expect(mockFrom).toHaveBeenCalledWith('contacts');
+      expect(rows[0]).toMatchObject({ id: 'c1', gamificationStats: { xp: 1 }, isTeamMember: true });
+      expect(rows[1]).toMatchObject({ gamificationStats: undefined, isTeamMember: false });
     });
 
-    describe('createContact', () => {
-      it('should create contact successfully', async () => {
-        const newContact = { name: 'Jane Doe', email: 'jane@example.com' };
-        mockSupabase.from.mockReturnValue({
-          insert: jest.fn().mockReturnThis(),
-          select: jest.fn().mockReturnThis(),
-          single: jest.fn().mockResolvedValue({ data: { ...newContact, id: 'new-id' }, error: null }),
-        });
-
-        const result = await service.createContact(newContact);
-        expect(result.id).toBe('new-id');
-        expect(result.name).toBe('Jane Doe');
-      });
-
-      it('should handle creation errors', async () => {
-        const newContact = { name: 'Jane Doe', email: 'jane@example.com' };
-        mockSupabase.from.mockReturnValue({
-          insert: jest.fn().mockReturnThis(),
-          select: jest.fn().mockReturnThis(),
-          single: jest.fn().mockRejectedValue(new Error('Creation failed')),
-        });
-
-        await expect(service.createContact(newContact)).rejects.toThrow('Creation failed');
-      });
+    it('getContacts throws a descriptive error on query failure', async () => {
+      mockFrom.mockReturnValue(fail('boom'));
+      await expect(service.getContacts()).rejects.toThrow('Database query failed: boom');
     });
 
-    describe('updateContact', () => {
-      it('should update contact successfully', async () => {
-        const updates = { name: 'Updated Name' };
-        mockSupabase.from.mockReturnValue({
-          update: jest.fn().mockReturnThis(),
-          eq: jest.fn().mockReturnThis(),
-          select: jest.fn().mockReturnThis(),
-          single: jest.fn().mockResolvedValue({ data: { ...mockContact, ...updates }, error: null }),
-        });
-
-        const result = await service.updateContact('contact-1', updates);
-        expect(result.name).toBe('Updated Name');
-      });
+    it('createContact serialises gamification stats and returns the row', async () => {
+      const c = ok([{ id: 'c1', name: 'New' }]);
+      mockFrom.mockReturnValue(c);
+      const res = await service.createContact({ name: 'New', gamificationStats: { xp: 5 } } as any);
+      expect(res).toMatchObject({ id: 'c1' });
+      const insert = c.calls.find(([m]: [string]) => m === 'insert')[1][0];
+      expect(insert.gamification_stats).toEqual({ xp: 5 });
+      expect(insert).not.toHaveProperty('gamificationStats');
+      expect(insert.created_at).toBeDefined();
     });
 
-    describe('deleteContact', () => {
-      it('should delete contact successfully', async () => {
-        mockSupabase.from.mockReturnValue({
-          delete: jest.fn().mockReturnThis(),
-          eq: jest.fn().mockResolvedValue({ error: null }),
-        });
-
-        await expect(service.deleteContact('contact-1')).resolves.toBeUndefined();
-      });
+    it('updateContact filters by id and stamps updated_at', async () => {
+      const c = ok([{ id: 'c1', name: 'X' }]);
+      mockFrom.mockReturnValue(c);
+      await service.updateContact('c1', { name: 'X' });
+      expect(c.calls.find(([m]: [string]) => m === 'eq')[1]).toEqual(['id', 'c1']);
+      expect(c.calls.find(([m]: [string]) => m === 'update')[1][0].updated_at).toBeDefined();
     });
 
-    describe('searchContacts', () => {
-      it('should search contacts successfully', async () => {
-        mockSupabase.from.mockReturnValue({
-          select: jest.fn().mockReturnThis(),
-          or: jest.fn().mockReturnThis(),
-          ilike: jest.fn().mockResolvedValue({ data: [mockContact], error: null }),
-        });
+    it('deleteContact resolves, and rejects on error', async () => {
+      mockFrom.mockReturnValueOnce(ok(null));
+      await expect(service.deleteContact('c1')).resolves.toBeUndefined();
+      mockFrom.mockReturnValueOnce(fail('nope'));
+      await expect(service.deleteContact('c1')).rejects.toEqual({ message: 'nope' });
+    });
 
-        const result = await service.searchContacts('John');
-        expect(result).toEqual([mockContact]);
-      });
+    it('searchContacts builds an ilike OR filter', async () => {
+      const c = ok([{ id: 'c1' }]);
+      mockFrom.mockReturnValue(c);
+      expect(await service.searchContacts('acme')).toHaveLength(1);
+      expect(c.calls.find(([m]: [string]) => m === 'or')[1][0]).toContain('name.ilike.%acme%');
     });
   });
 
-  describe('Deal Operations', () => {
-    const mockDeal: Deal = {
-      id: 'deal-1',
-      title: 'Test Deal',
-      company: 'Test Corp',
-      value: 50000,
-      stage: 'prospect',
-      probability: 75,
-      contactId: 'contact-1',
-      userId: 'user-1',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-
-    describe('getDeals', () => {
-      it('should return deals successfully', async () => {
-        mockSupabase.from.mockReturnValue({
-          select: jest.fn().mockResolvedValue({ data: [mockDeal], error: null }),
-        });
-
-        const result = await service.getDeals();
-        expect(result).toEqual([mockDeal]);
-      });
-
-      it('should handle errors and return cached data', async () => {
-        // Mock localStorage
-        const mockLocalStorage = {
-          getItem: jest.fn().mockReturnValue(JSON.stringify([mockDeal])),
-          setItem: jest.fn(),
-        };
-        Object.defineProperty(window, 'localStorage', { value: mockLocalStorage });
-
-        mockSupabase.from.mockReturnValue({
-          select: jest.fn().mockResolvedValue({ data: null, error: { message: 'Network error' } }),
-        });
-
-        const result = await service.getDeals();
-        expect(result).toEqual([mockDeal]);
-      });
+  describe('deals', () => {
+    it('getDeals maps rows and hides soft-deleted ones unless asked', async () => {
+      const rows = [{ id: 'd1', title: 'Live' }, { id: 'd2', title: 'Gone', deleted_at: '2024-01-01T00:00:00Z' }];
+      mockFrom.mockReturnValue(ok(rows));
+      const live = await service.getDeals();
+      expect(live.map(d => d.id)).toEqual(['d1']);
+      const all = await service.getDeals({ includeDeleted: true });
+      expect(all.map(d => d.id)).toEqual(['d1', 'd2']);
     });
 
-    describe('createDeal', () => {
-      it('should create deal successfully', async () => {
-        const newDeal = { title: 'New Deal', value: 25000 };
-        mockSupabase.from.mockReturnValue({
-          insert: jest.fn().mockReturnThis(),
-          select: jest.fn().mockReturnThis(),
-          single: jest.fn().mockResolvedValue({ data: { ...newDeal, id: 'new-deal-id' }, error: null }),
-        });
-
-        const result = await service.createDeal(newDeal);
-        expect(result.id).toBe('new-deal-id');
-        expect(result.title).toBe('New Deal');
-      });
+    it('getDeals pages through the table until a short page', async () => {
+      const full = Array.from({ length: 500 }, (_, i) => ({ id: `d${i}`, title: 't' }));
+      mockFrom.mockReturnValueOnce(ok(full)).mockReturnValueOnce(ok([{ id: 'last', title: 't' }]));
+      const deals = await service.getDeals();
+      expect(deals).toHaveLength(501);
+      expect(mockFrom).toHaveBeenCalledTimes(2);
     });
 
-    describe('updateDeal', () => {
-      it('should update deal successfully', async () => {
-        const updates = { title: 'Updated Deal' };
-        mockSupabase.from.mockReturnValue({
-          update: jest.fn().mockReturnThis(),
-          eq: jest.fn().mockReturnThis(),
-          select: jest.fn().mockReturnThis(),
-          single: jest.fn().mockResolvedValue({ data: { ...mockDeal, ...updates }, error: null }),
-        });
-
-        const result = await service.updateDeal('deal-1', updates);
-        expect(result.title).toBe('Updated Deal');
-      });
+    it('createDeal returns the mapped deal', async () => {
+      mockFrom.mockReturnValue(ok([{ id: 'd1', title: 'New' }]));
+      const d = await service.createDeal({ title: 'New' } as any);
+      expect(d).toMatchObject({ id: 'd1', title: 'New' });
     });
 
-    describe('deleteDeal', () => {
-      it('should delete deal successfully', async () => {
-        mockSupabase.from.mockReturnValue({
-          delete: jest.fn().mockReturnThis(),
-          eq: jest.fn().mockResolvedValue({ error: null }),
-        });
+    it('updateDeal rejects when Supabase errors', async () => {
+      mockFrom.mockReturnValue(fail('x'));
+      await expect(service.updateDeal('d1', { title: 'Z' })).rejects.toEqual({ message: 'x' });
+    });
 
-        await expect(service.deleteDeal('deal-1')).resolves.toBeUndefined();
-      });
+    it('deleteDeal treats zero affected rows as permission denied (RLS)', async () => {
+      mockFrom.mockReturnValueOnce(ok([{ id: 'd1' }]));
+      await expect(service.deleteDeal('d1')).resolves.toBeUndefined();
+      mockFrom.mockReturnValueOnce(ok([]));
+      await expect(service.deleteDeal('d1')).rejects.toBeInstanceOf(PermissionDeniedError);
     });
   });
 
-  describe('Activity Operations', () => {
-    describe('getActivities', () => {
-      it('should return activities successfully', async () => {
-        const mockActivity = {
-          id: 'activity-1',
-          type: 'call',
-          entity_type: 'contact',
-          entity_id: 'contact-1',
-          description: 'Test activity',
-          created_at: new Date().toISOString(),
-          user_id: 'user-1',
-        };
+  describe('activities', () => {
+    it('logActivity inserts into activities', async () => {
+      const c = ok(null);
+      mockFrom.mockReturnValue(c);
+      const activity = { type: 'note', entity_type: 'deal' as const, entity_id: 'd1', description: 'hi', user_id: 'u1' };
+      await service.logActivity(activity);
+      expect(mockFrom).toHaveBeenCalledWith('activities');
+      expect(c.calls.find(([m]: [string]) => m === 'insert')[1][0]).toEqual(activity);
+    });
 
-        mockSupabase.from.mockReturnValue({
-          select: jest.fn().mockReturnThis(),
-          eq: jest.fn().mockReturnThis(),
-          order: jest.fn().mockResolvedValue({ data: [mockActivity], error: null }),
-        });
-
-        const result = await service.getActivities('contact', 'contact-1');
-        expect(result).toEqual([mockActivity]);
-      });
+    it('getActivities filters by entity and returns [] for null data', async () => {
+      const c = ok(null);
+      mockFrom.mockReturnValue(c);
+      expect(await service.getActivities('deal', 'd1')).toEqual([]);
+      const eqs = c.calls.filter(([m]: [string]) => m === 'eq').map(([, a]: any) => a);
+      expect(eqs).toEqual([['entity_type', 'deal'], ['entity_id', 'd1']]);
     });
   });
 
-  describe('Communication Records', () => {
-    describe('getCommunicationRecords', () => {
-      it('should return communication records successfully', async () => {
-        const mockRecord = {
-          id: 'record-1',
-          contact_id: 'contact-1',
-          type: 'email',
-          direction: 'outgoing',
-          subject: 'Test email',
-          timestamp: new Date().toISOString(),
-          user_id: 'user-1',
-        };
-
-        mockSupabase.from.mockReturnValue({
-          select: jest.fn().mockReturnThis(),
-          eq: jest.fn().mockReturnThis(),
-          order: jest.fn().mockReturnThis(),
-          limit: jest.fn().mockResolvedValue({ data: [mockRecord], error: null }),
-        });
-
-        const result = await service.getCommunicationRecords('contact-1');
-        expect(result).toEqual([mockRecord]);
-      });
-    });
-  });
-
-  describe('Settings Operations', () => {
-    describe('getSetting', () => {
-      it('should return setting value successfully', async () => {
-        mockSupabase.from.mockReturnValue({
-          select: jest.fn().mockReturnThis(),
-          eq: jest.fn().mockReturnThis(),
-          single: jest.fn().mockResolvedValue({ data: { value: 'test-value' }, error: null }),
-        });
-
-        const result = await service.getSetting('test-key', 'user-1');
-        expect(result).toBe('test-value');
-      });
-
-      it('should return default value when setting not found', async () => {
-        mockSupabase.from.mockReturnValue({
-          select: jest.fn().mockReturnThis(),
-          eq: jest.fn().mockReturnThis(),
-          single: jest.fn().mockResolvedValue({ data: null, error: { code: 'PGRST116' } }),
-        });
-
-        const result = await service.getSetting('test-key', 'user-1');
-        expect(result).toBeNull();
-      });
+  describe('auth and realtime', () => {
+    it('getCurrentUser returns the auth user', async () => {
+      mockClient.auth.getUser.mockResolvedValue({ data: { user: { id: 'u1' } } });
+      expect(await service.getCurrentUser()).toEqual({ id: 'u1' });
     });
 
-    describe('saveSetting', () => {
-      it('should save setting successfully', async () => {
-        mockSupabase.from.mockReturnValue({
-          upsert: jest.fn().mockResolvedValue({ error: null }),
-        });
-
-        await expect(service.saveSetting('test-key', 'test-value', 'user-1')).resolves.toBeUndefined();
-      });
+    it('signOut throws when auth fails', async () => {
+      mockClient.auth.signOut.mockResolvedValueOnce({ error: null });
+      await expect(service.signOut()).resolves.toBeUndefined();
+      mockClient.auth.signOut.mockResolvedValueOnce({ error: new Error('x') });
+      await expect(service.signOut()).rejects.toThrow('x');
     });
 
-    describe('deleteSetting', () => {
-      it('should delete setting successfully', async () => {
-        mockSupabase.from.mockReturnValue({
-          delete: jest.fn().mockReturnThis(),
-          eq: jest.fn().mockResolvedValue({ error: null }),
-        });
-
-        await expect(service.deleteSetting('test-key', 'user-1')).resolves.toBeUndefined();
-      });
-    });
-  });
-
-  describe('AI Usage Metrics', () => {
-    describe('getAIUsageMetrics', () => {
-      it('should return AI usage metrics successfully', async () => {
-        const mockMetric = {
-          id: 'metric-1',
-          user_id: 'user-1',
-          model: 'gpt-4',
-          tokens_used: 1000,
-          cost: 0.02,
-          created_at: new Date().toISOString(),
-        };
-
-        mockSupabase.from.mockReturnValue({
-          select: jest.fn().mockReturnThis(),
-          eq: jest.fn().mockReturnThis(),
-          order: jest.fn().mockReturnThis(),
-          limit: jest.fn().mockResolvedValue({ data: [mockMetric], error: null }),
-        });
-
-        const result = await service.getAIUsageMetrics('user-1', 50);
-        expect(result).toEqual([mockMetric]);
-      });
-    });
-  });
-
-  describe('Authentication', () => {
-    describe('getCurrentUser', () => {
-      it('should return current user', async () => {
-        const mockUser = { id: 'user-1', email: 'user@example.com' };
-        mockSupabase.auth.getUser = jest.fn().mockResolvedValue({ data: { user: mockUser }, error: null });
-
-        const result = await service.getCurrentUser();
-        expect(result).toEqual(mockUser);
-      });
+    it('subscribeToDeals maps new rows to Deal and old rows to { id }', () => {
+      let handler: any;
+      const channel: any = { on: jest.fn((_e, _f, cb) => { handler = cb; return channel; }), subscribe: jest.fn(() => 'sub') };
+      mockClient.channel.mockReturnValue(channel);
+      const cb = jest.fn();
+      expect(service.subscribeToDeals(cb)).toBe('sub');
+      handler({ eventType: 'UPDATE', new: { id: 'd1', title: 'T' }, old: { id: 'd1', title: 'old' } });
+      const payload = cb.mock.calls[0][0];
+      expect(payload.new).toMatchObject({ id: 'd1', title: 'T' });
+      expect(payload.old).toEqual({ id: 'd1' });
     });
 
-    describe('signOut', () => {
-      it('should sign out successfully', async () => {
-        mockSupabase.auth.signOut = jest.fn().mockResolvedValue({ error: null });
-
-        await expect(service.signOut()).resolves.toBeUndefined();
-      });
-    });
-  });
-
-  describe('Error Handling', () => {
-    it('should handle network errors gracefully', async () => {
-      mockSupabase.from.mockImplementation(() => {
-        throw new Error('Network error');
-      });
-
-      const result = await service.getContacts();
-      expect(result).toEqual([]);
-    });
-
-    it('should handle Supabase errors gracefully', async () => {
-      mockSupabase.from.mockReturnValue({
-        select: jest.fn().mockRejectedValue(new Error('Supabase error')),
-      });
-
-      const result = await service.getContacts();
-      expect(result).toEqual([]);
-    });
-  });
-
-  describe('Offline Support', () => {
-    it('should cache data when online', async () => {
-      const mockLocalStorage = {
-        getItem: jest.fn(),
-        setItem: jest.fn(),
-      };
-      Object.defineProperty(window, 'localStorage', { value: mockLocalStorage });
-
-      const mockDeals = [{ id: 'deal-1', title: 'Test Deal' }];
-      mockSupabase.from.mockReturnValue({
-        select: jest.fn().mockResolvedValue({ data: mockDeals, error: null }),
-      });
-
-      await service.getDeals();
-      expect(mockLocalStorage.setItem).toHaveBeenCalledWith('deals_backup', JSON.stringify(mockDeals));
-    });
-
-    it('should return cached data when offline', async () => {
-      const mockDeals = [{ id: 'deal-1', title: 'Test Deal' }];
-      const mockLocalStorage = {
-        getItem: jest.fn().mockReturnValue(JSON.stringify(mockDeals)),
-        setItem: jest.fn(),
-      };
-      Object.defineProperty(window, 'localStorage', { value: mockLocalStorage });
-
-      // Simulate offline by making Supabase fail
-      mockSupabase.from.mockReturnValue({
-        select: jest.fn().mockRejectedValue(new Error('Network error')),
-      });
-
-      const result = await service.getDeals();
-      expect(result).toEqual(mockDeals);
+    it('checkConnection is true when the probe query works and false on a hard error', async () => {
+      mockFrom.mockReturnValueOnce(ok([]));
+      expect(await service.checkConnection()).toBe(true);
+      mockFrom.mockReturnValueOnce(chain({ data: null, error: { message: 'boom' } }));
+      expect(await service.checkConnection()).toBe(false);
+      mockFrom.mockReturnValueOnce(chain({ data: null, error: { code: '42501', message: 'x' } }));
+      expect(await service.checkConnection()).toBe(true);
     });
   });
 });

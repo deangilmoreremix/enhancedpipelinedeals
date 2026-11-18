@@ -3,7 +3,7 @@ import path from 'node:path';
 import * as B from '../lib/board.mjs';
 import { RESULTS_DIR } from '../lib/browser.mjs';
 const VP = { width: 1600, height: 1300 };
-const tabBtn = (page, name) => page.getByRole('button', { name: new RegExp('^' + name + ' \\d') }).first();
+const tabBtn = (page, name) => page.getByRole('button', { name: new RegExp('^' + name + '( \\d)?$') }).first();
 
 export default [{
   id: 'E', name: 'Deal record page + modal', async run(ctx) {
@@ -56,7 +56,7 @@ export default [{
       await page.getByRole('button', { name: 'Add', exact: true }).click(); await page.waitForTimeout(800);
       ctx.check(await page.getByText('Call the buyer').count() > 0, 'task appears');
       if (fake) ctx.check(fake.table('tasks').some(t => t.title === 'Call the buyer'), 'fake DB has task');
-      await page.getByLabel(/^Mark "Call the buyer"/).click(); await page.waitForTimeout(700);
+      await page.getByRole('radiogroup', { name: 'Status of "Call the buyer"' }).getByRole('radio', { name: 'Done' }).click(); await page.waitForTimeout(700);
       if (fake) ctx.check(fake.table('tasks').some(t => t.title === 'Call the buyer' && (t.completed === true || t.status === 'done' || t.completed_at || t.is_done)), 'fake DB task completed: ' + JSON.stringify(fake.table('tasks')[0]));
       await page.getByLabel(/^Delete task "Call the buyer"/).click(); await page.waitForTimeout(700);
       ctx.check(await page.getByText('Call the buyer').count() === 0, 'task deleted');
@@ -89,6 +89,7 @@ export default [{
 
     await ctx.step('favorite toggle, merge modal, delete -> deleted state', async () => {
       const { page, context, fake, shot } = await open();
+      await page.waitForFunction(() => !!window.__e2e);
       await page.getByLabel(/favorites$/).first().click(); await page.waitForTimeout(700);
       const fav1 = (await page.evaluate((id) => window.__e2e.deal.getState().deals[id].isFavorite, id));
       await page.getByLabel(/favorites$/).first().click(); await page.waitForTimeout(700);
@@ -129,6 +130,7 @@ export default [{
     await ctx.step('related contact/company cards, contact & company pages, calendar tab', async () => {
       const { page, context, shot } = await open();
       const co = page.locator('a[href^="/companies/"]').first();
+      await co.waitFor({ timeout: 8000 }).catch(() => {});
       ctx.check(await co.count() > 0, 'related company card link');
       await tabBtn(page, 'Calendar').click(); await page.waitForTimeout(1200);
       await shot('calendar-tab');
@@ -144,13 +146,14 @@ export default [{
       await context.close();
     });
 
-    await ctx.step('board modal variant opens and tabs work', async () => {
+    await ctx.step('board side panel opens and tabs work', async () => {
       const fake = ctx.fake(); const { page, context, shot } = await ctx.page({ fake, viewport: VP });
       await B.openBoard(page);
       await B.card(page, id).click({ position: { x: 150, y: 8 } });
-      await page.getByText('Deal Profile').first().waitFor({ timeout: 8000 });
-      await tabBtn(page, 'Tasks').click(); await page.waitForTimeout(600);
-      await page.getByLabel('New task title').fill('Modal task');
+      await page.getByTestId('deal-side-panel').waitFor({ timeout: 8000 });
+      const taskInput = page.getByLabel('New task title');
+      for (let i = 0; i < 3 && !(await taskInput.isVisible().catch(() => false)); i++) { await tabBtn(page, 'Tasks').click(); await taskInput.waitFor({ timeout: 4000 }).catch(() => {}); }
+      await taskInput.fill('Modal task');
       await page.getByRole('button', { name: 'Add', exact: true }).click(); await page.waitForTimeout(800);
       ctx.check(await page.getByText('Modal task').count() > 0, 'task added from modal');
       await shot('modal');

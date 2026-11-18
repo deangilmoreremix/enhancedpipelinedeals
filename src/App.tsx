@@ -23,6 +23,8 @@ const ViewsPage = React.lazy(() => import('./pages/ViewsPage'));
 const WorkflowsPage = React.lazy(() => import('./pages/WorkflowsPage'));
 const AnalyticsPage = React.lazy(() => import('./pages/AnalyticsPage'));
 const AppsPage = React.lazy(() => import('./pages/AppsPage'));
+const TasksPage = React.lazy(() => import('./pages/TasksPage'));
+const SettingsPage = React.lazy(() => import('./pages/SettingsPage'));
 const DealRecordPage = React.lazy(() => import('./pages/DealRecordPage'));
 const CompanyPage = React.lazy(() => import('./pages/CompanyPage'));
 const ContactPage = React.lazy(() => import('./pages/ContactPage'));
@@ -115,6 +117,8 @@ function AppContent() {
             <Route path="/views" element={routeElement(<ViewsPage />)} />
             <Route path="/workflows" element={routeElement(<WorkflowsPage />)} />
             <Route path="/analytics" element={routeElement(<AnalyticsPage />)} />
+            <Route path="/tasks" element={routeElement(<TasksPage />)} />
+            <Route path="/settings/*" element={routeElement(<SettingsPage />)} />
             <Route path="/apps" element={routeElement(<AppsPage />)} />
             <Route path="/deals/:id" element={routeElement(<DealRecordPage />)} />
             <Route path="/companies/:id" element={routeElement(<CompanyPage />)} />

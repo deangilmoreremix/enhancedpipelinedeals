@@ -3,7 +3,12 @@
 // Emulated DB behaviour (documented because it normally lives in SQL, verified separately in e2e/sql):
 //  - deals.updated_at/id/created_at defaults, stage change -> deal_activities row (deal_audit trigger)
 //  - zero-row PATCH/DELETE return [] (PostgREST behaviour), RLS denial via fake.deny(...)
+// STRICT mode (always on): tables/columns/rpc signatures/policies/buckets come from schema.json (see strict.mjs).
+// Every contract violation (unknown table/column/rpc/arg, RLS-denied op, private-bucket public URL, ...) is answered
+// with the real PostgREST/Storage error shape AND recorded in fake.violations. The runner fails a scenario that
+// caused a violation it did not declare with fake.expectViolation({...}).
 import crypto from 'node:crypto';
+import * as S from './strict.mjs';
 
 export const FAKE_URL = 'http://fake.supabase.local';
 const uuid = () => crypto.randomUUID();
@@ -59,6 +64,8 @@ export class FakeSupabase {
     this.failNext = []; // {table, method, status, body}
     this.storage = new Map();
     this.session = null;
+    this.violations = []; // {kind, code, method, target, message, expected}
+    this.expectations = []; // {match, hits}
     for (const [t, rows] of Object.entries(seed)) this.tables[t] = rows.map(r => ({ ...r }));
     this.installDefaultRpc();
   }
@@ -68,27 +75,211 @@ export class FakeSupabase {
   fail(table, method, status = 500, body = { message: 'forced failure', code: 'XX000' }, times = 1) { this.failNext.push({ table, method, status, body, times }); }
   requests(table, method) { return this.log.filter(l => (!table || l.table === table) && (!method || l.method === method)); }
 
+  /** Declare that the scenario intentionally triggers a violation. match: kind string | RegExp (message) | {kind,code,method,target}. */
+  expectViolation(match) { const e = { match, hits: 0 }; this.expectations.push(e); return e; }
+  violate(v) {
+    const rec = { ...v, expected: false };
+    const hit = this.expectations.find(e => this.matches(e.match, rec));
+    if (hit) { hit.hits++; rec.expected = true; }
+    this.violations.push(rec);
+    return rec;
+  }
+  matches(m, v) {
+    if (typeof m === 'string') return v.kind === m;
+    if (m instanceof RegExp) return m.test(`${v.kind} ${v.code} ${v.target} ${v.message}`);
+    return Object.entries(m).every(([k, x]) => (x instanceof RegExp ? x.test(String(v[k])) : v[k] === x));
+  }
+  unexpectedViolations() { return this.violations.filter(v => !v.expected); }
+  unmetExpectations() { return this.expectations.filter(e => e.hits === 0); }
+
   installDefaultRpc() {
+    // Handlers follow the REAL signatures in schema.json (names/arity are enforced before they run).
     this.rpcHandlers.search_deals = ({ q, lim }) => {
       const ql = String(q || '').toLowerCase();
-      return this.table('deals').filter(d => !d.deleted_at && [d.title, d.company, d.contact, d.notes].some(f => String(f || '').toLowerCase().includes(ql))).slice(0, lim || 20);
+      return this.table('deals').filter(d => !d.deleted_at && [d.title, d.company, d.contact, d.notes].some(f => String(f || '').toLowerCase().includes(ql))).slice(0, lim ?? 20);
     };
-    this.rpcHandlers.pipeline_aggregates = (args) => {
-      const rows = this.table('deals').filter(d => !d.deleted_at);
+    this.rpcHandlers.pipeline_aggregates = ({ p_stage_keys = null, p_op = 'sum', p_field = 'value' } = {}) => {
       const by = {};
-      for (const d of rows) { const k = d.stage; by[k] ||= { stage: k, count: 0, total: 0 }; by[k].count++; by[k].total += Number(d.value || 0); }
-      return Object.values(by).map(g => ({ stage: g.stage, count: g.count, sum: g.total, total: g.total, avg: g.total / g.count, min: 0, max: g.total }));
+      for (const d of this.table('deals').filter(d => !d.deleted_at && (!p_stage_keys || p_stage_keys.includes(d.stage)))) {
+        const k = d.stage; (by[k] ||= []).push(Number(d[p_field] || 0));
+      }
+      const f = { sum: a => a.reduce((x, y) => x + y, 0), count: a => a.length, avg: a => a.reduce((x, y) => x + y, 0) / a.length, min: a => Math.min(...a), max: a => Math.max(...a) }[p_op] || (() => 0);
+      return Object.entries(by).map(([stage, vals]) => ({ stage, deal_count: vals.length, agg: f(vals) }));
     };
-    this.rpcHandlers.merge_deals = ({ p_primary, p_duplicate, p_secondary, primary_id, duplicate_id, secondary_id, survivor_id, loser_id } = {}) => {
-      const keep = p_primary || primary_id || survivor_id; const gone = p_duplicate || p_secondary || duplicate_id || secondary_id || loser_id;
-      const loser = this.table('deals').find(d => d.id === gone);
-      if (loser) loser.deleted_at = now();
-      for (const t of ['notes', 'tasks', 'deal_files', 'deal_activities']) this.table(t).forEach(r => { if (r.deal_id === gone) r.deal_id = keep; });
-      return this.table('deals').find(d => d.id === keep) || null;
+    // merge_deals(keep uuid, merge_ids uuid[], p_fields jsonb default null) returns jsonb  (supabase/migrations/..contract_fixes.sql)
+    this.rpcHandlers.merge_deals = ({ keep, merge_ids, p_fields = null }) => {
+      const gone = (merge_ids || []).filter(id => id !== keep);
+      const survivor = this.table('deals').find(d => d.id === keep);
+      if (!survivor) throw new Error('deal to keep not found');
+      const skip = ['id', 'workspace_id', 'created_by', 'created_at', 'deleted_at', 'updated_at', 'position'];
+      for (const [k, v] of Object.entries(p_fields || {})) if (!skip.includes(k) && S.hasColumn('deals', k)) survivor[k] = v;
+      const child = ['notes', 'deal_files', 'tasks', 'deal_activities', 'calendar_events', 'deal_history', 'deal_deadlines', 'communication_records', 'communication_logs', 'outbound_messages', 'deal_health_factors', 'deal_probability_factors', 'enhanced_activities', 'activities', 'action_items', 'automated_notes', 'email_threads', 'follow_ups', 'deal_insights'];
+      for (const t of child) this.table(t).forEach(r => { if (gone.includes(r.deal_id)) r.deal_id = keep; });
+      // favorites: drop dupes of keep, then repoint
+      const favs = this.table('favorites');
+      this.tables.favorites = favs.filter(f => !(f.entity_type === 'deal' && gone.includes(f.entity_id) && favs.some(k => k.entity_type === 'deal' && k.entity_id === keep && k.user_id === f.user_id)));
+      this.table('favorites').forEach(f => { if (f.entity_type === 'deal' && gone.includes(f.entity_id)) f.entity_id = keep; });
+      for (const d of this.table('deals')) if (gone.includes(d.id)) { d.deleted_at = now(); d.updated_at = now(); }
+      survivor.updated_at = now();
+      return { ...survivor };
     };
-    this.rpcHandlers.get_deal_activities = ({ p_deal_id, deal_id }) => this.table('deal_activities').filter(a => a.deal_id === (p_deal_id || deal_id));
-    this.rpcHandlers.initialize_all_feature_flags = () => null;
-    this.rpcHandlers.set_rls_mode = () => null;
+    // migration 20260811000008 RPCs
+    const norm = x => String(x ?? '').trim().replace(/\s+/g, ' ').toLowerCase();
+this.rpcHandlers.find_duplicate_deals = ({ p_title, p_company, p_contact_id = null, p_exclude = null }) => {
+    const nt = norm(p_title); const nc = norm(p_company);
+    if (!nt) return [];
+    return this.table('deals')
+      .filter(d => !d.deleted_at && d.id !== p_exclude && ((norm(d.title) === nt && norm(d.company) === nc) || (p_contact_id && d.contact_id === p_contact_id && (norm(d.title).includes(nt) || nt.includes(norm(d.title))))))
+      .map(d => ({ id: d.id, title: d.title, company: d.company, value: d.value, stage: d.stage, reason: norm(d.title) === nt && norm(d.company) === nc ? 'same_title_company' : 'same_contact_similar_title' }))
+      .slice(0, 20);
+  };
+  this.rpcHandlers.clone_deal = ({ p_id, p_include_related = false }) => {
+    const src = this.table('deals').find(d => d.id === p_id);
+    if (!src) throw Object.assign(new Error('deal not found'), { code: 'P0002' });
+    const newId = uuid();
+    const pos = Math.max(0, ...this.table('deals').filter(d => d.stage === src.stage && !d.deleted_at).map(d => Number(d.position) || 0)) + 1;
+    this.table('deals').push({ ...src, id: newId, title: `${src.title ?? ''} (copy)`, position: pos, is_favorite: false, deleted_at: null, created_at: now(), updated_at: now() });
+    if (p_include_related) {
+      for (const n of this.table('notes').filter(r => r.deal_id === p_id)) this.table('notes').push({ ...n, id: uuid(), deal_id: newId });
+      for (const t of this.table('tasks').filter(r => r.deal_id === p_id)) this.table('tasks').push({ ...t, id: uuid(), deal_id: newId, status: 'todo' });
+    }
+    return newId;
+  };
+  this.rpcHandlers.purge_deals = ({ p_ids }) => {
+    const ids = (p_ids || []).filter(id => this.table('deals').some(d => d.id === id && d.deleted_at));
+    this.tables.tasks = this.table('tasks').filter(t => !ids.includes(t.deal_id));
+    this.tables.favorites = this.table('favorites').filter(f => !(f.entity_type === 'deal' && ids.includes(f.entity_id)));
+    this.tables.deals = this.table('deals').filter(d => !ids.includes(d.id));
+    return ids.length;
+  };
+  this.rpcHandlers.restore_deals = ({ p_ids }) => {
+    let n = 0;
+    for (const d of this.table('deals')) if ((p_ids || []).includes(d.id) && d.deleted_at) { d.deleted_at = null; d.updated_at = now(); n++; }
+    return n;
+  };
+    // migration 20260811000009 RPCs (mirror the SQL)
+    const err = (message, code) => Object.assign(new Error(message), { code });
+    const uid = () => this.session?.user?.id ?? null;
+    const normDomain = x => { const v = String(x ?? '').trim().replace(/^[a-z]+:\/\//i, '').replace(/^www\./i, '').replace(/[/?#].*$/, '').toLowerCase(); return v || null; };
+    const normName = x => String(x ?? '').trim().replace(/\s+/g, ' ').toLowerCase() || null;
+    const roleName = () => {
+      const u = uid(); if (!u) return null;
+      const rank = { admin: 1, manager: 2, member: 3, viewer: 4 };
+      let best = null;
+      for (const ur of this.table('user_roles').filter(r => r.user_id === u)) {
+        const rn = String(this.table('roles').find(r => r.id === ur.role_id)?.name ?? '').toLowerCase();
+        const n = ['admin', 'owner', 'administrator'].includes(rn) ? 'admin' : rn === 'manager' ? 'manager' : ['viewer', 'readonly', 'read_only', 'read-only', 'agent'].includes(rn) ? 'viewer' : 'member';
+        if (!best || rank[n] < rank[best]) best = n;
+      }
+      return best ?? 'member';
+    };
+    const rlsMode = () => { const v = this.table('app_settings').find(r => r.setting_key === 'rls_mode' && !r.user_id)?.setting_value; return v === 'workspace' ? 'workspace' : 'open'; };
+    const requireAdmin = () => { if (roleName() !== 'admin') throw err('admin only', '42501'); };
+    const canWriteWorkflows = () => { if (!uid()) return false; return rlsMode() === 'open' || ['admin', 'manager'].includes(roleName()); };
+    this.rpcHandlers.find_duplicate_companies = ({ p_name, p_domain = null, p_exclude = null }) => {
+      const nn = normName(p_name); const nd = normDomain(p_domain);
+      return this.table('companies')
+        .filter(c => !c.deleted_at && c.id !== p_exclude && ((nn && normName(c.name) === nn) || (nd && normDomain(c.domain) === nd)))
+        .map(c => ({ id: c.id, name: c.name, domain: c.domain ?? null, reason: nn && normName(c.name) === nn ? 'name' : 'domain' }));
+    };
+    this.rpcHandlers.scan_duplicate_companies = () => {
+      const live = this.table('companies').filter(c => !c.deleted_at);
+      const groups = new Map();
+      for (const c of live) {
+        const nn = normName(c.name), nd = normDomain(c.domain);
+        if (nn) (groups.get(`name:${nn}`) || groups.set(`name:${nn}`, { reason: 'name', rows: [] }).get(`name:${nn}`)).rows.push(c);
+        if (nd) (groups.get(`domain:${nd}`) || groups.set(`domain:${nd}`, { reason: 'domain', rows: [] }).get(`domain:${nd}`)).rows.push(c);
+      }
+      return [...groups.entries()].filter(([, g]) => g.rows.length >= 2).sort(([a], [b]) => (a < b ? -1 : 1))
+        .map(([group_key, g]) => ({ group_key, ids: g.rows.map(r => r.id), names: g.rows.map(r => r.name), reason: g.reason }));
+    };
+    this.rpcHandlers.company_rollups = ({ p_company_ids = null } = {}) => {
+      const stages = this.table('pipeline_stages');
+      return this.table('companies').filter(c => !c.deleted_at && (!p_company_ids || p_company_ids.includes(c.id))).map(c => {
+        const deals = this.table('deals').filter(d => d.company_id === c.id && !d.deleted_at);
+        const st = d => stages.filter(s => s.key === d.stage);
+        const won = d => st(d).some(s => s.is_won); const lost = d => st(d).some(s => s.is_lost);
+        const open = deals.filter(d => !won(d) && !lost(d));
+        const contacts = this.table('contacts').filter(k => k.company_id === c.id);
+        const acts = this.table('deal_activities').filter(a => deals.some(d => d.id === a.deal_id)).map(a => a.created_at);
+        const stamps = [...deals.map(d => d.updated_at), ...acts, ...contacts.map(k => k.updated_at)].filter(Boolean).sort();
+        return { company_id: c.id, open_deal_count: open.length, open_deal_value: open.reduce((a, d) => a + (Number(d.value) || 0), 0), won_deal_value: deals.filter(won).reduce((a, d) => a + (Number(d.value) || 0), 0), contact_count: contacts.length, last_activity: stamps.length ? stamps[stamps.length - 1] : null };
+      });
+    };
+    this.rpcHandlers.revoke_api_key = ({ p_id }) => {
+      if (!uid()) throw err('not authenticated', '42501');
+      const k = this.table('api_keys').find(r => r.id === p_id && r.created_by === uid());
+      if (!k) throw err('api key not found', 'P0002');
+      k.revoked_at = k.revoked_at || now();
+      return null;
+    };
+    this.rpcHandlers.publish_workflow_version = ({ p_workflow_id, p_note = null }) => {
+      if (!canWriteWorkflows()) throw err('not allowed to publish workflows', '42501');
+      const w = this.table('deal_workflows').find(r => r.id === p_workflow_id);
+      if (!w) throw err('workflow not found', 'P0002');
+      const vs = this.table('workflow_versions').filter(r => r.workflow_id === p_workflow_id);
+      const v = Math.max(0, ...vs.map(r => r.version)) + 1;
+      for (const r of vs) if (r.status === 'published') r.status = 'archived';
+      this.table('workflow_versions').push({ id: uuid(), workflow_id: p_workflow_id, version: v, status: 'published', snapshot: { name: w.name, description: w.description ?? null, stages: w.stages ?? [], triggers: w.triggers ?? [], settings: w.settings ?? {}, category: w.category ?? null }, note: p_note, created_by: uid(), created_at: now() });
+      w.published_version = v; w.updated_at = now();
+      return v;
+    };
+    this.rpcHandlers.restore_workflow_version = ({ p_workflow_id, p_version }) => {
+      if (!canWriteWorkflows()) throw err('not allowed to restore workflows', '42501');
+      const ver = this.table('workflow_versions').find(r => r.workflow_id === p_workflow_id && r.version === p_version);
+      if (!ver) throw err('workflow version not found', 'P0002');
+      const w = this.table('deal_workflows').find(r => r.id === p_workflow_id);
+      if (w) { const s = ver.snapshot; Object.assign(w, { name: s.name ?? w.name, description: s.description ?? null, stages: s.stages ?? [], triggers: s.triggers ?? [], settings: s.settings ?? {}, category: s.category ?? null, updated_at: now() }); }
+      return null;
+    };
+    // workflow_webhooks is server-only: no client table access (schema grants deny every client role), RPCs only.
+    this.rpcHandlers.rotate_workflow_webhook_token = ({ p_workflow_id, p_enable = true }) => {
+      if (!canWriteWorkflows()) throw err('not allowed to change workflow webhooks', '42501');
+      const w = this.table('deal_workflows').find(r => r.id === p_workflow_id);
+      if (!w) throw err('workflow not found', 'P0002');
+      const hooks = this.table('workflow_webhooks');
+      let h = hooks.find(r => r.workflow_id === p_workflow_id);
+      if (p_enable === false) { if (h) { h.enabled = false; h.rotated_at = now(); h.rotated_by = uid(); } w.webhook_enabled = false; w.updated_at = now(); return null; }
+      const token = (uuid() + uuid()).replace(/-/g, '');
+      if (h) Object.assign(h, { token, enabled: true, rotated_at: now(), rotated_by: uid() });
+      else hooks.push({ workflow_id: p_workflow_id, token, enabled: true, rotated_at: now(), rotated_by: uid() });
+      w.webhook_enabled = true; w.updated_at = now();
+      return token;
+    };
+    this.rpcHandlers.get_workflow_webhook = ({ p_workflow_id }) => {
+      if (!canWriteWorkflows()) throw err('not allowed to read workflow webhooks', '42501');
+      const h = this.table('workflow_webhooks').find(r => r.workflow_id === p_workflow_id);
+      return h ? [{ token: h.token, enabled: h.enabled }] : [];
+    };
+    const roleFor = (id) => {
+      const r = this.table('roles').find(x => x.id === id);
+      if (!r) throw err('role not found', 'P0002');
+      return r;
+    };
+    this.rpcHandlers.set_role_permissions = ({ p_role_id, p_permissions }) => {
+      requireAdmin();
+      const r = roleFor(p_role_id);
+      if (String(r.name).toLowerCase() === 'admin') throw err('the admin role cannot be edited', '42501');
+      r.permissions = p_permissions ?? []; r.updated_at = now();
+      return null;
+    };
+    this.rpcHandlers.assign_user_role = ({ p_user_id, p_role_id }) => {
+      requireAdmin();
+      const r = roleFor(p_role_id);
+      const ws = r.workspace_id ?? this.table('user_roles').find(x => x.user_id === uid())?.workspace_id ?? null;
+      const ex = this.table('user_roles').find(x => x.user_id === p_user_id && x.role_id === p_role_id && x.workspace_id === ws);
+      if (ex) { ex.assigned_by = uid(); ex.assigned_at = now(); } else this.table('user_roles').push({ user_id: p_user_id, role_id: p_role_id, workspace_id: ws, assigned_by: uid(), assigned_at: now(), expires_at: null });
+      return null;
+    };
+    this.rpcHandlers.remove_user_role = ({ p_user_id, p_role_id }) => {
+      requireAdmin();
+      const r = roleFor(p_role_id);
+      if (String(r.name).toLowerCase() === 'admin' && p_user_id === uid() && !this.table('user_roles').some(x => x.role_id === p_role_id && x.user_id !== p_user_id)) throw err('cannot remove the last admin', '42501');
+      this.tables.user_roles = this.table('user_roles').filter(x => !(x.user_id === p_user_id && x.role_id === p_role_id));
+      return null;
+    };
+    this.rpcHandlers.set_rls_mode = ({ mode }) => mode;
+    this.rpcHandlers.get_workflow_run_history = ({ p_limit = 50, p_workflow_id = null } = {}) => this.runHistoryView().filter(r => !p_workflow_id || r.workflow_id === p_workflow_id).slice(0, p_limit);
   }
 
   async install(context) {
@@ -112,19 +303,92 @@ export class FakeSupabase {
     return this.json(route, 200, {});
   }
 
+  /** PostgREST role from the request: the anon key alone -> anon, a user JWT -> authenticated. */
+  roleOf(req) {
+    const h = req.headers();
+    const bearer = (h['authorization'] || '').replace(/^Bearer\s+/i, '');
+    if (!bearer || bearer === h['apikey'] || bearer === 'fake') return 'anon';
+    return 'authenticated';
+  }
+
   async storageRoute(route) {
     const req = route.request();
     if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: this.cors });
+    const method = req.method();
     const u = new URL(req.url());
     const p = u.pathname.replace('/storage/v1/', '');
-    this.log.push({ method: req.method(), table: 'storage', query: p });
-    if (p.startsWith('object/sign/')) return this.json(route, 200, { signedURL: `/object/sign/${p.slice(12)}?token=fake` });
-    if (p.startsWith('object/list/')) return this.json(route, 200, [...this.storage.keys()].map(k => ({ name: k.split('/').pop() })));
-    if (p === 'bucket' || p.startsWith('bucket')) return this.json(route, 200, req.method() === 'GET' ? [{ id: 'deal-files', name: 'deal-files' }] : { name: 'deal-files' });
-    if (req.method() === 'POST' || req.method() === 'PUT') { this.storage.set(p.replace(/^object\//, ''), req.postDataBuffer()); return this.json(route, 200, { Key: p.replace(/^object\//, ''), Id: uuid() }); }
-    if (req.method() === 'DELETE') { this.json(route, 200, []); return; }
-    if (req.method() === 'GET') { const k = p.replace(/^object\/(public|authenticated|sign)\//, ''); const b = this.storage.get(k); return route.fulfill({ status: b ? 200 : 404, headers: this.cors, body: b || '' }); }
-    return this.json(route, 200, {});
+    const role = this.roleOf(req);
+    this.log.push({ method, table: 'storage', query: p });
+    const reply = (e, v) => { if (v) this.violate({ kind: 'storage', code: String(e.body.statusCode || e.body.code), method, target: p, message: v }); return this.json(route, e.status, e.body); };
+    const parts = p.split('/');
+    let body = null; try { body = req.postDataJSON(); } catch {}
+    const known = (b) => S.bucketDef(b);
+
+    if (p === 'bucket' || p.startsWith('bucket/')) {
+      if (method === 'GET') {
+        const id = parts[1];
+        if (id) return known(id) ? this.json(route, 200, { id, name: id, ...S.bucketDef(id) }) : reply(S.bucketNotFound, `unknown bucket ${id}`);
+        return this.json(route, 200, Object.entries(S.schema.storage.buckets).map(([id, b]) => ({ id, name: id, ...b })));
+      }
+      // creating/updating/deleting buckets needs the service role (storage.buckets has no anon/authenticated write policy)
+      return reply(S.storageRls, `bucket ${method} ${p} with role ${role} (service_role only; buckets are created by migrations)`);
+    }
+    if (parts[0] === 'object' && (parts[1] === 'move' || parts[1] === 'copy')) return this.json(route, 200, { message: 'Successfully ' + (parts[1] === 'move' ? 'moved' : 'copied') });
+    if (parts[0] === 'object' && parts[1] === 'sign') {
+      const bucket = parts[2]; const key = parts.slice(3).join('/');
+      if (!known(bucket)) return reply(S.bucketNotFound, `unknown bucket ${bucket}`);
+      if (method === 'POST') {
+        if (!S.storageAllows(bucket, role, 'SELECT')) return reply(S.storageRls, `${role} may not SELECT objects in ${bucket}`);
+        if (!bucket || !parts[3]) { // batch: object/sign/<bucket> {paths}
+          return this.json(route, 200, (body?.paths || []).map(pa => ({ path: pa, signedURL: `/object/sign/${bucket}/${pa}?token=fake`, error: null })));
+        }
+        if (!this.storage.has(`${bucket}/${key}`)) return reply({ status: 400, body: { statusCode: '404', error: 'not_found', message: 'Object not found' } }, `createSignedUrl for missing object ${bucket}/${key}`);
+        return this.json(route, 200, { signedURL: `/object/sign/${bucket}/${key}?token=fake` });
+      }
+      if (method === 'GET') { // browser fetching a signed URL: token is the credential
+        if (!u.searchParams.get('token')) return reply({ status: 400, body: { statusCode: '400', error: 'InvalidJWT', message: 'jwt must be provided' } }, `signed URL without token ${p}`);
+        const b = this.storage.get(`${bucket}/${key}`);
+        return route.fulfill({ status: b ? 200 : 404, headers: this.cors, body: b || '' });
+      }
+    }
+    if (parts[0] === 'object' && parts[1] === 'list') {
+      const bucket = parts[2];
+      if (!known(bucket)) return reply(S.bucketNotFound, `unknown bucket ${bucket}`);
+      if (!S.storageAllows(bucket, role, 'SELECT')) return reply(S.storageRls, `${role} may not list ${bucket}`);
+      const prefix = `${bucket}/${body?.prefix ? body.prefix.replace(/\/?$/, '/') : ''}`;
+      return this.json(route, 200, [...this.storage.keys()].filter(k => k.startsWith(prefix)).map(k => ({ name: k.slice(prefix.length).split('/')[0], id: uuid() })));
+    }
+    if (parts[0] === 'object' && (parts[1] === 'public' || parts[1] === 'authenticated' || parts[1] === 'info')) {
+      const bucket = parts[2]; const key = parts.slice(3).join('/');
+      if (!known(bucket)) return reply(S.bucketNotFound, `unknown bucket ${bucket}`);
+      if (parts[1] === 'public' && !S.bucketDef(bucket).public) return reply(S.bucketNotFound, `public URL used on PRIVATE bucket ${bucket} (use createSignedUrl): ${p}`);
+      if (parts[1] === 'authenticated' && role !== 'authenticated') return reply({ status: 400, body: { statusCode: '400', error: 'InvalidJWT', message: 'Invalid Compact JWS' } }, `${p} requires a signed-in user`);
+      const b = this.storage.get(`${bucket}/${key}`);
+      return route.fulfill({ status: b ? 200 : 404, headers: this.cors, body: b || '' });
+    }
+    if (parts[0] === 'object') { // object/<bucket>/<path>
+      const bucket = parts[1]; const key = parts.slice(2).join('/');
+      if (!known(bucket)) return reply(S.bucketNotFound, `unknown bucket ${bucket}`);
+      const op = { GET: 'SELECT', HEAD: 'SELECT', POST: 'INSERT', PUT: 'UPDATE', DELETE: 'DELETE' }[method];
+      if (method === 'DELETE' && !key) { // remove(): DELETE object/<bucket> {prefixes}
+        if (!S.storageAllows(bucket, role, 'DELETE')) return reply(S.storageRls, `${role} may not DELETE in ${bucket}`);
+        const gone = []; for (const pre of body?.prefixes || []) if (this.storage.delete(`${bucket}/${pre}`)) gone.push({ name: pre, bucket_id: bucket });
+        return this.json(route, 200, gone);
+      }
+      if (!S.storageAllows(bucket, role, op)) return reply(S.storageRls, `${role} may not ${op} ${bucket}/${key}`);
+      if (method === 'POST' || method === 'PUT') {
+        const buf = req.postDataBuffer() || Buffer.alloc(0);
+        const lim = S.bucketDef(bucket).file_size_limit;
+        if (lim && buf.length > lim) return reply({ status: 413, body: { statusCode: '413', error: 'Payload too large', message: 'The object exceeded the maximum allowed size' } }, `${bucket}/${key} exceeds file_size_limit ${lim}`);
+        if (method === 'POST' && this.storage.has(`${bucket}/${key}`) && req.headers()['x-upsert'] !== 'true') return this.json(route, 400, { statusCode: '409', error: 'Duplicate', message: 'The resource already exists' });
+        this.storage.set(`${bucket}/${key}`, buf);
+        return this.json(route, 200, { Key: `${bucket}/${key}`, Id: uuid() });
+      }
+      if (method === 'DELETE') { this.storage.delete(`${bucket}/${key}`); return this.json(route, 200, []); }
+      const b = this.storage.get(`${bucket}/${key}`);
+      return route.fulfill({ status: b ? 200 : 404, headers: this.cors, body: b || '' });
+    }
+    return reply({ status: 404, body: { statusCode: '404', error: 'not_found', message: 'Route not found: ' + p } }, `unknown storage route ${method} ${p}`);
   }
 
   async rest(route) {
@@ -138,26 +402,46 @@ export class FakeSupabase {
     const wantSingle = (headers['accept'] || '').includes('vnd.pgrst.object');
     let body = null; try { body = req.postDataJSON(); } catch {}
     const q = u.searchParams;
+    const role = this.roleOf(req);
+    const bad = (e, kind, target) => { this.violate({ kind, code: e.body.code, method, target, message: e.body.message }); return this.json(route, e.status, e.body); };
 
     if (path.startsWith('rpc/')) {
       const fn = path.slice(4);
-      this.log.push({ method: 'RPC', table: fn, body });
-      const h = this.rpcHandlers[fn];
-      if (!h) return this.json(route, 404, { code: 'PGRST202', message: `Could not find the function public.${fn}`, details: null, hint: null });
+      this.log.push({ method: 'RPC', table: fn, body, role });
+      const args = (method === 'POST' && body && !Array.isArray(body)) ? body : Object.fromEntries(q);
+      const m = S.matchRpc(fn, Object.keys(args || {}));
+      if (m.error) return bad(m.error, 'schema', `rpc/${fn}`);
+      if (!m.overload.execute.includes(role)) return bad({ status: role === 'anon' ? 401 : 403, body: { code: '42501', details: null, hint: null, message: `permission denied for function ${fn}` } }, 'rls', `rpc/${fn}`);
       const forced = this.takeFail(fn, 'RPC'); if (forced) return this.json(route, forced.status, forced.body);
-      try { return this.json(route, 200, await h(body || Object.fromEntries(q))); } catch (e) { return this.json(route, 400, { code: 'P0001', message: String(e.message || e) }); }
+      const h = this.rpcHandlers[fn];
+      if (!h) return bad({ status: 501, body: { code: 'XX000', message: `fake has no handler for existing rpc ${fn}`, details: null, hint: null } }, 'fake-gap', `rpc/${fn}`);
+      try { return this.json(route, 200, await h(args || {})); } catch (e) { return this.json(route, 400, { code: 'P0001', message: String(e.message || e), details: null, hint: null }); }
     }
 
     const table = path;
-    this.log.push({ method, table, query: u.search, body });
+    this.log.push({ method, table, query: u.search, body, role });
+    const def = S.tableDef(table);
+    if (!def) return bad(S.errTable(table), 'schema', table);
     const forced = this.takeFail(table, method); if (forced) return this.json(route, forced.status, forced.body);
-    if (this.denied.some(d => d.table === table && (d.method === '*' || d.method === method))) {
+    if (this.denied.some(d => d.table === table && (d.method === '*' || d.method === method))) { // explicit test hook (not a violation)
       if (method === 'GET') return this.json(route, 200, []);
       return this.json(route, 403, { code: '42501', message: `new row violates row-level security policy for table "${table}"`, details: null, hint: null });
     }
+    const op = S.OPS[method];
+    if (!op) return this.json(route, 405, { message: 'method' });
+    if (def.kind === 'view' && op !== 'SELECT') return bad(S.errView(table, op), 'schema', table);
+    const qe = S.checkQuery(table, q); if (qe) return bad(qe, 'schema', table);
+    const items = (op === 'INSERT' || op === 'UPDATE') ? (Array.isArray(body) ? body : [body]) : [];
+    const be = items.length ? S.checkBody(table, items, op) : null; if (be) return bad(be, 'schema', table);
+    const allowed = S.policyAllows(table, role, op);
+    const merge0 = /resolution=merge-duplicates/.test(prefer);
+    if (op === 'INSERT' && (!allowed || (merge0 && !S.policyAllows(table, role, 'UPDATE')) || (/return=representation/.test(prefer) && !S.policyAllows(table, role, 'SELECT')))) return bad(S.errRls(table), 'rls', `${table} INSERT as ${role}`);
+    // SELECT/UPDATE/DELETE without a policy for the role see no rows: 200 with zero rows (never an error)
+    const hidden = !allowed && op !== 'INSERT';
+    if (hidden) this.violate({ kind: 'rls', code: 'RLS-ZERO-ROWS', method, target: `${table} ${op} as ${role}`, message: `${role} has no ${op} policy on ${table}: request affects/returns zero rows` });
 
     // views emulated from base tables (defined in supabase/migrations)
-    const rows = table === 'workflow_run_history' ? this.runHistoryView() : this.table(table);
+    const rows = hidden ? [] : table === 'workflow_run_history' ? this.runHistoryView() : this.table(table);
     const filters = [...q.entries()].filter(([k]) => !['select', 'order', 'limit', 'offset', 'columns', 'on_conflict'].includes(k));
     const applyFilters = (list) => list.filter(r => filters.every(([k, v]) => {
       if (k === 'or') return evalOrExpr(r, v.replace(/^\(|\)$/g, ''));
@@ -183,13 +467,14 @@ export class FakeSupabase {
       if (method === 'HEAD') return route.fulfill({ status: 200, headers: { ...this.cors, ...extra } });
       out = list;
     } else if (method === 'POST') {
-      const items = Array.isArray(body) ? body : [body];
       const onConflict = q.get('on_conflict');
-      const merge = /resolution=merge-duplicates/.test(prefer);
+      const merge = merge0;
       const ignore = /resolution=ignore-duplicates/.test(prefer);
       out = [];
       for (const it of items) {
         const row = { ...this.defaults(table), ...it };
+        const miss = S.missingRequired(table, row);
+        if (miss) return bad(S.errNotNull(table, miss), 'constraint', table);
         if (onConflict) {
           const cols = onConflict.split(',');
           const ex = rows.find(r => cols.every(c => r[c] === row[c] || (r[c] == null && row[c] == null)));
@@ -203,11 +488,11 @@ export class FakeSupabase {
       status = 201;
     } else if (method === 'PATCH') {
       const matched = applyFilters(rows);
-      out = matched.map(r => { const before = { ...r }; Object.assign(r, body); if (table === 'deals' || table === 'notes' || table === 'tasks') r.updated_at = body?.updated_at || now(); this.afterUpdate(table, before, r); return { ...r }; });
+      out = matched.map(r => { const before = { ...r }; Object.assign(r, body); if (S.hasColumn(table, 'updated_at') && ['deals', 'notes', 'tasks'].includes(table)) r.updated_at = body?.updated_at || now(); this.afterUpdate(table, before, r); return { ...r }; });
     } else if (method === 'DELETE') {
       const matched = applyFilters(rows);
       out = matched.map(r => ({ ...r }));
-      this.tables[table] = rows.filter(r => !matched.includes(r));
+      if (!hidden) this.tables[table] = rows.filter(r => !matched.includes(r));
     } else return this.json(route, 405, { message: 'method' });
 
     const wantRep = /return=representation/.test(prefer) || method === 'GET';
@@ -239,6 +524,7 @@ export class FakeSupabase {
     const d = { id: uuid() };
     if (['deals', 'notes', 'tasks', 'deal_files', 'deal_activities', 'companies', 'contacts', 'saved_pipeline_views', 'deal_workflows', 'workflow_executions', 'pipeline_stages', 'favorites'].includes(table)) { d.created_at = now(); d.updated_at = now(); }
     if (table === 'deals') { d.value = 0; d.priority = 'medium'; }
+    for (const k of Object.keys(d)) if (!S.hasColumn(table, k)) delete d[k]; // only real columns
     return d;
   }
   afterInsert(table, row) {

@@ -1,13 +1,8 @@
 // netlify/functions/get-autopilot-status.js
-import { supabase } from "./_supabaseClient";
+import { CORS_HEADERS } from "./_openai";
+import { authenticate } from "./_agentAuth";
 
-function corsHeaders() {
-  return {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "POST,OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
-  };
-}
+const corsHeaders = () => CORS_HEADERS;
 
 export const handler = async (event, context) => {
   if (event.httpMethod === "OPTIONS") {
@@ -21,6 +16,10 @@ export const handler = async (event, context) => {
       body: JSON.stringify({ error: "Method not allowed" }),
     };
   }
+
+  const auth = await authenticate(event);
+  if (auth.error) return auth.error;
+  const supabase = auth.db; // acts as the caller: RLS scopes contacts / settings / logs
 
   try {
     const body = JSON.parse(event.body || "{}");
